@@ -25,6 +25,15 @@ class BookingReviewsController extends LegacyAppController
         "body_damage" => "Any body damage"
     ];
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "CloudBookingReviews::{$action} pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * cloud_nonreview: List bookings waiting for review
      */
@@ -144,4 +153,7 @@ class BookingReviewsController extends LegacyAppController
 
         return response()->json($this->_settleDamage($orderId, $reviewId, $refundAmount));
     }
+
+    public function cloud_reviewimages(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_reviewpopup(Request $request) { return $this->pendingResponse(__FUNCTION__); }
 }

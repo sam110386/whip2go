@@ -65,4 +65,15 @@ class PagesController extends LegacyAppController
             'title'           => 'Telematics',
         ]);
     }
+
+    public function display(Request $request, ...$path)
+    {
+        $pageCode = !empty($path[0]) ? (string) $path[0] : 'home';
+        return $this->index($request, $pageCode);
+    }
+
+    protected function _validateId($id): bool
+    {
+        return !empty($id);
+    }
 }

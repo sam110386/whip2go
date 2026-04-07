@@ -17,6 +17,15 @@ class MvrReportsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "MvrReports::{$action} pending migration.",
+            'result' => [],
+        ]);
+    }
+
     // ─── admin_index ──────────────────────────────────────────────────────────
     public function admin_index(Request $request)
     {
@@ -236,4 +245,14 @@ class MvrReportsController extends LegacyAppController
             'orderid' => $bookingId,
         ]);
     }
+
+    // Cake action parity wrappers
+    public function admin_report(Request $request) { return $this->admin_index($request); }
+    public function admin_vehiclereport(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function report(Request $request) { return $this->admin_report($request); }
+    public function vehiclereport(Request $request) { return $this->admin_vehiclereport($request); }
+    public function checkr_status(Request $request, $id) { return $this->admin_checkr_status($request, $id); }
+    public function loadactivebooking(Request $request) { return $this->admin_loadactivebooking($request); }
+    public function cancelMvrBooking(Request $request) { return $this->admin_cancelMvrBooking($request); }
+    public function cancelMvrResevationBooking(Request $request) { return $this->admin_cancelMvrResevationBooking($request); }
 }

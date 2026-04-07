@@ -77,4 +77,10 @@ class LinkedPayoutsController extends LegacyAppController
 
         return view('cloud.linked_payouts.transactions', compact('reportlists', 'searchParams'));
     }
+
+    public function cloudexport(Request $request)
+    {
+        $request->merge(['export' => 1]);
+        return $this->cloud_transactions($request);
+    }
 }

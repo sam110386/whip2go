@@ -12,6 +12,15 @@ class TransactionsController extends LegacyAppController
 {
     use TransactionsTrait;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "Transactions::{$action} is pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * index: List transaction history
      */
@@ -97,4 +106,33 @@ class TransactionsController extends LegacyAppController
         
         return response()->json($this->_adjustFee($orderid, 'insurance', $request->all(), $userId));
     }
+
+    public function adjustDeposit(Request $request)
+    {
+        if ($redirect = $this->ensureUserSession()) return response()->json(['status' => 'error', 'message' => "Unauthorized"], 403);
+        $orderid = $request->input('CsOrder.id');
+        $userId = Session::get('userParentId') ?: Session::get('userid');
+        return response()->json($this->_adjustFee($orderid, 'deposit', $request->all(), $userId));
+    }
+
+    public function creditdriver(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function depositRefund(Request $request)
+    {
+        if ($redirect = $this->ensureUserSession()) return response()->json(['status' => 'error', 'message' => "Unauthorized"], 403);
+        $orderid = base64_decode($request->input('orderid'));
+        $userId = Session::get('userParentId') ?: Session::get('userid');
+        return response()->json($this->_refundFee($orderid, 'deposit', $userId));
+    }
+
+    public function insuranceRefund(Request $request)
+    {
+        if ($redirect = $this->ensureUserSession()) return response()->json(['status' => 'error', 'message' => "Unauthorized"], 403);
+        $orderid = base64_decode($request->input('orderid'));
+        $userId = Session::get('userParentId') ?: Session::get('userid');
+        return response()->json($this->_refundFee($orderid, 'insurance', $userId));
+    }
+
+    public function updatedeposit(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
+    public function updatefare(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
+    public function updateinsurance(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
 }

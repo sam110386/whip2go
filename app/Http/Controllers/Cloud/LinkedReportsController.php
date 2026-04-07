@@ -16,6 +16,15 @@ class LinkedReportsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "LinkedReports::{$action} pending migration.",
+            'result' => [],
+        ]);
+    }
+
     /**
      * cloud_index: List reports for linked dealers
      */
@@ -91,5 +100,41 @@ class LinkedReportsController extends LegacyAppController
         $reportlists = $query->orderBy('Vehicle.id', 'DESC')->paginate(25)->withQueryString();
 
         return view('cloud.linked_reports.productivity', compact('reportlists'));
+    }
+
+    public function cloud_autorenewddetails(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureCloudSession()) return $redirect;
+        $id = $id ? base64_decode($id) : base64_decode((string) $request->input('id', ''));
+        $data = $this->_getAutoRenewDetails($id);
+        return view('cloud.linked_reports.autorenew_details', $data);
+    }
+
+    public function cloud_customerautocomplete(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+
+    public function cloud_loadsubbooking(Request $request)
+    {
+        if ($redirect = $this->ensureCloudSession()) return response()->json(['error' => 'Unauthorized'], 403);
+        $orderid = $request->input('orderid');
+        $subLog = $this->_loadSubBookings($orderid);
+        return view('cloud.elements.reports.subbooking_list', compact('subLog'));
+    }
+
+    public function export(Request $request)
+    {
+        return $this->cloud_index($request->merge(['search' => 'EXPORT']));
+    }
+
+    public function exportproductivity(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+
+    protected function _getExtLogs($id)
+    {
+        return $this->_loadSubBookings($id);
     }
 }

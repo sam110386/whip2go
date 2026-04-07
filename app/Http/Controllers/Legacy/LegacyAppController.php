@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Legacy;
 
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View as ViewFacade;
@@ -23,6 +24,27 @@ class LegacyAppController extends Controller
         if ($this->shouldLoadLegacyModules) {
             $this->loadModulesForViews();
         }
+    }
+
+    // Cake compatibility methods
+    protected function beforeFilter()
+    {
+        return null;
+    }
+
+    protected function beforeRender()
+    {
+        return null;
+    }
+
+    protected function appError($message = 'Application error')
+    {
+        return response($message, 500);
+    }
+
+    protected function _setErrorLayout()
+    {
+        return 'error';
     }
 
     protected function ensureUserSession(): ?RedirectResponse
@@ -142,5 +164,79 @@ class LegacyAppController extends Controller
             ViewFacade::share('adminUser', $this->getAdminUserid());
         }
     }
+
+    protected function checkUserSession(): ?RedirectResponse
+    {
+        return $this->ensureUserSession();
+    }
+
+    protected function checkSessionAdmin(): ?RedirectResponse
+    {
+        return $this->ensureAdminSession();
+    }
+
+    protected function checkSessionCloud(): ?RedirectResponse
+    {
+        return $this->ensureCloudAdminSession();
+    }
+
+    protected function loadAdminModule(): void
+    {
+        $this->loadModulesForViews();
+    }
+
+    protected function checkUserPermission(): bool
+    {
+        return true;
+    }
+
+    protected function checkPermission($permissionId = null): bool
+    {
+        if ($permissionId === null) {
+            return true;
+        }
+        $permissions = session('permissions', []);
+        return isset($permissions[$permissionId]);
+    }
+
+    protected function getPermissionOfAdmin($roleId = null): array
+    {
+        $roleId = $roleId ?? session('adminRoleId');
+        if (empty($roleId)) {
+            return [];
+        }
+        return DB::table('admin_role_menu')
+            ->where('role_id', $roleId)
+            ->pluck('menu_id')
+            ->toArray();
+    }
+
+    protected function getClientUserIp(?Request $request = null): string
+    {
+        $request = $request ?: request();
+        $cf = (string) $request->header('HTTP_CF_CONNECTING_IP', '');
+        if ($cf !== '') return $cf;
+        $xff = (string) $request->header('X-Forwarded-For', '');
+        if ($xff !== '') {
+            $parts = explode(',', $xff);
+            return trim(end($parts));
+        }
+        return (string) $request->ip();
+    }
+
+    protected function getStatus($status = null): array|string
+    {
+        $map = [
+            0 => 'Inactive',
+            1 => 'Active',
+            2 => 'Cancelled',
+            3 => 'Completed',
+        ];
+        if ($status === null) {
+            return $map;
+        }
+        return $map[$status] ?? 'Unknown';
+    }
+
 }
 

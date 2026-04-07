@@ -18,6 +18,15 @@ class VehicleReservationsController extends LegacyAppController
 {
     use VehicleReservationsTrait;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "AdminVehicleReservations::{$action} is pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * admin_index: Manage Reservations
      */
@@ -123,4 +132,55 @@ class VehicleReservationsController extends LegacyAppController
         
         return redirect()->back()->with('success', 'Reservation deleted successfully');
     }
+
+    public function admin_all(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_bankstatement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_capturepayment(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_changeDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
+    public function admin_changeSaveStatus(Request $request) { return response()->json(['status' => $this->_changeSaveStatus($request->input('id'), $request->input('save_status'))]); }
+    public function admin_changeStatus(Request $request) { return $this->admin_updatestatus($request); }
+    public function admin_changeVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
+    public function admin_changeinsurancepopup(Request $request) { return response()->json($this->_changeinsurancepopup($request->all())); }
+    public function admin_changeinsurancesave(Request $request) { return response()->json($this->_changeinsurancesave($request->all())); }
+    public function admin_changeinsurancetypepopup(Request $request) { return response()->json($this->_changeInsuranceTypePopup($request->all())); }
+    public function admin_checkStarterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_checkodometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_createBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_disableStaterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_download_vehicle_images(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_generateAgrement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getVehicleDynamicFareMatrix(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getfarecalculations(Request $request) { return response()->json($this->_getfarecalculations($request->input('lease_id'))); }
+    public function admin_getplaidbalance(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getplaidrecord(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getuserdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_goalrecalculate(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_insudoc(Request $request) { return response()->json($this->_insudoc($request->all())); }
+    public function admin_loadcancelblock(Request $request) { return response()->json($this->_loadcancelblock($request->all())); }
+    public function admin_loadinsurancepopup(Request $request) { return response()->json($this->_loadinsurancepopup($request->all())); }
+    public function admin_loadstatuschecklist(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_markBookingCancel(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_markBookingCompleted(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_paymentcapturevehiclereservation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_processcapturepayment(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_provenincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_pushToDealer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_recapturevehiclereservation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_renderlog(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_saveGoalRecalculation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_saveVehicleAgreeToSell(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_saveVehicleBooking(Request $request) { return response()->json($this->_saveVehicleBooking($request->all())); }
+    public function admin_saveVehicleSellingOption(Request $request) { return response()->json($this->_saveVehicleSellingOption($request->all())); }
+    public function admin_saveinsurancepayer(Request $request) { return response()->json($this->_saveinsurancepayer($request->all())); }
+    public function admin_savemanualcalculation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_singleload(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_staterInterruptWorks(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_updateDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
+    public function admin_updateReservationVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
+    public function admin_updatelist(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_updatemvr(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_vehicleFree2moveAgreement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_vehicleReservationLog(Request $request) { return response()->json($this->_vehicleReservationLog($request->all())); }
+    public function admin_vehicleSellingOpionAgreeToSell(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_vehicleSellingOpions(Request $request) { return $this->pendingResponse(__FUNCTION__); }
 }

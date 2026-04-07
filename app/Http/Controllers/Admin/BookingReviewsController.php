@@ -28,6 +28,15 @@ class BookingReviewsController extends LegacyAppController
         "body_damage" => "Any body damage"
     ];
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "AdminBookingReviews::{$action} pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * admin_nonreview: List bookings waiting for review
      */
@@ -192,4 +201,9 @@ class BookingReviewsController extends LegacyAppController
         // Placeholder for telematics logic
         return response()->json(['status' => 'success', 'mileage' => 12345]);
     }
+
+    public function admin_reopenbookingpopup(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_reservationreview(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_reviewimages(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_reviewpopup(Request $request) { return $this->pendingResponse(__FUNCTION__); }
 }

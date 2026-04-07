@@ -11,6 +11,11 @@ class EmailTemplatesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
+    protected function _validateId($id): bool
+    {
+        return !empty($id) && is_numeric($id);
+    }
+
     // ─── admin_index (List all email templates) ────────────────────────────────
     public function admin_index(Request $request)
     {

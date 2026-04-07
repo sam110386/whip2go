@@ -13,6 +13,15 @@ class VehicleReservationsController extends LegacyAppController
 {
     use VehicleReservationsTrait;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "CloudVehicleReservations::{$action} is pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * cloud_index: Super Admin Reservation View
      */
@@ -79,4 +88,30 @@ class VehicleReservationsController extends LegacyAppController
         }
         return response()->json(['status' => false, 'message' => "Failed to update status"]);
     }
+
+    public function cloud_all(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_bankstatement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_changeDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
+    public function cloud_changeSaveStatus(Request $request) { return response()->json(['status' => $this->_changeSaveStatus($request->input('id'), $request->input('save_status'))]); }
+    public function cloud_changeStatus(Request $request) { return $this->cloud_updatestatus($request); }
+    public function cloud_changeVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
+    public function cloud_checkStarterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_checkodometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_createBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_disableStaterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_getfarecalculations(Request $request) { return response()->json($this->_getfarecalculations($request->input('lease_id'))); }
+    public function cloud_getplaidbalance(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_getplaidrecord(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_getuserdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_markBookingCancel(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_markBookingCompleted(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_provenincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_renderlog(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_saveVehicleBooking(Request $request) { return response()->json($this->_saveVehicleBooking($request->all())); }
+    public function cloud_singleload(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_staterInterruptWorks(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_updateDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
+    public function cloud_updateReservationVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
+    public function cloud_updatelist(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_vehicleReservationLog(Request $request) { return response()->json($this->_vehicleReservationLog($request->all())); }
 }

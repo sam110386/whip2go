@@ -17,6 +17,15 @@ class UsersController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "Users::{$action} is pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * my_account: Main user profile view
      */
@@ -109,4 +118,21 @@ class UsersController extends LegacyAppController
         Session::flash($result['status'] ? 'success' : 'error', $result['message']);
         return back();
     }
+
+    public function add(Request $request)
+    {
+        if ($redirect = $this->ensureUserSession()) return $redirect;
+        if ($request->isMethod('post')) {
+            $result = $this->_saveUser($request, $request->input('User.id'));
+            return response()->json($result);
+        }
+        return $this->pendingResponse(__FUNCTION__);
+    }
+
+    public function delete(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
+    public function getDriverLicense(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function is_driver(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function view(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
+    private function _getDriverLicense($userId = null) { return []; }
+    private function handleUpload(Request $request, string $field = 'file') { return $this->pendingResponse(__FUNCTION__); }
 }

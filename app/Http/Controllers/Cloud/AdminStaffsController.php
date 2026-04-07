@@ -42,4 +42,18 @@ class AdminStaffsController extends AdminAdminStaffsController
         
         return $this->admin_delete($id);
     }
+
+    public function cloud_multiplAction(Request $request)
+    {
+        if ($redirect = $this->ensureCloudSession()) return $redirect;
+
+        $status = $request->input('User.status');
+        $selected = $request->input('select', []);
+        foreach ($selected as $id => $enabled) {
+            if ($enabled) {
+                \App\Models\Legacy\User::where('id', (int) $id)->update(['status' => $status]);
+            }
+        }
+        return redirect()->back()->with('success', 'Staff users updated successfully.');
+    }
 }

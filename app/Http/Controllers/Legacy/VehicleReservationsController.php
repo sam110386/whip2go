@@ -15,11 +15,21 @@ use App\Models\Legacy\UserIncome;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class VehicleReservationsController extends LegacyAppController
 {
     use VehicleReservationsTrait;
+
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "VehicleReservations::{$action} is pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
 
     public function index(Request $request)
     {
@@ -141,4 +151,77 @@ class VehicleReservationsController extends LegacyAppController
         Log::info("Passtime: Checking odometer for vehicle $vehicleid");
         return response()->json(['status' => 'error', 'message' => "GPS integration will be migrated later."]);
     }
+
+    public function bankstatement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function buy(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function changeDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
+    public function changeSaveStatus(Request $request) { return response()->json(['status' => $this->_changeSaveStatus($request->input('id'), $request->input('save_status'))]); }
+    public function changeStatus(Request $request) { return response()->json(['status' => $this->_changeStatus($request->input('id'), $request->input('status'))]); }
+    public function changeVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
+    public function checkStarterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function disableStaterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function getfarecalculations(Request $request) { return response()->json($this->_getfarecalculations($request->input('lease_id'))); }
+    public function getplaidbalance(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function getplaidrecord(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function renderlog(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function saveVehicleAgreeToSell(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function saveVehicleSellingOption(Request $request) { return response()->json($this->_saveVehicleSellingOption($request->all())); }
+    public function singleload(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function staterInterruptWorks(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function updateDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
+    public function updateReservationVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
+    public function updatelist(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function vehicleReservationLog(Request $request) { return response()->json($this->_vehicleReservationLog($request->all())); }
+    public function vehicleSellingOpionAgreeToSell(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function vehicleSellingOpionFindReplacement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function vehicleSellingOpions(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+
+    protected function _changeInsuranceTypePopup(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _changeSaveStatus(...$args)
+    {
+        $reservationId = $args[0] ?? null;
+        $saveStatus = $args[1] ?? null;
+        $reservation = VehicleReservation::find($reservationId);
+        if ($reservation) {
+            $reservation->update(['save_status' => $saveStatus]);
+            return true;
+        }
+        return false;
+    }
+    protected function _changeinsurancepopup(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _changeinsurancesave(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _createOutstanidngIssues(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _getfarecalculations(...$args)
+    {
+        $reservationId = $args[0] ?? null;
+        $reservation = VehicleReservation::with('OrderDepositRule')->find($reservationId);
+        if (!$reservation) {
+            return ['status' => false, 'message' => 'Reservation not found'];
+        }
+        return ['status' => true, 'message' => 'Calculation pending migration', 'result' => []];
+    }
+    protected function _insudoc(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _loadcancelblock(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _loadinsurancepopup(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _markBookingCancel(...$args)
+    {
+        $exists = $args[0] ?? null;
+        $cancel_note = $args[1] ?? '';
+        if ($exists) {
+            $exists->update(['status' => 2, 'cancel_note' => $cancel_note, 'cancel_date' => now()]);
+            Vehicle::where('id', $exists->vehicle_id)->update(['booked' => 0]);
+            return ['status' => true, 'message' => 'Booking cancelled successfully'];
+        }
+        return ['status' => false, 'message' => 'Invalid Request'];
+    }
+
+    protected function _saveVehicleBooking(...$args)
+    {
+        return ['status' => false, 'message' => '_saveVehicleBooking pending migration'];
+    }
+    protected function _saveVehicleSellingOption(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _saveinsurancepayer(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _updateDatetime(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _updateReservationVehicle(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _vehicleReservationLog(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
 }

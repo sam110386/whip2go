@@ -8,6 +8,51 @@ use Illuminate\Support\Facades\Schema;
 
 class AccutradeController extends LegacyApiBaseController
 {
+    public function get_post_data(Request $request): string
+    {
+        return (string) $request->getContent();
+    }
+
+    protected function _setToken(int $userId, string $token): void
+    {
+        DB::table('users')->where('id', $userId)->update(['token' => $token]);
+    }
+
+    protected function getDealerId(array $dealerInfo): int
+    {
+        return $this->getAccutradeDealerId($dealerInfo);
+    }
+
+    protected function filterImages(array $record): array
+    {
+        return isset($record['images']) && is_array($record['images']) ? $record['images'] : [];
+    }
+
+    protected function addVehicleImage(int $vehicleId, string $imgurl, int $iorder = 1): bool
+    {
+        if (!Schema::hasTable('vehicle_images')) {
+            return false;
+        }
+        $ext = pathinfo($imgurl, PATHINFO_EXTENSION);
+        if ($ext === '') {
+            return false;
+        }
+        DB::table('vehicle_images')->insert([
+            'vehicle_id' => $vehicleId,
+            'filename' => $imgurl,
+            'remote' => 1,
+            'iorder' => $iorder,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        return true;
+    }
+
+    protected function saveRecords(array $record): void
+    {
+        $this->saveAccutradeVehicleRecord($record);
+    }
+
     // Action stubs (CakePHP: app/Controller/AccutradeController.php)
     public function getAuthToken(Request $request)
     {

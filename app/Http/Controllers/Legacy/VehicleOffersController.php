@@ -16,7 +16,14 @@ use Illuminate\Support\Facades\Log;
 
 class VehicleOffersController extends LegacyAppController
 {
-    use VehicleOffersTrait, DriverBackgroundReport, VehicleDynamicFareMatrix;
+    use VehicleOffersTrait {
+        _userautocomplete as protected trait_userautocomplete;
+        _vehicleautocomplete as protected trait_vehicleautocomplete;
+        qualifyCheckr as protected trait_qualifyCheckr;
+        _qualifyIncome as protected trait_qualifyIncome;
+        _duplicate as protected trait_duplicate;
+    }
+    use DriverBackgroundReport, VehicleDynamicFareMatrix;
 
     public function index(Request $request)
     {
@@ -222,5 +229,30 @@ class VehicleOffersController extends LegacyAppController
         $newId = $this->_duplicate($offer);
         
         return redirect('/vehicle_offers/add/' . base64_encode($newId))->with('success', 'Offer data is copied successfully');
+    }
+
+    public function qualifyCheckr($offer)
+    {
+        return $this->trait_qualifyCheckr($offer);
+    }
+
+    protected function _userautocomplete($params)
+    {
+        return $this->trait_userautocomplete($params);
+    }
+
+    protected function _vehicleautocomplete($params, $dealerid = null, $isAdmin = false)
+    {
+        return $this->trait_vehicleautocomplete($params, $dealerid, $isAdmin);
+    }
+
+    protected function _qualifyIncome($offer)
+    {
+        return $this->trait_qualifyIncome($offer);
+    }
+
+    protected function _duplicate($offerData)
+    {
+        return $this->trait_duplicate($offerData);
     }
 }

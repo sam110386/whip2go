@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\AdminPermission as LegacyAdminPermission;
+use App\Models\Legacy\AdminPermission;
 use Illuminate\Http\Request;
 
 class PermissionsController extends LegacyAppController
@@ -12,75 +12,107 @@ class PermissionsController extends LegacyAppController
 
     public function admin_index(Request $request)
     {
-        $keyword = trim((string)($request->query('keyword') ?? ''));
-
-        $q = LegacyAdminPermission::query()->orderBy('id', 'asc');
-        if ($keyword !== '') {
-            $like = '%' . $keyword . '%';
-            $q->where(function ($qq) use ($like) {
-                $qq->where('name', 'like', $like)
-                    ->orWhere('type', 'like', $like);
-            });
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
 
-        $permissions = $q->limit(100)->get();
+        $sessionLimitKey  = 'Permissions_limit';
+        $limitFromSession = session($sessionLimitKey, 20);
+        $limit            = (int)$request->input('Record.limit', $limitFromSession);
+        if ($limit < 1) $limit = 20;
+        session([$sessionLimitKey => $limit]);
+
+        $permissions = AdminPermission::orderBy('id', 'ASC')->paginate($limit)->withQueryString();
 
         return view('admin.permissions.index', [
-            'permissions' => $permissions,
-            'keyword' => $keyword,
+            'title_for_layout' => 'Manage Permissions',
+            'keyword'          => '',
+            'permissions'      => $permissions,
         ]);
-    }
-
-    public function admin_delete(Request $request, $id = null)
-    {
-        if (empty($id) || !is_numeric($id)) {
-            return redirect('/admin/permissions/index');
-        }
-
-        LegacyAdminPermission::query()->whereKey((int)$id)->delete();
-
-        return redirect('/admin/permissions/index');
     }
 
     public function admin_add(Request $request, $id = null)
     {
-        $isEditing = !empty($id) && is_numeric($id);
-        $permission = $isEditing ? LegacyAdminPermission::query()->find((int)$id) : null;
-
-        if (!$request->isMethod('POST')) {
-            return view('admin.permissions.add', [
-                'listTitle' => $isEditing ? 'Update Permission' : 'Add Permission',
-                'permission' => $permission,
-            ]);
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
 
-        $payload = $request->input('AdminPermission', []);
-        $name = trim((string)($payload['name'] ?? ''));
-        $type = trim((string)($payload['type'] ?? 'all'));
-        $permissions = $payload['permissions'] ?? '';
+        $listTitle    = empty($id) ? 'Add Permission' : 'Update Permission';
+        $selectedMenu = '';
 
-        if ($name === '') {
-            return back()->withInput()->with('error', 'Permission name is required.');
+        if ($request->isMethod('post')) {
+            $data = $request->input('AdminPermission', []);
+            if (!empty($id)) {
+                AdminPermission::where('id', $id)->update($data);
+            } else {
+                AdminPermission::create($data);
+            }
+            return redirect('/admin/permissions/index')->with('success', 'Record updated successfully');
         }
 
-        $permissionsValue = $type === 'all' ? '*' : (is_string($permissions) ? trim($permissions) : '');
-        if ($type !== 'all' && $permissionsValue === '') {
-            return back()->withInput()->with('error', 'Permissions are required for custom type.');
+        $record = !empty($id) ? AdminPermission::find($id) : null;
+        if ($record) {
+            $selectedMenu = $record->type === 'all' ? '*' : ($record->permissions ?? '');
         }
 
-        $data = [
-            'name' => $name,
-            'type' => $type,
-            'permissions' => $permissionsValue,
+        $actions = $this->detectPermissions();
+
+        return view('admin.permissions.add', compact('listTitle', 'id', 'record', 'selectedMenu', 'actions'));
+    }
+
+    public function admin_delete(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        AdminPermission::where('id', $id)->delete();
+
+        return redirect('/admin/permissions/index')->with('success', 'Record deleted successfully');
+    }
+
+    /**
+     * Scans Laravel Admin/Cloud controller directories and returns all admin_/cloud_ methods.
+     * Replaces CakePHP's glob(APP.'Controller') approach.
+     */
+    public function detectPermissions(): array
+    {
+        $permissions = [];
+
+        $map = [
+            app_path('Http/Controllers/Admin')  => 'App\\Http\\Controllers\\Admin\\',
+            app_path('Http/Controllers/Cloud')  => 'App\\Http\\Controllers\\Cloud\\',
+            app_path('Http/Controllers/Legacy') => 'App\\Http\\Controllers\\Legacy\\',
         ];
 
-        if ($isEditing && $permission) {
-            LegacyAdminPermission::query()->whereKey((int)$permission->id)->update($data);
-        } else {
-            LegacyAdminPermission::query()->create($data);
+        foreach ($map as $dir => $namespace) {
+            if (!is_dir($dir)) continue;
+
+            foreach (glob($dir . '/*Controller.php') as $fullPath) {
+                $className = pathinfo($fullPath, PATHINFO_FILENAME);
+
+                if (str_contains($className, 'Api') || str_contains($className, 'LegacyApp')) {
+                    continue;
+                }
+
+                $fqcn = $namespace . $className;
+                if (!class_exists($fqcn)) {
+                    @require_once $fullPath;
+                }
+
+                $actions = [];
+                if (class_exists($fqcn)) {
+                    foreach (get_class_methods($fqcn) as $method) {
+                        if (preg_match('/^(admin_|cloud_)\w+$/', $method)) {
+                            $actions[] = $method;
+                        }
+                    }
+                }
+
+                $permissions[$className] = $actions;
+            }
         }
 
-        return redirect('/admin/permissions/index');
+        return $permissions;
     }
 }
-

@@ -135,4 +135,17 @@ trait VehicleReservationsTrait {
         }
         return false;
     }
+
+    protected function _changeInsuranceTypePopup(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _changeinsurancepopup(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _changeinsurancesave(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _createOutstanidngIssues(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _insudoc(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _loadcancelblock(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _loadinsurancepopup(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _saveVehicleSellingOption(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _saveinsurancepayer(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _updateDatetime(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _updateReservationVehicle(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
+    protected function _vehicleReservationLog(...$args) { return ['status' => false, 'message' => __FUNCTION__ . ' pending migration']; }
 }

@@ -10,6 +10,15 @@ use Illuminate\Support\Facades\Session;
 
 class PlaidUsersController extends Controller
 {
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => 0,
+            'message' => "AdminPlaidUsers::{$action} pending migration",
+            'result' => (object)[],
+        ]);
+    }
+
     public function index(Request $request, $userid = null)
     {
         $userid = base64_decode($userid);
@@ -77,4 +86,20 @@ class PlaidUsersController extends Controller
 
         return view('admin.elements.plaidusers.paystub', compact('plaids', 'userid'))->with('modal', 'statementModal');
     }
+
+    public function income(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function payrollincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function combinedincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function pullBankDetail(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+
+    public function admin_index(Request $request, $userid = null) { return $this->index($request, $userid); }
+    public function admin_balance(Request $request) { return $this->balance($request); }
+    public function admin_transactions(Request $request) { return $this->transactions($request); }
+    public function admin_downloadpaystub(Request $request, $verificationid) { return $this->downloadpaystub($request, $verificationid); }
+    public function admin_pullPlaidBank(Request $request) { return $this->pullPlaidBank($request); }
+    public function admin_pullPlaidPaystub(Request $request) { return $this->pullPlaidPaystub($request); }
+    public function admin_income(Request $request) { return $this->income($request); }
+    public function admin_payrollincome(Request $request) { return $this->payrollincome($request); }
+    public function admin_combinedincome(Request $request) { return $this->combinedincome($request); }
+    public function admin_pullBankDetail(Request $request) { return $this->pullBankDetail($request); }
 }

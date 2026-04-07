@@ -13,6 +13,15 @@ class WalletController extends Controller
 {
     use \App\Http\Controllers\Traits\WalletTrait;
 
+    public function admin_index(Request $request, $userid = null) { return $this->index($request, $userid); }
+    public function admin_diacredit(Request $request, $userid = null) { return $this->diacredit($request, $userid); }
+    public function admin_createintent(Request $request) { return $this->createintent($request); }
+    public function admin_updatebalance(Request $request, $userid = null) { return $this->updatebalance($request, $userid); }
+    public function admin_refundbalance(Request $request, $userid = null) { return $this->refundbalance($request, $userid); }
+    public function admin_chargepartialamtpopup(Request $request) { return $this->chargepartialamtpopup($request); }
+    public function admin_chargepartialamt(Request $request) { return $this->chargepartialamt($request); }
+    public function admin_diacreditprocess(Request $request) { return $this->diacreditprocess($request); }
+
     public function index(Request $request, $userid = null)
     {
         $userid = base64_decode($userid);
@@ -184,5 +193,10 @@ class WalletController extends Controller
         $walletbal = $csWalletModel->addBalance($amt, $userid, $transaction, "DIA Credits", 0, now());
 
         return response()->json(['status' => true, 'message' => "Charged successfully", 'result' => ["walletbal" => $walletbal]]);
+    }
+
+    protected function _chargepartialamt(Request $request)
+    {
+        return $this->chargePartialAmtLogic($request);
     }
 }

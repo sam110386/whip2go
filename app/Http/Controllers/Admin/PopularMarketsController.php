@@ -76,4 +76,24 @@ class PopularMarketsController extends Controller
 
         return back();
     }
+
+    public function admin_index(Request $request)
+    {
+        return $this->index($request);
+    }
+
+    public function admin_add(Request $request, $id = null)
+    {
+        return $this->add($request, $id);
+    }
+
+    public function admin_status(Request $request, $id = null, $status = 0)
+    {
+        return $this->status($request, $id, $status);
+    }
+
+    public function admin_delete(Request $request, $id = null)
+    {
+        return $this->delete($request, $id);
+    }
 }

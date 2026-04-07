@@ -54,4 +54,19 @@ class SmslogsController extends Controller
         
         return response()->json(['status' => 'success', 'msg' => 'Record deleted successfully', 'recordid' => $id]);
     }
+
+    public function admin_index(Request $request)
+    {
+        return $this->index($request);
+    }
+
+    public function admin_details(Request $request, $id)
+    {
+        return $this->details($request, $id);
+    }
+
+    public function admin_delete(Request $request, $id)
+    {
+        return $this->delete($request, $id);
+    }
 }

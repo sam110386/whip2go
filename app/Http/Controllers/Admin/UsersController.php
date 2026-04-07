@@ -3,205 +3,155 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\User as LegacyUser;
+use App\Http\Controllers\Traits\UsersTrait;
+use App\Models\Legacy\User;
+use App\Models\Legacy\UserLicenseDetail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Log;
 
 class UsersController extends LegacyAppController
 {
+    use UsersTrait;
+
     protected bool $shouldLoadLegacyModules = true;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "AdminUsers::{$action} is pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
+    /**
+     * admin_index: Main admin user listing
+     */
     public function admin_index(Request $request)
     {
-        $keyword = trim((string) ($request->query('keyword') ?? ''));
-        $show = trim((string) ($request->query('show') ?? ''));
-        $type = trim((string) ($request->query('type') ?? ''));
+        if ($redirect = $this->ensureAdminSession()) return $redirect;
 
-        $q = LegacyUser::query()
-            ->where('is_admin', 0)
-            ->orderByDesc('id');
-
-        if ($show === 'Active') {
-            $q->where('status', 1);
-        } elseif ($show === 'Deactive') {
-            $q->where('status', 0);
+        $extraConditions = [];
+        if ($request->filled('Search.is_driver')) {
+            $extraConditions['is_driver'] = $request->input('Search.is_driver');
+        }
+        if ($request->filled('Search.is_owner')) {
+            $extraConditions['is_owner'] = $request->input('Search.is_owner');
         }
 
-        if ($keyword !== '') {
-            $like = '%' . $keyword . '%';
-            $q->where(function ($qq) use ($like) {
-                $qq->where('first_name', 'like', $like)
-                    ->orWhere('last_name', 'like', $like)
-                    ->orWhere('email', 'like', $like)
-                    ->orWhere('username', 'like', $like)
-                    ->orWhere('business_name', 'like', $like);
-            });
+        $query = $this->_getUsersQuery($request, $extraConditions);
+
+        $limit = $request->input('Record.limit') ?: Session::get('users_limit', 50);
+        if ($request->has('Record.limit')) Session::put('users_limit', $limit);
+
+        $users = $query->orderBy('id', 'DESC')->paginate($limit)->withQueryString();
+
+        if ($request->ajax()) {
+            return view('admin.elements.users.index', compact('users'));
         }
 
-        if ($type === '1') {
-            $q->where('is_verified', 1);
-        } elseif ($type === '2') {
-            $q->where('is_verified', 0);
-        } elseif ($type === '3') {
-            $q->where('is_renter', 1);
-        } elseif ($type === '4') {
-            $q->where('is_driver', 1);
-        } elseif ($type === '5') {
-            $q->where('is_dealer', 1);
-        } elseif ($type === '6') {
-            $q->where('is_dealer', 2);
-        }
-
-        $users = $q->limit(50)->get();
-
-        return view('admin.users.index', [
-            'listTitle' => 'Manage Users',
-            'users' => $users,
-            'keyword' => $keyword,
-            'show' => $show,
-            'type' => $type,
-        ]);
+        return view('admin.users.index', compact('users'));
     }
 
-    public function admin_status(Request $request, $id = null, $status = null)
+    /**
+     * admin_status: Toggle user status
+     */
+    public function admin_status($id, $status)
     {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update(['status' => ((string) $status === '1') ? 1 : 0]);
-        }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
+        
+        $id = base64_decode($id);
+        $result = $this->_toggleStatus($id, 'status', $status);
+        
+        Session::flash($result['status'] ? 'success' : 'error', $result['message']);
+        return back();
     }
 
-    public function admin_trash(Request $request, $id = null, $status = null)
+    /**
+     * admin_verify: Toggle user verification status
+     */
+    public function admin_verify($id, $status)
     {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update(['trash' => ((string) $status === '1') ? 1 : 0]);
-        }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
+        
+        $id = base64_decode($id);
+        $result = $this->_toggleStatus($id, 'is_verified', $status);
+        
+        Session::flash($result['status'] ? 'success' : 'error', $result['message']);
+        return back();
     }
 
-    public function admin_verify(Request $request, $id = null)
+    /**
+     * admin_view: Detailed user view
+     */
+    public function admin_view($id)
     {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update([
-                'is_verified' => 1,
-                'verify_token' => '',
-            ]);
-        }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        if ($redirect = $this->ensureAdminSession()) return $redirect;
+
+        $id = base64_decode($id);
+        $user = User::with(['UserLicenses'])->findOrFail($id);
+        $revSetting = $this->_getRevSettings($id);
+
+        return view('admin.users.view', compact('user', 'revSetting'));
     }
 
-    public function admin_driverstatus(Request $request, $id = null, $status = null)
+    /**
+     * admin_edit: Profile edit screen and save
+     */
+    public function admin_edit(Request $request, $id)
     {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update(['is_driver' => ((string) $status === '1') ? 1 : 0]);
+        if ($redirect = $this->ensureAdminSession()) return $redirect;
+
+        $id = base64_decode($id);
+        if ($request->isMethod('post')) {
+            $result = $this->_saveUser($request, $id);
+            Session::flash($result['status'] ? 'success' : 'error', $result['message']);
+            if ($result['status']) return redirect()->route('admin.users.index');
         }
-        return $this->redirectBackOr('/admin/users/index', $request);
+
+        $user = User::findOrFail($id);
+        return view('admin.users.edit', compact('user'));
     }
 
-    public function admin_view(Request $request, $id = null)
+    /**
+     * admin_trash: Soft delete/Trash a user
+     */
+    public function admin_trash($id)
     {
-        $userId = $this->decodeId($id);
-        $user = $userId ? LegacyUser::query()->find($userId) : null;
-        if (!$user) {
-            return redirect('/admin/users/index');
-        }
-        return view('admin.users.view', [
-            'listTitle' => 'View User',
-            'user' => $user,
-        ]);
+        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
+        
+        $id = base64_decode($id);
+        $result = $this->_toggleStatus($id, 'is_trash', 1);
+        
+        Session::flash($result['status'] ? 'success' : 'error', $result['message']);
+        return redirect()->route('admin.users.index');
     }
 
-    public function admin_delete(Request $request, $id = null)
+    public function admin_add(Request $request)
     {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->delete();
+        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        if ($request->isMethod('post')) {
+            $result = $this->_saveUser($request, $request->input('User.id'));
+            return response()->json($result);
         }
-        return redirect('/admin/users/index');
+        return $this->pendingResponse(__FUNCTION__);
     }
 
-    public function admin_add(Request $request, $id = null)
-    {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
-        $userId = $this->decodeId($id);
-        $user = $userId ? LegacyUser::query()->find($userId) : null;
-
-        if (!$request->isMethod('POST')) {
-            return view('admin.users.add', [
-                'listTitle' => $user ? 'Update User' : 'Add User',
-                'user' => $user,
-                'error' => null,
-                'formAction' => $user ? '/admin/users/add/' . $id : '/admin/users/add',
-            ]);
-        }
-
-        $payload = $request->input('User', []);
-        $firstName = trim((string) ($payload['first_name'] ?? ''));
-        $lastName = trim((string) ($payload['last_name'] ?? ''));
-        $email = trim((string) ($payload['email'] ?? ''));
-        $contact = trim((string) ($payload['contact_number'] ?? ''));
-
-        if ($firstName === '' || $lastName === '' || $email === '' || $contact === '') {
-            return view('admin.users.add', [
-                'listTitle' => $user ? 'Update User' : 'Add User',
-                'user' => $user,
-                'error' => 'Please fill required fields.',
-                'formAction' => $user ? '/admin/users/add/' . $id : '/admin/users/add',
-            ]);
-        }
-
-        $data = [
-            'first_name' => ucwords(strtolower($firstName)),
-            'last_name' => ucwords(strtolower($lastName)),
-            'email' => $email,
-            'contact_number' => $contact,
-        ];
-
-        if (!$user) {
-            $usernameDigits = preg_replace('/[^0-9]/', '', $contact);
-            $data['username'] = (string) $usernameDigits;
-            $data['is_verified'] = 1;
-            $data['status'] = 1;
-            $pwd = (string) ($payload['pwd'] ?? '');
-            if ($pwd !== '') {
-                $data['password'] = sha1($salt . $pwd);
-            }
-            LegacyUser::query()->create($data);
-        } else {
-            $pwd = (string) ($payload['pwd'] ?? '');
-            if ($pwd !== '') {
-                $data['password'] = sha1($salt . $pwd);
-            }
-            LegacyUser::query()->whereKey((int) $user->id)->update($data);
-        }
-
-        return redirect('/admin/users/index');
-    }
-
-    private function decodeId($id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int) $id;
-        }
-        if (is_string($id) && $id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int) $decoded;
-            }
-        }
-        return null;
-    }
-
-    private function redirectBackOr(string $fallback, Request $request)
-    {
-        $referer = $request->headers->get('referer');
-        if (!empty($referer)) {
-            return redirect()->to($referer);
-        }
-        return redirect($fallback);
-    }
+    public function admin_address_proof_popup(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_bankdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_change_phone(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_checkr_status(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_checkrreport(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_dealer_approve(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_delete(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_driverstatus(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getDriverLicense(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getmystripeurl(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_getstripeloginurl(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_loadPayoutSchedule(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_revsetting(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_saveaddressproof(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_showargyldetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_updatePayoutSchedule(Request $request) { return $this->pendingResponse(__FUNCTION__); }
 }
-

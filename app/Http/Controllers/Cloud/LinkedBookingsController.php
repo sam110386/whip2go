@@ -18,6 +18,15 @@ class LinkedBookingsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "LinkedBookings::{$action} pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * cloud_index: List linked bookings for cloud user
      */
@@ -153,5 +162,25 @@ class LinkedBookingsController extends LegacyAppController
             ->get();
 
         return view('cloud.linked_bookings.overdue', compact('tripLog'));
+    }
+
+    public function cloud_customerautocomplete(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_getVehicle(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_getagreement(Request $request) { return response()->json($this->_getagreement($request->all())); }
+    public function cloud_getinsurancepopup(Request $request) { return response()->json($this->getInsurancePopup($request)); }
+    public function cloud_getinsurancetoken(Request $request) { return response()->json($this->getinsurancetoken_method($request)); }
+    public function cloud_load_single_row(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_loadcancelBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_loadcompleteBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_loadvehicleexpiretime(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_loadvehiclegps(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_processvehicleexpiretime(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_updatestartodometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_updatevehiclegps(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function withautorenew(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+
+    protected function _admineditsave(...$args)
+    {
+        return ['status' => false, 'message' => '_admineditsave pending migration'];
     }
 }

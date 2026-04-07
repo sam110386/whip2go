@@ -251,6 +251,11 @@ class ImagesController extends LegacyAppController
         ]);
     }
 
+    protected function _crop(Request $request)
+    {
+        return $this->crop($request);
+    }
+
     private function findSharp($orig, $final)
     {
         $final = $final * (750.0 / $orig);

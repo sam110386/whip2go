@@ -13,6 +13,20 @@ class AdminStaffsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
+    public function admin_multiplAction(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) return $redirect;
+
+        $status = $request->input('User.status');
+        $selected = $request->input('select', []);
+        foreach ($selected as $id => $enabled) {
+            if ($enabled) {
+                User::where('id', (int) $id)->update(['status' => $status]);
+            }
+        }
+        return redirect()->back()->with('success', 'Staff users updated successfully.');
+    }
+
     // ─── admin_index (List Staff Users) ──────────────────────────────────────
     public function admin_index(Request $request)
     {

@@ -20,7 +20,14 @@ use Carbon\Carbon;
 
 class VehiclesController extends LegacyAppController
 {
-    use VehiclesTrait, VehicleLocationTrait, CopyVehicleImageTrait;
+    use VehiclesTrait {
+        handleUpload as protected trait_handleUpload;
+        _getVehicleGps as protected trait_getVehicleGps;
+        _getVehicleDynamicFare as protected trait_getVehicleDynamicFare;
+        _getVehicleInspectionDoc as protected trait_getVehicleInspectionDoc;
+        exportToCsv as protected trait_exportToCsv;
+    }
+    use VehicleLocationTrait, CopyVehicleImageTrait;
 
     public function index(Request $request)
     {
@@ -345,5 +352,30 @@ class VehiclesController extends LegacyAppController
     public function getVehicleInspectionDoc(Request $request)
     {
         return response()->json($this->_getVehicleInspectionDoc(base64_decode($request->input('vehicleid'))));
+    }
+
+    protected function handleUpload($file, $vehicleid)
+    {
+        return $this->trait_handleUpload($file, $vehicleid);
+    }
+
+    protected function _getVehicleGps($vehicle_id, $type)
+    {
+        return $this->trait_getVehicleGps($vehicle_id, $type);
+    }
+
+    protected function _getVehicleDynamicFare($params)
+    {
+        return $this->trait_getVehicleDynamicFare($params);
+    }
+
+    protected function _getVehicleInspectionDoc($vehicleid)
+    {
+        return $this->trait_getVehicleInspectionDoc($vehicleid);
+    }
+
+    protected function exportToCsv($vehicles)
+    {
+        return $this->trait_exportToCsv($vehicles);
     }
 }

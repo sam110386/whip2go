@@ -11,6 +11,15 @@ use Illuminate\Support\Facades\Session;
 
 class SettingsController extends Controller
 {
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => 0,
+            'message' => "Settings::{$action} pending migration",
+            'result' => (object)[],
+        ]);
+    }
+
     public function index(Request $request)
     {
         $userId = Session::get('userParentId') ?: Session::get('userid');
@@ -76,4 +85,12 @@ class SettingsController extends Controller
 
         return response()->json(['status' => 1, 'message' => "Vehicle updated successfully"]);
     }
+
+    public function syncDeviceWithGeotab(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function syncVehicleAddress(Request $request) { return $this->_syncVehicleAddress($request); }
+    public function syncVehicleDefaultAddress(Request $request) { return $this->_syncVehicleDefaultAddress($request); }
+    public function syncVehicleFinancing(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+
+    protected function _syncVehicleAddress(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    protected function _syncVehicleDefaultAddress(Request $request) { return $this->pendingResponse(__FUNCTION__); }
 }

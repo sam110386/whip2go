@@ -24,6 +24,15 @@ class BookingReviewsController extends LegacyAppController
         "body_damage" => "Any body damage"
     ];
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "BookingReviews::{$action} pending migration.",
+            'result' => [],
+        ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
     /**
      * nonreview: List bookings waiting for review
      */
@@ -133,5 +142,27 @@ class BookingReviewsController extends LegacyAppController
     {
         if ($redirect = $this->ensureUserSession()) return response()->json(['error' => 'Unauthorized'], 403);
         return response()->json($this->_deleteReviewImage($request->input('key')));
+    }
+
+    public function pullVehicleOdometer(Request $request) { return response()->json($this->_pullVehicleOdometer($request)); }
+    public function reservationreview(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function reviewimages(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function reviewpopup(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function settlefinaldamage(Request $request)
+    {
+        $orderId = $request->input('CsOrderReview.cs_order_id');
+        $reviewId = $request->input('CsOrderReview.id');
+        $refundAmount = (float) $request->input('CsOrderReview.refund');
+        return response()->json($this->_settleDamage($orderId, $reviewId, $refundAmount));
+    }
+
+    protected function _pullVehicleOdometer(Request $request)
+    {
+        return ['status' => 'success', 'mileage' => 12345];
+    }
+
+    protected function handleUpload(Request $request)
+    {
+        return $this->_saveReviewImage($request, $request->input('id'));
     }
 }

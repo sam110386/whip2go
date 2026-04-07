@@ -16,6 +16,15 @@ class LinkedUsersController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
+    private function pendingResponse(string $action)
+    {
+        return response()->json([
+            'status' => false,
+            'message' => "LinkedUsers::{$action} pending migration.",
+            'result' => [],
+        ]);
+    }
+
     /**
      * cloud_index: List users/drivers for linked dealers
      */
@@ -90,4 +99,21 @@ class LinkedUsersController extends LegacyAppController
         // Dynamic fare logic placeholder
         return view('cloud.linked_users.dynamicfares', compact('user'));
     }
+
+    public function index(Request $request) { return $this->cloud_index($request); }
+    public function view(Request $request, $id = null) { return $this->cloud_view($request, $id); }
+    public function updatetargetscore(Request $request) { return $this->cloud_updatetargetscore($request); }
+
+    public function cloud_customer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_view(Request $request, $id = null)
+    {
+        if (!$id) {
+            $id = (string) $request->input('id', '');
+        }
+        return $this->cloud_edit($request, $id);
+    }
+    public function cloud_updatetargetscore(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_ccadd(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_ccdelete(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function cloud_makeccdefault(Request $request) { return $this->pendingResponse(__FUNCTION__); }
 }
