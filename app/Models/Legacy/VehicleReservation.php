@@ -1,0 +1,39 @@
+<?php
+
+namespace App\Models\Legacy;
+
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+
+class VehicleReservation extends LegacyModel
+{
+    protected $table = 'vehicle_reservations';
+
+    protected $casts = [
+        'id' => 'integer',
+        'vehicle_id' => 'integer',
+        'user_id' => 'integer',
+        'renter_id' => 'integer',
+        'status' => 'integer',
+    ];
+
+    public function vehicle(): BelongsTo
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function renter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'renter_id');
+    }
+
+    public function depositRule(): HasOne
+    {
+        return $this->hasOne(OrderDepositRule::class, 'vehicle_reservation_id');
+    }
+}
