@@ -28,29 +28,29 @@ class AdminsController extends LegacyAppController
     // ─── admin_login (Admin Authentication) ──────────────────────────────────
     public function admin_login(Request $request, $referred_url = null)
     {
-        $this->layout = 'layout_admin';
         if (session()->has('SESSION_ADMIN.id')) {
             return redirect('/' . session('SESSION_ADMIN.slug') . '/homes/dashboard');
         }
 
         if ($request->isMethod('post')) {
             $username = $request->input('username');
-            // Legacy uses md5-based Security::hash by default in many configs, 
-            // but the snippet showed Security::hash($password, null, true).
-            // We'll use our bridge or a direct check.
             $password = $request->input('password');
 
-            $userinfo = User::from('users as User')
-                ->leftJoin('admin_roles as AdminRole', 'AdminRole.id', '=', 'User.role_id')
-                ->where('User.username', $username)
-                ->where('User.is_admin', 1)
-                ->where('User.status', '1')
-                ->select('User.*', 'AdminRole.slug')
+            $userinfo = User::where('username', $username)
+                // ->where('is_admin', 1)
+                // ->where('status', 1)
                 ->first();
 
-            // Verify password using legacy hash comparison
-            // Note: In a real migration, we'd use a custom hasher or check against old logic.
-            // For now, mirroring the snippet logic: if ($userinfo->password == Security::hash($password))
+            // $userinfo = User::from('users as User')
+            //     ->leftJoin('admin_roles as AdminRole', 'AdminRole.id', '=', 'User.role_id')
+            //     ->where('User.username', $username)
+            //     ->where('User.is_admin', 1)
+            //     ->where('User.status', '1')
+            //     ->select('User.*', 'AdminRole.slug')
+            //     ->first();
+
+            dd($userinfo);
+
             if ($userinfo && $userinfo->password === md5($password)) { // Assuming md5 based on legacy snippet pattern
                 session([
                     'SESSION_ADMIN'    => $userinfo->toArray(),
@@ -111,10 +111,10 @@ class AdminsController extends LegacyAppController
 
         if (!empty($keyword)) {
             if ($searchIn == 'All') {
-                $query->where(function($q) use ($keyword) {
+                $query->where(function ($q) use ($keyword) {
                     $q->where('first_name', 'LIKE', "%$keyword%")
-                      ->orWhere('username', 'LIKE', "%$keyword%")
-                      ->orWhere('email', 'LIKE', "%$keyword%");
+                        ->orWhere('username', 'LIKE', "%$keyword%")
+                        ->orWhere('email', 'LIKE', "%$keyword%");
                 });
             } else {
                 $query->where($searchIn, 'LIKE', "%$keyword%");

