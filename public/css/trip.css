@@ -1,0 +1,125 @@
+.content-widget{ padding:50px 10px;}
+ 
+    .triplog h2 {border:1px solid #000;padding:5px 0;text-align:center;}
+    .triplog table {border:1px solid #000;width:100%;	}
+    .triplog table thead tr th{color:#136BAD;text-align:left;border-bottom:2px solid;padding:5px 0;}
+    .triplog table tbody tr {cursor:pointer;}
+    .triplog table tbody tr td {text-align:left;padding:3px 0;border-bottom:1px solid #e2e2e2;}
+    fieldset .textfield {float:left;margin-right:7px;}
+    fieldset .select {float:left;margin-top:0;margin-right:7px;}
+    fieldset .btn {padding:4px 10px;float:left;margin-right:7px;}
+    fieldset .btn_input {margin-top:0;height:28px;float:left;}
+    .ato_wdth{width: auto !important;}
+    .cntr_algn{text-align:center !important;}
+    .export_log{float:right;font-size:10px;margin:4px;}
+    .xls_export{font-weight:bold;font-size:11px;margin-left:115px;}
+    .xls_export a{color:#155B23;}
+    #infoWindow { left: 12px; top: 9px;        width: 175px;        height: 55px;    }
+.multiselect.dropdown-toggle.btn.btn-default {     display: block;
+    width: 470px;
+    height: 36px;
+    padding: 7px 12px;
+    font-size: 13px;
+    line-height: 1.5384616;
+    color: #333333;
+    background-color: #fff;
+    background-image: none;
+    border: 1px solid #ddd;
+    border-radius: 3px; } 
+.fldset { margin-top:1px;padding:15px;border:1px solid #B8BAB9;-webkit-border-radius: 5px;-moz-border-radius: 5px;border-radius: 5px; }
+.sendbtn { float:right;}
+#dispatchBtn { float:right; width:100px; height:35px;}
+
+.orange_col{color:#ff6600;}
+.orange2_col{color:#984807;}
+.green_col{color:#008000;}
+.red_col{color:#ff0000;}
+.blue_col{color:#1f497d;}
+
+.pink_col{color:#ff1493;}
+
+    .gray{
+        background-color:#bfbfbf;
+        outline: thin solid;
+    }
+    .blue{
+        background-color:#b7dee8;
+        outline: thin solid;
+    }
+    .purple{
+        background-color:#b3a2c7;
+        outline: thin solid;
+    }
+
+    .blink_me {
+        -webkit-animation-name: blinker;
+        -webkit-animation-duration: 1s;
+        -webkit-animation-timing-function: linear;
+        -webkit-animation-iteration-count: infinite;
+
+        -moz-animation-name: blinker;
+        -moz-animation-duration: 1s;
+        -moz-animation-timing-function: linear;
+        -moz-animation-iteration-count: infinite;
+
+        animation-name: blinker;
+        animation-duration: 1s;
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+        /*color:#FF0000;*/
+        /*outline: thin solid red;*/
+    }
+    .orange_col{color:#ff6600;}
+    .orange2_col{color:#984807;}
+    .green_col{color:#008000;}
+    .red_col{color:#ff0000;}
+    .blue_col{color:#1f497d;}
+
+    .pink_col{color:#ff1493;}
+    @-moz-keyframes blinker {
+        0% { opacity: 1.0; }
+        50% { opacity: 0.0; }
+        100% { opacity: 1.0; }
+    }
+
+    @-webkit-keyframes blinker {
+        0% { opacity: 1.0; }
+        50% { opacity: 0.0; }
+        100% { opacity: 1.0; }
+    }
+
+    @keyframes blinker {
+        0% { opacity: 1.0; }
+        50% { opacity: 0.0; }
+        100% { opacity: 1.0; }
+    }
+    
+    #wrapper{
+        background:none repeat scroll 0 0 #fdeada;
+        font-weight:bolder;
+        font-size: 14px;
+        height: 100%;
+    }
+    .focused{
+        border: 2px solid #194B88 ! important;
+    }
+    .triplog h2 {
+        padding: 0px 0px;
+    }
+  
+    .update_log
+    {
+        background:none repeat scroll 0 0 #fdeada;
+        height: 545px;
+    }
+    .triplog table thead tr th {
+        padding: 0px 0px;
+    }
+    .triplog table tbody tr td {
+        padding: 0px 0px;
+    }
+    
+    .table > thead > tr > th, .table > tbody > tr > th, .table > tfoot > tr > th, .table > thead > tr > td, .table > tbody > tr > td, .table > tfoot > tr > td{padding:12px 10px;}
+    #detail_schedule{display: none;}
+    
+    
