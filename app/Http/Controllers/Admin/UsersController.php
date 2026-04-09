@@ -9,6 +9,7 @@ use App\Models\Legacy\UserLicenseDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cookie;
 
 class UsersController extends LegacyAppController
 {
@@ -25,12 +26,16 @@ class UsersController extends LegacyAppController
         ])->header('Content-Type', 'application/json; charset=utf-8');
     }
 
-    /**
-     * admin_index: Main admin user listing
-     */
     public function admin_index(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $adminUser = $this->getAdminUserid();
+
+        if (!$adminUser['administrator']) {
+            session()->flash('error', 'Sorry, you are not authorized user for this action');
+            return redirect('admin/linked_users/index');
+        }
+
+        $conditions = ["is_admin" => 0];
 
         $extraConditions = [];
         if ($request->filled('Search.is_driver')) {
@@ -60,10 +65,10 @@ class UsersController extends LegacyAppController
     public function admin_status($id, $status)
     {
         if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
+
         $id = base64_decode($id);
         $result = $this->_toggleStatus($id, 'status', $status);
-        
+
         Session::flash($result['status'] ? 'success' : 'error', $result['message']);
         return back();
     }
@@ -74,10 +79,10 @@ class UsersController extends LegacyAppController
     public function admin_verify($id, $status)
     {
         if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
+
         $id = base64_decode($id);
         $result = $this->_toggleStatus($id, 'is_verified', $status);
-        
+
         Session::flash($result['status'] ? 'success' : 'error', $result['message']);
         return back();
     }
@@ -120,10 +125,10 @@ class UsersController extends LegacyAppController
     public function admin_trash($id)
     {
         if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
+
         $id = base64_decode($id);
         $result = $this->_toggleStatus($id, 'is_trash', 1);
-        
+
         Session::flash($result['status'] ? 'success' : 'error', $result['message']);
         return redirect()->route('admin.users.index');
     }
@@ -138,20 +143,68 @@ class UsersController extends LegacyAppController
         return $this->pendingResponse(__FUNCTION__);
     }
 
-    public function admin_address_proof_popup(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_bankdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_change_phone(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_checkr_status(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_checkrreport(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_dealer_approve(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_delete(Request $request, $id = null) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_driverstatus(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getDriverLicense(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getmystripeurl(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getstripeloginurl(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_loadPayoutSchedule(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_revsetting(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_saveaddressproof(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_showargyldetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_updatePayoutSchedule(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_address_proof_popup(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_bankdetails(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_change_phone(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_checkr_status(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_checkrreport(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_dealer_approve(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_delete(Request $request, $id = null)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_driverstatus(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_getDriverLicense(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_getmystripeurl(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_getstripeloginurl(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_loadPayoutSchedule(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_revsetting(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_saveaddressproof(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_showargyldetails(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
+    public function admin_updatePayoutSchedule(Request $request)
+    {
+        return $this->pendingResponse(__FUNCTION__);
+    }
 }

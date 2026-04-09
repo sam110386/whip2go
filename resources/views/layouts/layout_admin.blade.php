@@ -5,10 +5,6 @@
     <meta charset="utf-8">
     <title>@yield('title', $title_for_layout ?? 'Drive IT AWAY')</title>
 
-    <script type="text/javascript">
-        var SITE_URL = "{{ url('/') }}";
-    </script>
-
     <link href="https://fonts.googleapis.com/css?family=Roboto:400,300,100,500,700,900" rel="stylesheet" type="text/css">
     <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
@@ -20,6 +16,10 @@
 
     @yield('meta')
     @stack('styles')
+
+    <script type="text/javascript">
+        var SITE_URL = "{{ url('/') }}";
+    </script>
 
     <script src="{{ asset('js/assets/js/plugins/loaders/pace.min.js') }}"></script>
     <script src="{{ asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>

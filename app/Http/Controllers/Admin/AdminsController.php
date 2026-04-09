@@ -4,13 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Models\Legacy\User;
-use App\Models\Legacy\AdminRole;
 use App\Models\Legacy\AdminRolePermission;
 use App\Models\Legacy\AdminUserRole;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\DB;
+use App\Helpers\Legacy\Security;
 
 class AdminsController extends LegacyAppController
 {
@@ -25,33 +22,29 @@ class AdminsController extends LegacyAppController
         ]);
     }
 
-    // ─── admin_login (Admin Authentication) ──────────────────────────────────
     public function admin_login(Request $request, $referred_url = null)
     {
+
         if (session()->has('SESSION_ADMIN.id')) {
             return redirect('/' . session('SESSION_ADMIN.slug') . '/homes/dashboard');
         }
 
         if ($request->isMethod('post')) {
+
             $username = $request->input('username');
             $password = $request->input('password');
 
-            $userinfo = User::where('username', $username)
-                // ->where('is_admin', 1)
-                // ->where('status', 1)
+            $userinfo = User::leftJoin('admin_roles as AdminRole', 'users.role_id', '=', 'AdminRole.id')
+                ->where([
+                    'users.username' => $username,
+                    'users.is_admin' => 1,
+                    'users.status'   => 1,
+                ])
+                ->select('users.*', 'AdminRole.slug as slug')
                 ->first();
 
-            // $userinfo = User::from('users as User')
-            //     ->leftJoin('admin_roles as AdminRole', 'AdminRole.id', '=', 'User.role_id')
-            //     ->where('User.username', $username)
-            //     ->where('User.is_admin', 1)
-            //     ->where('User.status', '1')
-            //     ->select('User.*', 'AdminRole.slug')
-            //     ->first();
+            if ($userinfo && $userinfo->password && hash_equals($userinfo->password, Security::hash($password, null, true))) {
 
-            dd($userinfo);
-
-            if ($userinfo && $userinfo->password === md5($password)) { // Assuming md5 based on legacy snippet pattern
                 session([
                     'SESSION_ADMIN'    => $userinfo->toArray(),
                     'adminRoleId'      => $userinfo->role_id,
@@ -59,15 +52,16 @@ class AdminsController extends LegacyAppController
                     'default_timezone' => $userinfo->timezone,
                 ]);
 
-                // Load permissions
                 $permissions = AdminRolePermission::where('role_id', $userinfo->role_id)
-                    ->pluck('permission_id', 'permission_id')
+                    ->pluck('permission_id')
                     ->toArray();
+
                 session(['permissions' => $permissions]);
 
                 if ($referred_url) {
                     return redirect('/' . base64_decode($referred_url));
                 }
+
                 return redirect('/' . $userinfo->slug . '/homes/dashboard');
             }
 

@@ -2,39 +2,70 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View as ViewFacade;
 use App\Http\Controllers\Controller;
+use App\Models\Legacy\AdminModule;
+use App\Models\Legacy\AdminRoleMenu;
+use Illuminate\Support\Facades\View;
 
-/**
- * CakePHP `AppController` equivalent (subset).
- *
- * This base focuses on request lifecycle pieces that are needed across
- * most controllers: session checks and module/permission data loading.
- */
 class LegacyAppController extends Controller
 {
     protected bool $shouldLoadLegacyModules = true;
 
     public function __construct()
     {
-        if ($this->shouldLoadLegacyModules) {
-            $this->loadModulesForViews();
+        // if ($this->shouldLoadLegacyModules) {
+        //     $this->loadModulesForViews();
+        // }
+
+        if (session()->has('SESSION_ADMIN')) {
+            $this->loadAdminModule();
         }
     }
 
-    // Cake compatibility methods
-    protected function beforeFilter()
+    protected function loadAdminModule(): void
     {
-        return null;
+        $roleId = session('adminRoleId');
+        $menuIds = AdminRoleMenu::where('role_id', $roleId)->pluck('menu_id');
+        $modules = AdminModule::where('status', 1)
+            ->when($menuIds->isNotEmpty(), function ($query) use ($menuIds) {
+                $query->whereIn('id', $menuIds);
+            })
+            ->orderBy('order')
+            ->get();
+
+        $adminModules = $modules->where('parent_id', 0);
+        $adminSubModules = $modules->where('parent_id', '!=', 0)
+            ->groupBy('parent_id')
+            ->map(fn($group) => $group->values())
+            ->toArray();
+
+        $adminUser = $this->getAdminUserid();
+
+        View::share('adminModules', $adminModules);
+        View::share('adminSubModules', $adminSubModules);
+        View::share('adminUser', $adminUser);
     }
 
-    protected function beforeRender()
+    protected function getAdminUserid(): array
     {
-        return null;
+        $admin = session()->get('SESSION_ADMIN');
+
+        if (empty($admin)) {
+            return [];
+        }
+
+        return [
+            'admin_id' => $admin['id'] ?? null,
+            'administrator' => (($admin['role_id'] ?? null) == 1),
+            'parent_id' => !empty($admin['parent_id'])
+                ? ($admin['parent_id'])
+                : ($admin['id'] ?? null),
+            'timezone' => $admin['timezone'] ?? null,
+        ];
     }
 
     protected function appError($message = 'Application error')
@@ -76,22 +107,7 @@ class LegacyAppController extends Controller
         return null;
     }
 
-    protected function getAdminUserid(): array
-    {
-        $admin = session()->get('SESSION_ADMIN');
-        if (empty($admin)) {
-            return [];
-        }
 
-        return [
-            'admin_id' => $admin['id'] ?? null,
-            'administrator' => (($admin['role_id'] ?? null) == 1),
-            'parent_id' => !empty($admin['parent_id'])
-                ? ($admin['parent_id'])
-                : ($admin['id'] ?? null),
-            'timezone' => $admin['timezone'] ?? null,
-        ];
-    }
 
     /**
      * Replicates Cake's `checkUserPermission()` + `loadAdminModule()` data wiring.
@@ -119,7 +135,7 @@ class LegacyAppController extends Controller
                 $userSubModules[(int) $row->parent_id][] = (array) $row;
             }
 
-            ViewFacade::share('userModules', $topModules->map(fn ($r) => (array) $r)->all());
+            ViewFacade::share('userModules', $topModules->map(fn($r) => (array) $r)->all());
             ViewFacade::share('userSubModules', $userSubModules);
         }
 
@@ -159,7 +175,7 @@ class LegacyAppController extends Controller
                 $adminSubModules[(int) $row->parent_id][] = (array) $row;
             }
 
-            ViewFacade::share('adminModules', $adminModules->map(fn ($r) => (array) $r)->all());
+            ViewFacade::share('adminModules', $adminModules->map(fn($r) => (array) $r)->all());
             ViewFacade::share('adminSubModules', $adminSubModules);
             ViewFacade::share('adminUser', $this->getAdminUserid());
         }
@@ -180,10 +196,7 @@ class LegacyAppController extends Controller
         return $this->ensureCloudAdminSession();
     }
 
-    protected function loadAdminModule(): void
-    {
-        $this->loadModulesForViews();
-    }
+
 
     protected function checkUserPermission(): bool
     {
@@ -237,6 +250,4 @@ class LegacyAppController extends Controller
         }
         return $map[$status] ?? 'Unknown';
     }
-
 }
-

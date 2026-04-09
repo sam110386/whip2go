@@ -8,10 +8,13 @@ class AdminRolePermission extends LegacyModel
 {
     protected $table = 'admin_role_permissions';
 
-    protected $casts = [
-        'id' => 'integer',
-        'role_id' => 'integer',
-        'permission_id' => 'integer',
+    protected $fillable = [
+        'role_id',
+        'permission_id',
+    ];
+
+    protected $guarded = [
+        'id',
     ];
 
     public function role(): BelongsTo
