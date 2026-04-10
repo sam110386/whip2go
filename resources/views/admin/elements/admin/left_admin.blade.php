@@ -13,14 +13,25 @@
             @foreach ($adminModules as $module)
                 @php
                     $moduleId = $module['id'];
-                    $hasSubmodules = isset($adminSubModules[$moduleId]);
-                    $isActive = request()->is($module['module_url']) && !$hasSubmodules ?? false;
+                    $subModules = $adminSubModules[$moduleId] ?? [];
+                    $hasSubmodules = !empty($subModules);
+                    $patterns = [];
+                    if (!empty($module['module_url']) && $module['module_url'] !== '***') {
+                        $url = trim($module['module_url'], '/');
+                        $patterns[] = $url;
+                        $patterns[] = "{$url}/*";
+                    }
+
+                    foreach ($subModules as $subModule) {
+                        $subUrl = trim($subModule['module_url'], '/');
+                        $patterns[] = $subUrl;
+                        $patterns[] = "{$subUrl}/*";
+                    }
+
+                    $isActive = !empty($patterns) && request()->is($patterns);
                 @endphp
 
-                <li id="{{ $module['html_id'] }}" class="{{ $isActive ? 'active' : '' }}" {{ $moduleId }}>
-                    {{-- @if ($moduleId == 17)
-                        {{ dd(empty($module['module_url']) || $module['module_url'] === '***') }}
-                    @endif --}}
+                <li id="{{ $module['html_id'] }}" class="{{ $isActive ? 'active' : '' }}" data-module-id="{{ $moduleId }}">
                     @if (empty($module['module_url']) || $module['module_url'] === '***')
                         <a href="javascript:void(0)">
                             <i class="{{ $module['icon'] }}"></i>
@@ -35,11 +46,12 @@
 
                     @if ($hasSubmodules)
                         <ul class="hidden-ul" style="{{ $isActive ? 'display:block;' : '' }}">
-                            @foreach ($adminSubModules[$moduleId] as $subModule)
+                            @foreach ($subModules as $subModule)
                                 @php
-                                    $subActive = request()->is(trim($subModule['module_url'], '/'));
+                                    $subUrl = trim($subModule['module_url'], '/');
+                                    $subActive = request()->is($subUrl) || request()->is($subUrl . '/*');
                                 @endphp
-                                <li class="{{ $subActive ? 'active btn-danger' : '' }}">
+                                <li class="{{ $subActive ? 'active' : '' }}">
                                     <a href="{{ url($subModule['module_url']) }}">
                                         <i class="{{ $subModule['icon'] }}"></i>
                                         <span>{{ $subModule['module'] }}</span>

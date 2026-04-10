@@ -5,7 +5,8 @@
     <meta charset="utf-8">
     <title>@yield('title', $title_for_layout ?? 'Admin')</title>
 
-    <link href="https://fonts.googleapis.com/css?family=Roboto:400,300,100,500,700,900" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,300,100,500,700,900" rel="stylesheet"
+        type="text/css">
     <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
     <link rel="stylesheet" href="{{ asset('css/colorbox.css') }}">
@@ -34,6 +35,11 @@
     <script src="{{ asset('js/assets/js/plugins/ui/moment/moment.min.js') }}"></script>
     <script src="{{ asset('js/assets/js/plugins/pickers/datetimepicker.js') }}"></script>
     <script src="{{ asset('js/assets/js/plugins/pickers/datepicker.js') }}"></script>
+
+    <script src="{{ asset('js/assets/js/plugins/forms/styling/switch.min.js') }}"></script>
+    <script src="{{ asset('js/jquery.validate.js') }}"></script>
+    <script src="{{ asset('js/assets/js/plugins/notifications/noty.min.js') }}"></script>
+    <script src="{{ asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
 
     @stack('head-scripts')
 
@@ -82,7 +88,7 @@
                         </li>
                         <li class="divider"></li>
                         <li>
-                            <a href="{{ url('admin/admins/logout') }}" title = 'Logout'>
+                            <a href="{{ url('admin/admins/logout') }}" title='Logout'>
                                 {{ 'Logout' }}
                             </a>
                         </li>

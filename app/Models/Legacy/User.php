@@ -4,6 +4,7 @@ namespace App\Models\Legacy;
 
 use App\Models\Legacy\AdminRole;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class User extends LegacyModel
@@ -92,38 +93,8 @@ class User extends LegacyModel
         return $this->belongsTo(AdminRole::class, 'role_id');
     }
 
-    // public function vehicles(): HasMany
-    // {
-    //     return $this->hasMany(Vehicle::class, 'user_id');
-    // }
-
-    // public function ordersAsRenter(): HasMany
-    // {
-    //     return $this->hasMany(CsOrder::class, 'renter_id');
-    // }
-
-    // public function ordersAsOwner(): HasMany
-    // {
-    //     return $this->hasMany(CsOrder::class, 'user_id');
-    // }
-
-    // public function reservationsAsRenter(): HasMany
-    // {
-    //     return $this->hasMany(VehicleReservation::class, 'renter_id');
-    // }
-
-    // public function reservationsAsOwner(): HasMany
-    // {
-    //     return $this->hasMany(VehicleReservation::class, 'user_id');
-    // }
-
-    // public function defaultCard(): HasOne
-    // {
-    //     return $this->hasOne(UserCcToken::class, 'id', 'cc_token_id');
-    // }
-
-    // public function role(): BelongsTo
-    // {
-    //     return $this->belongsTo(AdminRole::class, 'role_id');
-    // }
+    public function userLicenseDetail(): HasOne
+    {
+        return $this->hasOne(UserLicenseDetail::class, 'user_id');
+    }
 }

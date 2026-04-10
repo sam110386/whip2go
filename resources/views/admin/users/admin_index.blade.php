@@ -4,8 +4,8 @@
 
 @php
     $keyword ??= '';
-    $show ??= '';
-    $type ??= '';
+    $show ??= null;
+    $type ??= null;
 @endphp
 
 @section('content')
@@ -21,7 +21,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="{{ url('admin/users/add') }}" class ="btn btn-success">
+                <a href="{{ url('admin/users/add') }}" class="btn btn-success">
                     {{ 'Add New' }}
                 </a>
             </div>
@@ -34,14 +34,13 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="post" action="{{ url('admin/users/index') }}">
-                @csrf
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/users/index') }}">
                 <div class="row">
                     <div class="col-md-10">
                         <div class="col-md-3">
                             {{ ' Keyword :' }}
-                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}"
-                                maxlength="50" size="30">
+                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50"
+                                size="30">
                         </div>
 
                         <div class="col-md-3">
@@ -50,10 +49,10 @@
                                 <option value="">
                                     {{ 'Select..' }}
                                 </option>
-                                <option value="Active" @selected($show == 'Active')>
+                                <option value="Active" @selected($show === 'Active')>
                                     {{ 'Active' }}
                                 </option>
-                                <option value="Deactive" @selected($show == 'Deactive')>
+                                <option value="Deactive" @selected($show === 'Deactive')>
                                     {{ 'Inactive' }}
                                 </option>
                             </select>
@@ -121,7 +120,6 @@
 
 @endsection
 
-
 @push('styles')
     <style type="text/css">
         .table>thead>tr>th,
@@ -136,5 +134,72 @@
 @endpush
 
 @push('scripts')
+    <script type="text/javascript">
+        $(document).ready(function () {
+
+            $(document).on('click', '.page-link, .sort-link', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                if (url && url !== '#' && url !== 'javascript:;') {
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('submit', '#frmSearchadmin', function (e) {
+                e.preventDefault();
+                var form = $(this);
+                var isClearFilter = false;
+
+                if (e.originalEvent && e.originalEvent.submitter) {
+                    var btn = $(e.originalEvent.submitter);
+                    if (btn.attr('name') === 'ClearFilter') {
+                        isClearFilter = true;
+                    }
+                }
+
+                if (isClearFilter) {
+                    form[0].reset();
+                    var baseUrl = form.attr('action');
+                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
+                } else {
+                    var formData = form.serialize();
+                    var url = form.attr('action') + '?' + formData;
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('change', '.ajax-limit', function (e) {
+                e.preventDefault();
+                var form = $(this).closest('form');
+                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+                loadListing(url);
+            });
+
+            function loadListing(url, historyUrl) {
+                if (typeof historyUrl === 'undefined') {
+                    historyUrl = url;
+                }
+                $('#listing').css('opacity', '0.5');
+
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    success: function (data) {
+                        $('#listing').html(data);
+                        $('#listing').css('opacity', '1');
+                        window.history.pushState(null, null, historyUrl);
+                    },
+                    error: function (xhr) {
+                        $('#listing').css('opacity', '1');
+                        console.error('AJAX Load Error:', xhr);
+                    }
+                });
+            }
+
+            window.onpopstate = function () {
+                loadListing(window.location.href);
+            };
+        });
+    </script>
     <script src="{{ asset('js/admin_booking.js') }}"></script>
 @endpush
