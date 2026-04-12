@@ -230,6 +230,11 @@ class VehiclesController extends LegacyAppController
         return '/admin/vehicles/add';
     }
 
+    protected function vehicleBasePath(): string
+    {
+        return '/admin/vehicles';
+    }
+
     protected function vehicleAddReturnListUrl(bool $isSuperAdmin): string
     {
         return $isSuperAdmin ? '/admin/vehicles/index' : '/admin/linked_vehicles/index';
@@ -440,7 +445,7 @@ class VehiclesController extends LegacyAppController
     {
         $vehicleId = $this->decodeId((string)$id);
         if (!$vehicleId) {
-            return redirect('/admin/vehicles/index');
+            return redirect($this->vehicleBasePath() . '/index');
         }
 
         if ($request->isMethod('POST')) {
@@ -492,7 +497,7 @@ class VehiclesController extends LegacyAppController
                 }
             }
 
-            return redirect()->to($request->headers->get('referer') ?: '/admin/vehicles/rental_setting/' . base64_encode((string)$vehicleId));
+            return redirect()->to($request->headers->get('referer') ?: $this->vehicleBasePath() . '/rental_setting/' . base64_encode((string)$vehicleId));
         }
 
         $vehicle = LegacyVehicle::query()->find($vehicleId, ['id', 'vehicle_unique_id', 'rent_opt', 'rate', 'day_rent', 'auth_require', 'fare_type', 'user_id']);
@@ -511,6 +516,8 @@ class VehiclesController extends LegacyAppController
             'vehicle' => $vehicle,
             'depositRule' => $depositRule,
             'listTitle' => 'Update Rental Fee Setting',
+            'vehicleBasePath' => $this->vehicleBasePath(),
+            'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
         ]);
     }
 
@@ -518,18 +525,20 @@ class VehiclesController extends LegacyAppController
     {
         $sourceId = $this->decodeId((string)$vehicleid);
         if (!$sourceId) {
-            return redirect('/admin/vehicles/index');
+            return redirect($this->vehicleBasePath() . '/index');
         }
 
         $sourceVehicle = LegacyVehicle::query()->find($sourceId);
         if (!$sourceVehicle) {
-            return redirect('/admin/vehicles/index');
+            return redirect($this->vehicleBasePath() . '/index');
         }
 
         if (!$request->isMethod('POST')) {
             return view('admin.vehicles.duplicate', [
                 'vehicleid' => $sourceId,
                 'dealerid' => $sourceVehicle->user_id,
+                'vehicleBasePath' => $this->vehicleBasePath(),
+                'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
             ]);
         }
 
@@ -582,7 +591,7 @@ class VehiclesController extends LegacyAppController
             LegacyDepositRule::query()->create($copy);
         }
 
-        return redirect('/admin/vehicles/index');
+        return redirect($this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])));
     }
 
     public function admin_checkVinDetails(Request $request): JsonResponse
@@ -606,6 +615,7 @@ class VehiclesController extends LegacyAppController
         return view('admin.vehicles.lastlocation', [
             'vehicle' => $vehicle,
             'vehicleLocation' => ['status' => false, 'message' => 'Passtime provider migration pending'],
+            'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
         ]);
     }
 

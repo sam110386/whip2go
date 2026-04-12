@@ -8,6 +8,6 @@
         <div>Vehicle: {{ data_get($vehicle, 'vehicle_name', data_get($vehicle, 'id')) }}</div>
     @endif
     <p>{{ data_get($vehicleLocation, 'message', 'Location service pending migration') }}</p>
-    <a href="/admin/vehicles/index">Back</a>
+    <a href="{{ $returnListUrl ?? '/admin/vehicles/index' }}">Back</a>
 @endsection
 

@@ -11,7 +11,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $helpers = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'legacy_helpers.php';
+        if (is_file($helpers)) {
+            require_once $helpers;
+        }
     }
 
     /**
