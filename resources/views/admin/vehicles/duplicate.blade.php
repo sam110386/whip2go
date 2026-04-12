@@ -7,13 +7,17 @@
 @endpush
 
 @section('content')
+    @php
+        $base = $vehicleBasePath ?? '/admin/vehicles';
+    @endphp
     <h1>Duplicate Vehicle</h1>
 
     @if (session('error'))
         <p style="color:#b00020;">{{ session('error') }}</p>
     @endif
 
-    <form method="POST" action="/admin/vehicles/duplicate/{{ base64_encode((string)($vehicleid ?? 0)) }}" id="vehicle-duplicate-form">
+    <form method="POST" action="{{ $base }}/duplicate/{{ base64_encode((string)($vehicleid ?? 0)) }}" id="vehicle-duplicate-form">
+        @csrf
         <div style="margin:8px 0;">
             <label>VIN Number* <input type="text" name="Vehicle[vin_no]" style="text-transform:uppercase;" required maxlength="100"></label>
         </div>
@@ -22,7 +26,7 @@
             <select name="Vehicle[user_id]" id="vehicle_user_id" style="width:100%;" required></select>
         </div>
         <button type="submit">Proceed</button>
-        <a href="/admin/vehicles/index" style="margin-left:10px;">Cancel</a>
+        <a href="{{ $returnListUrl ?? ($base . '/index') }}" style="margin-left:10px;">Cancel</a>
     </form>
 @endsection
 

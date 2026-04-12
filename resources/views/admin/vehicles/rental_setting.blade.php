@@ -3,8 +3,12 @@
 @section('title', $listTitle ?? 'Vehicle Fee Setting')
 
 @section('content')
+    @php
+        $base = $vehicleBasePath ?? '/admin/vehicles';
+    @endphp
     <h1>{{ $listTitle ?? 'Vehicle Fee Setting' }}</h1>
-    <form method="POST" action="/admin/vehicles/rental_setting/{{ base64_encode((string)($id ?? 0)) }}">
+    <form method="POST" action="{{ $base }}/rental_setting/{{ base64_encode((string)($id ?? 0)) }}">
+        @csrf
         <fieldset style="margin-bottom:10px;">
             <legend>Vehicle</legend>
             <div>ID: {{ data_get($vehicle, 'vehicle_unique_id', '-') }}</div>
@@ -29,7 +33,7 @@
         </fieldset>
 
         <button type="submit">Save</button>
-        <a href="/admin/vehicles/index" style="margin-left:10px;">Return</a>
+        <a href="{{ $returnListUrl ?? ($base . '/index') }}" style="margin-left:10px;">Return</a>
     </form>
 @endsection
 
