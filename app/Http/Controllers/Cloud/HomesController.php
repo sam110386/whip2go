@@ -3,21 +3,20 @@
 namespace App\Http\Controllers\Cloud;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use Illuminate\Http\Request;
 
 class HomesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = false;
+    protected bool $shouldLoadLegacyModules = true;
 
-    public function cloud_dashboard(Request $request)
+    public function cloud_dashboard()
     {
-        return response()->json([
-            'legacy' => true,
-            'route' => 'cloud/homes/dashboard',
-            'user' => [
-                'SESSION_ADMIN' => session()->get('SESSION_ADMIN'),
-            ],
-        ])->header('Content-Type', 'application/json; charset=utf-8');
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
+        }
+
+        return view('cloud.homes.dashboard', [
+            'title_for_layout' => 'Dashboard',
+        ]);
     }
 }
 
