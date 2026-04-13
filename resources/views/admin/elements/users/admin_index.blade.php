@@ -28,10 +28,10 @@
                     <td valign="top">{{ $user->last_name }}</td>
                     <td valign="top">{{ $user->email }}</td>
                     <td valign="top">{{ $user->contact_number }}</td>
-                    <td valign="top">{{ $user->created }}</td>
+                    <td valign="top">{{ $user->created ? \Carbon\Carbon::parse($user->created)->format('m/d/Y h:i A') : '' }}</td>
 
                     <td align="center" valign="bottom">
-                        <a href="{{ url('admin.users.status', [base64_encode($user->id), $user->status == 1 ? 0 : 1]) }}"
+                        <a href="{{ url('admin/users/status/' . base64_encode($user->id) . '/' . ($user->status == 1 ? 0 : 1)) }}"
                             onclick="return confirm('Are you sure to update this User?')">
                             <img src="{{ asset($user->status == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 title="Status" alt="Status">
@@ -43,7 +43,7 @@
                             @if ($user->is_verified == 1)
                                 <img src="{{ asset('img/green2.jpg') }}" alt="Status">
                             @else
-                                <a href="{{ url('admin.users.verify', base64_encode($user->id)) }}"
+                                <a href="{{ url('admin/users/verify/' . base64_encode($user->id)) }}"
                                     onclick="return confirm('Are you sure?')">
                                     <img src="{{ asset('img/red3.jpg') }}" alt="Verify">
                                 </a>
@@ -60,7 +60,7 @@
 
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
-                            <a href="{{ url('admin.users.driverstatus', [base64_encode($user->id), $user->is_driver == 1 ? 0 : 1]) }}"
+                            <a href="{{ url('admin/users/driverstatus/' . base64_encode($user->id) . '/' . ($user->is_driver == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Update Driver?')">
                                 <img src="{{ asset($user->is_driver == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                     alt="Driver">
@@ -71,12 +71,12 @@
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
                             @if ($user->is_dealer == 1)
-                                <a href="{{ url('admin.users.dealer_approve', [base64_encode($user->id), 2]) }}"
+                                <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/2') }}"
                                     onclick="return confirm('Reject dealer?')">
                                     <img src="{{ asset('img/green2.jpg') }}">
                                 </a>
                             @elseif($user->is_dealer == 2)
-                                <a href="{{ url('admin.users.dealer_approve', [base64_encode($user->id), 1]) }}"
+                                <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/1') }}"
                                     onclick="return confirm('Approve dealer?')">
                                     <i class='fa fa-frown-o fa-2x'></i>
                                 </a>
@@ -89,7 +89,7 @@
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
                             @php
-                                $checkrUrl = url('admin.users.checkr_status', base64_encode($user->id));
+                                $checkrUrl = url('admin/users/checkr_status/' . base64_encode($user->id));
                             @endphp
                             @switch($user->checkr_status)
                                 @case(1)
@@ -131,7 +131,7 @@
 
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
-                            <a href="{{ url('admin.users.trash', [base64_encode($user->id), $user->trash == 1 ? 0 : 1]) }}"
+                            <a href="{{ url('admin/users/trash/' . base64_encode($user->id) . '/' . ($user->trash == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Are you sure?')">
                                 <img src="{{ asset($user->trash == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
                                     title="Delete Toggle">
@@ -193,7 +193,7 @@
                                                 </a>
                                             </li>
                                             <li>    
-                                                <a href="{{ url('admin/users/admin_revsetting', base64_encode($user->id)) }}">
+                                                <a href="{{ url('admin/users/revsetting', base64_encode($user->id)) }}">
                                                     <i class="glyphicon glyphicon-certificate"></i> 
                                                         {{'Revenue Setting'}}
                                                 </a>

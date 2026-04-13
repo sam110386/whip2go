@@ -4,23 +4,16 @@ namespace App\Http\Controllers\Traits;
 
 use App\Models\Legacy\User;
 use App\Models\Legacy\UserCcToken;
-use Illuminate\Support\Facades\Log;
+use App\Services\Legacy\PaymentProcessor;
 
 trait UserCcsTrait {
 
     protected function _addCardLogic($userid, $dataInputs) {
         $userCcToken = UserCcToken::where('user_id', $userid)->first();
-        
-        // Placeholder for PaymentProcessor
-        Log::info("PaymentProcessor: addNewCard for user $userid");
-        
-        // Simulated successful return from PaymentProcessor
-        $return = [
-            'status' => 'success',
-            'stripe_token' => 'tok_simulated_' . time(),
-            'card_id' => 'card_simulated_' . time(),
-            'card_funding' => 'credit'
-        ];
+
+        /** @var PaymentProcessor $paymentProcessor */
+        $paymentProcessor = app(PaymentProcessor::class);
+        $return = $paymentProcessor->addNewCard((object) $dataInputs, $userCcToken->stripe_token ?? '');
 
         if ($return['status'] == 'success') {
             $dataToSave = [
@@ -51,12 +44,12 @@ trait UserCcsTrait {
             }
 
             if ($userCcToken && ($dataInputs['default'] ?? 0) == 1 && !empty($dataToSave['card_id'])) {
-                Log::info("PaymentProcessor: makeCardDefault for user $userid");
+                $paymentProcessor->makeCardDefault($userCcToken->stripe_token, $dataToSave['card_id']);
             }
 
             return ['status' => true, 'message' => "Card has been added successfully."];
         } else {
-            return ['status' => false, 'message' => $return['message'] ?? "Failed to add card."];
+            return ['status' => false, 'message' => $return['message'] ?? ($return['msg'] ?? "Failed to add card.")];
         }
     }
 }

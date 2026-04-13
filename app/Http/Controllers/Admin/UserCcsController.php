@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Legacy\UserCcsController as LegacyUserCcsController;
 use App\Models\Legacy\UserCcToken;
 use App\Models\Legacy\User;
+use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class UserCcsController extends LegacyUserCcsController
 {
@@ -60,8 +60,9 @@ class UserCcsController extends LegacyUserCcsController
             return redirect()->back()->with('error', "Sorry, this CC record doesnt belong to selected user.");
         }
 
-        // Placeholder for PaymentProcessor->deleteCustomerCard
-        Log::info("PaymentProcessor: deleteCustomerCard for user $userid, card $id");
+        /** @var PaymentProcessor $paymentProcessor */
+        $paymentProcessor = app(PaymentProcessor::class);
+        $paymentProcessor->deleteCustomerCard((string) $UserCcTokenObj->stripe_token, (string) $UserCcTokenObj->card_id);
 
         UserCcToken::where('id', $id)->delete();
         return redirect()->back()->with('success', "Record has been deleted successfully.");
@@ -106,8 +107,9 @@ class UserCcsController extends LegacyUserCcsController
         if (!empty($isassociatedwithUser)) {
             User::where('id', $userid)->update(['cc_token_id' => $ccid]);
 
-            // Placeholder for PaymentProcessor->makeCardDefault
-            Log::info("PaymentProcessor: makeCardDefault for user $userid, card $ccid");
+            /** @var PaymentProcessor $paymentProcessor */
+            $paymentProcessor = app(PaymentProcessor::class);
+            $paymentProcessor->makeCardDefault((string) $isassociatedwithUser->stripe_token, (string) $isassociatedwithUser->card_id);
 
             return redirect()->back()->with('success', "CC record has been updated successfully.");
         } else {

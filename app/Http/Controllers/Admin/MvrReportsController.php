@@ -9,6 +9,7 @@ use App\Models\Legacy\User;
 use App\Models\Legacy\UserReport;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleReservation;
+use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Http\Request;
 
 class MvrReportsController extends LegacyAppController
@@ -56,7 +57,8 @@ class MvrReportsController extends LegacyAppController
         if ($limit < 1) $limit = 20;
         session([$sessionLimitKey => $limit]);
 
-        $users = $query->orderBy('User.id', 'DESC')->paginate($limit)->withQueryString();
+        $users = $query->orderBy('User.id', 'DESC')->paginate($limit);
+        $users->appends($request->query());
 
         $viewData = [
             'title_for_layout' => 'User MVR Reports',
@@ -209,7 +211,6 @@ class MvrReportsController extends LegacyAppController
         }
 
         // Release deposit/initial fee payments via PaymentProcessor
-        $processorClass = '\\App\\Lib\\Legacy\\PaymentProcessor';
         $walletClass    = '\\App\\Models\\Legacy\\CsWallet';
         $paymentClass   = '\\App\\Models\\Legacy\\CsReservationPayment';
 
@@ -217,7 +218,7 @@ class MvrReportsController extends LegacyAppController
             $paymentModel    = new $paymentClass();
             $deposits        = $paymentModel->getDepositTransaction($bookingId);
             $initialFees     = $paymentModel->getInitialFeeTransaction($bookingId);
-            $processor       = class_exists($processorClass) ? new $processorClass() : null;
+            $processor       = app(PaymentProcessor::class);
 
             foreach (array_merge($deposits ?? [], $initialFees ?? []) as $txn) {
                 if ($txn['txntype'] === 'C' && class_exists($walletClass)) {

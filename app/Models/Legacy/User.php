@@ -46,7 +46,6 @@ class User extends LegacyModel
         'is_passenger',
         'is_staff',
         'staff_parent',
-        'is_dealer',
         'dealer_id',
         'stripe_key',
         'auto_start',
@@ -85,7 +84,9 @@ class User extends LegacyModel
 
     protected $guarded = [
         'id',
-        'is_admin'
+        'is_admin',
+        'is_dealer',
+
     ];
 
     public function adminRole(): BelongsTo

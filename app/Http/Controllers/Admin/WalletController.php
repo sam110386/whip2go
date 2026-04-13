@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -162,7 +163,8 @@ class WalletController extends LegacyAppController
             $q->where('wt.transaction_id', $keyword);
         }
 
-        $transactions = $q->paginate($limit)->withQueryString();
+        $transactions = $q->paginate($limit);
+        $transactions->appends($request->query());
 
         $isDealer = (int)DB::table('users')->where('id', $uid)->value('is_dealer') === 1;
         $useridB64 = base64_encode((string)$uid);
@@ -259,9 +261,59 @@ class WalletController extends LegacyAppController
         $wallet = $this->ensureWalletRow($uid);
 
         if ($request->isMethod('post')) {
-            session()->flash('error', 'Wallet refund to card requires PaymentProcessor (Stripe) — not migrated in Laravel yet.');
+            $deduction = (float) $request->input('Wallet.balance', 0);
+            $deductionNote = (string) $request->input('Wallet.note', '');
+            if ($deduction <= 0) {
+                session()->flash('error', 'Please enter a valid amount');
+                return redirect()->back();
+            }
+            if (((float) ($wallet->balance ?? 0)) < $deduction) {
+                session()->flash('error', 'Sorry, this user dont have enough balance to refund');
+                return redirect()->back();
+            }
 
-            return redirect()->back();
+            $txns = DB::table('cs_wallet_transactions')
+                ->where('cs_wallet_id', $wallet->id)
+                ->where('status', 0)
+                ->where('type', 0)
+                ->where('amt', '>', 0)
+                ->where('transaction_id', '!=', '')
+                ->orderBy('id')
+                ->get();
+
+            $pending = $deduction;
+            $totalRefund = 0.0;
+            $processor = app(PaymentProcessor::class);
+            foreach ($txns as $txn) {
+                if ($pending <= 0) {
+                    break;
+                }
+                $txnAmt = (float) $txn->amt;
+                $take = min($txnAmt, $pending);
+                $refund = $processor->refundWalletBalance($take, (string) $txn->transaction_id, (int) ($txn->cs_order_id ?? 0));
+                if (($refund['status'] ?? 'error') !== 'success') {
+                    session()->flash('error', $refund['message'] ?? 'Refund failed');
+                    return redirect()->back();
+                }
+                if ($take >= $txnAmt) {
+                    DB::table('cs_wallet_transactions')->where('id', $txn->id)->update(['status' => 1]);
+                } else {
+                    DB::table('cs_wallet_transactions')->where('id', $txn->id)->update(['amt' => $txnAmt - $take]);
+                }
+                $totalRefund += $take;
+                $pending -= $take;
+            }
+
+            if ($pending > 0.0001) {
+                session()->flash('error', 'Unable to process full refund from available wallet transactions.');
+                return redirect()->back();
+            }
+
+            if ($totalRefund > 0) {
+                $this->subtractBalance($totalRefund, $uid, $deductionNote ?: 'wallet_refund', 0);
+            }
+            session()->flash('success', 'Wallet balance updated successfully');
+            return redirect('/admin/wallet/index/' . base64_encode((string) $uid));
         }
 
         return view('admin.wallet.admin_refundbalance', [
@@ -295,11 +347,26 @@ class WalletController extends LegacyAppController
             abort(403, 'wrong attempt');
         }
 
-        return response()->json([
-            'status' => false,
-            'message' => 'chargeAmtToUser / PaymentProcessor is not migrated in Laravel yet.',
-            'result' => [],
-        ]);
+        $amt = (float) $request->input('Wallet.amount', 0);
+        $userid = (int) $request->input('Wallet.user_id', 0);
+        $bookingid = (int) $request->input('Wallet.bookingid', 0);
+        $note = (string) $request->input('Wallet.note', '');
+        $currency = (string) $request->input('Wallet.currency', '');
+
+        if ($amt == 0.0 || empty($userid) || $note === '') {
+            return response()->json(['status' => false, 'message' => 'Sorry, not a valid request', 'result' => []]);
+        }
+        if ($currency === '') {
+            $currency = (string) (DB::table('users')->where('id', $userid)->value('currency') ?? 'usd');
+        }
+
+        $res = app(PaymentProcessor::class)->chargeAmtToUser($amt, $userid, $note, $currency);
+        if (($res['status'] ?? 'error') !== 'success') {
+            return response()->json(['status' => false, 'message' => $res['message'] ?? 'Charge failed', 'result' => []]);
+        }
+
+        $walletbal = $this->addBalanceSimple((float) $res['amt'], $userid, (string) $res['transaction_id'], $note, $bookingid, date('Y-m-d H:i:s'));
+        return response()->json(['status' => true, 'message' => 'Charged successfully', 'result' => ['walletbal' => $walletbal]]);
     }
 
     public function admin_diacredit(Request $request, $userid = null)
@@ -333,11 +400,20 @@ class WalletController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Sorry, not a valid request', 'result' => []]);
         }
 
-        return response()->json([
-            'status' => false,
-            'message' => 'Stripe PaymentIntent creation is not wired in Laravel yet.',
-            'result' => [],
+        $amt = (float) $request->input('amount', 0);
+        $userid = $this->decodeWalletUserId((string) $request->input('userid', ''));
+        if ($amt == 0.0 || !$userid) {
+            return response()->json(['status' => false, 'message' => 'Sorry, not a valid request', 'result' => []]);
+        }
+
+        $res = app(PaymentProcessor::class)->createPaymentIntent([
+            'amount' => $amt,
+            'currency' => 'usd',
+            'description' => 'DIA Credits for Driver',
+            'statement_descriptor' => 'DIA Credits',
+            'metadata' => ['driver_id' => $userid],
         ]);
+        return response()->json($res);
     }
 
     public function admin_diacreditprocess(Request $request): JsonResponse

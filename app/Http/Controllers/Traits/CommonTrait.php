@@ -53,4 +53,41 @@ trait CommonTrait {
         }
         return $results;
     }
+
+    /**
+     * toCoordinates: Fetch latitude and longitude for a given address
+     */
+    public function toCoordinates($address) {
+        $address = str_replace(" ", "+", $address);
+        $apiKey = config('services.google.maps_api_key');
+        
+        if (empty($apiKey)) {
+            return ['lat' => 0, 'lng' => 0];
+        }
+
+        $url = "https://maps.google.com/maps/api/geocode/json?address=" . urlencode($address) . "&key=" . $apiKey;
+        
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+            $response = curl_exec($ch);
+            curl_close($ch);
+            
+            $result = json_decode($response);
+            
+            if (isset($result->status) && $result->status == "OK") {
+                return [
+                    'lat' => $result->results[0]->geometry->location->lat,
+                    'lng' => $result->results[0]->geometry->location->lng
+                ];
+            }
+        } catch (\Exception $e) {
+            \Log::error("Geocoding failed: " . $e->getMessage());
+        }
+
+        return ['lat' => 0, 'lng' => 0];
+    }
 }

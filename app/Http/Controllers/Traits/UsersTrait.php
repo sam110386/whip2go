@@ -9,14 +9,16 @@ use App\Helpers\Legacy\Security;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use Exception;
 
 
 trait UsersTrait
 {
-    use CommonTrait, MobileApi;
+    use CommonTrait, MobileApi, DriverBackgroundReport;
 
     protected function _getUsersQuery(Request $request)
     {
@@ -104,20 +106,62 @@ trait UsersTrait
             return DB::transaction(function () use ($request, $id) {
                 $data = $request->input('User');
                 $isNew = empty($id);
+                $isDealer = (isset($data['is_dealer']) && $data['is_dealer'] == 1);
+
+                $rules = [
+                    'User.first_name' => 'required|max:50',
+                    'User.last_name' => 'required|max:50',
+                    'User.email' => [
+                        'required',
+                        'email',
+                        Rule::unique('users', 'email')->ignore($id)
+                    ],
+                    'User.address' => 'required|max:150',
+                    'User.city' => 'required|max:50',
+                    'User.state' => 'required|max:2',
+                ];
+
+                if ($isNew) {
+                    $rules['User.contact_number'] = 'required|numeric|digits:10|unique:users,contact_number';
+                    $rules['User.pwd'] = 'required|min:6';
+                }
+
+                if ($isDealer) {
+                    $rules += [
+                        'User.company_address' => 'required|max:150',
+                        'User.company_city' => 'required|max:50',
+                        'User.company_state' => 'required|max:2',
+                        'User.company_zip' => 'required|max:10',
+                        'User.company_country' => 'required|max:20',
+                    ];
+                } else {
+                    $rules += [
+                        'UserLicenseDetail.givenName' => 'required|max:50',
+                        'UserLicenseDetail.lastName' => 'required|max:50',
+                        'UserLicenseDetail.addressStreet' => 'required|max:150',
+                        'UserLicenseDetail.addressCity' => 'required|max:50',
+                        'UserLicenseDetail.addressState' => 'required|max:2',
+                    ];
+                }
+
+                $validator = Validator::make($request->all(), $rules);
+
+                if ($validator->fails()) {
+                    throw new ValidationException($validator);
+                }
 
                 if ($isNew) {
                     $user = new User();
                     $data['username'] = preg_replace("/[^0-9]/", "", $data['contact_number']);
                     $data['is_verified'] = 1;
-                    $data['is_driver'] = 1;
+                    $data['is_driver'] = 0;
                     $data['status'] = 1;
-                    // For admin_add, the dealer_id should probably be the logged-in admin's ID if applicable,
-                    // but in legacy it was the session userParentId.
+                    $data['created'] = Carbon::now()->toDateTimeString();
                 } else {
                     $user = User::findOrFail($id);
+                    $data['modified'] = Carbon::now()->toDateTimeString();
                 }
 
-                // Sanitize and Format
                 $data['first_name'] = ucwords(strtolower($data['first_name'] ?? ''));
                 $data['last_name'] = ucwords(strtolower($data['last_name'] ?? ''));
 
@@ -131,28 +175,36 @@ trait UsersTrait
                 }
 
                 if (!empty($data['pwd'])) {
-                    // Cake used a specific salt/hash
                     $data['password'] = Security::hash($data['pwd'], null, true);
                     unset($data['pwd']);
                 } elseif (isset($data['pwd'])) {
                     unset($data['pwd']);
                 }
 
-                // Address Coordinates (Dummy implementation for now if geocoder not available)
-                // $address = ($data['address'] ?? '') . ' ' . ($data['city'] ?? '') . ' ' . ($data['state'] ?? '') . ' ' . ($data['zip'] ?? '');
-                // $latlng = $this->toCoordinates($address);
+                // Generate Geocoding Coordinates
+                if (!empty($data['address']) && !empty($data['city']) && !empty($data['state'])) {
+                    $addressString = $data['address'] . ', ' . $data['city'] . ', ' . $data['state'] . (!empty($data['zip']) ? ' ' . $data['zip'] : '');
+                    $coords = $this->toCoordinates($addressString);
+                    $data['address_lat'] = $coords['lat'];
+                    $data['address_lng'] = $coords['lng'];
+                }
 
                 $user->fill($data);
                 $user->save();
 
                 $id = $user->id;
 
-                // Handle File Uploads
                 if ($request->hasFile('User.photo')) {
                     $file = $request->file('User.photo');
                     $filename = 'user_pic_' . $id . '.' . $file->getClientOriginalExtension();
                     $file->move(public_path('img/user_pic'), $filename);
                     $user->update(['photo' => $filename]);
+                }
+
+                if ($request->hasFile('tmp_doc_1') || $request->hasFile('tmp_doc_2') || $request->hasFile('representative_sign')) {
+                    if (!file_exists(public_path('files/userdocs'))) {
+                        mkdir(public_path('files/userdocs'), 0777, true);
+                    }
                 }
 
                 if ($request->hasFile('tmp_doc_1')) {
@@ -176,7 +228,6 @@ trait UsersTrait
                     $user->update(['representative_sign' => $filename]);
                 }
 
-                // Handle UserLicenseDetail
                 if (!$user->is_dealer) {
                     $licenseData = $request->input('UserLicenseDetail', []);
                     if (!empty($licenseData)) {
@@ -184,10 +235,22 @@ trait UsersTrait
                         $licenseData['dateOfExpiry'] = $data['licence_exp_date'] ?? null;
                         $licenseData['documentNumber'] = $data['licence_number'] ?? null;
 
+                        // Handle fields that don't have default values in DB
+                        $licenseData['jurisdictionRestrictionCodes'] = $licenseData['jurisdictionRestrictionCodes'] ?? '';
+                        $licenseData['jurisdictionEndorsementCodes'] = $licenseData['jurisdictionEndorsementCodes'] ?? '';
+                        $licenseData['sex'] = $licenseData['sex'] ?? 'M'; // Default to 'M' if missing
+                        $licenseData['eyeColor'] = $licenseData['eyeColor'] ?? '';
+                        $licenseData['height'] = $licenseData['height'] ?? '';
+                        $licenseData['documentDiscriminator'] = $licenseData['documentDiscriminator'] ?? '';
+                        $licenseData['issuer'] = $licenseData['issuer'] ?? '';
+
                         $detail = UserLicenseDetail::where('user_id', $id)->first();
                         if ($detail) {
+                            $licenseData['modified'] = Carbon::now()->toDateTimeString();
                             $detail->update($licenseData);
                         } else {
+                            $licenseData['created'] = Carbon::now()->toDateTimeString();
+                            $licenseData['modified'] = Carbon::now()->toDateTimeString();
                             UserLicenseDetail::create($licenseData);
                         }
                     }
@@ -197,9 +260,20 @@ trait UsersTrait
                     AdminUserAssociation::saveLeadAssociation($user->username, $id);
                 }
 
+                if ($request->has('updatelicense') && $request->input('updatelicense') == 1) {
+                    $repResponse = $this->updateCandidateToDriverBackgroundReport($id);
+                    if ($repResponse['status']) {
+                        $user->update(['checkr_status' => 2]);
+                    } else {
+                        $user->update(['checkr_status' => 4]);
+                    }
+                }
+
                 return ['status' => true, 'message' => "User " . ($isNew ? "added" : "updated") . " successfully"];
             });
-        } catch (\Exception $e) {
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Exception $e) {
             Log::error("Error in _saveUser: " . $e->getMessage());
             return ['status' => false, 'message' => $e->getMessage()];
         }
@@ -214,7 +288,7 @@ trait UsersTrait
             $user = User::findOrFail($id);
             $user->update([$field => $value]);
             return ['status' => true, 'message' => "User $field updated"];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return ['status' => false, 'message' => $e->getMessage()];
         }
     }

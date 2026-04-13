@@ -45,6 +45,9 @@
                     <div class="col-lg-8">
                         <input type="text" name="User[first_name]" maxlength="50" class="form-control required"
                             value="{{ old('User.first_name', $user?->first_name) }}">
+                        @error('User.first_name')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
                 <div class="form-group">
@@ -55,6 +58,9 @@
                     <div class="col-lg-8">
                         <input type="text" name="User[last_name]" maxlength="50" class="form-control required"
                             value="{{ old('User.last_name', $user?->last_name) }}">
+                        @error('User.last_name')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
                 <div class="form-group">
@@ -65,6 +71,9 @@
                     <div class="col-lg-8">
                         <input type="email" name="User[email]" class="email form-control required"
                             value="{{ old('User.email', $user?->email) }}">
+                        @error('User.email')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
                 <div class="form-group">
@@ -86,6 +95,9 @@
                             <input type="text" name="User[contact_number]" size="10" maxlength="10"
                                 class="form-control required digits"
                                 value="{{ old('User.contact_number', $user?->contact_number) }}">
+                            @error('User.contact_number')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                 @endif
@@ -97,6 +109,9 @@
                     <div class="col-lg-8">
                         <input type="text" name="User[address]" maxlength="150" class="form-control required"
                             value="{{ old('User.address', $user?->address) }}">
+                        @error('User.address')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
                 <div class="form-group">
@@ -107,6 +122,9 @@
                     <div class="col-lg-8">
                         <input type="text" name="User[city]" maxlength="50" class="form-control required"
                             value="{{ old('User.city', $user?->city) }}">
+                        @error('User.city')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
                 <div class="form-group">
@@ -117,6 +135,9 @@
                     <div class="col-lg-8">
                         <input type="text" name="User[state]" maxlength="2" class="form-control required"
                             value="{{ old('User.state', $user?->state) }}">
+                        @error('User.state')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
                 <div class="form-group">
@@ -139,6 +160,9 @@
                     <div class="col-lg-8">
                         <input type="password" name="User[pwd]" maxlength="50"
                             class="form-control @if (empty($user?->id)) required @endif">
+                        @error('User.pwd')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
 
@@ -197,7 +221,10 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[givenName]" maxlength="50" class="form-control required"
-                                value="{{ old('UserLicenseDetail.givenName', $user?->UserLicenses->givenName ?? '') }}">
+                                value="{{ old('UserLicenseDetail.givenName', $user?->userLicenseDetail->givenName ?? '') }}">
+                            @error('UserLicenseDetail.givenName')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -207,7 +234,10 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[lastName]" maxlength="50" class="form-control required"
-                                value="{{ old('UserLicenseDetail.lastName', $user?->UserLicenses->lastName ?? '') }}">
+                                value="{{ old('UserLicenseDetail.lastName', $user?->userLicenseDetail->lastName ?? '') }}">
+                            @error('UserLicenseDetail.lastName')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -217,7 +247,7 @@
                         <div class="col-lg-8">
                             <input type="text" id="UserLicenseDetailDateOfBirth" name="UserLicenseDetail[dateOfBirth]"
                                 maxlength="10" class="form-control"
-                                value="{{ old('UserLicenseDetail.dateOfBirth', $user?->UserLicenses->dateOfBirth ?? '') }}">
+                                value="{{ old('UserLicenseDetail.dateOfBirth', $user?->userLicenseDetail->dateOfBirth ?? '') }}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -228,7 +258,10 @@
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressStreet]" maxlength="150"
                                 class="form-control required"
-                                value="{{ old('UserLicenseDetail.addressStreet', $user?->UserLicenses->addressStreet ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressStreet', $user?->userLicenseDetail->addressStreet ?? '') }}">
+                            @error('UserLicenseDetail.addressStreet')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -239,7 +272,10 @@
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressCity]" maxlength="50"
                                 class="form-control required"
-                                value="{{ old('UserLicenseDetail.addressCity', $user?->UserLicenses->addressCity ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressCity', $user?->userLicenseDetail->addressCity ?? '') }}">
+                            @error('UserLicenseDetail.addressCity')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -250,7 +286,10 @@
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressState]" maxlength="2"
                                 class="form-control required"
-                                value="{{ old('UserLicenseDetail.addressState', $user?->UserLicenses->addressState ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressState', $user?->userLicenseDetail->addressState ?? '') }}">
+                            @error('UserLicenseDetail.addressState')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -259,7 +298,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressPostalCode]" maxlength="10" class="form-control"
-                                value="{{ old('UserLicenseDetail.addressPostalCode', $user?->UserLicenses->addressPostalCode ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressPostalCode', $user?->userLicenseDetail->addressPostalCode ?? '') }}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -321,7 +360,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('files/userdocs/' . !empty($user?->license_doc_1) ? $user?->license_doc_1 : 'no_image.gif') }}">
+                                        src="{{ asset('files/userdocs/' . ($user?->license_doc_1 ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -343,7 +382,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('files/userdocs/' . !empty($user?->license_doc_2) ? $user?->license_doc_2 : 'no_image.gif') }}">
+                                        src="{{ asset('files/userdocs/' . ($user?->license_doc_2 ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -365,7 +404,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('img/user_pic/' . !empty($user?->photo) ? $user?->photo : 'no_image.gif') }}">
+                                        src="{{ asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -411,6 +450,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[company_address]" maxlength="150" class="form-control required"
                                 value="{{ old('User.company_address', $user?->company_address) }}">
+                            @error('User.company_address')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -421,6 +463,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[company_city]" maxlength="50" class="form-control required"
                                 value="{{ old('User.company_city', $user?->company_city) }}">
+                            @error('User.company_city')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -431,6 +476,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[company_state]" maxlength="2" class="form-control required"
                                 value="{{ old('User.company_state', $user?->company_state) }}">
+                            @error('User.company_state')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -441,6 +489,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[company_zip]" maxlength="10" class="form-control required"
                                 value="{{ old('User.company_zip', $user?->company_zip) }}">
+                            @error('User.company_zip')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -451,6 +502,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[company_country]" maxlength="20" class="form-control required"
                                 value="{{ old('User.company_country', $user?->company_country) }}">
+                            @error('User.company_country')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -461,6 +515,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[representative_name]" maxlength="40" class="form-control"
                                 value="{{ old('User.representative_name', $user?->representative_name) }}">
+                            @error('User.representative_name')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -471,6 +528,9 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[representative_role]" maxlength="30" class="form-control"
                                 value="{{ old('User.representative_role', $user?->representative_role) }}">
+                            @error('User.representative_role')
+                                <span class="text-danger">{{ $message }}</span>
+                            @enderror
                         </div>
                     </div>
                     <div class="form-group">
@@ -489,7 +549,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('files/userdocs/' . !empty($user?->representative_sign) ? $user?->representative_sign : 'no_image.gif') }}">
+                                        src="{{ asset('files/userdocs/' . ($user?->representative_sign ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -513,7 +573,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('img/user_pic/' . !empty($user?->photo) ? $user?->photo : 'no_image.gif') }}">
+                                        src="{{ asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -536,6 +596,7 @@
 
         <input type="hidden" name="User[is_dealer]" value="{{ old('User.is_dealer', $user?->is_dealer) }}">
         <input type="hidden" name="User[id]" value="{{ $user?->id }}">
+        <input type="hidden" name="UserLicenseDetail[id]" value="{{ $user?->userLicenseDetail?->id }}">
     </form>
 @endsection
 

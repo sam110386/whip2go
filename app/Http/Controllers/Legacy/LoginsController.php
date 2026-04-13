@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Legacy;
 use App\Models\Legacy\AdminUserAssociation;
 use App\Models\Legacy\User;
 use App\Models\Legacy\UserCcToken;
+use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Mail;
@@ -449,10 +450,7 @@ class LoginsController extends LegacyAppController
                 'address' => $user->address . ' ' . $user->last_name,
             ];
 
-            $processorClass = '\\App\\Lib\\Legacy\\PaymentProcessor';
-            $ccReturn = class_exists($processorClass)
-                ? (new $processorClass())->addNewCard($dataToSend)
-                : ['status' => 'error', 'message' => 'Payment processor not configured'];
+            $ccReturn = app(PaymentProcessor::class)->addNewCard($dataToSend);
 
             if (($ccReturn['status'] ?? '') === 'success') {
                 $token = new UserCcToken();
@@ -477,7 +475,7 @@ class LoginsController extends LegacyAppController
 
                 $return = ['status' => true, 'message' => 'Your card added successfully', 'result' => []];
             } else {
-                $return['message'] = $ccReturn['message'] ?? 'Card processing failed';
+                $return['message'] = $ccReturn['message'] ?? ($ccReturn['msg'] ?? 'Card processing failed');
             }
         }
 
