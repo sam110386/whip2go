@@ -2,42 +2,54 @@
 
 namespace App\Http\Controllers\Cloud;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\OrderDepositRulesTrait;
+use App\Http\Controllers\Admin\OrderDepositRulesController as AdminOrderDepositRulesController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
-class OrderDepositRulesController extends LegacyAppController
+class OrderDepositRulesController extends AdminOrderDepositRulesController
 {
-    use OrderDepositRulesTrait;
-
-    protected bool $shouldLoadLegacyModules = true;
-
     public function cloud_linkedupdate(Request $request, $id = null)
     {
-        if ($redirect = $this->ensureCloudSession()) {
+        if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
         }
-
-        $adminUser = session('AdminUser');
-        if (!empty($adminUser['administrator'])) {
-            return redirect('/admin/bookings/index')->with('error', 'Sorry, you are not authorized user for this action');
+        $admin = $this->getAdminUserid();
+        if (!empty($admin['administrator'])) {
+            return redirect('/admin/bookings/index')
+                ->with('error', 'Sorry, you are not authorized user for this action');
         }
 
-        $orderId = (int)base64_decode($id);
-
-        if (empty($orderId)) {
-            return redirect()->back();
+        $orderId = $this->decodeB64Id($id);
+        if (!$orderId) {
+            return redirect('/cloud/linked_bookings/index')->with('error', 'Invalid booking.');
         }
 
-        if ($request->isMethod('post') || $request->isMethod('put')) {
-            return $this->processDepositRuleUpdate($request, $orderId, url()->previous());
+        $parentId = (int)($admin['parent_id'] ?? 0);
+        $dealerIds = DB::table('admin_user_associations')
+            ->where('admin_id', $parentId)
+            ->pluck('user_id')
+            ->map(fn ($v) => (int)$v)
+            ->toArray();
+
+        $ownerId = (int)DB::table('cs_orders')->where('id', $orderId)->value('user_id');
+        if (!in_array($ownerId, $dealerIds, true)) {
+            return redirect('/cloud/linked_bookings/index')
+                ->with('error', 'Booking is not linked to this dealer account.');
         }
 
-        $ruleArr = $this->loadDepositRule($orderId);
+        return $this->runDepositRuleUpdate(
+            $request,
+            $id,
+            '/cloud/order_deposit_rules/linkedupdate/',
+            '/cloud/linked_bookings/index'
+        );
+    }
 
-        return view('cloud.order_deposit_rules.cloud_linkedupdate', [
-            'data' => ['OrderDepositRule' => $ruleArr],
-            'id'   => $orderId,
-        ]);
+    /**
+     * @internal Used by {@see cloud_linkedupdate()} via parent; exposed for dispatcher if URL uses this action name.
+     */
+    public function linkedupdate(Request $request, $id = null)
+    {
+        return $this->cloud_linkedupdate($request, $id);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Legacy\HomesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,6 +55,22 @@ Route::redirect('/telematics/subscriptions/page', '/telematics', 301);
 Route::get('/users/dashboard', function () {
     return redirect('/dashboard/index', 301);
 });
+
+// Cake single-segment marketing URLs (`app/Config/routes.php`) — must register before `/{controller}/{action}`.
+Route::match(['get', 'post'], '/contactus', [HomesController::class, 'contactus']);
+Route::match(['get', 'post'], '/nada2019', [HomesController::class, 'nada']);
+Route::get('/aboutus', [HomesController::class, 'driveitawayaboutus']);
+Route::get('/drivers', [HomesController::class, 'driveitawaydrivers']);
+Route::get('/dealers', [HomesController::class, 'driveitawaydealers']);
+Route::get('/featured', [HomesController::class, 'featured']);
+Route::get('/driveitaway', [HomesController::class, 'driveitaway']);
+Route::get('/press-kit-facts-about-driveItAway', [HomesController::class, 'press_kit_facts_about_driveItAway']);
+Route::get('/leadership-and-company-mission', [HomesController::class, 'leadership_and_company_mission']);
+Route::get('/publications-blog-industry-videos', [HomesController::class, 'publications_blog_industry_videos']);
+Route::get('/event-industry-presentation', [HomesController::class, 'event_industry_presentation']);
+Route::get('/press-releases-and-news', [HomesController::class, 'press_releases_and_news']);
+Route::get('/app-terms', [HomesController::class, 'terms']);
+Route::get('/app-privacy-policy', [HomesController::class, 'privacy']);
 
 // --------------------------------------------------------------------------
 // Cake-like dispatcher routes (incremental controller porting).

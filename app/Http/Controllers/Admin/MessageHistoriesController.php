@@ -3,54 +3,59 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\MessageHistoriesTrait;
-use App\Models\Legacy\CsTwilioOrder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MessageHistoriesController extends LegacyAppController
 {
-    use MessageHistoriesTrait;
-
     protected bool $shouldLoadLegacyModules = true;
 
     public function admin_loadmessagehistory(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
+        $renterId = (int)$request->input('renter_id', 0);
+        $ownerId = (int)$request->input('owner_id', 0);
+        if ($renterId <= 0 || $ownerId <= 0) {
+            return response('Invalid participants', 400);
         }
+        $rows = DB::table('message_histories')
+            ->where(function ($q) use ($renterId, $ownerId) {
+                $q->where('sender_id', $ownerId)->where('receiver_id', $renterId);
+            })
+            ->orWhere(function ($q) use ($renterId, $ownerId) {
+                $q->where('sender_id', $renterId)->where('receiver_id', $ownerId);
+            })
+            ->orderBy('id')
+            ->limit(500)
+            ->get();
 
-        $orderId       = (int)base64_decode(trim($request->input('orderid', '')));
-        $CsTwilioOrder = $this->getTwilioOrder($orderId);
-
-        return view('admin.message_histories.load_message_history', [
-            'CsTwilioOrder' => $CsTwilioOrder,
-            'orderid'       => base64_encode((string)$orderId),
-        ]);
+        return response()->view('admin.message_histories.history', compact('rows', 'renterId', 'ownerId'));
     }
 
     public function admin_loadnewmessage(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $orderId       = (int)base64_decode(trim($request->input('orderid', '')));
-        $CsTwilioOrder = $this->getTwilioOrder($orderId);
-        $CsOrder       = $this->getOrderWithRenter($orderId);
-
-        return view('admin.message_histories.load_new_message', [
-            'CsTwilioOrder' => $CsTwilioOrder,
-            'CsOrder'       => $CsOrder,
-            'orderid'       => base64_encode((string)$orderId),
+        return response()->view('admin.message_histories.new_message', [
+            'renterId' => (int)$request->input('renter_id', 0),
+            'ownerId' => (int)$request->input('owner_id', 0),
         ]);
     }
 
-    public function admin_sendnewmessage(Request $request)
+    public function admin_sendnewmessage(Request $request): JsonResponse
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
+        $sender = (int)$request->input('sender_id', 0);
+        $receiver = (int)$request->input('receiver_id', 0);
+        $message = trim((string)$request->input('message', ''));
+        if ($sender <= 0 || $receiver <= 0 || $message === '') {
+            return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
+        DB::table('message_histories')->insert([
+            'sender_id' => $sender,
+            'receiver_id' => $receiver,
+            'message' => $message,
+            'created' => now()->toDateTimeString(),
+        ]);
 
-        return $this->processSendNewMessage($request);
+        return response()->json(['status' => true, 'message' => 'Message sent successfully']);
     }
 }
+

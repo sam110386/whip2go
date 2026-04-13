@@ -2,37 +2,107 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use App\Http\Controllers\Controller;
-use App\Models\Legacy\CsWallet;
-use App\Models\Legacy\CsWalletTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-class WalletController extends Controller
+/**
+ * CakePHP `WalletController` — logged-in user wallet index.
+ */
+class WalletController extends LegacyAppController
 {
+    protected bool $shouldLoadLegacyModules = true;
+
+    private function legacyOwnerUserId(): int
+    {
+        $parent = (int)session()->get('userParentId', 0);
+
+        return $parent !== 0 ? $parent : (int)session()->get('userid', 0);
+    }
+
+    private function resolveWalletLimit(Request $request, string $sessionKey): int
+    {
+        $allowed = [25, 50, 100, 200];
+        $fromForm = $request->input('Record.limit');
+        if ($fromForm !== null && $fromForm !== '') {
+            $lim = (int)$fromForm;
+            if (in_array($lim, $allowed, true)) {
+                session()->put($sessionKey, $lim);
+
+                return $lim;
+            }
+        }
+
+        $sess = (int)session()->get($sessionKey, 0);
+        if (in_array($sess, $allowed, true)) {
+            return $sess;
+        }
+
+        return 50;
+    }
+
+    private function ensureWalletRow(int $userId): object
+    {
+        $row = DB::table('cs_wallets')->where('user_id', $userId)->first();
+        if ($row) {
+            return $row;
+        }
+        DB::table('cs_wallets')->insert(['user_id' => $userId, 'balance' => 0]);
+
+        return DB::table('cs_wallets')->where('user_id', $userId)->first();
+    }
+
     public function index(Request $request)
     {
-        $userId = Session::get('userParentId') ?: Session::get('userid');
-        $wallet = CsWallet::where('user_id', $userId)->first();
-        
-        if (empty($wallet)) {
-            $wallet = new CsWallet(['user_id' => $userId, 'balance' => 0]);
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $uid = $this->legacyOwnerUserId();
+        $limit = $this->resolveWalletLimit($request, 'wallet_limit');
+        if ($uid <= 0 || !Schema::hasTable('cs_wallets') || !Schema::hasTable('cs_wallet_transactions')) {
+            $emptyPage = new LengthAwarePaginator([], 0, max(1, $limit), 1, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]);
+
+            return view('wallet.index', [
+                'wallet' => (object)['balance' => 0],
+                'transactions' => $emptyPage,
+                'keyword' => '',
+                'limit' => $limit,
+            ]);
         }
 
-        $query = CsWalletTransaction::where('cs_wallet_id', $wallet->id)
-            ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'cs_wallet_transactions.cs_order_id')
-            ->select('cs_wallet_transactions.*', 'CsOrder.increment_id');
+        $wallet = $this->ensureWalletRow($uid);
+        $keyword = trim((string)$request->input('searchKey', $request->query('keyword', '')));
 
-        if ($request->has('searchKey')) {
-            $query->where('cs_wallet_transactions.transaction_id', 'LIKE', '%' . $request->input('searchKey') . '%');
+        $q = DB::table('cs_wallet_transactions as wt')
+            ->leftJoin('cs_orders as o', 'o.id', '=', 'wt.cs_order_id')
+            ->where('wt.cs_wallet_id', $wallet->id)
+            ->orderByDesc('wt.id')
+            ->select('wt.*', 'o.increment_id as order_increment_id');
+        if ($keyword !== '') {
+            $q->where('wt.transaction_id', $keyword);
         }
 
-        $transactions = $query->orderBy('cs_wallet_transactions.id', 'DESC')->paginate(25);
+        $transactions = $q->paginate($limit)->withQueryString();
 
         if ($request->ajax()) {
-            return view('legacy.elements.walletTransaction.transaction', compact('transactions', 'wallet'));
+            return response()->view('admin.wallet._transaction_panel', [
+                'transactions' => $transactions,
+                'keyword' => $keyword,
+                'limit' => $limit,
+                'adminContext' => false,
+                'useridB64' => null,
+            ]);
         }
 
-        return view('legacy.wallet.index', compact('transactions', 'wallet'));
+        return view('wallet.index', [
+            'wallet' => $wallet,
+            'transactions' => $transactions,
+            'keyword' => $keyword,
+            'limit' => $limit,
+        ]);
     }
 }

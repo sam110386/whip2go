@@ -3,84 +3,202 @@
 namespace App\Http\Controllers\Cloud;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\PayoutsTrait;
-use App\Models\Legacy\CsPayout;
-use App\Models\Legacy\CsPayoutTransaction;
 use App\Models\Legacy\AdminUserAssociation;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class LinkedPayoutsController extends LegacyAppController
 {
-    use PayoutsTrait;
-
     protected bool $shouldLoadLegacyModules = true;
 
-    /**
-     * cloud_index: List payouts for linked dealers
-     */
     public function cloud_index(Request $request)
     {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
-
-        $adminUser = Session::get('SESSION_ADMIN');
-        $dealers = AdminUserAssociation::where('admin_id', $adminUser['parent_id'])->pluck('user_id')->toArray();
-
-        $query = CsPayout::whereIn('user_id', $dealers);
-
-        if ($request->filled('Search.date_from')) {
-            $query->where('processed_on', '>=', $request->input('Search.date_from'));
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
         }
-        if ($request->filled('Search.date_to')) {
-            $query->where('processed_on', '<=', $request->input('Search.date_to'));
+        $admin = $this->getAdminUserid();
+        if (!empty($admin['administrator'])) {
+            return redirect('/admin/payouts/index')->with('error', 'Sorry, you are not authorized user for this action');
+        }
+        $dealerIds = $this->dealerIds((int)($admin['parent_id'] ?? 0));
+
+        $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
+        $dateTo = trim((string)$this->searchInput($request, 'date_to'));
+        $listtype = trim((string)$this->searchInput($request, 'listtype'));
+        $payoutId = trim((string)$this->searchInput($request, 'payout_id'));
+        $userId = trim((string)$this->searchInput($request, 'user_id'));
+
+        if ($request->input('search') === 'EXPORT') {
+            return $this->cloudexport($request, $dealerIds);
         }
 
-        $reportlists = $query->orderBy('id', 'DESC')->paginate(25);
+        $limit = $this->resolveLimit($request);
 
-        return view('cloud.linked_payouts.index', compact('reportlists'));
+        if ($listtype === '') {
+            $q = DB::table('cs_payouts as p')->whereIn('p.user_id', $dealerIds === [] ? [0] : $dealerIds);
+            if ($dateFrom !== '') {
+                $q->whereDate('p.processed_on', '>=', $dateFrom);
+            }
+            if ($dateTo !== '') {
+                $q->whereDate('p.processed_on', '<=', $dateTo);
+            }
+            if ($payoutId !== '' && is_numeric($payoutId)) {
+                $q->where('p.id', (int)$payoutId);
+            }
+            if ($userId !== '' && is_numeric($userId)) {
+                $q->where('p.user_id', (int)$userId);
+            }
+            $payoutlists = $q->orderByDesc('p.processed_on')->paginate($limit)->withQueryString();
+        } else {
+            $q = DB::table('cs_payout_transactions as pt')
+                ->where('pt.status', 1)
+                ->whereIn('pt.user_id', $dealerIds === [] ? [0] : $dealerIds)
+                ->leftJoin('cs_orders as o', 'o.id', '=', 'pt.cs_order_id')
+                ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
+                ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
+                ->select([
+                    'pt.*',
+                    'o.id as order_id',
+                    'o.increment_id',
+                    'v.vehicle_name',
+                    'renter.first_name as renter_first_name',
+                    'renter.last_name as renter_last_name',
+                ]);
+            if ($userId !== '' && is_numeric($userId)) {
+                $q->where('pt.user_id', (int)$userId);
+            }
+            $payoutlists = $q->orderByDesc('pt.id')->paginate($limit)->withQueryString();
+        }
+
+        return view('admin.linked_payouts.index', [
+            'payoutlists' => $payoutlists,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'listtype' => $listtype,
+            'payout_id' => $payoutId,
+            'user_id' => $userId,
+            'dealers' => $this->dealerMap($dealerIds),
+        ]);
     }
 
-    /**
-     * cloud_transactions: List transactions for a specific payout or dealer
-     */
     public function cloud_transactions(Request $request)
     {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
+        $csPayoutId = (int)$request->input('payoutid', 0);
+        $transactions = DB::table('cs_payout_transactions as pt')
+            ->where('pt.status', 1)
+            ->where('pt.cs_payout_id', $csPayoutId)
+            ->leftJoin('cs_orders as o', 'o.id', '=', 'pt.cs_order_id')
+            ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
+            ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
+            ->orderByDesc('pt.id')
+            ->select([
+                'pt.*',
+                'o.id as order_id',
+                'o.increment_id',
+                'o.start_datetime',
+                'v.vehicle_name',
+                'renter.first_name as renter_first_name',
+                'renter.last_name as renter_last_name',
+            ])
+            ->get();
 
-        $adminUser = Session::get('SESSION_ADMIN');
-        $dealers = AdminUserAssociation::where('admin_id', $adminUser['parent_id'])->pluck('user_id')->toArray();
-
-        $searchParams = $this->resolvePayoutSearch($request);
-        
-        // Ensure cloud user only sees their dealers
-        if (!$searchParams['userId'] || !in_array($searchParams['userId'], $dealers)) {
-            $searchParams['userId'] = $dealers; // Multiselect or array filter
-        }
-
-        $query = CsPayoutTransaction::query()
-            ->from('cs_payout_transactions as CsPayoutTransaction')
-            ->whereIn('CsPayoutTransaction.user_id', (array)$searchParams['userId'])
-            ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'CsPayoutTransaction.cs_order_id')
-            ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'CsOrder.vehicle_id')
-            ->select('CsPayoutTransaction.*', 'CsOrder.increment_id', 'Vehicle.vehicle_name');
-
-        if ($searchParams['payoutId']) {
-            $query->where('CsPayoutTransaction.cs_payout_id', $searchParams['payoutId']);
-        }
-
-        if ($request->has('export')) {
-            return $this->streamPayoutCsv($query->get(), $searchParams['userId']);
-        }
-
-        $reportlists = $query->orderBy('CsPayoutTransaction.id', 'DESC')->paginate(50);
-
-        return view('cloud.linked_payouts.transactions', compact('reportlists', 'searchParams'));
+        return response()->view('admin.linked_payouts.transactions', compact('transactions'));
     }
 
-    public function cloudexport(Request $request)
+    public function cloudexport(Request $request, ?array $dealerIds = null)
     {
-        $request->merge(['export' => 1]);
-        return $this->cloud_transactions($request);
+        $dealerIds = $dealerIds ?? $this->dealerIds((int)($this->getAdminUserid()['parent_id'] ?? 0));
+        $rows = DB::table('cs_payout_transactions as pt')
+            ->whereIn('pt.user_id', $dealerIds === [] ? [0] : $dealerIds)
+            ->leftJoin('cs_orders as o', 'o.id', '=', 'pt.cs_order_id')
+            ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
+            ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
+            ->orderByDesc('pt.id')
+            ->limit(1500)
+            ->get([
+                'pt.*',
+                'o.increment_id',
+                'o.start_datetime',
+                'o.end_datetime',
+                'o.pickup_address',
+                'v.vehicle_name',
+                'v.vin_no',
+                'renter.first_name as renter_first_name',
+                'renter.last_name as renter_last_name',
+            ]);
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="linked_payout.csv"',
+        ];
+
+        return response()->stream(function () use ($rows) {
+            $fp = fopen('php://output', 'w');
+            fputcsv($fp, ['No', 'Booking No', 'Car', 'VIN', 'Start Date', 'End Date', 'Driver Name', 'City', 'Amount To Owner', 'Payout#']);
+            $i = 1;
+            foreach ($rows as $r) {
+                fputcsv($fp, [
+                    $i++,
+                    $r->increment_id,
+                    $r->vehicle_name,
+                    $r->vin_no,
+                    $r->start_datetime,
+                    $r->end_datetime,
+                    trim(($r->renter_first_name ?? '') . ' ' . ($r->renter_last_name ?? '')),
+                    $r->pickup_address,
+                    $r->amount,
+                    $r->cs_payout_id,
+                ]);
+            }
+            fclose($fp);
+        }, 200, $headers);
+    }
+
+    private function dealerIds(int $parentId): array
+    {
+        if ($parentId <= 0) {
+            return [];
+        }
+
+        return AdminUserAssociation::query()
+            ->where('admin_id', $parentId)
+            ->pluck('user_id')
+            ->map(static fn ($id) => (int)$id)
+            ->filter(static fn ($id) => $id > 0)
+            ->values()
+            ->all();
+    }
+
+    private function dealerMap(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return DB::table('users')->whereIn('id', $ids)->pluck('first_name', 'id')->toArray();
+    }
+
+    private function searchInput(Request $request, string $key): ?string
+    {
+        $v = $request->input('Search.' . $key);
+        if ($v !== null && $v !== '') {
+            return (string)$v;
+        }
+
+        return $request->input($key);
+    }
+
+    private function resolveLimit(Request $request): int
+    {
+        if ($request->has('Record.limit')) {
+            $lim = (int)$request->input('Record.limit');
+            if ($lim > 0 && $lim <= 500) {
+                session(['linked_payouts_limit' => $lim]);
+            }
+        }
+        $limit = (int)session('linked_payouts_limit', 50);
+
+        return $limit > 0 ? $limit : 50;
     }
 }
+

@@ -1,40 +1,57 @@
+{{-- Cake `app/View/Layouts/admin_booking.ctp` — same shell as admin with booking JS bundle in head. --}}
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>@yield('title', $title_for_layout ?? 'Admin Booking')</title>
-    <script>var SITE_URL = "{{ url('/') }}/";</script>
-    <link href="https://fonts.googleapis.com/css?family=Roboto:400,300,100,500,700,900" rel="stylesheet" type="text/css">
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/icons/icomoon/styles.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/bootstrap.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/core.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/components.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/colors.css') }}">
-    @stack('styles')
+    @include('layouts.partials.cake.head_admin_booking')
 </head>
-<body>
-    <div class="navbar navbar-default header-highlight">
-        <div class="navbar-header"><a class="navbar-brand" href="javascript:void(0);"><span style="color:#fff; font-size:18px;">DriveItAway</span></a></div>
-    </div>
-    <div class="page-container">
-        <div class="page-content">
-            <div class="sidebar sidebar-main"><div class="sidebar-content">@includeIf('admin.left_admin')</div></div>
-            <div class="content-wrapper">
-                <div class="content">
-                    @yield('content')
-                    <div class="footer text-muted">&copy; {{ date('Y') }} DriveItAway. <a href="#">All right reserved</a></div>
+<body class="">
+@include('layouts.partials.cake.navbar_admin')
+
+<div class="page-container">
+    <div class="page-content">
+        <div class="sidebar sidebar-main">
+            <div class="sidebar-content">
+                <div class="sidebar-user">
+                    <div class="category-content">
+                        <div class="media">
+                            <a href="#" class="media-left"><img src="{{ legacy_asset('img/placeholder.jpg') }}" class="img-circle img-sm" alt=""></a>
+                            <div class="media-body">
+                                <span class="media-heading text-semibold">{{ ucfirst((string)session('adminName', 'Admin')) }}</span>
+                                <div class="text-size-mini text-muted">{{ ucfirst((string)session('adminName', '')) }}</div>
+                            </div>
+                            <div class="media-right media-middle"></div>
+                        </div>
+                    </div>
+                </div>
+                @include('layouts.partials.cake.admin_sidebar')
+            </div>
+        </div>
+        <div class="content-wrapper">
+            <div class="content">
+                @hasSection('header_title')
+                    <div class="page-header" style="margin-bottom:16px;">
+                        <h1 class="text-semibold" style="margin:0;">@yield('header_title')</h1>
+                    </div>
+                @endif
+                @yield('content')
+                <div class="footer text-muted">
+                    &copy; {{ date('Y') }} DriveItAway. <a href="#">All right reserved</a>
                 </div>
             </div>
         </div>
     </div>
-    <div id="plaidModal" class="modal fade" role="dialog"><div class="modal-dialog"><div class="modal-content"></div></div></div>
-    <div id="statementModal" class="modal fade" role="dialog"><div class="modal-dialog"><div class="modal-content"></div></div></div>
-    <script src="{{ asset('assets/js/plugins/loaders/pace.min.js') }}"></script>
-    <script src="{{ asset('assets/js/core/libraries/jquery.min.js') }}"></script>
-    <script src="{{ asset('assets/js/core/libraries/bootstrap.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/loaders/blockui.min.js') }}"></script>
-    <script src="{{ asset('assets/js/core/app.js') }}"></script>
-    @stack('scripts')
+</div>
+
+<div id="plaidModal" class="modal fade" role="dialog" data-modal-parent="#myModal">
+    <div class="modal-dialog">
+        <div class="modal-content"></div>
+    </div>
+</div>
+<div id="statementModal" class="modal fade" role="dialog" data-modal-parent="#plaidModal">
+    <div class="modal-dialog">
+        <div class="modal-content"></div>
+    </div>
+</div>
+@stack('scripts')
 </body>
 </html>

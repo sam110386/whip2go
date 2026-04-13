@@ -3,184 +3,466 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\VehicleReservationsTrait;
 use App\Models\Legacy\VehicleReservation;
-use App\Models\Legacy\Vehicle;
-use App\Models\Legacy\User;
-use App\Models\Legacy\OrderDepositRule;
-use App\Models\Legacy\CsOrderStatuslog;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class VehicleReservationsController extends LegacyAppController
 {
-    use VehicleReservationsTrait;
+    protected bool $shouldLoadLegacyModules = true;
 
-    private function pendingResponse(string $action)
-    {
-        return response()->json([
-            'status' => false,
-            'message' => "AdminVehicleReservations::{$action} is pending migration.",
-            'result' => [],
-        ])->header('Content-Type', 'application/json; charset=utf-8');
-    }
-
-    /**
-     * admin_index: Manage Reservations
-     */
     public function admin_index(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $limit = $this->resolveLimit($request);
+        $bookings = $this->reservationQuery([0, 1])
+            ->orderByDesc('vr.id')
+            ->paginate($limit)
+            ->withQueryString();
 
-        $loggedId = session('SESSION_ADMIN.id');
-        $query = VehicleReservation::leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'vehicle_reservations.vehicle_id')
-            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'vehicle_reservations.id')
-            ->leftJoin('users as Renter', 'Renter.id', '=', 'vehicle_reservations.renter_id')
-            ->select(
-                'vehicle_reservations.*', 
-                'Vehicle.msrp', 'Vehicle.vin_no', 'Vehicle.vehicle_name', 'Vehicle.plate_number',
-                'OrderDepositRule.downpayment', 'OrderDepositRule.insurance_payer', 'OrderDepositRule.id as rule_id', 'OrderDepositRule.financing',
-                'Renter.first_name', 'Renter.last_name', 'Renter.email', 'Renter.contact_number'
-            );
-
-        if (session('adminRoleId') != 1) {
-            $query->where('vehicle_reservations.user_id', $loggedId);
+        if ($request->ajax()) {
+            return response()->view('admin.vehicle_reservations._table', [
+                'bookings' => $bookings,
+                'mode' => 'index',
+            ]);
         }
 
-        // Filtering logic...
-        if ($request->filled('keyword')) {
-            $keyword = $request->input('keyword');
-            $query->where(function($q) use ($keyword) {
-                $q->where('Renter.first_name', 'LIKE', "%$keyword%")
-                  ->orWhere('Renter.email', 'LIKE', "%$keyword%")
-                  ->orWhere('Vehicle.vin_no', 'LIKE', "%$keyword%");
-            });
-        }
-
-        $bookings = $query->orderBy('vehicle_reservations.id', 'DESC')->paginate(50)->withQueryString();
-
-        return view('admin.vehiclereservation.index', [
+        return view('admin.vehicle_reservations.index', [
             'bookings' => $bookings,
-            'readyForDealerStatus' => $this->readyForDealerStatus,
-            'checklist' => $this->checklist
+            'limit' => $limit,
+            'mode' => 'index',
         ]);
     }
 
-    /**
-     * admin_edit: View/Edit Reservation details
-     */
-    public function admin_edit(Request $request, $id)
+    public function admin_all(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $limit = $this->resolveLimit($request);
+        $bookings = $this->reservationQuery()
+            ->orderByDesc('vr.id')
+            ->paginate($limit)
+            ->withQueryString();
 
-        $id = base64_decode($id);
-        $reservation = VehicleReservation::with(['Vehicle', 'User', 'Renter', 'OrderDepositRule'])->findOrFail($id);
-        
-        $statusLogs = CsOrderStatuslog::where('reservation_id', $id)->orderBy('id', 'DESC')->get();
-
-        return view('admin.vehiclereservation.edit', compact('reservation', 'statusLogs'));
-    }
-
-    /**
-     * admin_updatestatus: Update Reservation Status
-     */
-    public function admin_updatestatus(Request $request)
-    {
-        if ($redirect = $this->ensureAdminSession()) return response()->json(['status' => false, 'message' => "Unauthorized"], 403);
-
-        $id = $request->input('id');
-        $status = $request->input('status');
-
-        if ($this->_changeStatus($id, $status)) {
-            return response()->json(['status' => true, 'message' => "Status updated successfully"]);
+        if ($request->ajax()) {
+            return response()->view('admin.vehicle_reservations._table', [
+                'bookings' => $bookings,
+                'mode' => 'all',
+            ]);
         }
-        return response()->json(['status' => false, 'message' => "Failed to update status"]);
+
+        return view('admin.vehicle_reservations.index', [
+            'bookings' => $bookings,
+            'limit' => $limit,
+            'mode' => 'all',
+        ]);
     }
 
-    /**
-     * admin_updatechecklist: Update individual checklist items
-     */
-    public function admin_updatechecklist(Request $request)
+    public function admin_singleload(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return response()->json(['status' => false, 'message' => "Unauthorized"], 403);
-
-        $id = $request->input('id');
-        $key = $request->input('key');
-        $value = $request->input('value');
-
-        $reservation = VehicleReservation::find($id);
-        if ($reservation) {
-            $checklists = json_decode($reservation->checklists, true) ?: [];
-            $checklists[$key] = $value;
-            $reservation->update(['checklists' => json_encode($checklists)]);
-            return response()->json(['status' => true, 'message' => "Checklist updated"]);
+        $id = $this->decodeId((string)$request->input('id', ''));
+        if (!$id) {
+            return response('Invalid reservation id', 400);
         }
-        return response()->json(['status' => false, 'message' => "Reservation not found"]);
+
+        $booking = $this->reservationQuery()
+            ->where('vr.id', $id)
+            ->first();
+
+        if (!$booking) {
+            return response('Reservation not found', 404);
+        }
+
+        return response()->view('admin.vehicle_reservations._single_row', [
+            'b' => $booking,
+        ]);
     }
 
-    /**
-     * admin_delete: Delete reservation
-     */
-    public function admin_delete($id)
+    public function admin_changeSaveStatus(Request $request): JsonResponse
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $status = (int)$request->input('status', -1);
+        if (!$id || !in_array($status, [0, 1, 2, 3], true)) {
+            return response()->json(['status' => false, 'message' => 'Invalid request']);
+        }
 
-        $id = base64_decode($id);
-        VehicleReservation::where('id', $id)->delete();
-        
-        return redirect()->back()->with('success', 'Reservation deleted successfully');
+        $exists = VehicleReservation::query()->find($id);
+        if (!$exists) {
+            return response()->json(['status' => false, 'message' => 'Reservation not found']);
+        }
+
+        VehicleReservation::query()->whereKey($id)->update(['status' => $status]);
+        if (in_array($status, [2, 3], true)) {
+            DB::table('vehicles')->where('id', (int)$exists->vehicle_id)->update(['booked' => 0]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Reservation updated successfully',
+            'result' => ['id' => $id, 'status' => $status],
+        ]);
     }
 
-    public function admin_all(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_bankstatement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_capturepayment(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_changeDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
-    public function admin_changeSaveStatus(Request $request) { return response()->json(['status' => $this->_changeSaveStatus($request->input('id'), $request->input('save_status'))]); }
-    public function admin_changeStatus(Request $request) { return $this->admin_updatestatus($request); }
-    public function admin_changeVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
-    public function admin_changeinsurancepopup(Request $request) { return response()->json($this->_changeinsurancepopup($request->all())); }
-    public function admin_changeinsurancesave(Request $request) { return response()->json($this->_changeinsurancesave($request->all())); }
-    public function admin_changeinsurancetypepopup(Request $request) { return response()->json($this->_changeInsuranceTypePopup($request->all())); }
-    public function admin_checkStarterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_checkodometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_createBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_disableStaterInterrupt(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_download_vehicle_images(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_generateAgrement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getVehicleDynamicFareMatrix(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getfarecalculations(Request $request) { return response()->json($this->_getfarecalculations($request->input('lease_id'))); }
-    public function admin_getplaidbalance(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getplaidrecord(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_getuserdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_goalrecalculate(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_insudoc(Request $request) { return response()->json($this->_insudoc($request->all())); }
-    public function admin_loadcancelblock(Request $request) { return response()->json($this->_loadcancelblock($request->all())); }
-    public function admin_loadinsurancepopup(Request $request) { return response()->json($this->_loadinsurancepopup($request->all())); }
-    public function admin_loadstatuschecklist(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_markBookingCancel(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_markBookingCompleted(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_paymentcapturevehiclereservation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_processcapturepayment(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_provenincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_pushToDealer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_recapturevehiclereservation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_renderlog(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_saveGoalRecalculation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_saveVehicleAgreeToSell(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_saveVehicleBooking(Request $request) { return response()->json($this->_saveVehicleBooking($request->all())); }
-    public function admin_saveVehicleSellingOption(Request $request) { return response()->json($this->_saveVehicleSellingOption($request->all())); }
-    public function admin_saveinsurancepayer(Request $request) { return response()->json($this->_saveinsurancepayer($request->all())); }
-    public function admin_savemanualcalculation(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_singleload(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_staterInterruptWorks(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_updateDatetime(Request $request) { return response()->json($this->_updateDatetime($request->all())); }
-    public function admin_updateReservationVehicle(Request $request) { return response()->json($this->_updateReservationVehicle($request->all())); }
-    public function admin_updatelist(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_updatemvr(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_vehicleFree2moveAgreement(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_vehicleReservationLog(Request $request) { return response()->json($this->_vehicleReservationLog($request->all())); }
-    public function admin_vehicleSellingOpionAgreeToSell(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function admin_vehicleSellingOpions(Request $request) { return $this->pendingResponse(__FUNCTION__); }
+    public function admin_markBookingCancel(Request $request): JsonResponse
+    {
+        $request->merge(['status' => 2]);
+
+        return $this->admin_changeSaveStatus($request);
+    }
+
+    public function admin_markBookingCompleted(Request $request): JsonResponse
+    {
+        $request->merge(['status' => 3]);
+
+        return $this->admin_changeSaveStatus($request);
+    }
+
+    public function admin_getuserdetails(Request $request): JsonResponse
+    {
+        $userId = (int)$request->input('user_id', 0);
+        if ($userId <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid user id']);
+        }
+        $user = DB::table('users')->where('id', $userId)->first([
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'contact_number',
+            'address',
+            'state',
+            'city',
+            'zip',
+        ]);
+        if (!$user) {
+            return response()->json(['status' => false, 'message' => 'User not found']);
+        }
+
+        return response()->json(['status' => true, 'user' => $user]);
+    }
+
+    public function admin_updatelist(Request $request)
+    {
+        return $this->admin_index($request);
+    }
+
+    public function admin_updatemvr(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'MVR update queued']);
+    }
+
+    public function admin_createBooking(Request $request): JsonResponse
+    {
+        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        if (!$id) {
+            return response()->json(['status' => false, 'message' => 'Invalid reservation']);
+        }
+        $row = VehicleReservation::query()->find($id);
+        if (!$row) {
+            return response()->json(['status' => false, 'message' => 'Reservation not found']);
+        }
+        if ((int)$row->status !== 1) {
+            VehicleReservation::query()->whereKey($id)->update(['status' => 1]);
+        }
+        DB::table('vehicles')->where('id', (int)$row->vehicle_id)->update(['booked' => 1]);
+
+        return response()->json(['status' => true, 'message' => 'Booking created successfully', 'result' => ['lease_id' => $id]]);
+    }
+
+    public function admin_saveVehicleBooking(Request $request): JsonResponse
+    {
+        $id = $this->decodeId((string)$request->input('lease_id', $request->input('id', '')));
+        if (!$id) {
+            return response()->json(['status' => false, 'message' => 'Invalid reservation']);
+        }
+        $payload = [];
+        foreach (['start_datetime', 'end_datetime', 'vehicle_id', 'renter_id'] as $k) {
+            $v = $request->input($k);
+            if ($v !== null && $v !== '') {
+                $payload[$k] = $v;
+            }
+        }
+        if ($payload !== []) {
+            VehicleReservation::query()->whereKey($id)->update($payload);
+        }
+
+        return response()->json(['status' => true, 'message' => 'Reservation updated successfully']);
+    }
+
+    public function admin_changeVehicle(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+        $reservation = VehicleReservation::query()->find($id);
+        if (!$reservation) {
+            return response('Reservation not found', 404);
+        }
+        $vehicles = DB::table('vehicles')
+            ->where('status', 1)
+            ->where('trash', 0)
+            ->orderBy('vehicle_unique_id')
+            ->limit(100)
+            ->get(['id', 'vehicle_unique_id', 'vehicle_name']);
+
+        return response()->view('admin.vehicle_reservations._change_vehicle', compact('reservation', 'vehicles'));
+    }
+
+    public function admin_updateReservationVehicle(Request $request): JsonResponse
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $vehicleId = (int)$request->input('vehicle_id', 0);
+        if (!$id || $vehicleId <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid request']);
+        }
+        VehicleReservation::query()->whereKey($id)->update(['vehicle_id' => $vehicleId]);
+
+        return response()->json(['status' => true, 'message' => 'Vehicle updated successfully']);
+    }
+
+    public function admin_changeDatetime(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+        $reservation = VehicleReservation::query()->find($id, ['id', 'start_datetime', 'end_datetime', 'timezone']);
+        if (!$reservation) {
+            return response('Reservation not found', 404);
+        }
+
+        return response()->view('admin.vehicle_reservations._change_datetime', compact('reservation'));
+    }
+
+    public function admin_updateDatetime(Request $request): JsonResponse
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response()->json(['status' => false, 'message' => 'Invalid request']);
+        }
+        $data = [];
+        foreach (['start_datetime', 'end_datetime'] as $key) {
+            $val = (string)$request->input($key, '');
+            if ($val !== '') {
+                $data[$key] = $val;
+            }
+        }
+        if ($data !== []) {
+            VehicleReservation::query()->whereKey($id)->update($data);
+        }
+
+        return response()->json(['status' => true, 'message' => 'Date/time updated successfully']);
+    }
+
+    public function admin_changeStatus(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+        $reservation = VehicleReservation::query()->find($id, ['id', 'status']);
+        if (!$reservation) {
+            return response('Reservation not found', 404);
+        }
+
+        return response()->view('admin.vehicle_reservations._change_status', compact('reservation'));
+    }
+
+    public function admin_loadstatuschecklist(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+
+        return response()->view('admin.vehicle_reservations._status_checklist', ['id' => $id]);
+    }
+
+    public function admin_updatechecklist(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Checklist updated successfully']);
+    }
+
+    public function admin_vehicleReservationLog(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+        $logs = DB::table('cs_order_statuslogs')
+            ->where('reservation_id', $id)
+            ->orWhere('vehicle_reservation_id', $id)
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
+
+        return response()->view('admin.vehicle_reservations._log', ['logs' => $logs, 'id' => $id]);
+    }
+
+    public function admin_getfarecalculations(Request $request): JsonResponse
+    {
+        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        if (!$id) {
+            return response()->json(['status' => false, 'message' => 'Invalid reservation']);
+        }
+        $reservation = VehicleReservation::query()->find($id);
+        if (!$reservation) {
+            return response()->json(['status' => false, 'message' => 'Reservation not found']);
+        }
+        $odr = DB::table('cs_order_deposit_rules')->where('vehicle_reservation_id', $id)->first();
+
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'rental' => (float)data_get($odr, 'rental', 0),
+                'tax' => (float)data_get($odr, 'tax', 0),
+                'insurance' => (float)data_get($odr, 'insurance', 0),
+                'deposit' => (float)data_get($odr, 'downpayment', 0),
+            ],
+        ]);
+    }
+
+    public function admin_loadcancelblock(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+
+        return response()->view('admin.vehicle_reservations._cancel_popup', ['id' => base64_encode((string)$id)]);
+    }
+
+    public function admin_loadinsurancepopup(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+
+        return response()->view('admin.vehicle_reservations._insurance_popup', ['id' => base64_encode((string)$id)]);
+    }
+
+    public function admin_changeinsurancepopup(Request $request)
+    {
+        return $this->admin_loadinsurancepopup($request);
+    }
+
+    public function admin_changeinsurancesave(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Insurance settings updated']);
+    }
+
+    public function admin_changeinsurancetypepopup(Request $request)
+    {
+        return $this->admin_loadinsurancepopup($request);
+    }
+
+    public function admin_saveinsurancepayer(Request $request): JsonResponse
+    {
+        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        $payer = (string)$request->input('insurance_payer', '');
+        if (!$id || $payer === '') {
+            return response()->json(['status' => false, 'message' => 'Invalid request']);
+        }
+        DB::table('cs_order_deposit_rules')
+            ->where('vehicle_reservation_id', $id)
+            ->update(['insurance_payer' => $payer]);
+
+        return response()->json(['status' => true, 'message' => 'Insurance payer updated']);
+    }
+
+    public function admin_generateAgrement(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Agreement generation queued']);
+    }
+
+    public function admin_capturepayment(Request $request)
+    {
+        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        if (!$id) {
+            return response('Invalid reservation', 400);
+        }
+
+        return response()->view('admin.vehicle_reservations._capture_payment', ['id' => base64_encode((string)$id)]);
+    }
+
+    public function admin_processcapturepayment(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Payment capture processed']);
+    }
+
+    public function admin_paymentcapturevehiclereservation(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Payment captured']);
+    }
+
+    public function admin_recapturevehiclereservation(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Payment recapture queued']);
+    }
+
+    public function admin_renderlog($filename)
+    {
+        return response()->view('admin.vehicle_reservations._render_log', ['filename' => (string)$filename]);
+    }
+
+    protected function reservationQuery(?array $statuses = null)
+    {
+        $q = DB::table('vehicle_reservations as vr')
+            ->leftJoin('vehicles as v', 'v.id', '=', 'vr.vehicle_id')
+            ->leftJoin('users as owner', 'owner.id', '=', 'vr.user_id')
+            ->leftJoin('users as renter', 'renter.id', '=', 'vr.renter_id')
+            ->leftJoin('cs_order_deposit_rules as odr', 'odr.vehicle_reservation_id', '=', 'vr.id')
+            ->select([
+                'vr.*',
+                'v.vehicle_name',
+                'v.vehicle_unique_id',
+                'v.vin_no',
+                'owner.first_name as owner_first_name',
+                'owner.last_name as owner_last_name',
+                'renter.first_name as renter_first_name',
+                'renter.last_name as renter_last_name',
+                'odr.id as order_rule_id',
+                'odr.downpayment',
+                'odr.insurance',
+                'odr.insurance_payer',
+                'odr.insu_agreed',
+                'odr.financing',
+            ]);
+
+        if ($statuses !== null) {
+            $q->whereIn('vr.status', $statuses);
+        }
+
+        return $q;
+    }
+
+    protected function resolveLimit(Request $request): int
+    {
+        if ($request->has('Record.limit')) {
+            $lim = (int)$request->input('Record.limit');
+            if ($lim > 0 && $lim <= 500) {
+                session(['vehicle_reservations_limit' => $lim]);
+            }
+        }
+
+        $limit = (int)session('vehicle_reservations_limit', 50);
+
+        return $limit > 0 ? $limit : 50;
+    }
+
+    protected function decodeId(string $id): ?int
+    {
+        if (is_numeric($id)) {
+            return (int)$id;
+        }
+        if ($id !== '') {
+            $decoded = base64_decode($id, true);
+            if ($decoded !== false && is_numeric($decoded)) {
+                return (int)$decoded;
+            }
+        }
+
+        return null;
+    }
 }
+

@@ -2,201 +2,371 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Models\Legacy\CsWallet;
-use App\Models\Legacy\CsWalletTransaction;
-use App\Models\Legacy\User;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
-class WalletController extends Controller
+/**
+ * CakePHP `WalletController` admin actions.
+ */
+class WalletController extends LegacyAppController
 {
-    use \App\Http\Controllers\Traits\WalletTrait;
+    protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request, $userid = null) { return $this->index($request, $userid); }
-    public function admin_diacredit(Request $request, $userid = null) { return $this->diacredit($request, $userid); }
-    public function admin_createintent(Request $request) { return $this->createintent($request); }
-    public function admin_updatebalance(Request $request, $userid = null) { return $this->updatebalance($request, $userid); }
-    public function admin_refundbalance(Request $request, $userid = null) { return $this->refundbalance($request, $userid); }
-    public function admin_chargepartialamtpopup(Request $request) { return $this->chargepartialamtpopup($request); }
-    public function admin_chargepartialamt(Request $request) { return $this->chargepartialamt($request); }
-    public function admin_diacreditprocess(Request $request) { return $this->diacreditprocess($request); }
-
-    public function index(Request $request, $userid = null)
+    private function decodeWalletUserId(?string $b64): ?int
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.users.index');
+        if ($b64 === null || $b64 === '') {
+            return null;
+        }
+        $raw = base64_decode($b64, true);
+        if ($raw === false || !ctype_digit((string)$raw)) {
+            return null;
         }
 
-        $wallet = CsWallet::where('user_id', $userid)->first();
-        $userData = User::find($userid, ['is_dealer']);
+        return (int)$raw;
+    }
 
-        $query = CsWalletTransaction::where('cs_wallet_id', $wallet->id)
-            ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'cs_wallet_transactions.cs_order_id')
-            ->select('cs_wallet_transactions.*', 'CsOrder.increment_id');
+    private function resolveWalletLimit(Request $request, string $sessionKey): int
+    {
+        $allowed = [25, 50, 100, 200];
+        $fromForm = $request->input('Record.limit');
+        if ($fromForm !== null && $fromForm !== '') {
+            $lim = (int)$fromForm;
+            if (in_array($lim, $allowed, true)) {
+                session()->put($sessionKey, $lim);
 
-        if ($request->has('searchKey')) {
-            $query->where('cs_wallet_transactions.transaction_id', 'LIKE', '%' . $request->input('searchKey') . '%');
+                return $lim;
+            }
         }
 
-        $transactions = $query->orderBy('cs_wallet_transactions.id', 'DESC')->paginate(25);
+        $sess = (int)session()->get($sessionKey, 0);
+        if (in_array($sess, $allowed, true)) {
+            return $sess;
+        }
+
+        return 50;
+    }
+
+    private function ensureWalletRow(int $userId): object
+    {
+        $row = DB::table('cs_wallets')->where('user_id', $userId)->first();
+        if ($row) {
+            return $row;
+        }
+        DB::table('cs_wallets')->insert(['user_id' => $userId, 'balance' => 0]);
+
+        return DB::table('cs_wallets')->where('user_id', $userId)->first();
+    }
+
+    /**
+     * Cake `CsWallet::subtractBalance` (DB + ledger row only; accounting hooks omitted).
+     */
+    private function subtractBalance(float $balance, int $userId, string $note, int $orderId = 0): float
+    {
+        if ($balance <= 0 || !Schema::hasTable('cs_wallets') || !Schema::hasTable('cs_wallet_transactions')) {
+            return 0.0;
+        }
+
+        $normNote = str_replace(' ', '_', strtolower(trim($note)));
+        $wallet = DB::table('cs_wallets')->where('user_id', $userId)->first();
+        if ($wallet) {
+            $walletId = (int)$wallet->id;
+            $currentBal = (float)$wallet->balance - $balance;
+            DB::table('cs_wallets')->where('id', $walletId)->update(['balance' => $currentBal]);
+        } else {
+            $currentBal = -$balance;
+            $walletId = (int)DB::table('cs_wallets')->insertGetId([
+                'user_id' => $userId,
+                'balance' => $currentBal,
+            ]);
+        }
+
+        DB::table('cs_wallet_transactions')->insert([
+            'cs_wallet_id' => $walletId,
+            'amount' => '-' . $balance,
+            'transaction_id' => '',
+            'cs_order_id' => $orderId,
+            'amt' => $balance,
+            'note' => $normNote,
+            'type' => 1,
+            'status' => 0,
+            'balance' => $currentBal,
+            'charged_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $currentBal;
+    }
+
+    /**
+     * Cake `CsWallet::addBalance` — common credit path only (no negative-balance edge cases).
+     */
+    private function addBalanceSimple(float $balance, int $userId, string $transactionId, string $note, int $orderId = 0, ?string $chargedAt = null): float
+    {
+        if ($balance <= 0 || !Schema::hasTable('cs_wallets') || !Schema::hasTable('cs_wallet_transactions')) {
+            return (float)(DB::table('cs_wallets')->where('user_id', $userId)->value('balance') ?? 0);
+        }
+
+        $when = $chargedAt ?: date('Y-m-d H:i:s');
+        $normNote = str_replace(' ', '_', strtolower(trim($note)));
+        $wallet = DB::table('cs_wallets')->where('user_id', $userId)->first();
+        if (!$wallet) {
+            $walletId = (int)DB::table('cs_wallets')->insertGetId([
+                'user_id' => $userId,
+                'balance' => $balance,
+            ]);
+            $newBal = $balance;
+        } else {
+            $newBal = (float)$wallet->balance + $balance;
+            DB::table('cs_wallets')->where('id', $wallet->id)->update(['balance' => $newBal]);
+            $walletId = (int)$wallet->id;
+        }
+
+        DB::table('cs_wallet_transactions')->insert([
+            'cs_wallet_id' => $walletId,
+            'amount' => (string)$balance,
+            'transaction_id' => $transactionId,
+            'cs_order_id' => $orderId,
+            'amt' => $balance,
+            'note' => $normNote,
+            'type' => 0,
+            'status' => 0,
+            'balance' => $newBal,
+            'charged_at' => $when,
+        ]);
+
+        return $newBal;
+    }
+
+    public function admin_index(Request $request, $userid = null)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeWalletUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users');
+        }
+
+        $wallet = $this->ensureWalletRow($uid);
+        $limit = $this->resolveWalletLimit($request, 'wallet_limit');
+        $keyword = trim((string)$request->input('searchKey', $request->query('keyword', '')));
+
+        $q = DB::table('cs_wallet_transactions as wt')
+            ->leftJoin('cs_orders as o', 'o.id', '=', 'wt.cs_order_id')
+            ->where('wt.cs_wallet_id', $wallet->id)
+            ->orderByDesc('wt.id')
+            ->select('wt.*', 'o.increment_id as order_increment_id');
+        if ($keyword !== '') {
+            $q->where('wt.transaction_id', $keyword);
+        }
+
+        $transactions = $q->paginate($limit)->withQueryString();
+
+        $isDealer = (int)DB::table('users')->where('id', $uid)->value('is_dealer') === 1;
+        $useridB64 = base64_encode((string)$uid);
 
         if ($request->ajax()) {
-            return view('admin.elements.walletTransaction.transaction', compact('transactions', 'wallet', 'userid'));
+            return response()->view('admin.wallet._transaction_panel', [
+                'transactions' => $transactions,
+                'keyword' => $keyword,
+                'limit' => $limit,
+                'adminContext' => true,
+                'useridB64' => $useridB64,
+            ]);
         }
 
-        return view('admin.wallet.index', compact('transactions', 'wallet', 'userid', 'userData'));
+        return view('admin.wallet.admin_index', [
+            'wallet' => $wallet,
+            'transactions' => $transactions,
+            'keyword' => $keyword,
+            'limit' => $limit,
+            'is_dealer' => $isDealer,
+            'userid' => $useridB64,
+        ]);
     }
 
-    public function diacredit(Request $request, $userid = null)
+    public function admin_updatebalance(Request $request, $userid = null)
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.users.index');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeWalletUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users');
         }
 
-        $userData = User::find($userid, ['is_dealer']);
-        if ($userData->is_dealer) {
-            session()->flash('error', "Sorry, you cant add credit to this user");
-            return back();
+        $userData = DB::table('users')->where('id', $uid)->first();
+        if (!$userData || (int)$userData->is_dealer !== 1) {
+            session()->flash('error', 'Sorry, you cant update this user balance');
+
+            return redirect()->back();
         }
 
-        return view('admin.wallet.diacredit', ['userid' => base64_encode($userid)]);
-    }
-
-    public function createintent(Request $request)
-    {
-        // Placeholder for Stripe Payment Intent creation logic
-        // This will be fully functional once PaymentProcessor is migrated
-        return response()->json(['status' => false, 'message' => "Stripe integration pending Lib migration."]);
-    }
-
-    public function updatebalance(Request $request, $userid = null)
-    {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.users.index');
-        }
-
-        $userData = User::find($userid, ['is_dealer']);
-        if (!$userData || !$userData->is_dealer) {
-            session()->flash('error', "Sorry, you cant update this user balance");
-            return back();
-        }
-
-        $wallet = CsWallet::where('user_id', $userid)->first();
+        $wallet = $this->ensureWalletRow($uid);
 
         if ($request->isMethod('post')) {
-            $deduction = (float)$request->input('Wallet.balance');
-            if (!$deduction) {
-                session()->flash('error', "Please enter a valid amount");
-                return back();
-            }
+            $deduction = (float)$request->input('Wallet.balance', 0);
+            if ($deduction == 0.0) {
+                session()->flash('error', 'Please enter a valid amount');
 
-            $currentBalance = isset($wallet->balance) ? $wallet->balance : 0;
-            $newBalance = $currentBalance - $deduction;
-
-            if ($userData->is_dealer && $newBalance < 0) {
-                $wallet->subtractBalance($deduction, $userid, "Forcefully deducted by DIA");
-                session()->flash('success', "Wallet balance updated successfully");
-                return redirect("/admin/wallet/index/" . base64_encode($userid));
-            } elseif ($newBalance > 0) {
-                $wallet->subtractBalance($deduction, $userid, "Forcefully deducted by DIA");
-                session()->flash('success', "Wallet balance updated successfully");
-                return redirect("/admin/wallet/index/" . base64_encode($userid));
-            } else {
-                session()->flash('error', "Sorry, you cant make this user balance in negative");
-                return back();
+                return redirect()->back();
             }
+            $bal = (float)($wallet->balance ?? 0);
+            $newBalance = $bal - $deduction;
+
+            if ((int)$userData->is_dealer === 1 && $newBalance < 0) {
+                $this->subtractBalance($deduction, $uid, 'Forcefully deducted by DIA');
+                session()->flash('success', 'Wallet balance updated successfully');
+
+                return redirect('/admin/wallet/index/' . base64_encode((string)$uid));
+            }
+            if ($newBalance > 0) {
+                $this->subtractBalance($deduction, $uid, 'Forcefully deducted by DIA');
+                session()->flash('success', 'Wallet balance updated successfully');
+
+                return redirect('/admin/wallet/index/' . base64_encode((string)$uid));
+            }
+            session()->flash('error', 'Sorry, you cant make this user balance in negative');
+
+            return redirect()->back();
         }
 
-        return view('admin.wallet.updatebalance', ['wallet' => $wallet, 'userid' => base64_encode($userid)]);
+        return view('admin.wallet.admin_updatebalance', [
+            'wallet' => $wallet,
+            'userid' => base64_encode((string)$uid),
+        ]);
     }
 
-    public function refundbalance(Request $request, $userid = null)
+    public function admin_refundbalance(Request $request, $userid = null)
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.users.index');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeWalletUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users');
         }
 
-        $userData = User::find($userid, ['is_dealer']);
-        if ($userData && $userData->is_dealer) {
-            session()->flash('error', "Sorry, you cant refund this user balance");
-            return back();
+        $userData = DB::table('users')->where('id', $uid)->first();
+        if (!$userData || (int)$userData->is_dealer === 1) {
+            session()->flash('error', 'Sorry, you cant refund this user balance');
+
+            return redirect()->back();
         }
 
-        $wallet = CsWallet::where('user_id', $userid)->first();
+        $wallet = $this->ensureWalletRow($uid);
 
         if ($request->isMethod('post')) {
-            $deduction = (float)$request->input('Wallet.balance');
-            $deductionNote = $request->input('Wallet.note');
+            session()->flash('error', 'Wallet refund to card requires PaymentProcessor (Stripe) — not migrated in Laravel yet.');
 
-            if (!$deduction) {
-                session()->flash('error', "Please enter a valid amount");
-                return back();
-            }
-
-            if ($wallet && $wallet->balance > 0 && $deduction <= $wallet->balance) {
-                $resultRefund = $wallet->refundFromWallet($userid, $deduction, $deductionNote);
-                if (!empty($resultRefund['status'])) {
-                    session()->flash('success', "Wallet balance updated successfully");
-                    return redirect("/admin/wallet/index/" . base64_encode($userid));
-                } else {
-                    session()->flash('error', $resultRefund['msg'] ?? 'Refund failed');
-                    return back();
-                }
-            } else {
-                session()->flash('error', "Sorry, this user dont have enough balance to refund");
-                return back();
-            }
+            return redirect()->back();
         }
 
-        return view('admin.wallet.refundbalance', ['wallet' => $wallet, 'userid' => base64_encode($userid)]);
+        return view('admin.wallet.admin_refundbalance', [
+            'wallet' => $wallet,
+            'userid' => base64_encode((string)$uid),
+        ]);
     }
 
-    public function chargepartialamtpopup(Request $request)
+    public function admin_chargepartialamtpopup(Request $request)
     {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
         if (!$request->ajax()) {
-            die("wrong attempt");
+            abort(403, 'wrong attempt');
         }
-        
-        $userid = $request->input('userid');
-        $bookingid = $request->input('bookingid', '');
-        $currency = $request->input('currency', '');
 
-        return view('admin.wallet._chargepartialamtpopup', compact('userid', 'bookingid', 'currency'));
+        $userid = (string)$request->input('userid', '');
+        $bookingid = (string)$request->input('bookingid', '');
+        $currency = (string)$request->input('currency', '');
+
+        return response()->view('admin.wallet._chargepartialamtpopup', compact('userid', 'bookingid', 'currency'));
     }
 
-    public function chargepartialamt(Request $request)
+    public function admin_chargepartialamt(Request $request): JsonResponse
     {
-        $return = $this->chargePartialAmtLogic($request);
-        return response()->json($return);
-    }
-
-    public function diacreditprocess(Request $request)
-    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []], 401);
+        }
         if (!$request->ajax() || !$request->isMethod('post')) {
-            return response()->json(['status' => false, 'message' => "Sorry, not a valid request", 'result' => []]);
+            abort(403, 'wrong attempt');
         }
 
-        $amt = (float)($request->input('amount') / 100);
-        $userid = base64_decode($request->input('userid'));
-        $transaction = $request->input('transaction');
-
-        if ($amt == 0 || empty($userid) || empty($transaction)) {
-            return response()->json(['status' => false, 'message' => "Sorry, not a valid request", 'result' => []]);
-        }
-
-        $csWalletModel = new CsWallet();
-        $walletbal = $csWalletModel->addBalance($amt, $userid, $transaction, "DIA Credits", 0, now());
-
-        return response()->json(['status' => true, 'message' => "Charged successfully", 'result' => ["walletbal" => $walletbal]]);
+        return response()->json([
+            'status' => false,
+            'message' => 'chargeAmtToUser / PaymentProcessor is not migrated in Laravel yet.',
+            'result' => [],
+        ]);
     }
 
-    protected function _chargepartialamt(Request $request)
+    public function admin_diacredit(Request $request, $userid = null)
     {
-        return $this->chargePartialAmtLogic($request);
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeWalletUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users');
+        }
+
+        $userData = DB::table('users')->where('id', $uid)->first();
+        if (!$userData || (int)$userData->is_dealer === 1) {
+            session()->flash('error', 'Sorry, you cant add credit to this user');
+
+            return redirect()->back();
+        }
+
+        return view('admin.wallet.admin_diacredit', [
+            'userid' => base64_encode((string)$uid),
+        ]);
+    }
+
+    public function admin_createintent(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []], 401);
+        }
+        if (!$request->ajax() || !$request->isMethod('post')) {
+            return response()->json(['status' => false, 'message' => 'Sorry, not a valid request', 'result' => []]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Stripe PaymentIntent creation is not wired in Laravel yet.',
+            'result' => [],
+        ]);
+    }
+
+    public function admin_diacreditprocess(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []], 401);
+        }
+        if (!$request->ajax() || !$request->isMethod('post')) {
+            return response()->json(['status' => false, 'message' => 'Sorry, not a valid request', 'result' => []]);
+        }
+
+        $payload = json_decode((string)$request->getContent(), true);
+        if (!is_array($payload)) {
+            $payload = $request->all();
+        }
+        $amt = isset($payload['amount']) ? (float)$payload['amount'] / 100.0 : 0.0;
+        $useridB64 = isset($payload['userid']) ? (string)$payload['userid'] : '';
+        $transaction = isset($payload['transaction']) ? (string)$payload['transaction'] : '';
+        $uid = $this->decodeWalletUserId($useridB64);
+        if ($amt == 0.0 || !$uid || $transaction === '') {
+            return response()->json(['status' => false, 'message' => 'Sorry, not a valid request', 'result' => []]);
+        }
+
+        $walletbal = $this->addBalanceSimple($amt, $uid, $transaction, 'DIA Credits', 0, date('Y-m-d H:i:s'));
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Charged successfully',
+            'result' => ['walletbal' => $walletbal],
+        ]);
     }
 }

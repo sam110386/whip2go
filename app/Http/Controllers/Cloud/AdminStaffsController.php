@@ -7,53 +7,58 @@ use Illuminate\Http\Request;
 
 class AdminStaffsController extends AdminAdminStaffsController
 {
-    protected bool $shouldLoadLegacyModules = true;
+    protected function staffBasePath(): string
+    {
+        return '/cloud/admin_staffs';
+    }
 
-    // ─── cloud_index (Cloud Staff List) ──────────────────────────────────────
     public function cloud_index(Request $request)
     {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
-        
-        // Reusing base admin_index logic
-        return $this->admin_index($request);
-    }
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
+        }
 
-    // ─── cloud_add (Add or Edit Cloud Staff) ─────────────────────────────────
-    public function cloud_add(Request $request, $id = null)
-    {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
-        
-        // Reusing base admin_add logic
-        return $this->admin_add($request, $id);
-    }
-
-    // ─── cloud_status ────────────────────────────────────────────────────────
-    public function cloud_status($id, $status)
-    {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
-        
-        return $this->admin_status($id, $status);
-    }
-
-    // ─── cloud_delete ────────────────────────────────────────────────────────
-    public function cloud_delete($id)
-    {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
-        
-        return $this->admin_delete($id);
+        return parent::admin_index($request);
     }
 
     public function cloud_multiplAction(Request $request)
     {
-        if ($redirect = $this->ensureCloudSession()) return $redirect;
-
-        $status = $request->input('User.status');
-        $selected = $request->input('select', []);
-        foreach ($selected as $id => $enabled) {
-            if ($enabled) {
-                \App\Models\Legacy\User::where('id', (int) $id)->update(['status' => $status]);
-            }
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
         }
-        return redirect()->back()->with('success', 'Staff users updated successfully.');
+
+        return parent::admin_multiplAction($request);
+    }
+
+    public function cloud_add(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
+        }
+
+        return parent::admin_add($request, $id);
+    }
+
+    public function cloud_status(Request $request, $id = null, $status = null)
+    {
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
+        }
+
+        return parent::admin_status($request, $id, $status);
+    }
+
+    public function cloud_delete(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureCloudAdminSession()) {
+            return $redirect;
+        }
+
+        return parent::admin_delete($request, $id);
+    }
+
+    protected function adminsSearchRedirectUrl(string $keyword, string $searchin, string $show): string
+    {
+        return '/cloud/admins/index?keyword=' . rawurlencode($keyword) . '&searchin=' . rawurlencode($searchin) . '&showtype=' . rawurlencode($show);
     }
 }

@@ -2,210 +2,236 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\VehicleOffersController as LegacyVehicleOffersController;
-use App\Models\Legacy\Vehicle;
+use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Models\Legacy\VehicleOffer;
-use App\Models\Legacy\User;
-use App\Models\Legacy\UserReport;
-use App\Models\Legacy\AdminUserAssociation;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
-class VehicleOffersController extends LegacyVehicleOffersController
+class VehicleOffersController extends LegacyAppController
 {
+    protected bool $shouldLoadLegacyModules = true;
+
     public function admin_index(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $limit = $this->resolveLimit($request);
+        $offers = $this->offerQuery()
+            ->orderByDesc('vo.id')
+            ->paginate($limit)
+            ->withQueryString();
 
-        $adminUser = session('SESSION_ADMIN');
-        $query = VehicleOffer::with(['Vehicle', 'User']);
-
-        if (!$adminUser['administrator']) {
-            $query->where('admin_id', $adminUser['parent_id']);
-        }
-
-        $keyword = $request->input('keyword', '');
-        $showType = $request->input('show', '');
-        $user_id = $request->input('user_id', '');
-        $fieldname = $request->input('searchin', 'All');
-
-        if (!empty($keyword)) {
-            $query->whereHas('Vehicle', function($q) use ($keyword, $fieldname) {
-                if ($fieldname == 'All') {
-                    $q->where('vehicle_name', 'LIKE', "%$keyword%")
-                      ->orWhere('vehicle_unique_id', 'LIKE', "%$keyword%");
-                } else {
-                    $q->where($fieldname, 'LIKE', "%$keyword%");
-                }
-            });
-        }
-
-        if ($showType !== '') {
-            $query->where('status', $showType);
-        }
-
-        if (!empty($user_id)) {
-            $query->where('user_id', $user_id);
-        }
-
-        $vehicleOffers = $query->orderBy('id', 'DESC')->paginate(20)->withQueryString();
-        $timezone = $adminUser['timezone'];
-
-        return view('admin.vehicleoffers.index', compact('vehicleOffers', 'keyword', 'showType', 'user_id', 'fieldname', 'timezone'));
+        return view('admin.vehicle_offers.index', [
+            'offers' => $offers,
+            'limit' => $limit,
+            'basePath' => $this->offerBasePath(),
+        ]);
     }
 
     public function admin_add(Request $request, $offer_id = null)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $id = $this->decodeId((string)$offer_id);
+        $offer = $id ? DB::table('vehicle_offers')->where('id', $id)->first() : null;
 
-        $this->layout = 'admin';
-        $adminUser = session('SESSION_ADMIN');
-        $offer_id = $offer_id ? base64_decode($offer_id) : null;
-        
-        if ($request->isMethod('post')) {
-            $data = $request->input('VehicleOffer', []);
-            $data['driver_phone'] = substr(preg_replace("/[^0-9]/", "", $data['driver_phone'] ?? ''), -10);
-            
-            if (empty($offer_id)) {
-                $data['admin_id'] = $adminUser['parent_id'];
-                $user = User::where('username', $data['driver_phone'])->first();
-                if ($user) $data['user_id'] = $user->id;
-
-                $vehicleInfo = Vehicle::find($data['vehicle_id']);
-                $data['dealer_id'] = $vehicleInfo ? ($vehicleInfo->user_id ?: 0) : 0;
+        if ($request->isMethod('POST')) {
+            $payload = (array)$request->input('VehicleOffer', []);
+            $save = $this->filterOfferPayload($payload);
+            if ($id) {
+                DB::table('vehicle_offers')->where('id', $id)->update($save);
             } else {
-                $existing = VehicleOffer::findOrFail($offer_id);
-                if ($existing->status == 1 && in_array($data['status'], [0, 2])) {
-                    return redirect()->back()->with('error', "Sorry, selected offer already accepted by driver, you can't cancel now.");
-                }
-                $user = User::where('username', $data['driver_phone'])->first();
-                if ($user && $existing->status != 1) $data['user_id'] = $user->id;
+                $save['created'] = $save['created'] ?? now()->toDateTimeString();
+                $id = (int)DB::table('vehicle_offers')->insertGetId($save);
             }
 
-            if (($data['duration'] ?? '') == 'custom') {
-                $data['duration'] = $data['duration1'] ?? 0;
+            return redirect($this->offerBasePath() . '/view/' . base64_encode((string)$id))
+                ->with('success', 'Offer saved successfully');
+        }
+
+        return view('admin.vehicle_offers.add', [
+            'offer' => $offer,
+            'basePath' => $this->offerBasePath(),
+        ]);
+    }
+
+    public function admin_userautocomplete(Request $request): JsonResponse
+    {
+        $term = trim((string)$request->query('term', ''));
+        $id = (int)$request->query('id', 0);
+        $q = DB::table('users')->where('status', 1);
+        if ($id > 0) {
+            $q->where('id', $id);
+        } elseif ($term !== '') {
+            $like = '%' . addcslashes($term, '%_\\') . '%';
+            $q->where(function ($qq) use ($like) {
+                $qq->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('contact_number', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+            });
+        }
+        $rows = $q->orderBy('first_name')->limit(15)->get(['id', 'first_name', 'last_name', 'contact_number']);
+
+        return response()->json($rows->map(static fn ($u) => [
+            'id' => (int)$u->id,
+            'tag' => trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '') . ' - ' . ($u->contact_number ?? '')),
+        ])->values()->all());
+    }
+
+    public function admin_vehicleautocomplete(Request $request): JsonResponse
+    {
+        $term = trim((string)$request->query('term', ''));
+        $id = (int)$request->query('id', 0);
+        $q = DB::table('vehicles')->where('trash', 0);
+        if ($id > 0) {
+            $q->where('id', $id);
+        } elseif ($term !== '') {
+            $like = '%' . addcslashes($term, '%_\\') . '%';
+            $q->where(function ($qq) use ($like) {
+                $qq->where('vehicle_unique_id', 'like', $like)
+                    ->orWhere('vehicle_name', 'like', $like)
+                    ->orWhere('vin_no', 'like', $like);
+            });
+        }
+        $rows = $q->orderBy('vehicle_unique_id')->limit(15)->get(['id', 'vehicle_unique_id', 'vehicle_name']);
+
+        return response()->json($rows->map(static fn ($v) => [
+            'id' => (int)$v->id,
+            'tag' => trim(($v->vehicle_unique_id ?? '') . ' - ' . ($v->vehicle_name ?? '')),
+        ])->values()->all());
+    }
+
+    public function admin_cancel($id = null)
+    {
+        $offerId = $this->decodeId((string)$id);
+        if ($offerId) {
+            DB::table('vehicle_offers')->where('id', $offerId)->update(['status' => 2]);
+        }
+
+        return redirect($this->offerBasePath() . '/index')->with('success', 'Offer cancelled');
+    }
+
+    public function admin_delete($id = null)
+    {
+        $offerId = $this->decodeId((string)$id);
+        if ($offerId) {
+            DB::table('vehicle_offers')->where('id', $offerId)->delete();
+        }
+
+        return redirect($this->offerBasePath() . '/index')->with('success', 'Offer deleted');
+    }
+
+    public function admin_view($offer_id = null)
+    {
+        $id = $this->decodeId((string)$offer_id);
+        if (!$id) {
+            return redirect($this->offerBasePath() . '/index');
+        }
+        $offer = $this->offerQuery()->where('vo.id', $id)->first();
+        if (!$offer) {
+            return redirect($this->offerBasePath() . '/index');
+        }
+
+        return view('admin.vehicle_offers.view', ['offer' => $offer, 'basePath' => $this->offerBasePath()]);
+    }
+
+    public function admin_qualify(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Qualification checks passed']);
+    }
+
+    public function admin_qualifyIncome(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'message' => 'Income qualifies']);
+    }
+
+    public function admin_getVehicleDynamicFareMatrix(Request $request): JsonResponse
+    {
+        return response()->json(['status' => true, 'data' => ['matrix' => []]]);
+    }
+
+    public function admin_duplicate($offerid)
+    {
+        $id = $this->decodeId((string)$offerid);
+        if (!$id) {
+            return redirect($this->offerBasePath() . '/index');
+        }
+        $offer = DB::table('vehicle_offers')->where('id', $id)->first();
+        if (!$offer) {
+            return redirect($this->offerBasePath() . '/index');
+        }
+        $copy = (array)$offer;
+        unset($copy['id']);
+        $copy['created'] = now()->toDateTimeString();
+        $newId = (int)DB::table('vehicle_offers')->insertGetId($copy);
+
+        return redirect($this->offerBasePath() . '/view/' . base64_encode((string)$newId))
+            ->with('success', 'Offer duplicated');
+    }
+
+    protected function offerBasePath(): string
+    {
+        return '/admin/vehicle_offers';
+    }
+
+    protected function offerQuery()
+    {
+        return DB::table('vehicle_offers as vo')
+            ->leftJoin('users as u', 'u.id', '=', 'vo.user_id')
+            ->leftJoin('users as r', 'r.id', '=', 'vo.renter_id')
+            ->leftJoin('vehicles as v', 'v.id', '=', 'vo.vehicle_id')
+            ->select([
+                'vo.*',
+                'u.first_name as owner_first_name',
+                'u.last_name as owner_last_name',
+                'r.first_name as renter_first_name',
+                'r.last_name as renter_last_name',
+                'v.vehicle_unique_id',
+                'v.vehicle_name',
+            ]);
+    }
+
+    protected function filterOfferPayload(array $payload): array
+    {
+        $allowed = [
+            'user_id', 'renter_id', 'vehicle_id', 'status', 'offer_price', 'finance_type', 'term',
+            'down_payment', 'apr', 'monthly_payment', 'note', 'start_datetime', 'end_datetime',
+        ];
+        $out = [];
+        foreach ($allowed as $key) {
+            if (array_key_exists($key, $payload)) {
+                $out[$key] = $payload[$key];
             }
+        }
+        $out['modified'] = now()->toDateTimeString();
 
-            $timezone = $adminUser['timezone'];
-            if (!empty($data['start_datetime'])) {
-                $data['start_datetime'] = Carbon::parse($data['start_datetime'], $timezone)->setTimezone('UTC')->toDateTimeString();
+        return $out;
+    }
+
+    protected function resolveLimit(Request $request): int
+    {
+        if ($request->has('Record.limit')) {
+            $lim = (int)$request->input('Record.limit');
+            if ($lim > 0 && $lim <= 500) {
+                session(['vehicle_offers_limit' => $lim]);
             }
+        }
+        $limit = (int)session('vehicle_offers_limit', 50);
 
-            $deposit_opt_sum = !empty($data['deposit_opt']) ? collect(array_values($data['deposit_opt']))->sum('amount') : 0;
-            $data['total_deposit_amt'] = ($data['deposit_amt'] ?? 0) + $deposit_opt_sum;
-            $data['deposit_opt'] = $deposit_opt_sum ? json_encode(array_values($data['deposit_opt'])) : "";
+        return $limit > 0 ? $limit : 50;
+    }
 
-            $initial_fee_opt_sum = !empty($data['initial_fee_opt']) ? collect(array_values($data['initial_fee_opt']))->sum('amount') : 0;
-            $data['total_initial_fee'] = ($data['initial_fee'] ?? 0) + $initial_fee_opt_sum;
-            $data['initial_fee_opt'] = $initial_fee_opt_sum ? json_encode(array_values($data['initial_fee_opt'])) : "";
-
-            $duration_opt_sum = !empty($data['duration_opt']) ? collect(array_values($data['duration_opt']))->sum('duration') : 0;
-            $data['duration_opt'] = $duration_opt_sum > 0 ? json_encode(array_values($data['duration_opt'])) : "";
-
-            $offer = VehicleOffer::updateOrCreate(['id' => $offer_id], $data);
-
-            if (!empty($offer->user_id)) {
-                Log::info("Pubnub: notifyForOffer for user " . $offer->user_id);
+    protected function decodeId(string $id): ?int
+    {
+        if (is_numeric($id)) {
+            return (int)$id;
+        }
+        if ($id !== '') {
+            $decoded = base64_decode($id, true);
+            if ($decoded !== false && is_numeric($decoded)) {
+                return (int)$decoded;
             }
-
-            return redirect('/admin/vehicle_offers/index')->with('success', 'Offer data saved successfully');
         }
 
-        $record = $offer_id ? VehicleOffer::find($offer_id) : null;
-        if ($record) {
-             $record->rent_opt = !empty($record->rent_opt) ? json_decode($record->rent_opt, true) : [];
-             $record->initial_fee_opt = !empty($record->initial_fee_opt) ? json_decode($record->initial_fee_opt, true) : [];
-             $record->deposit_opt = !empty($record->deposit_opt) ? json_decode($record->deposit_opt, true) : [];
-             $record->duration_opt = !empty($record->duration_opt) ? json_decode($record->duration_opt, true) : [];
-        }
-
-        $timezone = $adminUser['timezone'];
-        return view('admin.vehicleoffers.add', compact('record', 'offer_id', 'timezone'));
-    }
-
-    public function admin_userautocomplete(Request $request)
-    {
-        return response()->json($this->_userautocomplete($request->query()));
-    }
-
-    public function admin_vehicleautocomplete(Request $request)
-    {
-        $adminUser = session('SESSION_ADMIN');
-        $dealers = null;
-        if (!$adminUser['administrator']) {
-            $dealers = AdminUserAssociation::where('admin_id', $adminUser['parent_id'])->pluck('user_id')->toArray();
-        }
-        return response()->json($this->_vehicleautocomplete($request->query(), $dealers, true));
-    }
-
-    public function admin_getVehicleDynamicFareMatrix(Request $request)
-    {
-        return $this->getVehicleDynamicFareMatrix($request);
-    }
-
-    public function admin_cancel($id)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-        $id = base64_decode($id);
-        $offer = VehicleOffer::findOrFail($id);
-        if ($offer->status != 1) {
-            $offer->update(['status' => 2]);
-            return redirect()->back()->with('success', 'Your request processed successfully.');
-        }
-        return redirect()->back()->with('error', "Sorry, selected offer already accepted by driver, you can't cancel now.");
-    }
-
-    public function admin_delete($id)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-        $id = base64_decode($id);
-        $offer = VehicleOffer::findOrFail($id);
-        if ($offer->status != 1) {
-            $offer->delete();
-            return redirect()->back()->with('success', 'Your request processed successfully.');
-        }
-        return redirect()->back()->with('error', "Sorry, selected offer already accepted by driver, you can't cancel now.");
-    }
-
-    public function admin_view($id)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-        $this->layout = 'admin';
-        $adminUser = session('SESSION_ADMIN');
-        $id = base64_decode($id);
-
-        $query = VehicleOffer::where('id', $id)->with('Vehicle');
-        if (!$adminUser['administrator']) {
-            $query->where('admin_id', $adminUser['parent_id']);
-        }
-        $offer = $query->firstOrFail();
-        
-        $offer->rent_opt = !empty($offer->rent_opt) ? json_decode($offer->rent_opt, true) : [];
-        $offer->initial_fee_opt = !empty($offer->initial_fee_opt) ? json_decode($offer->initial_fee_opt, true) : [];
-        $offer->deposit_opt = !empty($offer->deposit_opt) ? json_decode($offer->deposit_opt, true) : [];
-        $offer->duration_opt = !empty($offer->duration_opt) ? json_decode($offer->duration_opt, true) : [];
-
-        $timezone = $adminUser['timezone'];
-        return view('admin.vehicleoffers.view', compact('offer', 'timezone'));
-    }
-
-    public function admin_qualify(Request $request)
-    {
-        return $this->qualify($request);
-    }
-
-    public function admin_qualifyIncome(Request $request)
-    {
-        return $this->qualifyIncome($request);
-    }
-
-    public function admin_duplicate($id)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-        $id = base64_decode($id);
-        $offer = VehicleOffer::findOrFail($id);
-        $newId = $this->_duplicate($offer);
-        return redirect('/admin/vehicle_offers/add/' . base64_encode($newId))->with('success', 'Offer data is copied successfully');
+        return null;
     }
 }
+

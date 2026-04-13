@@ -1,36 +1,29 @@
+{{-- Cake `app/View/Layouts/default.ctp` — marketing site with header + footer. --}}
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"/>
-    <title>@yield('title', $title_for_layout ?? 'Whip2Go')</title>
-    <script>var SITE_URL = "{{ url('/') }}/";</script>
-    <link rel="stylesheet" href="//use.fontawesome.com/releases/v5.2.0/css/all.css"/>
-    <link rel="icon" href="{{ asset('favicon.ico') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/icons/icomoon/styles.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/bootstrap.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/core.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/components.css') }}">
-    <link rel="stylesheet" href="{{ asset('theme2/colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('stylenew.css') }}">
-    @stack('styles')
+    @include('layouts.partials.cake.head_marketing_default')
 </head>
 <body>
-    @includeIf('legacy.elements.header')
-    @yield('content')
-    @includeIf('legacy.elements.footer')
-    <script src="{{ asset('assets/js/plugins/loaders/pace.min.js') }}"></script>
-    <script src="{{ asset('assets/js/core/libraries/jquery.min.js') }}"></script>
-    <script src="{{ asset('assets/js/core/libraries/bootstrap.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/loaders/blockui.min.js') }}"></script>
-    <script src="{{ asset('assets/js/core/app.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/forms/selects/bootstrap_multiselect.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/ui/moment/moment.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/pickers/datepicker.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/forms/validation/validate.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/forms/validation/additional_methods.min.js') }}"></script>
-    @stack('scripts')
+@include('layouts.partials.cake.marketing_header')
+
+@yield('content')
+
+@include('layouts.partials.cake.marketing_footer')
+<script type="text/javascript">
+    $(function () {
+        $("header nav.navbar").addClass("nav-dark");
+        $("header nav.navbar").removeClass("navbar-fixed-top");
+        $(window).on('scroll', function () {
+            var scroll = $(window).scrollTop();
+            if (scroll > 70) {
+                $("header nav.navbar").addClass("navbar-fixed-top");
+            } else {
+                $("header nav.navbar").removeClass("navbar-fixed-top");
+            }
+        });
+    });
+</script>
+@stack('scripts')
 </body>
 </html>

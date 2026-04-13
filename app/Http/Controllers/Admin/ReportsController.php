@@ -3,119 +3,166 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\ReportsTrait;
-use App\Models\Legacy\CsOrder;
-use App\Models\Legacy\Vehicle;
-use App\Models\Legacy\User;
+use App\Support\BookingReportDetailPresenter;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\DB;
 
 class ReportsController extends LegacyAppController
 {
-    use ReportsTrait;
-
     protected bool $shouldLoadLegacyModules = true;
 
-    /**
-     * admin_index: Main admin report listing
-     */
     public function admin_index(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $limit = $this->resolveLimit($request, 'admin_reports_limit');
+        $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
+        $dateTo = trim((string)$this->searchInput($request, 'date_to'));
+        $status = trim((string)$this->searchInput($request, 'status'));
 
-        $query = $this->_getBookingReportsQuery($request, ['CsOrder.parent_id' => 0]);
-        
-        if ($request->input('search') == 'EXPORT') {
-            return $this->_exportReportsCsv($query->get());
+        $q = DB::table('cs_orders as o')
+            ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
+            ->leftJoin('users as owner', 'owner.id', '=', 'o.user_id')
+            ->select([
+                'o.*',
+                'renter.first_name as renter_first_name',
+                'renter.last_name as renter_last_name',
+                'owner.first_name as owner_first_name',
+                'owner.last_name as owner_last_name',
+            ]);
+
+        if ($dateFrom !== '') {
+            $q->whereDate('o.start_datetime', '>=', Carbon::parse($dateFrom)->toDateString());
+        }
+        if ($dateTo !== '') {
+            $q->whereDate('o.end_datetime', '<=', Carbon::parse($dateTo)->toDateString());
+        }
+        if ($status !== '' && is_numeric($status)) {
+            $q->where('o.status', (int)$status);
         }
 
-        $limit = $request->input('Record.limit') ?: Session::get('reports_limit', 50);
-        if ($request->has('Record.limit')) Session::put('reports_limit', $limit);
-
-        $reportlists = $query->orderBy('CsOrder.id', 'DESC')->paginate($limit)->withQueryString();
-
+        $reportlists = $q->orderByDesc('o.id')->paginate($limit)->withQueryString();
         if ($request->ajax()) {
-            return view('admin.elements.reports.index', compact('reportlists'));
+            return response()->view('admin.reports._listing', compact('reportlists'));
         }
 
-        return view('admin.reports.index', compact('reportlists'));
+        return view('admin.reports.index', compact('reportlists', 'dateFrom', 'dateTo', 'status', 'limit'));
     }
 
-    /**
-     * admin_details: Report details view
-     */
-    public function admin_details(Request $request, $id)
+    public function admin_details($id)
     {
-        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
-        $id = base64_decode($id);
-        $data = $this->_getReportDetails($id);
-        
-        if (!$data) return response()->json(['error' => 'No record found'], 404);
+        $orderId = $this->decodeId((string)$id);
+        if (!$orderId) {
+            return redirect('/admin/reports/index');
+        }
+        $order = DB::table('cs_orders')->where('id', $orderId)->first();
+        if (!$order) {
+            return redirect('/admin/reports/index');
+        }
 
-        return view('admin.reports.details', $data);
+        $payload = BookingReportDetailPresenter::buildSingle($orderId);
+        if ($payload === null) {
+            return redirect('/admin/reports/index');
+        }
+
+        return view('admin.reports.details', $payload);
     }
 
-    /**
-     * admin_productivity: Fleet productivity report
-     */
+    public function admin_loadsubbooking($orderid)
+    {
+        $id = $this->decodeId((string)$orderid);
+        if (!$id) {
+            return response('Invalid booking id', 400);
+        }
+        $subs = DB::table('cs_orders')->where('parent_id', $id)->orderBy('id')->get();
+
+        return response()->view('admin.reports._subbookings', compact('subs', 'id'));
+    }
+
+    public function admin_autorenewddetails($id)
+    {
+        $orderId = $this->decodeId((string) $id);
+        if (!$orderId) {
+            return redirect('/admin/reports/index');
+        }
+        $order = DB::table('cs_orders')->where('id', $orderId)->first();
+        if (!$order) {
+            return redirect('/admin/reports/index');
+        }
+
+        $payload = BookingReportDetailPresenter::buildAutoRenew($orderId);
+        if ($payload === null) {
+            return redirect('/admin/reports/index');
+        }
+
+        return view('admin.reports.details', $payload);
+    }
+
     public function admin_productivity(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+        $from = trim((string)$this->searchInput($request, 'date_from'));
+        $to = trim((string)$this->searchInput($request, 'date_to'));
 
-        $extraConditions = [];
-        if ($request->filled('Search.user_id')) {
-            $extraConditions['Vehicle.user_id'] = $request->input('Search.user_id');
+        $q = DB::table('cs_orders')
+            ->selectRaw('user_id, COUNT(*) as total_orders, SUM(rent + tax + dia_fee) as gross')
+            ->groupBy('user_id');
+        if ($from !== '') {
+            $q->whereDate('start_datetime', '>=', Carbon::parse($from)->toDateString());
         }
-
-        $query = $this->_getVehicleReportsQuery($request, $extraConditions);
-
-        if ($request->input('search') == 'EXPORT') {
-            // Fleet productivity CSV logic could be added here
-            return response()->json(['message' => 'Export in progress']);
+        if ($to !== '') {
+            $q->whereDate('end_datetime', '<=', Carbon::parse($to)->toDateString());
         }
+        $rows = $q->orderByDesc('total_orders')->limit(500)->get();
 
-        $reportlists = $query->orderBy('Vehicle.id', 'DESC')->paginate(25)->withQueryString();
-
-        return view('admin.reports.productivity', compact('reportlists'));
+        return view('admin.reports.productivity', ['rows' => $rows, 'dateFrom' => $from, 'dateTo' => $to]);
     }
 
-    /**
-     * admin_autorenewddetails: Auto-renew detailed view
-     */
-    public function admin_autorenewddetails(Request $request, $id)
-    {
-        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
-        $id = base64_decode($id);
-        $data = $this->_getAutoRenewDetails($id);
-        
-        return view('admin.reports.autorenew_details', $data);
-    }
-
-    /**
-     * admin_loadsubbooking: AJAX load sub-bookings
-     */
-    public function admin_loadsubbooking(Request $request)
-    {
-        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
-        $orderid = $request->input('orderid');
-        $subLog = $this->_loadSubBookings($orderid);
-        
-        return view('admin.elements.reports.subbooking_list', compact('subLog'));
-    }
-
-    /**
-     * admin_paymentspopup: AJAX load payments data
-     */
     public function admin_paymentspopup(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) return response()->json(['error' => 'Unauthorized'], 403);
-        
-        $orderid = base64_decode($request->input('orderid'));
-        $payments = $this->_getPaymentsData($orderid);
-        
-        return view('admin.elements.reports.payment_popup', compact('payments'));
+        $id = $this->decodeId((string)$request->input('orderid', ''));
+        if (!$id) {
+            return response('Invalid booking id', 400);
+        }
+        $rows = DB::table('cs_order_payments')->where('cs_order_id', $id)->orderByDesc('id')->get();
+
+        return response()->view('admin.reports._payments_popup', compact('rows', 'id'));
+    }
+
+    private function searchInput(Request $request, string $key): ?string
+    {
+        $v = $request->input('Search.' . $key);
+        if ($v !== null && $v !== '') {
+            return (string)$v;
+        }
+
+        return $request->input($key);
+    }
+
+    private function resolveLimit(Request $request, string $sessionKey): int
+    {
+        if ($request->has('Record.limit')) {
+            $lim = (int)$request->input('Record.limit');
+            if ($lim > 0 && $lim <= 500) {
+                session([$sessionKey => $lim]);
+            }
+        }
+        $limit = (int)session($sessionKey, 50);
+
+        return $limit > 0 ? $limit : 50;
+    }
+
+    private function decodeId(string $id): ?int
+    {
+        if (is_numeric($id)) {
+            return (int)$id;
+        }
+        if ($id !== '') {
+            $decoded = base64_decode($id, true);
+            if ($decoded !== false && is_numeric($decoded)) {
+                return (int)$decoded;
+            }
+        }
+
+        return null;
     }
 }
+

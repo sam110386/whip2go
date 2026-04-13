@@ -1,4 +1,2 @@
-@stack('scripts')
-<script type="text/javascript">
+{{-- Cake `app/View/Layouts/js/default.ctp` — JS response body. --}}
 @yield('content')
-</script>

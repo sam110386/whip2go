@@ -3,152 +3,350 @@
 namespace App\Http\Controllers\Legacy;
 
 use App\Models\Legacy\StaffUser;
-use App\Models\Legacy\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Security;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
+/**
+ * CakePHP `StaffUsersController` — dealer staff sub-accounts (`users` rows: is_staff=1).
+ */
 class StaffUsersController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    // ─── index (List of dealer staff) ──────────────────────────────────────────
+    private const PASSWORD_SALT = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+
+    private function ownerUserId(): int
+    {
+        $parent = (int)session()->get('userParentId', 0);
+
+        return $parent !== 0 ? $parent : (int)session()->get('userid', 0);
+    }
+
+    private function resolveLimit(Request $request, string $sessionKey): int
+    {
+        $allowed = [25, 50, 100, 200];
+        $fromForm = $request->input('Record.limit');
+        if ($fromForm !== null && $fromForm !== '') {
+            $lim = (int)$fromForm;
+            if (in_array($lim, $allowed, true)) {
+                session()->put($sessionKey, $lim);
+
+                return $lim;
+            }
+        }
+        $sess = (int)session()->get($sessionKey, 0);
+        if (in_array($sess, $allowed, true)) {
+            return $sess;
+        }
+
+        return 50;
+    }
+
+    private function decodeId(?string $b64): ?int
+    {
+        if ($b64 === null || $b64 === '') {
+            return null;
+        }
+        $raw = base64_decode($b64, true);
+        if ($raw === false || !ctype_digit((string)$raw)) {
+            return null;
+        }
+
+        return (int)$raw;
+    }
+
+    private function userPicWebPath(): string
+    {
+        return '/img/user_pic/';
+    }
+
+    private function userPicDiskDir(): string
+    {
+        return dirname(base_path()) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'webroot'
+            . DIRECTORY_SEPARATOR . 'img' . DIRECTORY_SEPARATOR . 'user_pic';
+    }
+
     public function index(Request $request)
     {
         if ($redirect = $this->ensureUserSession()) {
             return $redirect;
         }
-
-        $this->layout = 'main';
-        $userId = session('userParentId', 0) == 0 ? session('userid') : session('userParentId');
-
-        $keyword  = $request->input('Search.keyword', $request->query('keyword', ''));
-        $showType = $request->input('Search.show', $request->query('showtype', ''));
-
-        $this->set('title_for_layout', 'Manage Staff Users');
-
-        $query = StaffUser::query()
-            ->where('staff_parent', $userId)
-            ->where('is_staff', 1);
-
-        if (!empty($keyword)) {
-            $v = strip_tags($keyword);
-            $query->where(fn($q) => $q->where('first_name', 'LIKE', "%$v%")
-                ->orWhere('last_name', 'LIKE', "%$v%")
-                ->orWhere('email', 'LIKE', "%$v%"));
+        $ownerId = $this->ownerUserId();
+        if ($ownerId <= 0) {
+            return redirect('/dashboard/index');
         }
 
-        if ($showType !== '') {
-            $matchShow = ($showType == 'Active') ? 1 : 0;
-            $query->where('status', $matchShow);
+        $keyword = trim((string)$request->input('Search.keyword', $request->query('keyword', '')));
+        $show = trim((string)$request->input('Search.show', $request->query('showtype', '')));
+
+        $limit = $this->resolveLimit($request, 'staff_users_limit');
+
+        $q = StaffUser::query()
+            ->where('is_staff', 1)
+            ->where('staff_parent', $ownerId)
+            ->orderByDesc('id');
+
+        if ($keyword !== '') {
+            $like = '%' . addcslashes($keyword, '%_\\') . '%';
+            $q->where(function ($qq) use ($like) {
+                $qq->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('email', 'like', $like);
+            });
+        }
+        if ($show !== '') {
+            if (strcasecmp($show, 'Active') === 0) {
+                $q->where('status', 1);
+            } elseif (strcasecmp($show, 'Deactive') === 0 || strcasecmp($show, 'Inactive') === 0) {
+                $q->where('status', 0);
+            }
         }
 
-        $sessionLimitKey  = 'StaffUsers_limit';
-        $limitFromSession = session($sessionLimitKey, 20);
-        $limit            = (int)$request->input('Record.limit', $limitFromSession);
-        if ($limit < 1) $limit = 20;
-        session([$sessionLimitKey => $limit]);
+        $subusers = $q->paginate($limit)->withQueryString();
 
-        $subusers = $query->orderBy('id', 'DESC')->paginate($limit)->withQueryString();
-
-        return view('legacy.staff_users.index', [
+        return view('staff_users.index', [
             'subusers' => $subusers,
-            'keyword'  => $keyword,
-            'show'     => $showType,
+            'keyword' => $keyword,
+            'show' => $show,
+            'limit' => $limit,
         ]);
     }
 
-    // ─── add / edit ───────────────────────────────────────────────────────────
+    public function status(Request $request, $id = null, $status = null)
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $ownerId = $this->ownerUserId();
+        $uid = $this->decodeId($id !== null ? (string)$id : '');
+        if ($uid && Schema::hasTable('users')) {
+            $affected = DB::table('users')
+                ->where('id', $uid)
+                ->where('staff_parent', $ownerId)
+                ->where('is_staff', 1)
+                ->update(['status' => (int)$status === 1 ? 1 : 0]);
+            if ($affected) {
+                session()->flash('success', 'Staff user status has been changed.');
+            }
+        }
+
+        $ref = $request->headers->get('referer');
+
+        return redirect()->to($ref && $ref !== '' ? $ref : '/staff_users/index');
+    }
+
+    public function delete(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $ownerId = $this->ownerUserId();
+        $uid = $this->decodeId($id !== null ? (string)$id : '');
+        if ($uid && Schema::hasTable('users')) {
+            DB::table('users')
+                ->where('id', $uid)
+                ->where('staff_parent', $ownerId)
+                ->where('is_staff', 1)
+                ->delete();
+            session()->flash('success', 'Staff user has been deleted, succesfully');
+        }
+
+        return redirect('/staff_users/index');
+    }
+
+    public function view(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $ownerId = $this->ownerUserId();
+        $uid = $this->decodeId($id !== null ? (string)$id : '');
+        if (!$uid) {
+            return redirect('/staff_users/index');
+        }
+
+        $staff = DB::table('users')
+            ->where('id', $uid)
+            ->where('staff_parent', $ownerId)
+            ->where('is_staff', 1)
+            ->first();
+        if (!$staff) {
+            return redirect('/staff_users/index');
+        }
+
+        return view('staff_users.view', [
+            'listTitle' => 'View User',
+            'staff' => $staff,
+            'userPicBase' => $this->userPicWebPath(),
+        ]);
+    }
+
     public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureUserSession()) {
             return $redirect;
         }
+        $ownerId = $this->ownerUserId();
+        if ($ownerId <= 0) {
+            return redirect('/dashboard/index');
+        }
 
-        $id = $id ? base64_decode($id) : null;
-        $userId = session('userParentId', 0) == 0 ? session('userid') : session('userParentId');
-        
-        $listTitle = $id ? 'Update Staff User' : 'Add Staff User';
+        $editId = $this->decodeId($id !== null ? (string)$id : '');
+        $listTitle = $editId ? 'Update Staff User' : 'Add Staff User';
+
+        $columns = Schema::hasTable('users') ? array_flip(Schema::getColumnListing('users')) : [];
 
         if ($request->isMethod('post')) {
-            $data = $request->input('StaffUser', []);
-            
-            if (empty($id)) {
-                // Formatting for new user
-                $data['username'] = preg_replace("/[^0-9]/", "", $data['contact_number'] ?? '');
-                $data['status'] = 1;
-                $data['is_staff'] = 1;
-                $data['is_verified'] = 1;
-                $data['is_owner'] = 1;
-                $data['is_driver'] = 0;
-                $data['staff_parent'] = $userId;
-                $data['dealer_id'] = $userId;
-                $data['is_dealer'] = 1;
+            $input = (array)$request->input('StaffUser', []);
+            $rowId = (int)($input['id'] ?? 0);
+            $existingRow = null;
+            if ($rowId > 0) {
+                $existingRow = DB::table('users')
+                    ->where('id', $rowId)
+                    ->where('staff_parent', $ownerId)
+                    ->where('is_staff', 1)
+                    ->first();
+                if (!$existingRow) {
+                    return redirect('/staff_users/index');
+                }
             }
 
-            if (!empty($data['pwd'])) {
-                // In legacy, Security::hash was used. In Laravel, we use Hash::make
-                $data['password'] = Hash::make($data['pwd']);
-                unset($data['pwd']);
+            $first = trim((string)($input['first_name'] ?? ''));
+            $last = trim((string)($input['last_name'] ?? ''));
+            $email = trim((string)($input['email'] ?? ''));
+            $contact = preg_replace('/[^0-9]/', '', (string)($input['contact_number'] ?? ''));
+            $pwd = (string)($input['pwd'] ?? '');
+
+            if ($first === '' || !preg_match('/^[a-zA-Z0-9 ]{1,50}$/', $first)) {
+                session()->flash('error', 'Please enter valid first name');
+
+                return redirect()->back()->withInput();
+            }
+            if ($last === '' || $email === '') {
+                session()->flash('error', 'Please complete required fields.');
+
+                return redirect()->back()->withInput();
+            }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                session()->flash('error', 'Please enter valid email address');
+
+                return redirect()->back()->withInput();
             }
 
-            // Image handling (legacy attachment behavior simulated)
+            $emailTaken = DB::table('users')
+                ->where('email', $email)
+                ->when($rowId > 0, fn ($q) => $q->where('id', '!=', $rowId))
+                ->exists();
+            if ($emailTaken) {
+                session()->flash('error', 'Email already exists.');
+
+                return redirect()->back()->withInput();
+            }
+
+            if ($rowId === 0) {
+                if ($contact === '') {
+                    session()->flash('error', 'Please enter phone number.');
+
+                    return redirect()->back()->withInput();
+                }
+                $username = $contact;
+                $phoneTaken = DB::table('users')->where('username', $username)->exists();
+                if ($phoneTaken) {
+                    session()->flash('error', 'Enetered phone number already registered.');
+
+                    return redirect()->back()->withInput();
+                }
+                if ($pwd === '') {
+                    session()->flash('error', 'Please enter password.');
+
+                    return redirect()->back()->withInput();
+                }
+            }
+
+            $photoName = $existingRow->photo ?? null;
             if ($request->hasFile('StaffUser.photo')) {
-                // $path = $request->file('StaffUser.photo')->store('staff_photos');
-                // $data['photo'] = basename($path);
-            } else {
-                unset($data['photo']);
+                $file = $request->file('StaffUser.photo');
+                if ($file && $file->isValid()) {
+                    $dir = $this->userPicDiskDir();
+                    if (!is_dir($dir)) {
+                        @mkdir($dir, 0755, true);
+                    }
+                    $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
+                    if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+                        $ext = 'jpg';
+                    }
+                    $photoName = 'staff_' . ($rowId ?: 'new') . '_' . uniqid('', true) . '.' . $ext;
+                    $file->move($dir, $photoName);
+                }
             }
 
-            if ($id) {
-                StaffUser::where('id', $id)->update($data);
-                $msg = 'User has been updated successfully.';
+            $now = date('Y-m-d H:i:s');
+            if ($rowId === 0) {
+                $insert = [
+                    'username' => $username,
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'email' => $email,
+                    'contact_number' => $contact,
+                    'password' => sha1(self::PASSWORD_SALT . $pwd),
+                    'status' => 1,
+                    'is_staff' => 1,
+                    'is_verified' => 1,
+                    'is_owner' => 1,
+                    'is_driver' => 0,
+                    'staff_parent' => $ownerId,
+                    'dealer_id' => $ownerId,
+                    'is_dealer' => 1,
+                    'is_admin' => 0,
+                    'photo' => $photoName,
+                    'created' => $now,
+                    'modified' => $now,
+                ];
+                if ($columns !== []) {
+                    $insert = array_intersect_key($insert, $columns);
+                }
+                DB::table('users')->insert($insert);
+                session()->flash('success', 'User has been added successfully.');
             } else {
-                StaffUser::create($data);
-                $msg = 'User has been added successfully.';
+                $update = [
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'email' => $email,
+                    'modified' => $now,
+                ];
+                if ($pwd !== '') {
+                    $update['password'] = sha1(self::PASSWORD_SALT . $pwd);
+                }
+                if ($photoName !== null) {
+                    $update['photo'] = $photoName;
+                }
+                if ($columns !== []) {
+                    $update = array_intersect_key($update, $columns);
+                }
+                DB::table('users')->where('id', $rowId)->update($update);
+                session()->flash('success', 'User has been updated successfully.');
             }
 
-            return redirect('/staff_users/index')->with('success', $msg);
+            return redirect('/staff_users/index');
         }
 
-        $record = $id ? StaffUser::find($id) : null;
-        view()->share('data', $record);
-
-        return view('legacy.staff_users.add', compact('listTitle', 'id', 'record'));
-    }
-
-    // ─── status (Toggle activation) ──────────────────────────────────────────
-    public function status(Request $request, $id = null, $status = null)
-    {
-        $id = base64_decode($id);
-        if (!empty($id)) {
-            StaffUser::where('id', $id)->update(['status' => ($status == 1 ? 1 : 0)]);
+        $staff = null;
+        if ($editId) {
+            $staff = DB::table('users')
+                ->where('id', $editId)
+                ->where('staff_parent', $ownerId)
+                ->where('is_staff', 1)
+                ->first();
+            if (!$staff) {
+                return redirect('/staff_users/index');
+            }
         }
 
-        return redirect()->back()->with('success', 'Staff user status has been changed.');
-    }
-
-    // ─── view ─────────────────────────────────────────────────────────────────
-    public function view(Request $request, $id)
-    {
-        if ($redirect = $this->ensureUserSession()) {
-            return $redirect;
-        }
-
-        $id = base64_decode($id);
-        $record = StaffUser::find($id);
-
-        return view('legacy.staff_users.view', compact('record'));
-    }
-
-    // ─── delete ───────────────────────────────────────────────────────────────
-    public function delete(Request $request, $id = null)
-    {
-        $id = base64_decode($id);
-        if (!empty($id)) {
-            StaffUser::where('id', $id)->delete();
-        }
-
-        return redirect('/staff_users/index')->with('success', 'Staff user has been deleted successfully.');
+        return view('staff_users.add', [
+            'listTitle' => $listTitle,
+            'staff' => $staff,
+            'userPicBase' => $this->userPicWebPath(),
+        ]);
     }
 }
