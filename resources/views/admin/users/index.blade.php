@@ -29,7 +29,7 @@
     </div>
 
     <div class="row">
-        @includeif('common.flash-messages')
+        @includeif('layouts.flash-messages')
     </div>
 
     <div class="panel">
@@ -104,7 +104,7 @@
             <div class="row">&nbsp;</div>
 
             <div id="listing">
-                @includeif('admin.elements.users.admin_index')
+                @includeif('admin.elements.users.index')
             </div>
 
         </div>

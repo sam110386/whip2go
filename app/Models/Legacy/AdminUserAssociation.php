@@ -6,6 +6,16 @@ class AdminUserAssociation extends LegacyModel
 {
     protected $table = 'admin_user_associations';
 
+    protected $fillable = [
+        'user_id',
+        'admin_id',
+        'created',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
+    ];
+
     /**
      * function to associate new Registrated User with Lead
      */

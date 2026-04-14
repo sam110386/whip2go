@@ -173,13 +173,13 @@
                                             </a>
                                         </li>
                                          <li>
-                                            <a href="{{ url('admin/accounting/reports/index', $user->id) }}">
+                                            <a href="{{ url('admin/accounting_reports/index', base64_encode($user->id)) }}">
                                                 <i class="icon-file-stats2"></i>    
                                                     {{'Accounting Report'}}
                                             </a>
                                         </li>
                                          <li>
-                                            <a href="{{ url('admin/user_note/user_notes/index', $user->id) }}">
+                                            <a href="{{ url('admin/user_notes/index', base64_encode($user->id)) }}">
                                                 <i class="icon-file-stats"></i>    
                                                     {{'User Notes'}}
                                             </a>
@@ -199,25 +199,25 @@
                                                 </a>
                                             </li>
                                             <li>    
-                                                <a href="{{ url('admin/agreement_template/agreement_templates/admin_index', base64_encode($user->id)) }}">
+                                                <a href="{{ url('admin/agreement_templates/index', base64_encode($user->id)) }}">
                                                     <i class="icon-file-stats"></i> 
                                                         {{'Agreement Templates'}}
                                                 </a>
                                             </li>
                                             <li>    
-                                                <a href="{{ url('admin/insurance_templates/admin_index', base64_encode($user->id)) }}">
+                                                <a href="{{ url('admin/insurance_templates/index', base64_encode($user->id)) }}">
                                                     <i class="glyphicon  glyphicon-list-alt"></i> 
                                                         {{'Insurance'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/deposit_templates/admin_index', base64_encode($user->id)) }}">
+                                             <li>    
+                                                <a href="{{ url('admin/deposit_templates/index', base64_encode($user->id)) }}">
                                                     <i class="glyphicon  glyphicon-usd"></i> 
                                                         {{'Payment Setting Template'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/customer_balances/admin_subscription', base64_encode($user->id)) }}">
+                                             <li>    
+                                                <a href="{{ url('admin/customer_balances/subscription', base64_encode($user->id)) }}">
                                                     <i class="glyphicon  glyphicon-usd"></i> 
                                                         {{'Credits and Debits'}}
                                                 </a>

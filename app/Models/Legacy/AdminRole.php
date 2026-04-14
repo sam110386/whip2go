@@ -14,8 +14,10 @@ class AdminRole extends LegacyModel
         'name',
         'parent_id',
         'slug',
+        'created_at',
+        'updated_at',
     ];
-
+    protected $hidden = [];
     protected $guarded = [
         'id',
     ];

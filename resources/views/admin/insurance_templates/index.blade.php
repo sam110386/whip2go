@@ -1,11 +1,6 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
-@section('title', $title ?? 'Insurance')
-
-@php
-    $ct = $CsInsuranceTemplate ?? [];
-    $ctId = $ct['id'] ?? null;
-@endphp
+@section('title', 'Insurance Templates')
 
 @push('scripts')
 <script>
@@ -17,9 +12,11 @@
         });
         jQuery('#frmadmin').validate();
     });
+
     function syncVehicleInsurance(templateid) {
         if (confirm('Are you sure you want to sync with vehicles?')) {
-            jQuery.post(SITE_URL + 'admin/insurance_templates/syncVehicleInsurance', { templateid: templateid }, function (data) {
+            var siteUrl = "{{ url('/') }}/";
+            jQuery.post(siteUrl + 'admin/insurance_templates/syncVehicleInsurance', { templateid: templateid, _token: "{{ csrf_token() }}" }, function (data) {
                 alert(data.message);
             }, 'json');
         }
@@ -28,111 +25,119 @@
 @endpush
 
 @section('content')
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4>
+                <a href="{{ url('admin/users/index') }}"><i class="icon-arrow-left52 position-left"></i></a>
+                <span class="text-semibold">{{ 'User' }}</span> — {{ 'Insurance Templates' }}
+            </h4>
+        </div>
+        <div class="heading-elements">
+            @if ($ctId)
+                <button type="button" class="btn btn-info" onclick="syncVehicleInsurance({{ (int) $ctId }})">
+                    <i class="icon-sync position-left"></i> Sync All Vehicles
+                </button>
+            @endif
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    @include('layouts.flash-messages')
+</div>
+
 <form method="POST"
-      action="{{ url('/admin/insurance_templates/index/' . ($userParamEncoded ?? base64_encode((string)($userid ?? '')))) }}"
+      action="{{ url('/admin/insurance_templates/index', $userParamEncoded ?? base64_encode((string)($userid ?? ''))) }}"
       name="frmadmin"
       id="frmadmin"
       class="form-horizontal">
     @csrf
-    <div class="page-header">
-        <div class="page-header-content">
-            <div class="page-title">
-                <h4><i class="icon-arrow-left52 position-left"></i> Insurance <span class="text-semibold"></span></h4>
-            </div>
-            <div class="heading-elements">
-                @if (empty($ctId))
-                    <button type="submit" class="btn">Save</button>
-                @else
-                    <button type="button" class="btn" onclick="syncVehicleInsurance({{ (int) $ctId }})">Sync All Vehicles</button>
-                    <button type="submit" class="btn">Update</button>
-                @endif
-            </div>
+    
+    <div class="panel panel-flat">
+        <div class="panel-heading">
+            <h5 class="panel-title">Insurance Configuration</h5>
         </div>
-    </div>
-    <div class="row">
-        @if (session('success'))
-            <div class="alert alert-success">{{ session('success') }}</div>
-        @endif
-    </div>
-    <div class="panel">
+
         <div class="panel-body">
             <div class="row">
-                <legend class="text-size-large text-bold">1. Program</legend>
-                <div class="col-lg-6 col-xs-12">
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label">Vehicle Program :</label>
-                        <div class="col-lg-8">
-                            <select name="CsInsuranceTemplate[program]" class="required form-control">
-                                @foreach ($programOptions ?? [] as $optVal => $optLabel)
-                                    <option value="{{ $optVal }}" @selected((string)($ct['program'] ?? '1') === (string) $optVal)>{{ $optLabel }}</option>
-                                @endforeach
-                            </select>
+                <div class="col-md-6">
+                    <fieldset>
+                        <legend class="text-semibold"><i class="icon-reading position-left"></i> 1. Program Details</legend>
+
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Vehicle Program:</label>
+                            <div class="col-lg-8">
+                                <select name="CsInsuranceTemplate[program]" class="required form-control">
+                                    @foreach ($programOptions ?? [] as $optVal => $optLabel)
+                                        <option value="{{ $optVal }}" @selected((string)($ct['program'] ?? '1') === (string) $optVal)>{{ $optLabel }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
-                    </div>
+
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Insurance Token Name:</label>
+                            <div class="col-lg-8">
+                                <input type="text" name="CsInsuranceTemplate[insu_token_name]" class="required form-control"
+                                       placeholder="Enter name here"
+                                       value="{{ old('CsInsuranceTemplate.insu_token_name', $ct['insu_token_name'] ?? '') }}">
+                            </div>
+                        </div>
+                    </fieldset>
+                </div>
+
+                <div class="col-md-6">
+                    <fieldset>
+                        <legend class="text-semibold"><i class="icon-shield-check position-left"></i> 2. Provider Details</legend>
+
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Insurance Company:</label>
+                            <div class="col-lg-8">
+                                <input type="text" name="CsInsuranceTemplate[insurance_company]" maxlength="100" class="form-control"
+                                       value="{{ old('CsInsuranceTemplate.insurance_company', $ct['insurance_company'] ?? '') }}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Policy #:</label>
+                            <div class="col-lg-8">
+                                <input type="text" name="CsInsuranceTemplate[insurance_policy_no]" maxlength="100" class="form-control"
+                                       value="{{ old('CsInsuranceTemplate.insurance_policy_no', $ct['insurance_policy_no'] ?? '') }}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Begin Date:</label>
+                            <div class="col-lg-8">
+                                <input type="text" name="CsInsuranceTemplate[insurance_policy_date]"
+                                       class="form-control date insurance_policy_date"
+                                       value="{{ old('CsInsuranceTemplate.insurance_policy_date', $ct['insurance_policy_date'] ?? '') }}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Expiration Date:</label>
+                            <div class="col-lg-8">
+                                <input type="text" name="CsInsuranceTemplate[insurance_policy_exp_date]"
+                                       class="form-control date insurance_policy_exp_date"
+                                       value="{{ old('CsInsuranceTemplate.insurance_policy_exp_date', $ct['insurance_policy_exp_date'] ?? '') }}">
+                            </div>
+                        </div>
+                    </fieldset>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-lg-6 col-xs-12">
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label">Insurance Token Name :</label>
-                        <div class="col-lg-8">
-                            <input type="text" name="CsInsuranceTemplate[insu_token_name]" class="required form-control"
-                                   placeholder="Enter name here"
-                                   value="{{ old('CsInsuranceTemplate.insu_token_name', $ct['insu_token_name'] ?? '') }}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6 col-xs-12">
-                    <legend class="text-size-large text-bold">Insurance Provider Details</legend>
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label">Insurance Company :</label>
-                        <div class="col-lg-8">
-                            <input type="text" name="CsInsuranceTemplate[insurance_company]" maxlength="100" class="form-control"
-                                   value="{{ old('CsInsuranceTemplate.insurance_company', $ct['insurance_company'] ?? '') }}">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label"> Policy # :</label>
-                        <div class="col-lg-8">
-                            <input type="text" name="CsInsuranceTemplate[insurance_policy_no]" maxlength="100" class="form-control"
-                                   value="{{ old('CsInsuranceTemplate.insurance_policy_no', $ct['insurance_policy_no'] ?? '') }}">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label"> Begin Date :</label>
-                        <div class="col-lg-8">
-                            <input type="text" name="CsInsuranceTemplate[insurance_policy_date]"
-                                   class="form-control date insurance_policy_date"
-                                   value="{{ old('CsInsuranceTemplate.insurance_policy_date', $ct['insurance_policy_date'] ?? '') }}">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label"> Expiration Date :</label>
-                        <div class="col-lg-8">
-                            <input type="text" name="CsInsuranceTemplate[insurance_policy_exp_date]"
-                                   class="form-control date insurance_policy_exp_date"
-                                   value="{{ old('CsInsuranceTemplate.insurance_policy_exp_date', $ct['insurance_policy_exp_date'] ?? '') }}">
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xs-12">
-                    <div class="form-group">
-                        <label class="col-lg-2 control-label">&nbsp;</label>
-                        <div class="col-lg-6">
-                            @if (!empty($ctId))
-                                <button type="submit" class="btn btn-primary">Update</button>
-                            @else
-                                <button type="submit" class="btn btn-primary">Save</button>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+
+            <div class="text-right mt-20">
+                <button type="submit" class="btn btn-primary">
+                    {{ !empty($ctId) ? 'Update Configuration' : 'Save Configuration' }} 
+                    <i class="icon-arrow-right14 position-right"></i>
+                </button>
             </div>
         </div>
     </div>
+    
     <input type="hidden" name="CsInsuranceTemplate[id]" value="{{ $ct['id'] ?? '' }}">
     <input type="hidden" name="CsInsuranceTemplate[user_id]" value="{{ $userid }}">
 </form>
-@endsection
+@endsection@endsection

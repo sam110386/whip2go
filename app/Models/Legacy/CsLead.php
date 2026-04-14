@@ -25,8 +25,9 @@ class CsLead extends LegacyModel
         'created',
         'updated',
     ];
-
+    protected $hidden = [];
     protected $guarded = [
         'id',
     ];
+
 }

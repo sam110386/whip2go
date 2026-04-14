@@ -124,7 +124,7 @@
                         </div>
                     </div>
 
-                    @includeif('admin.elements.admin.left_admin')
+                    @include('layouts.partials.cake.admin_sidebar')
 
                 </div>
             </div>

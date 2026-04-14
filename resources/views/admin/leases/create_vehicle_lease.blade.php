@@ -1,5 +1,5 @@
 {{-- Stub: port from `app/View/Leases/admin_create_vehicle_lease.ctp` — posts to `/admin/leases/createVehicleLease/{{ $vehicleIdEncoded }}`. --}}
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', $title_for_layout ?? 'Vehicle Lease')
 

@@ -22,7 +22,7 @@
     </div>
 
     <div class="row">
-        @include('common.flash-messages')
+        @include('layouts.flash-messages')
     </div>
 
     <div class="panel">

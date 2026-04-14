@@ -14,6 +14,7 @@ class User extends LegacyModel
     protected $fillable = [
         'username',
         'email',
+        'password',
         'first_name',
         'middle_name',
         'last_name',
@@ -46,6 +47,7 @@ class User extends LegacyModel
         'is_passenger',
         'is_staff',
         'staff_parent',
+        'is_dealer',
         'dealer_id',
         'stripe_key',
         'auto_start',
@@ -75,21 +77,21 @@ class User extends LegacyModel
         'company_state',
         'company_zip',
         'company_country',
-
     ];
-
     protected $hidden = [
-        'password'
+        'password',
+        'ss_no',
+        'ein_no',
+        'verify_token',
+        'token',
+        'stripe_key',
+        'cc_token_id',
     ];
-
     protected $guarded = [
         'id',
-        'is_admin',
-        'is_dealer',
-
     ];
 
-    public function adminRole(): BelongsTo
+    public function role(): BelongsTo
     {
         return $this->belongsTo(AdminRole::class, 'role_id');
     }
