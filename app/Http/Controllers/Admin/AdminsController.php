@@ -21,13 +21,8 @@ class AdminsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = false;
 
-    public function login(Request $request)
-    {
-        return $this->admin_login($request);
-    }
-
     // CakePHP action name under `/admin` prefix.
-    public function admin_login(Request $request)
+    public function login(Request $request)
     {
         // If already logged in, redirect to correct dashboard based on role slug.
         $sessionAdmin = session()->get('SESSION_ADMIN', []);
@@ -115,14 +110,14 @@ class AdminsController extends LegacyAppController
     }
 
     // CakePHP: app/Controller/AdminsController.php::admin_logout()
-    public function admin_logout(Request $request)
+    public function logout(Request $request)
     {
         return $this->performSessionLogout('/admin/admins/login');
     }
 
     // CakePHP: app/Controller/AdminsController.php::admin_index()
     // URL: /admin/admins/index
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         // Cake supports search/filter via request params; we accept query params for now.
         $keyword = trim((string)($request->query('keyword') ?? ''));
@@ -192,7 +187,7 @@ class AdminsController extends LegacyAppController
 
     // CakePHP: app/Controller/AdminsController.php::admin_status($id, $status)
     // URL: /admin/admins/admin_status/{base64_user_id}/{status}
-    public function admin_status(Request $request, $id = null, $status = null)
+    public function status(Request $request, $id = null, $status = null)
     {
         // Cake sends base64-encoded user id in the URL.
         $decodedId = null;
@@ -224,7 +219,7 @@ class AdminsController extends LegacyAppController
     // URL examples:
     // - /admin/admins/admin_add
     // - /admin/admins/admin_add/{base64_user_id}
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
 
@@ -266,7 +261,7 @@ class AdminsController extends LegacyAppController
                 'user' => $user,
                 'roles' => $roles,
                 'userStaffRoleIds' => $userStaffRoleIds,
-                'formAction' => $isEditing ? '/admin/admins/admin_add/' . $id : '/admin/admins/admin_add',
+                'formAction' => $isEditing ? '/admin/admins/add/' . $id : '/admin/admins/add',
             ]);
         }
 
@@ -287,7 +282,7 @@ class AdminsController extends LegacyAppController
                 'roles' => $this->getAdminRolesForForm(),
                 'userStaffRoleIds' => $staffRoleIds,
                 'error' => 'Please fill required fields.',
-                'formAction' => $isEditing ? '/admin/admins/admin_add/' . $id : '/admin/admins/admin_add',
+                'formAction' => $isEditing ? '/admin/admins/add/' . $id : '/admin/admins/add',
             ]);
         }
 
@@ -331,7 +326,7 @@ class AdminsController extends LegacyAppController
                     'roles' => $this->getAdminRolesForForm(),
                     'userStaffRoleIds' => $staffRoleIds,
                     'error' => 'Password/confirm password mismatch.',
-                    'formAction' => '/admin/admins/admin_add',
+                    'formAction' => '/admin/admins/add',
                 ]);
             }
             $nowUser['password'] = sha1($salt . $passwordPlain);
@@ -376,7 +371,7 @@ class AdminsController extends LegacyAppController
     }
 
     // CakePHP: app/Controller/AdminsController.php::admin_change_password()
-    public function admin_change_password(Request $request)
+    public function change_password(Request $request)
     {
         $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
         $admin = session()->get('SESSION_ADMIN');
@@ -434,7 +429,7 @@ class AdminsController extends LegacyAppController
 
     // CakePHP: app/Controller/AdminsController.php::admin_profile()
     // URL: /admin/admins/admin_profile
-    public function admin_profile(Request $request)
+    public function profile(Request $request)
     {
         $admin = session()->get('SESSION_ADMIN');
         $adminId = is_array($admin) ? ($admin['id'] ?? null) : null;

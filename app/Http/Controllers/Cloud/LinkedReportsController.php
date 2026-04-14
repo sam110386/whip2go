@@ -19,7 +19,7 @@ class LinkedReportsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
-    public function cloud_vehicle(Request $request)
+    public function vehicle(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -59,7 +59,7 @@ class LinkedReportsController extends LegacyAppController
 
         $reportlists = $q->orderByDesc('v.id')->paginate($limit)->withQueryString();
 
-        return view('admin.linked_reports.vehicle', [
+        return view('cloud.linked_reports.vehicle', [
             'reportlists' => $reportlists,
             'dateFrom' => $dateFrom,
             'dateTo' => $dateTo,
@@ -67,7 +67,7 @@ class LinkedReportsController extends LegacyAppController
         ]);
     }
 
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -127,13 +127,13 @@ class LinkedReportsController extends LegacyAppController
         $rollups = $this->loadChildRollupsForOrders($reportlists->getCollection());
 
         if ($request->ajax()) {
-            return response()->view('admin.linked_reports._listing', [
+            return response()->view('cloud.linked_reports._listing', [
                 'reportlists' => $reportlists,
                 'rollups' => $rollups,
             ]);
         }
 
-        return view('admin.linked_reports.index', [
+        return view('cloud.linked_reports.index', [
             'reportlists' => $reportlists,
             'rollups' => $rollups,
             'dealers' => $dealers,
@@ -148,7 +148,7 @@ class LinkedReportsController extends LegacyAppController
         ]);
     }
 
-    public function cloud_details(Request $request, $id = null)
+    public function details(Request $request, $id = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -173,7 +173,7 @@ class LinkedReportsController extends LegacyAppController
         return response()->view('reports._booking_details_full', $payload);
     }
 
-    public function cloud_loadsubbooking(Request $request, $orderid = null)
+    public function loadsubbooking(Request $request, $orderid = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -214,7 +214,7 @@ class LinkedReportsController extends LegacyAppController
         ]);
     }
 
-    public function cloud_autorenewddetails(Request $request, $id = null)
+    public function autorenewddetails(Request $request, $id = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -239,7 +239,7 @@ class LinkedReportsController extends LegacyAppController
         return response()->view('reports._booking_details_full', $payload);
     }
 
-    public function cloud_productivity(Request $request)
+    public function productivity(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -281,7 +281,7 @@ class LinkedReportsController extends LegacyAppController
             }
         }
 
-        return view('admin.linked_reports.productivity', [
+        return view('cloud.linked_reports.productivity', [
             'reportlists' => $reportlists,
             'dealers' => $dealers,
             'user_id' => $userId,
@@ -292,7 +292,7 @@ class LinkedReportsController extends LegacyAppController
         ]);
     }
 
-    public function cloud_customerautocomplete(Request $request)
+    public function customerautocomplete(Request $request)
     {
         return $this->respondCustomerAutocomplete($request, 'cloud');
     }
@@ -320,21 +320,6 @@ class LinkedReportsController extends LegacyAppController
         }
 
         return $request->input($key);
-    }
-
-    private function decodeId(string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if ($id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 
     private function resolveLinkedReportsLimit(Request $request): int

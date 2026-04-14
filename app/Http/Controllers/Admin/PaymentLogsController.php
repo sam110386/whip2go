@@ -10,7 +10,7 @@ class PaymentLogsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $limit = $this->resolveLimit($request, 'payment_logs_limit');
         $dateFrom = trim((string)$this->searchInput($request, 'date_from'));

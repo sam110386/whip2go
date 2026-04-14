@@ -41,9 +41,9 @@
                     <td>{{ $r->created_at ?? '' }}</td>
                     <td>{{ $r->updated_at ?? '' }}</td>
                     <td>
-                        <a href="/admin/roles/admin_add/{{ $r->id }}">Edit</a>
+                        <a href="/admin/roles/add/{{ $r->id }}">Edit</a>
                         &nbsp;|&nbsp;
-                        <a href="/admin/roles/admin_delete/{{ $r->id }}" onclick="return confirm('Are you sure?')">Delete</a>
+                        <a href="/admin/roles/delete/{{ $r->id }}" onclick="return confirm('Are you sure?')">Delete</a>
                     </td>
                 </tr>
             @empty

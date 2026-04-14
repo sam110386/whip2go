@@ -19,7 +19,7 @@ class TransactionsController extends LegacyAppController
     /**
      * Cake TransactionsController::admin_index — completed/canceled orders (status 2,3) with filters.
      */
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $keyword = trim((string)$this->searchInput($request, 'keyword'));
         $fieldname = trim((string)$this->searchInput($request, 'searchin'));
@@ -114,7 +114,7 @@ class TransactionsController extends LegacyAppController
      *
      * @param  mixed  $partial  Path segment "1" = return table partial only for #transsactionlisting
      */
-    public function admin_usertransactions(Request $request, $userid = null, $time = '1 day', $partial = null)
+    public function usertransactions(Request $request, $userid = null, $time = '1 day', $partial = null)
     {
         $uid = (int)($userid ?? $request->input('userid') ?? 0);
         if ($uid <= 0) {
@@ -187,7 +187,7 @@ class TransactionsController extends LegacyAppController
     /**
      * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
-    public function admin_updatetransaction(Request $request, $id = null)
+    public function updatetransaction(Request $request, $id = null)
     {
         $orderId = $this->decodeId((string)$id);
         if (!$orderId) {
@@ -216,42 +216,42 @@ class TransactionsController extends LegacyAppController
         ]);
     }
 
-    public function admin_updatefare($id)
+    public function updatefare($id)
     {
         return $this->renderOrderAdjustView($id, 'rent', 'Update Fare');
     }
 
-    public function admin_updateinsurance($id)
+    public function updateinsurance($id)
     {
         return $this->renderOrderAdjustView($id, 'insurance_amt', 'Update Insurance');
     }
 
-    public function admin_updateinitialfee($id)
+    public function updateinitialfee($id)
     {
         return $this->renderOrderAdjustView($id, 'initial_fee', 'Update Initial Fee');
     }
 
-    public function admin_updateemf($id)
+    public function updateemf($id)
     {
         return $this->renderOrderAdjustView($id, 'extra_mileage_fee', 'Update EMF');
     }
 
-    public function admin_updatediainsu($id)
+    public function updatediainsu($id)
     {
         return $this->renderOrderAdjustView($id, 'dia_insu', 'Update DIA Insurance');
     }
 
-    public function admin_latefee($id)
+    public function latefee($id)
     {
         return $this->renderOrderAdjustView($id, 'lateness_fee', 'Update Late Fee');
     }
 
-    public function admin_updatetoll($id)
+    public function updatetoll($id)
     {
         return $this->renderOrderAdjustView($id, 'toll', 'Update Toll');
     }
 
-    public function admin_updateenddatetime(Request $request)
+    public function updateenddatetime(Request $request)
     {
         $id = $this->decodeId((string)$request->input('booking_id', ''));
         if (!$id) {
@@ -265,7 +265,7 @@ class TransactionsController extends LegacyAppController
         return view('admin.transactions.update_endtime', ['order' => $order]);
     }
 
-    public function admin_changeendtiming(Request $request): JsonResponse
+    public function changeendtiming(Request $request): JsonResponse
     {
         $id = (int)$request->input('CsOrder.id', 0);
         $endTiming = (string)$request->input('CsOrder.end_timing', '');
@@ -277,87 +277,87 @@ class TransactionsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Booking has been updated successfully']);
     }
 
-    public function admin_rentRefundtotal(Request $request): JsonResponse
+    public function rentRefundtotal(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'paid_amount', 'details', 'Full Rent Refunded');
     }
 
-    public function admin_adjustTotal(Request $request): JsonResponse
+    public function adjustTotal(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'rent', 'Rent adjusted successfully');
     }
 
-    public function admin_adjustInsurance(Request $request): JsonResponse
+    public function adjustInsurance(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'insurance_amt', 'Insurance adjusted successfully', 'newtotal');
     }
 
-    public function admin_insuranceRefund(Request $request): JsonResponse
+    public function insuranceRefund(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'insurance_amt', 'details', 'Insurance Refunded');
     }
 
-    public function admin_adjustDeposit(Request $request): JsonResponse
+    public function adjustDeposit(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'deposit', 'Deposit adjusted successfully', 'newtotal');
     }
 
-    public function admin_depositRefund(Request $request): JsonResponse
+    public function depositRefund(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'deposit', 'details', 'Deposit Refunded');
     }
 
-    public function admin_adjustinitialfee(Request $request): JsonResponse
+    public function adjustinitialfee(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'initial_fee', 'Initial fee adjusted successfully', 'newtotal');
     }
 
-    public function admin_initialfeeRefund(Request $request): JsonResponse
+    public function initialfeeRefund(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'initial_fee', null, '');
     }
 
-    public function admin_emfRefundtotal(Request $request): JsonResponse
+    public function emfRefundtotal(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'extra_mileage_fee', null, '');
     }
 
-    public function admin_adjustEmf(Request $request): JsonResponse
+    public function adjustEmf(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'extra_mileage_fee', 'EMF adjusted successfully');
     }
 
-    public function admin_diainsuRefundtotal(Request $request): JsonResponse
+    public function diainsuRefundtotal(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'dia_insu', null, '');
     }
 
-    public function admin_adjustDiainsu(Request $request): JsonResponse
+    public function adjustDiainsu(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'dia_insu', 'DIA insurance adjusted successfully');
     }
 
-    public function admin_latefeeRefundtotal(Request $request): JsonResponse
+    public function latefeeRefundtotal(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'lateness_fee', null, '');
     }
 
-    public function admin_adjustLatefee(Request $request): JsonResponse
+    public function adjustLatefee(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'lateness_fee', 'Late fee adjusted successfully', 'newtotal');
     }
 
-    public function admin_tollRefundtotal(Request $request): JsonResponse
+    public function tollRefundtotal(Request $request): JsonResponse
     {
         return $this->zeroFieldByOrderId($request, 'toll', null, '');
     }
 
-    public function admin_adjusttollfee(Request $request): JsonResponse
+    public function adjusttollfee(Request $request): JsonResponse
     {
         return $this->adjustField($request, 'toll', 'Toll adjusted successfully');
     }
 
-    public function admin_failedtransfer(Request $request)
+    public function failedtransfer(Request $request)
     {
         $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
         $dateTo = trim((string)$this->searchInput($request, 'date_to'));
@@ -385,7 +385,7 @@ class TransactionsController extends LegacyAppController
         ]);
     }
 
-    public function admin_requeuefailedtransfer(Request $request): JsonResponse
+    public function requeuefailedtransfer(Request $request): JsonResponse
     {
         $id = (int)$request->input('id', 0);
         if ($id <= 0) {
@@ -404,24 +404,288 @@ class TransactionsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Processed successfully']);
     }
 
-    public function admin_adjustdealerrentaltransfer($id)
+    public function adjustdealerrentaltransfer($id)
     {
         return $this->renderDealerTransferAdjust($id, 2, 'Adjust Dealer Rental Transfer');
     }
 
-    public function admin_adjustdealerinitialtransfer($id)
+    public function adjustdealerinitialtransfer($id)
     {
         return $this->renderDealerTransferAdjust($id, 3, 'Adjust Dealer Initial Fee Transfer');
     }
 
-    public function admin_adjustdealerinsurancetransfer($id)
+    public function adjustdealerinsurancetransfer($id)
     {
         return $this->renderDealerTransferAdjust($id, 4, 'Adjust Dealer Insurance Transfer');
     }
 
-    public function admin_adjustdealeremftransfer($id)
+    public function adjustdealeremftransfer($id)
     {
         return $this->renderDealerTransferAdjust($id, 16, 'Adjust Dealer EMF Transfer');
+    }
+
+    // ── Deposit update ──────────────────────────────────────────────
+
+    public function updatedeposit($id)
+    {
+        $orderId = $this->decodeId((string)$id);
+        if (!$orderId) {
+            return redirect('/admin/transactions/index');
+        }
+
+        $order = DB::table('cs_orders')
+            ->where('id', $orderId)
+            ->where('deposit_type', 'C')
+            ->first();
+
+        if (!$order) {
+            return redirect('/admin/transactions/index');
+        }
+
+        $payments = DB::table('cs_order_payments')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->orderByDesc('id')
+            ->get();
+
+        return view('admin.transactions.updatedeposit', [
+            'order' => $order,
+            'payments' => $payments,
+        ]);
+    }
+
+    // ── Dealer transfer reversal methods ─────────────────────────────
+
+    public function rentReversetotal(Request $request): JsonResponse
+    {
+        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid order']);
+        }
+
+        $transfers = DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 2)
+            ->get();
+
+        $messages = '';
+        foreach ($transfers as $t) {
+            \Log::warning("rentReversetotal: PaymentProcessor->DealerFullReverse stubbed for transfer {$t->transfer_id}, amount {$t->amount}.");
+            $messages .= "\n{$t->transfer_id} => {$t->amount} reversal stubbed (PaymentProcessor not yet ported).";
+        }
+
+        return response()->json(['status' => 'error', 'message' => trim($messages) ?: 'No transfers found']);
+    }
+
+    public function adjustDealerRentalPart(Request $request): JsonResponse
+    {
+        \Log::warning('adjustDealerRentalPart: PaymentProcessor->DealerPartialReverse stubbed.');
+
+        return response()->json(['status' => 'error', 'message' => 'Dealer rental part adjustment not yet ported']);
+    }
+
+    public function initialfeeReversetotal(Request $request): JsonResponse
+    {
+        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
+        }
+
+        $transfers = DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 3)
+            ->get();
+
+        $messages = '';
+        foreach ($transfers as $t) {
+            \Log::warning("initialfeeReversetotal: PaymentProcessor->DealerFullReverse stubbed for transfer {$t->transfer_id}, amount {$t->amount}.");
+            $messages .= "\n{$t->transfer_id} => {$t->amount} reversal stubbed (PaymentProcessor not yet ported).";
+        }
+
+        return response()->json(['status' => 'error', 'message' => trim($messages) ?: 'No transfers found']);
+    }
+
+    public function adjustDealerInitialFeePart(Request $request): JsonResponse
+    {
+        $orderId = (int)$request->input('CsOrder.id', 0);
+        $newDealerAmount = (float)$request->input('CsOrder.dealerpart', 0);
+
+        if ($orderId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
+        }
+
+        $transferedAmount = (float)DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 3)
+            ->where('transfer_id', '!=', '')
+            ->sum('amount');
+
+        if ($transferedAmount > $newDealerAmount) {
+            $reversableAmount = $transferedAmount - $newDealerAmount;
+            \Log::warning("adjustDealerInitialFeePart: PaymentProcessor->DealerPartialReverse stubbed for order {$orderId}, reversable={$reversableAmount}.");
+
+            return response()->json(['status' => 'error', 'message' => 'Dealer partial reverse not yet ported (PaymentProcessor stubbed)']);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'Adjustable amount must be less than transferred amount.']);
+    }
+
+    public function insuranceReversetotal(Request $request): JsonResponse
+    {
+        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
+        }
+
+        $transfers = DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 4)
+            ->get();
+
+        $messages = '';
+        foreach ($transfers as $t) {
+            \Log::warning("insuranceReversetotal: PaymentProcessor->DealerFullReverse stubbed for transfer {$t->transfer_id}, amount {$t->amount}.");
+            $messages .= "\n{$t->transfer_id} => {$t->amount} reversal stubbed (PaymentProcessor not yet ported).";
+        }
+
+        return response()->json(['status' => 'error', 'message' => trim($messages) ?: 'No transfers found']);
+    }
+
+    public function adjustDealerInsurancePart(Request $request): JsonResponse
+    {
+        $orderId = (int)$request->input('CsOrder.id', 0);
+        $newDealerAmount = (float)$request->input('CsOrder.dealerpart', 0);
+
+        if ($orderId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
+        }
+
+        $transferedAmount = (float)DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 4)
+            ->where('transfer_id', '!=', '')
+            ->sum('amount');
+
+        if ($transferedAmount > $newDealerAmount) {
+            $reversableAmount = $transferedAmount - $newDealerAmount;
+            \Log::warning("adjustDealerInsurancePart: PaymentProcessor->DealerPartialReverse stubbed for order {$orderId}, reversable={$reversableAmount}.");
+
+            return response()->json(['status' => 'error', 'message' => 'Dealer partial reverse not yet ported (PaymentProcessor stubbed)']);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'Adjustable amount must be less than transferred amount.']);
+    }
+
+    public function emfReversetotal(Request $request): JsonResponse
+    {
+        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
+        }
+
+        $transfers = DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 16)
+            ->get();
+
+        $messages = '';
+        foreach ($transfers as $t) {
+            \Log::warning("emfReversetotal: PaymentProcessor->DealerFullReverse stubbed for transfer {$t->transfer_id}, amount {$t->amount}.");
+            $messages .= "\n{$t->transfer_id} => {$t->amount} reversal stubbed (PaymentProcessor not yet ported).";
+        }
+
+        return response()->json(['status' => 'error', 'message' => trim($messages) ?: 'No transfers found']);
+    }
+
+    public function adjustDealerEmfPart(Request $request): JsonResponse
+    {
+        $orderId = (int)$request->input('CsOrder.id', 0);
+        $newDealerAmount = (float)$request->input('CsOrder.dealerpart', 0);
+
+        if ($orderId <= 0) {
+            return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
+        }
+
+        $transferedAmount = (float)DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('type', 16)
+            ->where('transfer_id', '!=', '')
+            ->sum('amount');
+
+        if ($transferedAmount > $newDealerAmount) {
+            $reversableAmount = $transferedAmount - $newDealerAmount;
+            \Log::warning("adjustDealerEmfPart: PaymentProcessor->DealerPartialReverse stubbed for order {$orderId}, reversable={$reversableAmount}.");
+
+            return response()->json(['status' => 'error', 'message' => 'Dealer partial reverse not yet ported (PaymentProcessor stubbed)']);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'Adjustable amount must be less than transferred amount.']);
+    }
+
+    // ── Credit driver ────────────────────────────────────────────────
+
+    public function creditdriver(Request $request, $id = null)
+    {
+        $orderId = $this->decodeId((string)$id);
+        if (!$orderId) {
+            return redirect('/admin/transactions/index')
+                ->with('error', 'Sorry, something went wrong.');
+        }
+
+        $order = DB::table('cs_orders as o')
+            ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
+            ->leftJoin('users as owner', 'owner.id', '=', 'o.user_id')
+            ->leftJoin('rev_settings as rs', 'rs.user_id', '=', 'o.user_id')
+            ->where('o.id', $orderId)
+            ->first([
+                'o.*',
+                'v.vehicle_name',
+                'v.vin_no',
+                'owner.first_name as owner_first_name',
+                'owner.last_name as owner_last_name',
+                'rs.rev',
+                'rs.tax_included',
+            ]);
+
+        if (!$order) {
+            return redirect('/admin/transactions/index')
+                ->with('error', 'Order not found.');
+        }
+
+        $payments = DB::table('cs_order_payments')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->orderByDesc('id')
+            ->get();
+
+        $payouts = DB::table('cs_payout_transactions')
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->orderByDesc('id')
+            ->get();
+
+        $rentalPayments = $payments->where('type', 2);
+        $totalRent = (float)$rentalPayments->sum('rent');
+        $totalTax = (float)$rentalPayments->sum('tax');
+        $revShare = (float)($order->rev ?? 85);
+        $dealerPart = $totalRent > 0 ? sprintf('%0.2f', $totalRent * $revShare / 100) : 0;
+
+        return view('admin.transactions.creditdriver', [
+            'order' => $order,
+            'payments' => $payments,
+            'payouts' => $payouts,
+            'totalRent' => $totalRent,
+            'totalTax' => $totalTax,
+            'dealerPart' => $dealerPart,
+            'revShare' => $revShare,
+        ]);
     }
 
     private function searchInput(Request $request, string $key): ?string
@@ -432,21 +696,6 @@ class TransactionsController extends LegacyAppController
         }
 
         return $request->input($key);
-    }
-
-    private function decodeId(string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if ($id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 
     private function renderOrderAdjustView($id, string $field, string $title)

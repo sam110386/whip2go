@@ -1,13 +1,28 @@
-<div style="font-size:13px;">
-    <h3 style="margin:0 0 8px;">Cancel booking</h3>
-    <input type="hidden" id="cancel_orderid" value="{{ $orderid }}">
-    <div style="margin-bottom:8px;">
-        <label>Cancellation fee</label><br>
-        <input type="number" step="0.01" id="cancel_fee" value="{{ (float)$cancellation_fee }}">
-    </div>
-    <div>
-        <label>Cancel note</label><br>
-        <textarea id="cancel_note" rows="3" style="width:100%;"></textarea>
-    </div>
+<div class="modal-header">
+    <button type="button" class="close" data-dismiss="modal">&times;</button>
+</div>
+<div class="modal-body">
+    <form action="#" method="post" id="cancelForm" class="form-horizontal">
+        <fieldset>
+            <legend class="text-semibold">Enter All Information</legend>
+            <div class="form-group">
+                <label class="col-lg-4 control-label">Cancellation Fee :</label>
+                <div class="col-lg-8">
+                    <input type="text" name="Text[cancellation_fee]" class="number form-control" placeholder="Cancellation Fee" value="{{ (float) $cancellation_fee }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-lg-4 control-label">Cancel Note :</label>
+                <div class="col-lg-8">
+                    <input type="text" name="Text[cancel_note]" class="form-control" placeholder="Cancel Note if any" value="">
+                </div>
+            </div>
+        </fieldset>
+        <input type="hidden" id="TextOrderid" name="Text[orderid]" value="{{ $orderid }}">
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-primary" data-dismiss="modal">Cancel</button>
+    <button type="button" class="btn btn-primary" onclick="processCancel(this)">Process</button>
 </div>
 

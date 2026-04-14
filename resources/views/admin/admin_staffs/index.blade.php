@@ -38,7 +38,7 @@
         </div>
     </form>
 
-    <form method="post" action="{{ $basePath }}/admin_multiplAction" onsubmit="return confirm('Apply bulk action to selected staff?');">
+    <form method="post" action="{{ $basePath }}/multiplAction" onsubmit="return confirm('Apply bulk action to selected staff?');">
         <input type="hidden" name="Search[keyword]" value="{{ $keyword ?? '' }}">
         <input type="hidden" name="Search[searchin]" value="{{ $fieldname ?? '' }}">
         <input type="hidden" name="Search[show]" value="{{ $show ?? '' }}">
@@ -90,14 +90,14 @@
                         <td>{{ $u->created }}</td>
                         <td align="center">
                             @if((int)$u->status === 1)
-                                <a href="{{ $basePath }}/admin_status/{{ base64_encode((string)$u->id) }}/0" onclick="return confirm('Deactivate this user?');">Active</a>
+                                <a href="{{ $basePath }}/status/{{ base64_encode((string)$u->id) }}/0" onclick="return confirm('Deactivate this user?');">Active</a>
                             @else
-                                <a href="{{ $basePath }}/admin_status/{{ base64_encode((string)$u->id) }}/1" onclick="return confirm('Activate this user?');">Inactive</a>
+                                <a href="{{ $basePath }}/status/{{ base64_encode((string)$u->id) }}/1" onclick="return confirm('Activate this user?');">Inactive</a>
                             @endif
                         </td>
                         <td>{{ $u->role_name ?? '--' }}</td>
                         <td>
-                            <a href="{{ $basePath }}/admin_add/{{ base64_encode((string)$u->id) }}">Edit</a>
+                            <a href="{{ $basePath }}/add/{{ base64_encode((string)$u->id) }}">Edit</a>
                         </td>
                     </tr>
                 @empty
