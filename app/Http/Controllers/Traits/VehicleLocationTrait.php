@@ -2,21 +2,23 @@
 
 namespace App\Http\Controllers\Traits;
 
-use App\Models\Legacy\VehicleLocation;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Ported from CakePHP app/Controller/Traits/VehicleLocationTrait.php
+ *
+ * Saves vehicle location records, replacing all existing locations for a vehicle.
+ */
 trait VehicleLocationTrait
 {
     protected function saveVehicleLocation($locations, $vehicleid)
     {
-        $oldLocationIds = VehicleLocation::where('vehicle_id', $vehicleid)->pluck('id')->toArray();
-        $newLocationIds = [];
+        $oldlocations = DB::table('vehicle_locations')
+            ->where('vehicle_id', $vehicleid)
+            ->pluck('id', 'id')
+            ->toArray();
 
-        if (empty($locations)) {
-            VehicleLocation::where('vehicle_id', $vehicleid)->delete();
-            return;
-        }
-
+        $newlocations = [];
         foreach ($locations as $location) {
             if (empty($location['lat']) || empty($location['lng'])) {
                 continue;
@@ -26,26 +28,24 @@ trait VehicleLocationTrait
                 'vehicle_id' => $vehicleid,
                 'lat' => $location['lat'],
                 'lng' => $location['lng'],
-                'address' => $location['address'] ?? '',
-                // In Laravel, specifically for MySQL spatial fields:
-                'geo' => DB::raw("POINT(" . $location['lng'] . ", " . $location['lat'] . ")")
+                'address' => $location['address'],
+                'geo' => DB::raw("POINT(" . $location['lng'] . "," . $location['lat'] . ")"),
             ];
 
             if (!empty($location['id'])) {
-                $loc = VehicleLocation::find($location['id']);
-                if ($loc) {
-                    $loc->update($data);
-                    $newLocationIds[] = $loc->id;
-                }
+                DB::table('vehicle_locations')
+                    ->where('id', $location['id'])
+                    ->update($data);
+                $newlocations[] = $location['id'];
             } else {
-                $loc = VehicleLocation::create($data);
-                $newLocationIds[] = $loc->id;
+                $insertedId = DB::table('vehicle_locations')->insertGetId($data);
+                $newlocations[] = $insertedId;
             }
         }
 
-        $toDelete = array_diff($oldLocationIds, $newLocationIds);
-        if (!empty($toDelete)) {
-            VehicleLocation::whereIn('id', $toDelete)->delete();
+        $needToDelete = array_diff($oldlocations, $newlocations);
+        if (!empty($needToDelete)) {
+            DB::table('vehicle_locations')->whereIn('id', $needToDelete)->delete();
         }
     }
 }

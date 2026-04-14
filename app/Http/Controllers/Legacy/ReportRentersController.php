@@ -2,131 +2,256 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use App\Models\Legacy\CsOrder;
-use App\Models\Legacy\User;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * CakePHP `ReportRentersController` — dealer session, renter-grouped completed bookings.
+ */
 class ReportRentersController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
-    // ─── index (Paginated order reports grouped by renter) ─────────────────────
     public function index(Request $request)
     {
         if ($redirect = $this->ensureUserSession()) {
             return $redirect;
         }
 
-        $this->set('title_for_layout', 'Renter Reports');
-        $userid = session('userParentId', 0) == 0 ? session('userid') : session('userParentId');
+        $userId = $this->effectiveUserId();
+        $sessionKey = 'report_renters_limit';
+        $limit = $this->resolveLimit($request, $sessionKey);
 
-        $fieldname  = $request->input('Search.searchin', $request->query('searchin', ''));
-        $keyword    = $request->input('Search.keyword', $request->query('keyword', ''));
-        $date_from  = $request->input('Search.date_from', $request->query('date_from', ''));
-        $date_to    = $request->input('Search.date_to', $request->query('date_to', ''));
-        $status_type = $request->input('Search.status_type', $request->query('status_type', ''));
+        $queryNamed = array_filter(
+            [
+                $request->query('keyword'),
+                $request->query('searchin'),
+                $request->query('date_from'),
+                $request->query('date_to'),
+                $request->query('status_type'),
+            ],
+            fn ($v) => $v !== null && $v !== ''
+        );
+        $hasSearch = $request->has('Search') || $queryNamed !== [];
 
-        if (!empty($date_from) && empty($date_to)) {
-            $date_to = Carbon::now()->format('Y-m-d');
+        $keyword = $hasSearch ? trim((string) $this->searchInput($request, 'keyword')) : '';
+        $fieldname = $hasSearch ? trim((string) $this->searchInput($request, 'searchin')) : '';
+        $dateFrom = $hasSearch ? trim((string) $this->searchInput($request, 'date_from')) : '';
+        $dateTo = $hasSearch ? trim((string) $this->searchInput($request, 'date_to')) : '';
+        $statusType = $hasSearch ? trim((string) $this->searchInput($request, 'status_type')) : '';
+
+        if ($hasSearch && $dateFrom !== '' && $dateTo === '') {
+            $dateTo = Carbon::now()->format('Y-m-d');
         }
 
-        $query = CsOrder::query()
-            ->from('cs_orders as CsOrder')
-            ->leftJoin('users as User', 'User.id', '=', 'CsOrder.renter_id')
-            ->where('CsOrder.user_id', $userid)
-            ->where('CsOrder.status', 3) // Defaults to complete
-            ->selectRaw('count(CsOrder.id) as totalbooking, CsOrder.id, User.id as renter_id, User.first_name, User.last_name, User.contact_number')
-            ->groupBy('CsOrder.renter_id');
+        $q = DB::table('cs_orders as o')
+            ->leftJoin('users as u', 'u.id', '=', 'o.renter_id')
+            ->where('o.user_id', $userId)
+            ->where('o.status', 3);
 
-        if (!empty($keyword)) {
-            $v = strip_tags($keyword);
-            if ($fieldname == '1') {
-                $query->where(fn($q) => $q->where('User.first_name', 'LIKE', "%$v%")->orWhere('User.last_name', 'LIKE', "%$v%"));
-            } elseif ($fieldname == '2') {
-                $query->where('CsOrder.vehicle_name', $v);
-            } elseif ($fieldname == '3') {
-                $query->where('CsOrder.id', $v);
-            } elseif ($fieldname == '4') {
-                $query->where('User.contact_number', 'LIKE', "%$v%");
+        if ($hasSearch) {
+            if ($keyword !== '' && $fieldname !== '') {
+                if ($fieldname === '1') {
+                    $q->where(function ($w) use ($keyword) {
+                        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $keyword) . '%';
+                        $w->where('u.first_name', 'like', $like)
+                            ->orWhere('u.last_name', 'like', $like);
+                    });
+                } elseif ($fieldname === '2') {
+                    $q->where('o.vehicle_name', $keyword);
+                } elseif ($fieldname === '3') {
+                    $q->where('o.id', $keyword);
+                } elseif ($fieldname === '4') {
+                    $q->where('u.contact_number', 'like', '%' . str_replace(['%', '_'], ['\\%', '\\_'], $keyword) . '%');
+                }
+            }
+
+            if ($dateFrom !== '') {
+                $df = $this->parseReportDate($dateFrom);
+                if ($df) {
+                    $q->where('o.start_datetime', '>=', $df->format('Y-m-d 00:00:00'));
+                }
+            }
+            if ($dateTo !== '') {
+                $dt = $this->parseReportDate($dateTo);
+                if ($dt) {
+                    $q->where('o.end_datetime', '<=', $dt->format('Y-m-d 23:59:59'));
+                }
+            }
+
+            if ($statusType === 'cancel') {
+                $q->where('o.status', 2);
+            } elseif ($statusType === 'complete') {
+                $q->where('o.status', 3);
+            } elseif ($statusType === 'incomplete') {
+                $q->where('o.status', '!=', 3);
             }
         }
 
-        if (!empty($date_from)) {
-            $query->where('CsOrder.start_datetime', '>=', $date_from);
-        }
-        if (!empty($date_to)) {
-            $query->where('CsOrder.end_datetime', '<=', $date_to);
-        }
+        $q->selectRaw(
+            'MAX(o.id) as id, o.renter_id, COUNT(o.id) as totalbooking, ' .
+            'MAX(u.first_name) as first_name, MAX(u.last_name) as last_name, MAX(u.contact_number) as contact_number, MAX(u.id) as user_id'
+        )
+            ->groupBy('o.renter_id');
 
-        if (!empty($status_type)) {
-            if ($status_type == 'cancel')     $query->where('CsOrder.status', 2);
-            if ($status_type == 'complete')   $query->where('CsOrder.status', 3);
-            if ($status_type == 'incomplete') $query->where('CsOrder.status', '!=', 3);
-        }
+        $reportlists = $q->orderByDesc('id')->paginate($limit)->withQueryString();
 
-        $sessionLimitKey  = 'ReportRenters_limit';
-        $limitFromSession = session($sessionLimitKey, 20);
-        $limit            = (int)$request->input('Record.limit', $limitFromSession);
-        if ($limit < 1) $limit = 20;
-        session([$sessionLimitKey => $limit]);
-
-        $reportlists = $query->orderBy('CsOrder.id', 'DESC')->paginate($limit)->withQueryString();
-
-        return view('legacy.report_renters.index', [
-            'keyword'     => $keyword,
-            'fieldname'   => $fieldname,
-            'date_from'   => $date_from,
-            'date_to'     => $date_to,
-            'status_type' => $status_type,
+        return view('report_renters.index', [
+            'title_for_layout' => 'Renter Reports',
             'reportlists' => $reportlists,
+            'keyword' => $keyword,
+            'fieldname' => $fieldname,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'date_from_display' => $this->formatInputDateForView($dateFrom),
+            'date_to_display' => $this->formatInputDateForView($dateTo),
+            'status_type' => $statusType,
+            'limit' => $limit,
         ]);
     }
 
-    // ─── details (Basic renter/order details) ──────────────────────────────────
-    public function details(Request $request, $id)
+    /**
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     */
+    public function details(Request $request, ?string $id = null)
     {
         if ($redirect = $this->ensureUserSession()) {
             return $redirect;
         }
 
-        $id = base64_decode($id);
-        $csorder = null;
-
-        if (!empty($id)) {
-            $csorder = CsOrder::from('cs_orders as CsOrder')
-                ->leftJoin('users as User', 'User.id', '=', 'CsOrder.renter_id')
-                ->where('CsOrder.id', $id)
-                ->select('CsOrder.*', 'User.first_name', 'User.last_name', 'User.contact_number')
-                ->first();
+        $orderId = $this->decodeOrderId($id ?? '');
+        if (!$orderId) {
+            return view('report_renters.details', ['csorder' => null]);
         }
 
-        return view('legacy.report_renters.details', compact('csorder'));
+        $orderRow = DB::table('cs_orders')->where('id', $orderId)->first();
+        $csorder = null;
+        if ($orderRow) {
+            $userRow = !empty($orderRow->renter_id)
+                ? DB::table('users')->where('id', $orderRow->renter_id)->first()
+                : null;
+            $csorder = [
+                'CsOrder' => (array) $orderRow,
+                'User' => [
+                    'first_name' => $userRow->first_name ?? '',
+                    'last_name' => $userRow->last_name ?? '',
+                    'contact_number' => $userRow->contact_number ?? '',
+                ],
+            ];
+        }
+
+        return view('report_renters.details', compact('csorder'));
     }
 
-    // ─── history (AJAX rental history for a specific renter) ──────────────────────
-    public function history(Request $request)
+    /**
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     */
+    public function history(Request $request, ?string $pathRenterId = null)
     {
         if ($redirect = $this->ensureUserSession()) {
             return $redirect;
         }
 
-        $userid = session('userParentId', 0) == 0 ? session('userid') : session('userParentId');
-        $renterid = base64_decode($request->input('renterid', ''));
-        $bookings = collect();
-
-        if (!empty($renterid)) {
-            $bookings = CsOrder::from('cs_orders as CsOrder')
-                ->leftJoin('vehicles as Vehicle', 'CsOrder.vehicle_id', '=', 'Vehicle.id')
-                ->where('CsOrder.user_id', $userid)
-                ->where('CsOrder.status', '!=', 1)
-                ->where('CsOrder.renter_id', $renterid)
-                ->select('CsOrder.*', 'Vehicle.vehicle_unique_id')
-                ->orderBy('CsOrder.id', 'DESC')
-                ->limit(200)
-                ->get();
+        $userId = $this->effectiveUserId();
+        $rawRenter = (string) $request->input('renterid', '');
+        if ($rawRenter === '' && $pathRenterId !== null && $pathRenterId !== '') {
+            $rawRenter = $pathRenterId;
         }
 
-        return view('legacy.report_renters.history', compact('bookings'));
+        $renterId = $this->decodeOrderId($rawRenter);
+        $bookings = collect();
+
+        if ($renterId) {
+            $bookings = DB::table('cs_orders as o')
+                ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
+                ->where('o.user_id', $userId)
+                ->where('o.status', '!=', 1)
+                ->where('o.renter_id', $renterId)
+                ->orderByDesc('o.id')
+                ->limit(200)
+                ->get(['o.*', 'v.vehicle_unique_id']);
+        }
+
+        return view('report_renters.history', [
+            'title_for_layout' => 'Rental Orders',
+            'bookings' => $bookings,
+        ]);
+    }
+
+    private function effectiveUserId(): int
+    {
+        $parent = (int) session()->get('userParentId', 0);
+
+        return $parent > 0 ? $parent : (int) session()->get('userid', 0);
+    }
+
+    private function searchInput(Request $request, string $key): ?string
+    {
+        $v = $request->input('Search.' . $key);
+        if ($v !== null && $v !== '') {
+            return (string) $v;
+        }
+
+        $q = $request->query($key);
+
+        return $q !== null && $q !== '' ? (string) $q : null;
+    }
+
+    private function resolveLimit(Request $request, string $sessionKey): int
+    {
+        if ($request->has('Record.limit')) {
+            $lim = (int) $request->input('Record.limit');
+            if ($lim > 0 && $lim <= 500) {
+                session([$sessionKey => $lim]);
+            }
+        }
+        $limit = (int) session($sessionKey, 50);
+
+        return $limit > 0 ? $limit : 50;
+    }
+
+    private function decodeOrderId(string $id): ?int
+    {
+        if ($id === '') {
+            return null;
+        }
+        if (ctype_digit($id)) {
+            return (int) $id;
+        }
+        $decoded = base64_decode($id, true);
+        if ($decoded !== false && ctype_digit($decoded)) {
+            return (int) $decoded;
+        }
+
+        return null;
+    }
+
+    private function parseReportDate(string $value): ?Carbon
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        foreach (['Y-m-d', 'm/d/Y', 'n/j/Y'] as $fmt) {
+            try {
+                return Carbon::createFromFormat($fmt, $value)->startOfDay();
+            } catch (\Throwable $e) {
+            }
+        }
+        try {
+            return Carbon::parse($value)->startOfDay();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function formatInputDateForView(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        $c = $this->parseReportDate($value);
+
+        return $c ? $c->format('m/d/Y') : $value;
     }
 }

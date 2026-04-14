@@ -140,7 +140,7 @@ class WalletController extends LegacyAppController
         return $newBal;
     }
 
-    public function admin_index(Request $request, $userid = null)
+    public function index(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -179,7 +179,7 @@ class WalletController extends LegacyAppController
             ]);
         }
 
-        return view('admin.wallet.admin_index', [
+        return view('admin.wallet.index', [
             'wallet' => $wallet,
             'transactions' => $transactions,
             'keyword' => $keyword,
@@ -189,7 +189,7 @@ class WalletController extends LegacyAppController
         ]);
     }
 
-    public function admin_updatebalance(Request $request, $userid = null)
+    public function updatebalance(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -235,13 +235,13 @@ class WalletController extends LegacyAppController
             return redirect()->back();
         }
 
-        return view('admin.wallet.admin_updatebalance', [
+        return view('admin.wallet.updatebalance', [
             'wallet' => $wallet,
             'userid' => base64_encode((string)$uid),
         ]);
     }
 
-    public function admin_refundbalance(Request $request, $userid = null)
+    public function refundbalance(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -316,13 +316,13 @@ class WalletController extends LegacyAppController
             return redirect('/admin/wallet/index/' . base64_encode((string) $uid));
         }
 
-        return view('admin.wallet.admin_refundbalance', [
+        return view('admin.wallet.refundbalance', [
             'wallet' => $wallet,
             'userid' => base64_encode((string)$uid),
         ]);
     }
 
-    public function admin_chargepartialamtpopup(Request $request)
+    public function chargepartialamtpopup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -338,7 +338,7 @@ class WalletController extends LegacyAppController
         return response()->view('admin.wallet._chargepartialamtpopup', compact('userid', 'bookingid', 'currency'));
     }
 
-    public function admin_chargepartialamt(Request $request): JsonResponse
+    public function chargepartialamt(Request $request): JsonResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []], 401);
@@ -369,7 +369,7 @@ class WalletController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Charged successfully', 'result' => ['walletbal' => $walletbal]]);
     }
 
-    public function admin_diacredit(Request $request, $userid = null)
+    public function diacredit(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -386,12 +386,12 @@ class WalletController extends LegacyAppController
             return redirect()->back();
         }
 
-        return view('admin.wallet.admin_diacredit', [
+        return view('admin.wallet.diacredit', [
             'userid' => base64_encode((string)$uid),
         ]);
     }
 
-    public function admin_createintent(Request $request): JsonResponse
+    public function createintent(Request $request): JsonResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []], 401);
@@ -416,7 +416,7 @@ class WalletController extends LegacyAppController
         return response()->json($res);
     }
 
-    public function admin_diacreditprocess(Request $request): JsonResponse
+    public function diacreditprocess(Request $request): JsonResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []], 401);

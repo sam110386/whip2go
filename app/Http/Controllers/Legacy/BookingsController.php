@@ -2,204 +2,609 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\BookingsTrait;
-use App\Models\Legacy\CsOrder;
-use App\Models\Legacy\Vehicle;
-use App\Models\Legacy\User;
-use App\Models\Legacy\OrderDepositRule;
-use App\Models\Legacy\UserCcToken;
+use App\Http\Controllers\Traits\RespondsWithCustomerAutocomplete;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class BookingsController extends LegacyAppController
 {
-    use BookingsTrait;
+    use RespondsWithCustomerAutocomplete;
 
-    private function pendingResponse(string $action)
+    protected bool $shouldLoadLegacyModules = true;
+
+    private function ownerUserId(): int
     {
-        return response()->json([
-            'status' => false,
-            'message' => "Bookings::{$action} is pending migration.",
-            'result' => [],
-        ])->header('Content-Type', 'application/json; charset=utf-8');
+        $parent = (int) session()->get('userParentId', 0);
+
+        return $parent !== 0 ? $parent : (int) session()->get('userid', 0);
+    }
+
+    private function ownerUserIds(): array
+    {
+        $uid = (int) session()->get('userid', 0);
+        $parent = (int) session()->get('userParentId', 0);
+        $ids = array_unique(array_filter([$uid, $parent]));
+
+        return $ids !== [] ? $ids : [0];
     }
 
     /**
-     * index: Frontend rental orders (usually blocked)
+     * Verify that a cs_orders row belongs to the current session user (or parent).
      */
-    public function index(Request $request)
+    private function verifyOrderOwnership(int $orderId): ?\stdClass
     {
-        if ($redirect = $this->ensureUserSession()) return $redirect;
-        
-        // Blocked as per legacy code
-        return redirect()->back()->with('error', "Sorry, you are not allowed to access this page");
+        return DB::table('cs_orders')
+            ->where('id', $orderId)
+            ->whereIn('user_id', $this->ownerUserIds())
+            ->first();
     }
 
-    /**
-     * customerautocomplete: Search for customers
-     */
-    public function customerautocomplete(Request $request)
-    {
-        $searchTerm = $request->query('term');
-        $userid = Session::get('userParentId') ?: Session::get('userid');
+    // ─── Core CRUD ───────────────────────────────────────────────
 
-        $userlists = User::select('id', 'first_name', 'contact_number')
+    public function index(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orders = DB::table('cs_orders')
+            ->leftJoin('vehicles', 'cs_orders.vehicle_id', '=', 'vehicles.id')
+            ->whereIn('cs_orders.user_id', $this->ownerUserIds())
+            ->whereNotIn('cs_orders.status', [2, 3])
+            ->select(
+                'cs_orders.*',
+                'vehicles.year as vehicle_year',
+                'vehicles.make as vehicle_make',
+                'vehicles.model as vehicle_model',
+                'vehicles.vin_number as vehicle_vin',
+            )
+            ->orderByDesc('cs_orders.id')
+            ->paginate(20);
+
+        return view('bookings.index', [
+            'title_for_layout' => 'My Bookings',
+            'orders' => $orders,
+        ]);
+    }
+
+    public function create(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $userId = $this->ownerUserId();
+        $vehicles = DB::table('vehicles')
+            ->where('user_id', $userId)
             ->where('status', 1)
-            ->where('is_dealer', 0)
-            ->where(function($query) use ($searchTerm) {
-                $query->where('contact_number', 'LIKE', "%$searchTerm%")
-                      ->orWhere('first_name', 'LIKE', "%$searchTerm%")
-                      ->orWhere('last_name', 'LIKE', "%$searchTerm%")
-                      ->orWhere('email', 'LIKE', "%$searchTerm%");
-            })
-            ->limit(10)
-            ->orderBy('first_name', 'ASC')
-            ->get();
+            ->get(['id', 'year', 'make', 'model', 'vin_number']);
 
-        $users = $userlists->map(function($user) {
-            return [
-                'id' => $user->id,
-                'tag' => $user->first_name . ' - ' . $user->contact_number
-            ];
+        return view('bookings.create', [
+            'title_for_layout' => 'Create Booking',
+            'vehicles' => $vehicles,
+        ]);
+    }
+
+    public function edit(Request $request, $id = null): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $id);
+        if (!$orderId) {
+            return redirect('/bookings/index');
+        }
+
+        $order = $this->verifyOrderOwnership($orderId);
+        if (!$order) {
+            return redirect('/bookings/index');
+        }
+
+        return view('bookings.edit', [
+            'title_for_layout' => 'Edit Booking',
+            'order' => $order,
+        ]);
+    }
+
+    public function editsave(Request $request): RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = (int) $request->input('order_id', 0);
+        $order = $this->verifyOrderOwnership($orderId);
+        if (!$order) {
+            return redirect('/bookings/index')->with('error', 'Order not found or access denied.');
+        }
+
+        $updatable = $request->only([
+            'start_datetime', 'end_datetime', 'pickup_address',
+            'dropoff_address', 'notes',
+        ]);
+        $updatable['modified'] = now();
+
+        DB::table('cs_orders')->where('id', $orderId)->update($updatable);
+
+        return redirect('/bookings/index')->with('success', 'Booking updated successfully.');
+    }
+
+    public function bookingVehicleLease(Request $request): RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        return redirect('/bookings/index');
+    }
+
+    // ─── Booking Lifecycle ───────────────────────────────────────
+
+    public function overdue(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orders = DB::table('cs_orders')
+            ->leftJoin('vehicles', 'cs_orders.vehicle_id', '=', 'vehicles.id')
+            ->whereIn('cs_orders.user_id', $this->ownerUserIds())
+            ->where('cs_orders.status', 1)
+            ->where('cs_orders.end_datetime', '<', now())
+            ->select(
+                'cs_orders.*',
+                'vehicles.year as vehicle_year',
+                'vehicles.make as vehicle_make',
+                'vehicles.model as vehicle_model',
+                'vehicles.vin_number as vehicle_vin',
+            )
+            ->orderByDesc('cs_orders.id')
+            ->paginate(20);
+
+        return view('bookings.index', [
+            'title_for_layout' => 'Overdue Bookings',
+            'orders' => $orders,
+        ]);
+    }
+
+    public function startBooking(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => false, 'message' => 'Invalid order ID']);
+        }
+
+        $order = $this->verifyOrderOwnership($orderId);
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Order not found or access denied']);
+        }
+
+        DB::table('cs_orders')->where('id', $orderId)->update([
+            'status' => 1,
+            'start_timing' => now(),
+            'modified' => now(),
+        ]);
+
+        return response()->json(['status' => true, 'message' => 'Booking started successfully.']);
+    }
+
+    public function loadcancelBooking(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+
+        return view('bookings.loadcancel', [
+            'order' => $order,
+        ]);
+    }
+
+    public function load_single_row(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = null;
+        if ($orderId) {
+            $order = DB::table('cs_orders')
+                ->leftJoin('vehicles', 'cs_orders.vehicle_id', '=', 'vehicles.id')
+                ->where('cs_orders.id', $orderId)
+                ->whereIn('cs_orders.user_id', $this->ownerUserIds())
+                ->select(
+                    'cs_orders.*',
+                    'vehicles.year as vehicle_year',
+                    'vehicles.make as vehicle_make',
+                    'vehicles.model as vehicle_model',
+                    'vehicles.vin_number as vehicle_vin',
+                )
+                ->first();
+        }
+
+        return view('bookings.single_row', [
+            'order' => $order,
+        ]);
+    }
+
+    public function cancelBooking(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => false, 'message' => 'Invalid order ID']);
+        }
+
+        $order = $this->verifyOrderOwnership($orderId);
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Order not found or access denied']);
+        }
+
+        DB::transaction(function () use ($orderId, $order) {
+            DB::table('cs_orders')->where('id', $orderId)->update([
+                'status' => 2,
+                'modified' => now(),
+            ]);
+
+            if (!empty($order->vehicle_id)) {
+                DB::table('vehicles')->where('id', $order->vehicle_id)->update([
+                    'is_available' => 1,
+                    'modified' => now(),
+                ]);
+            }
         });
 
-        return response()->json($users);
+        \Log::warning('BookingsController::cancelBooking - notification/refund not ported', ['order_id' => $orderId]);
+
+        return response()->json(['status' => true, 'message' => 'Booking cancelled successfully.']);
     }
 
-    /**
-     * create: New booking page (redirects to index)
-     */
-    public function create()
+    public function loadcompleteBooking(Request $request): View|RedirectResponse
     {
-        return redirect()->route('legacy.bookings.index');
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+
+        return view('bookings.loadcomplete', [
+            'order' => $order,
+        ]);
     }
 
-    /**
-     * edit: Edit booking page
-     */
-    public function edit($id)
+    public function completeBooking(Request $request): JsonResponse
     {
-        if ($redirect = $this->ensureUserSession()) return $redirect;
-        
-        $id = base64_decode($id);
-        if (empty($id)) return redirect()->back();
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
 
-        $CsOrder = CsOrder::where('cs_orders.id', $id)
-            ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'cs_orders.vehicle_id')
-            ->select('cs_orders.*', 'Vehicle.id as vehicle_id', 'Vehicle.vehicle_name')
-            ->first();
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => false, 'message' => 'Invalid order ID']);
+        }
 
-        return view('legacy.bookings.edit', compact('CsOrder'));
+        $order = $this->verifyOrderOwnership($orderId);
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Order not found or access denied']);
+        }
+
+        $extraFees = (float) $request->input('extra_fees', 0);
+        $extraNotes = (string) $request->input('extra_notes', '');
+
+        DB::transaction(function () use ($orderId, $order, $extraFees, $extraNotes) {
+            $update = [
+                'status' => 3,
+                'end_timing' => now(),
+                'modified' => now(),
+            ];
+            if ($extraFees > 0) {
+                $update['extra_fees'] = $extraFees;
+                $update['extra_notes'] = $extraNotes;
+            }
+
+            DB::table('cs_orders')->where('id', $orderId)->update($update);
+
+            if (!empty($order->vehicle_id)) {
+                DB::table('vehicles')->where('id', $order->vehicle_id)->update([
+                    'is_available' => 1,
+                    'modified' => now(),
+                ]);
+            }
+        });
+
+        \Log::warning('BookingsController::completeBooking - payment processing not ported', ['order_id' => $orderId]);
+
+        return response()->json(['status' => true, 'message' => 'Booking completed successfully.']);
     }
 
-    /**
-     * editsave: Save edited booking
-     */
-    public function editsave(Request $request)
+    // ─── Popup / Utility Methods ─────────────────────────────────
+
+    public function getinsurancepopup(Request $request): View|RedirectResponse
     {
-        if ($redirect = $this->ensureUserSession()) return response()->json(['status' => false, 'message' => "Session expired"]);
-        return response()->json($this->_editsave($request->all()));
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+
+        return view('bookings.insurance_popup', [
+            'order' => $order,
+        ]);
     }
 
-    /**
-     * overdue: List overdue bookings
-     */
-    public function overdue(Request $request)
+    public function getinsurancetoken(Request $request): JsonResponse
     {
-        if ($redirect = $this->ensureUserSession()) return $redirect;
-        
-        // Blocked as per legacy code
-        return redirect()->back()->with('error', "Sorry, you are not allowed to access this page");
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        return response()->json([
+            'status' => true,
+            'token' => sha1(microtime(true) . random_int(1000, 9999)),
+        ]);
     }
 
-    public function bookingVehicleLease(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function cancelBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function changeccdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function completeBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function geotabkeylesslock(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function geotabkeylessunlock(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function getDeclarationDoc(Request $request) { return response()->json($this->_getDeclarationDoc($request->all())); }
-    public function getVehicleCCMCard(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function getagreement(Request $request) { return response()->json($this->_getagreement($request->all())); }
-    public function getinsurancepopup(Request $request) { return response()->json($this->getInsurancePopup($request)); }
-    public function getinsurancetoken(Request $request) { return response()->json($this->getinsurancetoken_method($request)); }
-    public function load_single_row(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function loadcancelBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function loadcompleteBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function loadvehicleexpiretime(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function loadvehiclegps(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function overdue_booking_details(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function processAdvancePayment(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function processchangeccdetails(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function processfullpayment(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function processvehicleexpiretime(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function pullVehicleOdometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function saveBookingOdometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function startBooking(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function updateodometer(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function updatevehiclegps(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function withautorenew(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-
-    protected function _editsave($data)
+    public function getagreement(Request $request): JsonResponse
     {
-        return ['status' => false, 'message' => '_editsave pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::getagreement - agreement flow not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Agreement flow is not migrated yet.',
+        ]);
     }
 
-    protected function _startBooking($csOrder)
+    public function changeccdetails(Request $request): View|RedirectResponse
     {
-        return ['status' => false, 'message' => '_startBooking pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+
+        return view('bookings.changeccdetails', [
+            'order' => $order,
+        ]);
     }
 
-    protected function _getagreement($conditions)
+    public function processchangeccdetails(Request $request): JsonResponse
     {
-        return method_exists($this, '_getagreement') ? [] : [];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::processchangeccdetails - CC change not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'CC change flow is not migrated yet.',
+        ]);
     }
 
-    protected function _autocomplete($params = [])
+    public function loadvehicleexpiretime(Request $request): View|RedirectResponse
     {
-        return ['status' => false, 'message' => '_autocomplete pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+
+        return view('bookings.vehicleexpiretime', [
+            'order' => $order,
+        ]);
     }
 
-    protected function _chargeLateFee($params = [])
+    public function processvehicleexpiretime(Request $request): JsonResponse
     {
-        return ['status' => false, 'message' => '_chargeLateFee pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::processvehicleexpiretime - vehicle expire time processing not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Vehicle expire time processing is not migrated yet.',
+        ]);
     }
 
-    protected function _overdue_booking_details($params = [])
+    public function loadvehiclegps(Request $request): View|RedirectResponse
     {
-        return ['status' => false, 'message' => '_overdue_booking_details pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+        $vehicle = null;
+
+        if ($order && !empty($order->vehicle_id)) {
+            $vehicle = DB::table('vehicles')
+                ->where('id', $order->vehicle_id)
+                ->first(['id', 'gps_serial_no', 'gps_provider', 'year', 'make', 'model']);
+        }
+
+        return view('bookings.vehiclegps', [
+            'order' => $order,
+            'vehicle' => $vehicle,
+        ]);
     }
 
-    protected function _pullVehicleOdometer($params = [])
+    public function updatevehiclegps(Request $request): JsonResponse
     {
-        return ['status' => true, 'mileage' => 0, 'message' => 'Telematics pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $vehicleId = (int) $request->input('vehicle_id', 0);
+        $gpsSerial = trim((string) $request->input('gps_serial_no', ''));
+
+        if ($vehicleId <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid vehicle ID']);
+        }
+
+        $vehicle = DB::table('vehicles')
+            ->where('id', $vehicleId)
+            ->whereIn('user_id', $this->ownerUserIds())
+            ->first(['id']);
+
+        if (!$vehicle) {
+            return response()->json(['status' => false, 'message' => 'Vehicle not found or access denied']);
+        }
+
+        DB::table('vehicles')->where('id', $vehicleId)->update([
+            'gps_serial_no' => $gpsSerial,
+            'modified' => now(),
+        ]);
+
+        return response()->json(['status' => true, 'message' => 'GPS serial number updated.']);
     }
 
-    protected function _saveBookingOdometer($params = [])
+    public function updateodometer(Request $request): View|RedirectResponse
     {
-        return ['status' => false, 'message' => '_saveBookingOdometer pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $order = $orderId ? $this->verifyOrderOwnership($orderId) : null;
+
+        return view('bookings.updateodometer', [
+            'order' => $order,
+        ]);
     }
 
-    protected function _syncvehiclegps($params = [])
+    public function saveBookingOdometer(Request $request): JsonResponse
     {
-        return ['status' => false, 'message' => '_syncvehiclegps pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        if (!$orderId) {
+            return response()->json(['status' => false, 'message' => 'Invalid order ID']);
+        }
+
+        $order = $this->verifyOrderOwnership($orderId);
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Order not found or access denied']);
+        }
+
+        $startOdo = $request->input('start_odometer');
+        $endOdo = $request->input('end_odometer');
+
+        $update = ['modified' => now()];
+        if ($startOdo !== null) {
+            $update['start_odometer'] = (float) $startOdo;
+        }
+        if ($endOdo !== null) {
+            $update['end_odometer'] = (float) $endOdo;
+        }
+
+        DB::table('cs_orders')->where('id', $orderId)->update($update);
+
+        return response()->json(['status' => true, 'message' => 'Odometer saved successfully.']);
     }
 
-    protected function _admineditsave($data)
+    public function pullVehicleOdometer(Request $request): JsonResponse
     {
-        return $this->_editsave($data);
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::pullVehicleOdometer - GPS provider odometer pull not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'GPS provider odometer pull is not migrated yet.',
+        ]);
     }
 
-    protected function _geotabkeylesslock($params = [])
+    public function geotabkeylesslock(Request $request): JsonResponse
     {
-        return ['status' => false, 'message' => '_geotabkeylesslock pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::geotabkeylesslock - Geotab keyless lock not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Geotab keyless lock is not migrated yet.',
+        ]);
     }
 
-    protected function _geotabkeylessunlock($params = [])
+    public function geotabkeylessunlock(Request $request): JsonResponse
     {
-        return ['status' => false, 'message' => '_geotabkeylessunlock pending migration'];
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::geotabkeylessunlock - Geotab keyless unlock not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Geotab keyless unlock is not migrated yet.',
+        ]);
+    }
+
+    public function getDeclarationDoc(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::getDeclarationDoc - declaration doc not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Declaration document flow is not migrated yet.',
+        ]);
+    }
+
+    public function overdue_booking_details(Request $request): View|RedirectResponse
+    {
+        return $this->overdue($request);
+    }
+
+    public function getVehicleCCMCard(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        \Log::warning('BookingsController::getVehicleCCMCard - CCM card not ported');
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Vehicle CCM card flow is not migrated yet.',
+        ]);
+    }
+
+    public function customerautocomplete(Request $request): JsonResponse
+    {
+        return $this->respondCustomerAutocomplete($request, 'frontend');
     }
 }

@@ -21,7 +21,7 @@ class BookingReviewsController extends AdminBookingReviewsController
         return '/cloud/booking_reviews';
     }
 
-    public function cloud_nonreview(Request $request)
+    public function nonreview(Request $request)
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return $redirect;
@@ -41,51 +41,51 @@ class BookingReviewsController extends AdminBookingReviewsController
         $nonreviews = $this->nonreviewOrdersQuery($dealerIds)->paginate($limit)->withQueryString();
 
         if ($request->ajax()) {
-            return view('admin.booking_reviews._nonreview_table', [
+            return view('cloud.booking_reviews._nonreview_table', [
                 'nonreviews' => $nonreviews,
                 'basePath' => $this->bookingReviewsBasePath(),
             ]);
         }
 
-        return view('admin.booking_reviews.admin_nonreview', [
+        return view('cloud.booking_reviews.nonreview', [
             'nonreviews' => $nonreviews,
             'limit' => $limit,
             'basePath' => $this->bookingReviewsBasePath(),
         ]);
     }
 
-    public function cloud_initial(Request $request, $orderid = null)
+    public function initial(Request $request, $orderid = null)
     {
-        return $this->admin_initial($request, $orderid);
+        return parent::initial($request, $orderid);
     }
 
-    public function cloud_finalreview(Request $request, $orderid = null)
+    public function finalreview(Request $request, $orderid = null)
     {
-        return $this->admin_finalreview($request, $orderid);
+        return parent::finalreview($request, $orderid);
     }
 
-    public function cloud_saveImage(Request $request): JsonResponse
+    public function saveImage(Request $request): JsonResponse
     {
-        return $this->admin_saveImage($request);
+        return parent::saveImage($request);
     }
 
-    public function cloud_deleteImage(Request $request): JsonResponse
+    public function deleteImage(Request $request): JsonResponse
     {
-        return $this->admin_deleteImage($request);
+        return parent::deleteImage($request);
     }
 
-    public function cloud_settlefinaldamage(Request $request): JsonResponse
+    public function settlefinaldamage(Request $request): JsonResponse
     {
-        return $this->admin_settlefinaldamage($request);
+        return parent::settlefinaldamage($request);
     }
 
-    public function cloud_reviewimages(Request $request, $orderid = null): Response
+    public function reviewimages(Request $request, $orderid = null): Response
     {
-        return $this->admin_reviewimages($request, $orderid);
+        return parent::reviewimages($request, $orderid);
     }
 
-    public function cloud_reviewpopup(Request $request): Response
+    public function reviewpopup(Request $request): Response
     {
-        return $this->admin_reviewpopup($request);
+        return parent::reviewpopup($request);
     }
 }

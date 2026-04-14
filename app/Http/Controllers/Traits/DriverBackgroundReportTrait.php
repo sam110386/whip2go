@@ -2,119 +2,310 @@
 
 namespace App\Http\Controllers\Traits;
 
-use App\Models\Legacy\User;
-use App\Models\Legacy\UserReport;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Exception;
 
+/**
+ * Ported from CakePHP app/Controller/Traits/DriverBackgroundReport.php
+ *
+ * Manages driver background checks via Checkr and Digisure APIs.
+ */
 trait DriverBackgroundReportTrait
 {
+    private array $_userObj = [];
+
     /**
-     * Add user as a candidate to Checkr (driver background check service).
-     * Mirrors CakePHP's DriverBackgroundReport::addCandidateToDriverBackgroundReport()
+     * Add a candidate for driver background report.
      */
-    protected function addCandidateToDriverBackgroundReport(int $userId): array
+    public function addCandidateToDriverBackgroundReport($userid, $owner = '', $TrustScore = false): array
     {
-        $user = User::find($userId);
+        $User = DB::table('users')
+            ->leftJoin('user_license_details as LicenseDetail', 'LicenseDetail.user_id', '=', 'users.id')
+            ->where('users.id', $userid)
+            ->select(
+                'users.*',
+                'LicenseDetail.givenName', 'LicenseDetail.lastName', 'LicenseDetail.dateOfBirth',
+                'LicenseDetail.dateOfExpiry', 'LicenseDetail.addressCity', 'LicenseDetail.addressState',
+                'LicenseDetail.addressPostalCode', 'LicenseDetail.documentNumber'
+            )
+            ->first();
 
-        if (empty($user)) {
-            return ['status' => false, 'message' => 'User not found.'];
+        if (empty($User)) {
+            return ['status' => false, 'message' => 'User not found.', 'result' => []];
         }
 
-        $checkrClass = '\\App\\Lib\\Legacy\\CheckrApi';
-        if (!class_exists($checkrClass)) {
-            return ['status' => false, 'message' => 'Checkr API not configured.'];
+        $this->_userObj = (array) $User;
+        $userArr = (array) $User;
+
+        // TODO: Replace Security::decrypt with Crypt::decryptString or legacy decryption
+        $decryptedDocNumber = $this->decryptSecurityValue($userArr['documentNumber'] ?? '');
+        if (empty($userArr['documentNumber']) || empty($decryptedDocNumber)) {
+            return ['status' => false, 'message' => "Sorry, driver didnt add his license number yet.", 'result' => []];
         }
 
-        $checkr = new $checkrClass();
-
-        // Checkr requires DOB and SSN — both encrypted in legacy DB
-        $candidateData = [
-            'first_name'  => $user->first_name,
-            'last_name'   => $user->last_name,
-            'email'       => $user->email,
-            'phone'       => $user->contact_number,
-            'dob'         => $user->dob ?? null,
-            'ssn'         => !empty($user->ss_no) ? base64_decode($user->ss_no) : null,
-            'driver_license_number' => !empty($user->licence_number) ? base64_decode($user->licence_number) : null,
-            'driver_license_state'  => $user->licence_state ?? null,
-            'zipcode'     => $user->zip ?? null,
+        $userdata = [
+            'first_name'      => $userArr['first_name'],
+            'last_name'       => $userArr['last_name'],
+            'id'              => $userArr['id'],
+            'email'           => $userArr['email'],
+            'contact_number'  => $userArr['contact_number'],
+            'zip'             => substr($userArr['zip'] ?? '', 0, 8),
+            'dob'             => !empty($userArr['dateOfBirth']) ? $userArr['dateOfBirth'] : $userArr['dob'],
+            'licence_number'  => $decryptedDocNumber,
+            'licence_exp_date' => !empty($userArr['dateOfExpiry']) ? $userArr['dateOfExpiry'] : ($userArr['licence_exp_date'] ?? ''),
+            'licence_state'   => !empty($userArr['addressState']) ? $userArr['addressState'] : ($userArr['state'] ?? ''),
+            'address'         => $userArr['address'] ?? '',
+            'city'            => $userArr['city'] ?? '',
+            'state'           => $userArr['state'] ?? '',
         ];
 
-        $result = $checkr->addCandidate($candidateData);
+        $userExist = DB::table('user_reports')->where('user_id', $userid)->first();
 
-        if (!empty($result['status']) && $result['status'] === 'success') {
-            // Persist the candidate_id to user_reports
-            $report = UserReport::firstOrNew(['user_id' => $userId]);
-            $report->user_id      = $userId;
-            $report->candidate_id = $result['candidate_id'] ?? null;
-            $report->status       = 0;
-            $report->save();
+        try {
+            if (!empty($userExist)) {
+                $existArr = (array) $userExist;
+                if ($existArr['channel'] == 'CKR') {
+                    // TODO: Replace with CheckrApiClient service – _updateCandidateToApi()
+                    return $this->checkrUpdateCandidateStub($userdata, $existArr);
+                }
+                if ($existArr['channel'] == 'DIG') {
+                    // TODO: Replace with DigisureApi service – _updateCandidateToApi()
+                    return $this->digisureUpdateCandidateStub($userdata, $existArr, $TrustScore);
+                }
+            }
 
-            return ['status' => true, 'message' => 'User is added to Checkr API for processing'];
+            if (empty($owner)) {
+                $driver_checker = 'CKR';
+            } else {
+                $OwnerSetting = DB::table('cs_settings')
+                    ->where('user_id', $owner)
+                    ->select('driver_checker')
+                    ->first();
+                $driver_checker = $OwnerSetting->driver_checker ?? 'CKR';
+            }
+
+            $response = ['status' => false, 'message' => 'Unknown driver checker.', 'result' => []];
+
+            if ($driver_checker == 'DIG') {
+                // TODO: Replace with DigisureApi service – _addCandidateToApi()
+                $response = $this->digisureAddCandidateStub($userdata, $TrustScore);
+            }
+            if ($driver_checker == 'CKR') {
+                // TODO: Replace with CheckrApiClient service – _addCandidateToApi()
+                $response = $this->checkrAddCandidateStub($userdata);
+            }
+
+            if (!$response['status']) {
+                DB::table('users')->where('id', $userid)->update(['checkr_status' => 4]);
+                return $response;
+            }
+
+            return $response;
+        } catch (Exception $e) {
+            return ['status' => false, 'message' => $e->getMessage(), 'result' => []];
         }
-
-        return ['status' => false, 'message' => $result['message'] ?? 'Checkr API error.'];
     }
 
     /**
-     * Pull the latest background report from Checkr for the given user.
-     * Mirrors CakePHP's DriverBackgroundReport::pullBackgroundReport()
+     * Update existing candidate in background report.
      */
-    protected function pullBackgroundReport(int $userId): array
+    public function updateCandidateToDriverBackgroundReport($userid, $owner = ''): array
     {
-        $report = UserReport::where('user_id', $userId)->first();
+        $userExist = DB::table('user_reports')->where('user_id', $userid)->first();
 
-        if (empty($report) || empty($report->checkr_reportid)) {
-            return ['status' => false, 'message' => 'No Checkr report ID found for this user.'];
+        if (empty($userExist)) {
+            return $this->addCandidateToDriverBackgroundReport($userid, $owner, true);
+        }
+        $existArr = (array) $userExist;
+
+        $User = DB::table('users')
+            ->leftJoin('user_license_details as LicenseDetail', 'LicenseDetail.user_id', '=', 'users.id')
+            ->where('users.id', $userid)
+            ->select(
+                'users.*',
+                'LicenseDetail.givenName', 'LicenseDetail.lastName', 'LicenseDetail.dateOfBirth',
+                'LicenseDetail.dateOfExpiry', 'LicenseDetail.addressCity', 'LicenseDetail.addressState',
+                'LicenseDetail.addressPostalCode', 'LicenseDetail.documentNumber'
+            )
+            ->first();
+
+        $this->_userObj = (array) $User;
+        $userArr = (array) $User;
+
+        $decryptedDocNumber = $this->decryptSecurityValue($userArr['documentNumber'] ?? '');
+        if (empty($userArr['documentNumber']) || empty($decryptedDocNumber)) {
+            return ['status' => false, 'message' => "Sorry, driver didnt add his license number yet.", 'result' => []];
         }
 
-        $checkrClass = '\\App\\Lib\\Legacy\\CheckrApi';
-        if (!class_exists($checkrClass)) {
-            return ['status' => false, 'message' => 'Checkr API not configured.'];
+        $userdata = [
+            'first_name'      => $userArr['first_name'],
+            'last_name'       => $userArr['last_name'],
+            'id'              => $userArr['id'],
+            'email'           => $userArr['email'],
+            'contact_number'  => $userArr['contact_number'],
+            'zip'             => substr($userArr['zip'] ?? '', 0, 8),
+            'dob'             => !empty($userArr['dateOfBirth']) ? $userArr['dateOfBirth'] : $userArr['dob'],
+            'licence_number'  => $decryptedDocNumber,
+            'licence_exp_date' => !empty($userArr['dateOfExpiry']) ? $userArr['dateOfExpiry'] : ($userArr['licence_exp_date'] ?? ''),
+            'licence_state'   => !empty($userArr['addressState']) ? $userArr['addressState'] : ($userArr['state'] ?? ''),
+            'address'         => $userArr['address'] ?? '',
+            'city'            => $userArr['city'] ?? '',
+            'state'           => $userArr['state'] ?? '',
+        ];
+
+        try {
+            if ($existArr['channel'] == 'CKR') {
+                // TODO: Replace with CheckrApiClient service – _updateCandidateToApi()
+                return $this->checkrUpdateCandidateStub($userdata, $existArr);
+            }
+            if ($existArr['channel'] == 'DIG') {
+                // TODO: Replace with DigisureApi service – _updateCandidateToApi()
+                return $this->digisureUpdateCandidateStub($userdata, $existArr, true);
+            }
+        } catch (Exception $e) {
+            return ['status' => false, 'message' => $e->getMessage(), 'result' => []];
         }
 
-        $checkr = new $checkrClass();
-        $result = $checkr->getReport($report->checkr_reportid);
-
-        if (!empty($result['status']) && $result['status'] === 'clear') {
-            UserReport::where('user_id', $userId)->update([
-                'report_status' => $result['status'],
-                'adjudication'  => $result['adjudication'] ?? null,
-            ]);
-            return ['status' => true, 'message' => 'User Report is Ready'];
-        }
-
-        return ['status' => false, 'message' => $result['message'] ?? 'Report not ready yet.'];
+        return ['status' => false, 'message' => 'Unknown channel.', 'result' => []];
     }
 
     /**
-     * Request a new background report on Checkr for an already-added candidate.
-     * Mirrors CakePHP's DriverBackgroundReport::createBackgroundReport()
+     * Create a background report for a candidate.
      */
-    protected function createBackgroundReport(int $userId): array
+    public function createBackgroundReport($userid, $owner = ''): array
     {
-        $report = UserReport::where('user_id', $userId)->first();
+        $userExist = DB::table('user_reports')->where('user_id', $userid)->first();
 
-        if (empty($report) || empty($report->candidate_id)) {
-            return ['status' => false, 'message' => 'Candidate not found in Checkr.'];
+        if (!empty($userExist) && ((array) $userExist)['channel'] == 'DIG') {
+            return $this->addCandidateToDriverBackgroundReport($userid, $owner, true);
         }
 
-        $checkrClass = '\\App\\Lib\\Legacy\\CheckrApi';
-        if (!class_exists($checkrClass)) {
-            return ['status' => false, 'message' => 'Checkr API not configured.'];
+        if (empty($userExist)) {
+            $this->addCandidateToDriverBackgroundReport($userid, $owner, true);
+            $userExist = DB::table('user_reports')->where('user_id', $userid)->first();
         }
 
-        $checkr = new $checkrClass();
-        $result = $checkr->createReport($report->candidate_id);
+        if (!empty($userExist) && ((array) $userExist)['channel'] == 'CKR') {
+            $existArr = (array) $userExist;
 
-        if (!empty($result['status']) && $result['status'] === 'success') {
-            UserReport::where('user_id', $userId)->update([
-                'checkr_reportid'        => $result['report_id']            ?? null,
-                'motor_vehicle_report_id' => $result['motor_vehicle_report_id'] ?? null,
-                'status'                 => 1,
+            if (empty($this->_userObj)) {
+                $userRow = DB::table('users')->where('id', $userid)->first();
+                $this->_userObj = $userRow ? (array) $userRow : [];
+                $decrypted = $this->decryptSecurityValue($this->_userObj['licence_number'] ?? '');
+                if (empty($this->_userObj['licence_number']) || empty($decrypted)) {
+                    return ['status' => false, 'message' => "Sorry, driver didnt add his license number yet.", 'result' => []];
+                }
+            }
+
+            $worklocation = [
+                'licence_state' => !empty($this->_userObj['licence_state']) ? $this->_userObj['licence_state'] : ($this->_userObj['state'] ?? ''),
+                'address'       => $this->_userObj['address'] ?? '',
+                'city'          => $this->_userObj['city'] ?? '',
+                'state'         => $this->_userObj['state'] ?? '',
+            ];
+
+            // TODO: Replace with CheckrApiClient service – createReport()
+            $response = $this->checkrCreateReportStub($existArr['checkr_id'], $worklocation);
+
+            if (!$response['status']) {
+                return $response;
+            }
+
+            DB::table('user_reports')->where('id', $existArr['id'])->update([
+                'status'          => 1,
+                'checkr_reportid' => $response['report_id'],
             ]);
-            return ['status' => true, 'message' => 'User Report is requested'];
+
+            return $response;
         }
 
-        return ['status' => false, 'message' => $result['message'] ?? 'Failed to create report.'];
+        return ['status' => false, 'message' => 'Unable to create background report.', 'result' => []];
+    }
+
+    /**
+     * Pull background report results for a user.
+     */
+    public function pullBackgroundReport($userid): array
+    {
+        $UserReport = DB::table('user_reports')->where('user_id', $userid)->first();
+
+        if (empty($UserReport) || empty(((array) $UserReport)['checkr_id'])) {
+            return ['status' => false, 'message' => 'Sorry, Driver background report is not requested yet or Driver not added yet to background checker.'];
+        }
+
+        $reportArr = (array) $UserReport;
+
+        if ($reportArr['channel'] == 'CKR' && empty($reportArr['checkr_reportid'])) {
+            return ['status' => false, 'message' => 'Sorry, Driver background report is not requested yet or Driver not added yet to background checker.'];
+        }
+
+        if ($reportArr['channel'] == 'CKR' && !empty($reportArr['checkr_reportid'])) {
+            // TODO: Replace with CheckrApiClient service – getReport()
+            return $this->checkrGetReportStub($reportArr['checkr_reportid']);
+        }
+
+        if ($reportArr['channel'] == 'DIG') {
+            // TODO: Replace with DigisureApi service – pullDriverFromDigisure()
+            return $this->digisurePullDriverStub($reportArr['checkr_id']);
+        }
+
+        return ['status' => false, 'message' => 'Sorry, Driver background report is not requested yet or Driver not added yet to background checker.'];
+    }
+
+    // ------------------------------------------------------------------
+    // Stub methods – replace with actual service calls
+    // ------------------------------------------------------------------
+
+    /** TODO: Implement actual decryption matching legacy Security::decrypt */
+    private function decryptSecurityValue(?string $encrypted): string
+    {
+        if (empty($encrypted)) {
+            return '';
+        }
+        // TODO: Replace with Crypt::decryptString() or legacy-compatible decryption
+        return $encrypted;
+    }
+
+    /** TODO: Replace with CheckrApiClient service */
+    private function checkrAddCandidateStub(array $userdata): array
+    {
+        return ['status' => false, 'message' => 'CheckrApi service not yet connected.', 'result' => []];
+    }
+
+    /** TODO: Replace with CheckrApiClient service */
+    private function checkrUpdateCandidateStub(array $userdata, array $existingReport): array
+    {
+        return ['status' => false, 'message' => 'CheckrApi service not yet connected.', 'result' => []];
+    }
+
+    /** TODO: Replace with CheckrApiClient service */
+    private function checkrCreateReportStub(string $checkrId, array $worklocation): array
+    {
+        return ['status' => false, 'message' => 'CheckrApi service not yet connected.', 'result' => [], 'report_id' => ''];
+    }
+
+    /** TODO: Replace with CheckrApiClient service */
+    private function checkrGetReportStub(string $reportId): array
+    {
+        return ['status' => false, 'message' => 'CheckrApi service not yet connected.', 'result' => []];
+    }
+
+    /** TODO: Replace with DigisureApi service */
+    private function digisureAddCandidateStub(array $userdata, bool $TrustScore): array
+    {
+        return ['status' => false, 'message' => 'DigisureApi service not yet connected.', 'result' => []];
+    }
+
+    /** TODO: Replace with DigisureApi service */
+    private function digisureUpdateCandidateStub(array $userdata, array $existingReport, bool $TrustScore): array
+    {
+        return ['status' => false, 'message' => 'DigisureApi service not yet connected.', 'result' => []];
+    }
+
+    /** TODO: Replace with DigisureApi service */
+    private function digisurePullDriverStub(string $checkrId): array
+    {
+        return ['status' => false, 'message' => 'DigisureApi service not yet connected.', 'result' => []];
     }
 }

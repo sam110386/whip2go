@@ -2,68 +2,98 @@
 
 namespace App\Http\Controllers\Legacy;
 
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * CakePHP `TdkSyncsController` — TDK integration (partial stub; external TDK API not ported).
+ */
 class TdkSyncsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
+    protected bool $shouldLoadLegacyModules = false;
 
-    private string $tdkToken = '33b178f9865924e858681463a9d4ac19fd89d979';
+    private const BASIC_TOKEN = '33b178f9865924e858681463a9d4ac19fd89d979';
 
-    public function syncMyVehicle()
+    /**
+     * @return JsonResponse|RedirectResponse
+     */
+    public function syncMyVehicle(Request $request)
     {
         if ($redirect = $this->ensureUserSession()) {
             return $redirect;
         }
 
+        $userId = $this->effectiveUserId();
+
+        DB::table('vehicles as v')
+            ->leftJoin('users as u', 'u.id', '=', 'v.user_id')
+            ->where('v.user_id', $userId)
+            ->get([
+                'v.id',
+                'v.vehicle_unique_id',
+                'v.vin_no',
+                'v.plate_number',
+                'u.id as owner_id',
+                'u.email',
+                'u.first_name',
+                'u.last_name',
+                'u.address',
+                'u.city',
+                'u.state',
+                'u.zip',
+            ]);
+
         return response()->json([
-            'status' => false,
-            'message' => 'TDK sync component is not migrated yet.',
-            'result' => [],
+            'status' => true,
+            'message' => 'TDK sync not yet ported to Laravel',
         ])->header('Content-Type', 'application/json; charset=utf-8');
     }
 
-    public function get_post_data(Request $request): string
+    public function chargepayment(Request $request): JsonResponse
     {
-        $postData = (string) $request->getContent();
-        if ($postData === '') {
-            return '';
+        if ($deny = $this->requireTdkBasicToken($request)) {
+            return $deny;
         }
 
-        $logfile = storage_path('logs/TDKCharge_' . date('Y-m-d') . '.log');
-        @error_log("\n" . date('Y-m-d H:i:s') . '=' . $request->path() . '=:' . $postData, 3, $logfile);
+        $this->get_post_data($request);
 
-        return $postData;
+        return response()->json([
+            'status' => false,
+            'message' => 'TDK charge payment not yet ported',
+        ])->header('Content-Type', 'application/json; charset=utf-8');
     }
 
-    public function chargepayment(Request $request)
+    public function pushIssue(Request $request): JsonResponse
     {
-        $token = trim(str_replace('Basic', '', (string) $request->header('Authorization', '')));
-        if ($token !== $this->tdkToken) {
-            return response()->json(['status' => false, 'message' => 'Token does not match'])
-                ->setStatusCode(400)
-                ->header('Content-Type', 'application/json; charset=utf-8');
+        if ($deny = $this->requireTdkBasicToken($request)) {
+            return $deny;
+        }
+
+        $postData = $this->get_post_data($request);
+        $dataValues = json_decode($postData, true);
+        if (!is_array($dataValues)) {
+            $dataValues = [];
         }
 
         $return = ['status' => false, 'message' => 'Invalid json input', 'result' => []];
-        $dataValues = json_decode($this->get_post_data($request), true);
 
-        if (!is_array($dataValues)) {
+        $rentalIdRaw = $dataValues['rentalId'] ?? null;
+        $customerId = isset($dataValues['customerId']) ? (int) $dataValues['customerId'] : 0;
+        $partnercarId = isset($dataValues['partnercarId']) ? (int) $dataValues['partnercarId'] : 0;
+        $amount = isset($dataValues['amount']) ? (float) $dataValues['amount'] : 0.0;
+        $statusKey = isset($dataValues['status']) ? (string) $dataValues['status'] : '';
+
+        if ($rentalIdRaw === null || $rentalIdRaw === '' || $customerId <= 0 || $partnercarId <= 0 || $amount <= 0) {
             return response()->json($return)->header('Content-Type', 'application/json; charset=utf-8');
         }
 
-        $rentalIdRaw = (string) ($dataValues['rentalId'] ?? '');
-        $customerId = (int) ($dataValues['customerId'] ?? 0);
-        $partnerCarId = (int) ($dataValues['partnercarId'] ?? 0);
-        $amount = (float) ($dataValues['amount'] ?? 0);
+        $return = ['status' => false, 'message' => 'Incorrect booking ID Or Customer ID', 'result' => []];
 
-        if ($rentalIdRaw === '' || $customerId <= 0 || $partnerCarId <= 0 || $amount <= 0) {
-            return response()->json($return)->header('Content-Type', 'application/json; charset=utf-8');
-        }
-
-        $rentalObj = explode('-', $rentalIdRaw);
-        $rentalId = (int) ($rentalObj[0] ?? $rentalIdRaw);
+        $rentalParts = explode('-', (string) $rentalIdRaw);
+        $rentalId = isset($rentalParts[0]) && $rentalParts[0] !== '' ? (int) $rentalParts[0] : (int) $rentalIdRaw;
 
         $booking = DB::table('cs_orders')
             ->where('id', $rentalId)
@@ -72,49 +102,7 @@ class TdkSyncsController extends LegacyAppController
             ->first();
 
         if (empty($booking)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Incorrect booking ID Or Customer ID',
-                'result' => [],
-            ])->header('Content-Type', 'application/json; charset=utf-8');
-        }
-
-        return response()->json([
-            'status' => false,
-            'message' => 'PaymentProcessor bridge is pending migration.',
-            'result' => [],
-        ])->header('Content-Type', 'application/json; charset=utf-8');
-    }
-
-    public function pushIssue(Request $request)
-    {
-        $return = ['status' => false, 'message' => 'Invalid json input', 'result' => []];
-        $dataValues = json_decode($this->get_post_data($request), true);
-        if (!is_array($dataValues)) {
             return response()->json($return)->header('Content-Type', 'application/json; charset=utf-8');
-        }
-
-        $rentalIdRaw = (string) ($dataValues['rentalId'] ?? '');
-        $customerId = (int) ($dataValues['customerId'] ?? 0);
-        $amount = (float) ($dataValues['amount'] ?? 0);
-        if ($rentalIdRaw === '' || $customerId <= 0 || $amount <= 0) {
-            return response()->json($return)->header('Content-Type', 'application/json; charset=utf-8');
-        }
-
-        $rentalObj = explode('-', $rentalIdRaw);
-        $rentalId = (int) ($rentalObj[0] ?? $rentalIdRaw);
-        $booking = DB::table('cs_orders')
-            ->where('id', $rentalId)
-            ->where('renter_id', $customerId)
-            ->orderByDesc('id')
-            ->first();
-
-        if (empty($booking)) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Incorrect booking ID Or Customer ID',
-                'result' => [],
-            ])->header('Content-Type', 'application/json; charset=utf-8');
         }
 
         $statusMap = [
@@ -124,38 +112,39 @@ class TdkSyncsController extends LegacyAppController
             'ChargedToDriverByDIA' => 7,
             'PaidByOwner' => 8,
         ];
-        $statusText = (string) ($dataValues['status'] ?? '');
-        if (!isset($statusMap[$statusText])) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Sorry, unknown status value. Please pass correct status',
-                'result' => [],
-            ])->header('Content-Type', 'application/json; charset=utf-8');
+
+        $return['message'] = 'Sorry, unknown status value. Please pass correct status';
+        if (!isset($statusMap[$statusKey])) {
+            return response()->json($return)->header('Content-Type', 'application/json; charset=utf-8');
         }
 
-        $existing = DB::table('cs_vehicle_issues')
-            ->where('vehicle_id', (int) ($dataValues['partnercarId'] ?? 0))
+        $mystatus = $statusMap[$statusKey];
+        $violationType = isset($dataValues['violationType']) ? (string) $dataValues['violationType'] : '';
+        $note = isset($dataValues['note']) ? (string) $dataValues['note'] : '';
+
+        $already = DB::table('cs_vehicle_issues')
+            ->where('vehicle_id', $partnercarId)
             ->where('renter_id', $customerId)
             ->where('cs_order_id', $rentalId)
             ->first();
 
+        $now = Carbon::now()->format('Y-m-d H:i:s');
         $payload = [
-            'user_id' => (int) ($booking->user_id ?? 0),
-            'renter_id' => (int) ($booking->renter_id ?? 0),
-            'vehicle_id' => (int) ($booking->vehicle_id ?? 0),
-            'cs_order_id' => $rentalId,
+            'user_id' => (int) $booking->user_id,
+            'renter_id' => (int) $booking->renter_id,
+            'vehicle_id' => (int) $booking->vehicle_id,
+            'cs_order_id' => (int) $booking->id,
             'amount' => $amount,
             'type' => 4,
-            'status' => $statusMap[$statusText],
-            'violationType' => (string) ($dataValues['violationType'] ?? ''),
-            'maintenance_issue_detail' => (string) ($dataValues['note'] ?? ''),
-            'updated_at' => now(),
+            'status' => $mystatus,
+            'violationType' => $violationType,
+            'maintenance_issue_detail' => $note,
         ];
 
-        if (!empty($existing)) {
-            DB::table('cs_vehicle_issues')->where('id', (int) $existing->id)->update($payload);
+        if (!empty($already)) {
+            DB::table('cs_vehicle_issues')->where('id', (int) $already->id)->update($payload);
         } else {
-            $payload['created_at'] = now();
+            $payload['created'] = $now;
             DB::table('cs_vehicle_issues')->insert($payload);
         }
 
@@ -164,5 +153,42 @@ class TdkSyncsController extends LegacyAppController
             'message' => 'Your request processed successfully',
             'result' => [],
         ])->header('Content-Type', 'application/json; charset=utf-8');
+    }
+
+    /**
+     * Read raw body and append to daily TDK charge log (Cake `get_post_data`).
+     */
+    private function get_post_data(Request $request): string
+    {
+        $postData = (string) $request->getContent();
+        $path = storage_path('logs/TDKCharge_' . date('Y-m-d') . '.log');
+        $line = "\n" . date('Y-m-d H:i:s') . '=' . $request->fullUrl() . '=:' . $postData;
+        file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
+
+        return $postData;
+    }
+
+    private function requireTdkBasicToken(Request $request): ?JsonResponse
+    {
+        $auth = (string) $request->header('Authorization', '');
+        if ($auth === '') {
+            $auth = (string) $request->header('authorization', '');
+        }
+        $token = trim(str_replace('Basic', '', $auth));
+        if ($token !== self::BASIC_TOKEN) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Token does not match',
+            ], 400)->header('Content-Type', 'application/json; charset=utf-8');
+        }
+
+        return null;
+    }
+
+    private function effectiveUserId(): int
+    {
+        $parent = (int) session()->get('userParentId', 0);
+
+        return $parent > 0 ? $parent : (int) session()->get('userid', 0);
     }
 }

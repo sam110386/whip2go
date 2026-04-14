@@ -16,7 +16,7 @@ class LinkedVehiclesController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -35,7 +35,7 @@ class LinkedVehiclesController extends LegacyAppController
     /**
      * Dealer-linked add/edit — delegates to VehiclesController::admin_add (dealer id locked from session).
      */
-    public function admin_add(Request $request, $vehicle_id = null): RedirectResponse
+    public function add(Request $request, $vehicle_id = null): RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;

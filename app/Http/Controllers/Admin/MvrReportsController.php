@@ -2,258 +2,221 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Controllers\Concerns\LoadsMvrActiveBookings;
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\DriverBackgroundReportTrait;
-use App\Models\Legacy\CsOrder;
-use App\Models\Legacy\User;
-use App\Models\Legacy\UserReport;
-use App\Models\Legacy\Vehicle;
-use App\Models\Legacy\VehicleReservation;
-use App\Services\Legacy\PaymentProcessor;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
+/**
+ * CakePHP `MvrReportsController` — admin_* actions (unprefixed methods).
+ */
 class MvrReportsController extends LegacyAppController
 {
-    use DriverBackgroundReportTrait;
+    use LoadsMvrActiveBookings;
 
     protected bool $shouldLoadLegacyModules = true;
 
-    private function pendingResponse(string $action)
+    private const SESSION_LIMIT_KEY = 'mvr_reports_limit';
+
+    private const CHECKR_STUB_MESSAGE = 'Checkr API integration not yet ported to Laravel';
+
+    private const RESERVATION_CANCEL_STUB_MESSAGE = 'Reservation cancel / payment release logic not yet ported to Laravel';
+
+    protected function adminBasePath(): string
     {
-        return response()->json([
-            'status' => false,
-            'message' => "MvrReports::{$action} pending migration.",
-            'result' => [],
-        ]);
+        return '/admin/mvr_reports';
     }
 
-    // ─── admin_index ──────────────────────────────────────────────────────────
-    public function admin_index(Request $request)
+    protected function resolveLimit(Request $request): int
+    {
+        $allowed = [25, 50, 100, 200];
+        $fromForm = $request->input('Record.limit');
+        if ($fromForm !== null && $fromForm !== '') {
+            $lim = (int) $fromForm;
+            if (in_array($lim, $allowed, true)) {
+                session()->put(self::SESSION_LIMIT_KEY, $lim);
+
+                return $lim;
+            }
+        }
+        $sess = (int) session()->get(self::SESSION_LIMIT_KEY, 0);
+        if (in_array($sess, $allowed, true)) {
+            return $sess;
+        }
+
+        return 25;
+    }
+
+    /**
+     * Cake `admin_index`: users + user_reports, search, paginate; AJAX returns listing fragment.
+     */
+    public function index(Request $request): View|Response|RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $searchData = $request->input('Search', []);
-        $namedData  = $request->query();
+        $limit = $this->resolveLimit($request);
 
-        $value    = $namedData['keyword']  ?? $searchData['keyword']  ?? '';
-        $searchin = $namedData['searchin'] ?? $searchData['searchin'] ?? '';
+        $keyword = trim((string) $request->input('Search.keyword', $request->query('keyword', '')));
+        $searchin = (string) $request->input('Search.searchin', $request->query('searchin', ''));
 
-        $query = User::query()
-            ->from('users as User')
-            ->leftJoin('user_reports as UserReport', 'UserReport.user_id', '=', 'User.id')
-            ->select('User.*', 'UserReport.*')
-            ->where('User.is_admin', 0);
-
-        if ($value !== '' && !empty($searchin)) {
-            $v = strip_tags($value);
-            $query->where("User.{$searchin}", 'LIKE', "%{$v}%");
+        if ($request->isMethod('post') && $request->has('Search')) {
+            return redirect()->to($this->adminBasePath() . '/index?' . http_build_query([
+                'keyword' => $keyword,
+                'searchin' => $searchin,
+                'Record' => ['limit' => $limit],
+            ]));
         }
 
-        $sessionLimitKey  = 'MvrReports_limit';
-        $limitFromSession = session($sessionLimitKey, 20);
-        $limit            = (int)$request->input('Record.limit', $limitFromSession);
-        if ($limit < 1) $limit = 20;
-        session([$sessionLimitKey => $limit]);
+        $allowedColumns = ['first_name', 'last_name', 'contact_number'];
+        $searchColumn = in_array($searchin, $allowedColumns, true) ? $searchin : '';
 
-        $users = $query->orderBy('User.id', 'DESC')->paginate($limit);
-        $users->appends($request->query());
+        $usersPaginator = null;
+        if (Schema::hasTable('users') && Schema::hasTable('user_reports')) {
+            $base = DB::table('users as u')
+                ->leftJoin('user_reports as ur', 'ur.user_id', '=', 'u.id')
+                ->where('u.is_admin', 0);
+
+            if ($searchColumn !== '' && $keyword !== '') {
+                $base->where('u.' . $searchColumn, 'like', '%' . $keyword . '%');
+            }
+
+            $usersPaginator = $base
+                ->select([
+                    'u.id',
+                    'u.first_name',
+                    'u.last_name',
+                    'u.email',
+                    'u.contact_number',
+                    'ur.checkr_reportid',
+                    'ur.motor_vehicle_report_id',
+                ])
+                ->orderByDesc('u.id')
+                ->paginate($limit)
+                ->appends([
+                    'keyword' => $keyword,
+                    'searchin' => $searchin,
+                    'Record' => ['limit' => $limit],
+                ]);
+        }
 
         $viewData = [
             'title_for_layout' => 'User MVR Reports',
-            'keyword'          => $value,
-            'searchin'         => $searchin,
-            'users'            => $users,
+            'users' => $usersPaginator,
+            'keyword' => $keyword,
+            'searchin' => $searchin,
+            'limit' => $limit,
+            'basePath' => $this->adminBasePath(),
         ];
 
         if ($request->ajax()) {
-            return view('admin.mvr_reports.elements.index_ajax', $viewData);
+            return response()->view('admin.mvr_reports.partials.listing', $viewData);
         }
 
         return view('admin.mvr_reports.index', $viewData);
     }
 
-    // ─── admin_checkr_status ─────────────────────────────────────────────────
-    public function admin_checkr_status(Request $request, $id)
+    public function checkr_status(Request $request, ?string $id = null): RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId     = base64_decode($id);
-        $userReport = UserReport::where('user_id', $userId)->first();
-
-        if (empty($userReport)) {
-            $result = $this->addCandidateToDriverBackgroundReport($userId);
-            $flash  = $result['status'] ? 'success' : 'error';
-            return redirect()->back()->with($flash, $result['message']);
-        }
-
-        if ($userReport->status && !empty($userReport->checkr_reportid)) {
-            $result = $this->pullBackgroundReport($userId);
-            $flash  = $result['status'] ? 'success' : 'error';
-            return redirect()->back()->with($flash, $result['message']);
-        }
-
-        if (!empty($userReport) && $userReport->status == 0) {
-            $result = $this->createBackgroundReport($userId);
-            $flash  = $result['status'] ? 'success' : 'error';
-            return redirect()->back()->with($flash, $result['message']);
-        }
-
-        return redirect()->back()->with('error', 'User Report is not ready');
+        return back()->with('error', self::CHECKR_STUB_MESSAGE);
     }
 
-    // ─── admin_requestagain ───────────────────────────────────────────────────
-    public function admin_requestagain(Request $request, $userid)
+    public function report(Request $request): Response|RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId     = base64_decode($userid);
-        $userReport = UserReport::where('user_id', $userId)->first();
-
-        if (!empty($userReport)) {
-            $result = $this->addCandidateToDriverBackgroundReport($userId);
-            if ($result['status']) {
-                UserReport::where('user_id', $userId)->update([
-                    'checkr_reportid'         => null,
-                    'motor_vehicle_report_id' => null,
-                ]);
-                return redirect()->back()->with('success', 'User is added to Checkr API for processing');
-            }
-            return redirect()->back()->with('error', $result['message']);
-        }
-
-        return redirect()->back();
+        return response(self::CHECKR_STUB_MESSAGE, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
     }
 
-    // ─── admin_ajaxrequestagain (AJAX) ────────────────────────────────────────
-    public function admin_ajaxrequestagain(Request $request)
-    {
-        if (!$request->isMethod('post')) {
-            return response()->json(['status' => false, 'message' => 'Invalid Request']);
-        }
-
-        $userId     = base64_decode($request->input('userid', ''));
-        $userReport = UserReport::where('user_id', $userId)->first();
-
-        if (empty($userReport)) {
-            return response()->json(['status' => false, 'message' => 'Sorry existing records could not be found, so we cant process your request.']);
-        }
-
-        $result = $this->addCandidateToDriverBackgroundReport($userId);
-
-        if ($result['status']) {
-            UserReport::where('user_id', $userId)->update([
-                'checkr_reportid'         => null,
-                'motor_vehicle_report_id' => null,
-                'status'                  => 0,
-                'created_at'              => now(),
-            ]);
-            return response()->json(['status' => true, 'message' => 'User is added to Checkr API for processing']);
-        }
-
-        return response()->json(['status' => false, 'message' => $result['message']]);
-    }
-
-    // ─── admin_loadactivebooking ──────────────────────────────────────────────
-    public function admin_loadactivebooking(Request $request)
+    public function vehiclereport(Request $request): Response|RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId = base64_decode($request->input('userid', ''));
-
-        $bookings = CsOrder::where('renter_id', $userId)
-            ->whereIn('status', [0, 1])
-            ->get();
-
-        $reservations = VehicleReservation::query()
-            ->from('vehicle_reservations as VehicleReservation')
-            ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'VehicleReservation.vehicle_id')
-            ->select('VehicleReservation.*', 'Vehicle.vehicle_name')
-            ->where('VehicleReservation.renter_id', $userId)
-            ->where('VehicleReservation.status', 0)
-            ->get();
-
-        return view('admin.mvr_reports.load_active_booking', compact('bookings', 'reservations'));
+        return response(self::CHECKR_STUB_MESSAGE, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
     }
 
-    // ─── admin_cancelMvrBooking (DISABLED — preserved as-is) ─────────────────
-    public function admin_cancelMvrBooking(Request $request)
+    public function loadactivebooking(Request $request): View|RedirectResponse
     {
-        // Intentionally disabled — cancel action is locked in production
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $rawUserId = $request->input('userid', $request->input('data.userid'));
+        $userId = $this->decodeId(is_string($rawUserId) ? $rawUserId : (string) $rawUserId);
+        if ($userId === null) {
+            $userId = 0;
+        }
+
+        [$bookings, $reservations] = $this->mvrActiveBookingsForRenter($userId);
+
+        return view('admin.mvr_reports.loadactivebooking', [
+            'bookings' => $bookings,
+            'reservations' => $reservations,
+            'formatMvrDt' => fn (?string $v, ?string $tz) => $this->mvrFormatDateTime($v, $tz),
+        ]);
+    }
+
+    public function cancelMvrBooking(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
+        }
+
         return response()->json([
-            'status'  => 'error',
+            'status' => 'error',
             'message' => 'Sorry, booking not found, please refresh your page and try again.',
         ]);
     }
 
-    // ─── admin_cancelMvrResevationBooking ─────────────────────────────────────
-    public function admin_cancelMvrResevationBooking(Request $request)
+    public function cancelMvrResevationBooking(Request $request): JsonResponse
     {
-        $return    = ['status' => 'error', 'message' => 'Sorry, pending booking not found, please refresh your page and try again.', 'result' => []];
-        $bookingId = base64_decode($request->input('bookingid', ''));
-
-        if (empty($bookingId)) {
-            return response()->json($return);
-        }
-
-        VehicleReservation::where('id', $bookingId)->update(['status' => 2]);
-        $reservation = VehicleReservation::find($bookingId);
-
-        if ($reservation) {
-            Vehicle::where('id', $reservation->vehicle_id)->update(['booked' => 0]);
-        }
-
-        // Release deposit/initial fee payments via PaymentProcessor
-        $walletClass    = '\\App\\Models\\Legacy\\CsWallet';
-        $paymentClass   = '\\App\\Models\\Legacy\\CsReservationPayment';
-
-        if (class_exists($paymentClass)) {
-            $paymentModel    = new $paymentClass();
-            $deposits        = $paymentModel->getDepositTransaction($bookingId);
-            $initialFees     = $paymentModel->getInitialFeeTransaction($bookingId);
-            $processor       = app(PaymentProcessor::class);
-
-            foreach (array_merge($deposits ?? [], $initialFees ?? []) as $txn) {
-                if ($txn['txntype'] === 'C' && class_exists($walletClass)) {
-                    (new $walletClass())->addBalance(
-                        $txn['amount'],
-                        $reservation->renter_id,
-                        $txn['transaction_id'],
-                        'refunded from pending booking',
-                        '',
-                        $txn['created']
-                    );
-                } elseif ($processor) {
-                    $processor->ReservationReleaseAuthorizePayment($txn, $reservation->user_id ?? null);
-                }
-
-                if (class_exists($paymentClass)) {
-                    $paymentModel->where('id', $txn['id'])->update(['status' => 2]);
-                }
-            }
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized', 'result' => []], 403);
         }
 
         return response()->json([
-            'status'  => 'success',
-            'message' => 'Your request processed successfully',
-            'orderid' => $bookingId,
+            'status' => 'error',
+            'message' => self::RESERVATION_CANCEL_STUB_MESSAGE,
+            'result' => [],
         ]);
     }
 
-    // Cake action parity wrappers
-    public function admin_report(Request $request) { return $this->admin_index($request); }
-    public function admin_vehiclereport(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function report(Request $request) { return $this->admin_report($request); }
-    public function vehiclereport(Request $request) { return $this->admin_vehiclereport($request); }
-    public function checkr_status(Request $request, $id) { return $this->admin_checkr_status($request, $id); }
-    public function loadactivebooking(Request $request) { return $this->admin_loadactivebooking($request); }
-    public function cancelMvrBooking(Request $request) { return $this->admin_cancelMvrBooking($request); }
-    public function cancelMvrResevationBooking(Request $request) { return $this->admin_cancelMvrResevationBooking($request); }
+    public function requestagain(Request $request, ?string $userid = null): RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return back()->with('error', self::CHECKR_STUB_MESSAGE);
+    }
+
+    public function ajaxrequestagain(Request $request): JsonResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        if (!$request->isMethod('post')) {
+            return response()->json(['status' => false, 'message' => 'Invalid Request']);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => self::CHECKR_STUB_MESSAGE,
+        ]);
+    }
 }

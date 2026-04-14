@@ -3,64 +3,82 @@
 namespace App\Http\Controllers\Legacy;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use App\Models\Legacy\CsUserConvertibility as LegacyCsUserConvertibility;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * CakePHP `CsConvertibilitiesController` — cron + external score webhook (no session).
+ */
 class CsConvertibilitiesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = false;
-    private string $key = "CXYHSGGYSY23GT";
+
+    private const WEBHOOK_KEY = 'CXYHSGGYSY23GT';
 
     /**
-     * run by cron
+     * Cron entry: legacy model ran `processNewRecords()` + `deactiavteRecords()`.
+     * Stubbed here until those flows are ported to a service.
+     */
+    /**
+     * @return \Symfony\Component\HttpFoundation\Response
      */
     public function runbyCron()
     {
-        if (method_exists(LegacyCsUserConvertibility::class, 'processNewRecords')) {
-            $model = new LegacyCsUserConvertibility();
-            $model->processNewRecords();
-            $model->deactiavteRecords();
-        } else {
-            Log::info("CsConvertibilities runByCron called, but model methods processNewRecords/deactiavteRecords are not yet fully ported.");
-        }
-        
-        return response('Process complete');
+        // Stub: legacy `CsUserConvertibility::processNewRecords()` and
+        // `deactiavteRecords()` (SQL + notifications + outbound HTTP) not yet ported.
+
+        return response('', 200);
+    }
+
+    /** @return \Symfony\Component\HttpFoundation\Response */
+    public function runbycron()
+    {
+        return $this->runbyCron();
     }
 
     /**
-     * receive score data from Convertivility server
-     * key=CXYHSGGYSY23GT&contactId=173139&score=23
+     * Webhook: `key=CXYHSGGYSY23GT&contactId=…&score=…` (POST, Cake used `$_POST`).
+     */
+    /**
+     * @return \Symfony\Component\HttpFoundation\Response
      */
     public function receive_score(Request $request)
     {
-        Log::build(['driver' => 'single', 'path' => storage_path('logs/Convertibility.log')])->info('Convertibility', [
-            'request' => $request->all(),
-            'post' => $request->post()
-        ]);
-        
-        $received = $request->post();
-        
-        if (isset($received['key']) && $received['key'] === $this->key) {
-            if (isset($received['contactId']) && !empty($received['contactId'])) {
-                if (isset($received['score']) && $received['score'] > 0) {
-                    $old = LegacyCsUserConvertibility::query()
-                        ->where('reference_id', $received['contactId'])
-                        ->first();
-                        
-                    if ($old) {
-                        $change = $received['score'] - ($old->score ?? 0);
-                        LegacyCsUserConvertibility::query()
-                            ->where('reference_id', $received['contactId'])
-                            ->update([
-                                'score' => $received['score'],
-                                'scorechange' => (string)$change
-                            ]);
-                    }
-                }
-                return response("record updated successfully");
-            }
-            return response("sorry, you missed to pass contactId");
+        $line = date('Y-m-d H:i:s') . '=' . print_r($request->query->all(), true) . print_r($request->request->all(), true);
+        @file_put_contents(storage_path('logs/Convertibility.log'), "\n" . $line, FILE_APPEND);
+
+        $key = (string) $request->input('key', '');
+        if ($key !== self::WEBHOOK_KEY) {
+            return response('sorry, key dont match', 200);
         }
-        return response("sorry, key dont match");
+
+        $contactId = $request->input('contactId');
+        if ($contactId === null || $contactId === '') {
+            return response('sorry, you missed to pass contactId', 200);
+        }
+
+        $referenceId = is_numeric($contactId) ? (int) $contactId : 0;
+        if ($referenceId <= 0) {
+            return response('sorry, you missed to pass contactId', 200);
+        }
+
+        $scoreRaw = $request->input('score');
+        $score = is_numeric($scoreRaw) ? (int) $scoreRaw : 0;
+        if ($score > 0) {
+            $old = DB::table('cs_user_convertibilities')
+                ->where('reference_id', $referenceId)
+                ->value('score');
+
+            $oldScore = is_numeric($old) ? (int) $old : 0;
+            $change = $score - $oldScore;
+
+            DB::table('cs_user_convertibilities')
+                ->where('reference_id', $referenceId)
+                ->update([
+                    'score' => $score,
+                    'scorechange' => (string) $change,
+                ]);
+        }
+
+        return response('record updated successfully', 200);
     }
 }

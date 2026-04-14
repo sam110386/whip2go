@@ -2,28 +2,22 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use Illuminate\Http\Request;
-
+/**
+ * Cake `FindcarsController` — DriveItAway marketing pages.
+ */
 class FindcarsController extends LegacyAppController
 {
-    // The legacy component logic (like AppController::beforeFilter session checking)
-    // is maintained in the LegacyAppController constructor.
-    
-    // We only need the legacy modules if they are actually communicating heavily with DBs
-    // Assuming FindCars needs the session helpers:
-    protected bool $shouldLoadLegacyModules = true;
-
-    public function index(Request $request)
+    public function index()
     {
-        return view('legacy.findcars.index', [
-            'title_for_layout' => 'DriveItAway'
+        return view('findcars.index', [
+            'title_for_layout' => 'DriveItAway',
         ]);
     }
-    
-    public function details(Request $request)
+
+    public function details()
     {
-        return view('legacy.findcars.details', [
-            'title_for_layout' => 'DriveItAway'
+        return view('findcars.details', [
+            'title_for_layout' => 'DriveItAway',
         ]);
     }
 }

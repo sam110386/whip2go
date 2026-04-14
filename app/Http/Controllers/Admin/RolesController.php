@@ -3,183 +3,227 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\AdminRole;
-use App\Models\Legacy\AdminPermission;
-use App\Models\Legacy\AdminModule;
-use App\Models\Legacy\AdminRolePermission;
-use App\Models\Legacy\AdminRoleMenu;
-use App\Models\Legacy\AdminUserRole;
+use App\Models\Legacy\AdminPermission as LegacyAdminPermission;
+use App\Models\Legacy\AdminRole as LegacyAdminRole;
+use App\Models\Legacy\AdminRoleMenu as LegacyAdminRoleMenu;
+use App\Models\Legacy\AdminRolePermission as LegacyAdminRolePermission;
+use App\Models\Legacy\AdminUserRole as LegacyAdminUserRole;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class RolesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    // ─── admin_index (List all roles) ──────────────────────────────────────────
-    public function admin_index(Request $request)
+    // CakePHP: app/Controller/RolesController.php::admin_index()
+    // URL: /admin/roles/index
+    public function index(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
+        $keyword = trim((string)($request->query('keyword') ?? ''));
+
+        $q = LegacyAdminRole::query()
+            ->with('permissions')
+            ->orderBy('id', 'asc');
+
+        if ($keyword !== '') {
+            $like = '%' . $keyword . '%';
+            $q->where(function ($qq) use ($like) {
+                $qq->where('slug', 'like', $like)
+                    ->orWhere('name', 'like', $like);
+            });
         }
 
-        $this->set('title_for_layout', 'Manage Roles');
-        
-        $sessionLimitKey  = 'Roles_limit';
-        $limitFromSession = session($sessionLimitKey, 20);
-        $limit            = (int)$request->input('Record.limit', $limitFromSession);
-        if ($limit < 1) $limit = 20;
-        session([$sessionLimitKey => $limit]);
-
-        // In legacy, recursive => 2 was used to get permissions and maybe parents.
-        // In Laravel, we use with()
-        $roles = AdminRole::with(['permissions', 'menus', 'parent'])
-            ->orderBy('id', 'ASC')
-            ->paginate($limit)
-            ->withQueryString();
+        $roles = $q->get()->map(function (LegacyAdminRole $role) {
+            $row = $role->toArray();
+            $row['permission_names'] = $role->permissions
+                ->pluck('name')
+                ->sort()
+                ->implode(', ');
+            return (object) $row;
+        });
 
         return view('admin.roles.index', [
-            'keyword' => '',
-            'roles'   => $roles,
+            'roles' => $roles,
+            'keyword' => $keyword,
         ]);
     }
 
-    // ─── admin_add / admin_edit (Add or update roles and permissions) ─────────
-    public function admin_add(Request $request, $id = null)
+    // CakePHP: app/Controller/RolesController.php::admin_add($id=null)
+    // URL:
+    // - /admin/roles/add
+    // - /admin/roles/admin_add/{id}
+    public function add(Request $request, $id = null)
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
+        $isEditing = !empty($id);
+        $roleId = null;
+        if ($isEditing && is_numeric($id)) {
+            $roleId = (int)$id;
         }
 
-        $this->set('id', $id);
-        $mypermissions = [];
-        $selectedMenu = [];
-        $listTitle = empty($id) ? 'Add Role' : 'Update Role';
+        if (!$request->isMethod('POST')) {
+            $role = null;
+            $selectedPermissionIds = [];
+            $selectedMenuIds = [];
 
-        // Get parents for dropdown
-        $parentRole = AdminRole::where('parent_id', 0)->pluck('name', 'id')->toArray();
-
-        if ($request->isMethod('post')) {
-            $data = $request->input('AdminRole', []);
-            $data['parent_id'] = $data['parent_id'] ?? 0;
-
-            DB::transaction(function () use ($data, $id) {
-                if (!empty($id)) {
-                    $role = AdminRole::findOrFail($id);
-                    $role->update($data);
-                } else {
-                    $role = AdminRole::create($data);
+            if ($isEditing && $roleId !== null) {
+                $role = LegacyAdminRole::query()->with(['rolePermissions', 'roleMenus'])->find($roleId);
+                if ($role) {
+                    $selectedPermissionIds = $role->rolePermissions->pluck('permission_id')->all();
+                    $selectedMenuIds = $role->roleMenus->pluck('menu_id')->all();
                 }
+            }
 
-                $roleId = $role->id;
+            $parentRoles = LegacyAdminRole::query()
+                ->where('parent_id', 0)
+                ->orderBy('name')
+                ->get()
+                ->mapWithKeys(fn ($r) => [(string) $r->id => $r->name])
+                ->toArray();
 
-                // Update Role Permissions
-                AdminRolePermission::where('role_id', $roleId)->delete();
-                if (!empty($data['permissions'])) {
-                    foreach ($data['permissions'] as $perid) {
-                        AdminRolePermission::create([
-                            'role_id' => $roleId,
-                            'permission_id' => $perid
-                        ]);
-                    }
-                }
+            $permissions = LegacyAdminPermission::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->mapWithKeys(fn ($p) => [(string) $p->id => $p->name])
+                ->toArray();
 
-                // Update Role Menu
-                AdminRoleMenu::where('role_id', $roleId)->delete();
-                if (!empty($data['menu_id'])) {
-                    $menuids = explode(',', $data['menu_id']);
-                    $menuids = array_filter(array_unique($menuids));
-                    foreach ($menuids as $menuid) {
-                        AdminRoleMenu::create([
-                            'role_id' => $roleId,
-                            'menu_id' => $menuid
-                        ]);
-                    }
-                }
-            });
+            // Minimal menu picker (flat). Cake has nested/tree UI.
+            $menus = DB::table('admin_modules')
+                ->where('status', 1)
+                ->orderBy('parent_id')
+                ->orderBy('order')
+                ->get();
 
-            return redirect('/admin/roles/index')->with('success', 'Role data saved successfully.');
+            return view('admin.roles.add', [
+                'listTitle' => $isEditing ? 'Update Role' : 'Add Role',
+                'role' => $role,
+                'parentRoles' => $parentRoles,
+                'permissions' => $permissions,
+                'menus' => $menus,
+                'selectedPermissionIds' => $selectedPermissionIds,
+                'selectedMenuIds' => $selectedMenuIds,
+            ]);
         }
 
-        if (!empty($id)) {
-            $role = AdminRole::with(['rolePermissions', 'roleMenus'])->findOrFail($id);
-            $mypermissions = $role->rolePermissions->pluck('permission_id', 'permission_id')->toArray();
-            $selectedMenu = $role->roleMenus->pluck('menu_id', 'menu_id')->toArray();
-            // Simulating CakePHP $this->data
-            view()->share('data', $role);
+        $payload = $request->input('AdminRole', []);
+
+        $slug = trim((string)($payload['slug'] ?? ''));
+        $name = trim((string)($payload['name'] ?? ''));
+        $parentId = $payload['parent_id'] ?? 0;
+        $parentId = ($parentId === '' || $parentId === null) ? 0 : (int)$parentId;
+
+        if ($slug === '' || $name === '') {
+            return back()->withInput()->with('error', 'Please enter role name and slug.');
         }
 
-        $permissions = AdminPermission::pluck('name', 'id')->toArray();
-        
-        // Build threaded menu for side-by-side management
-        $rawMenus = AdminModule::orderBy('id', 'ASC')->get();
-        $menuTree = $this->buildMenuTree($rawMenus);
-
-        return view('admin.roles.add', compact(
-            'listTitle', 'id', 'mypermissions', 'permissions', 
-            'menuTree', 'selectedMenu', 'parentRole'
-        ));
-    }
-
-    // ─── admin_delete ─────────────────────────────────────────────────────────
-    public function admin_delete(Request $request, $id = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
+        $selectedPermissionIds = $payload['permissions'] ?? [];
+        if (!is_array($selectedPermissionIds)) {
+            $selectedPermissionIds = [];
         }
+        $selectedPermissionIds = array_values(array_filter(array_map('intval', $selectedPermissionIds)));
 
-        if (!empty($id)) {
-            AdminRole::where('id', $id)->delete();
-            // Foreign keys usually handle AdminRolePermission/AdminRoleMenu but we can be explicit
-            AdminRolePermission::where('role_id', $id)->delete();
-            AdminRoleMenu::where('role_id', $id)->delete();
+        $selectedMenuIds = $payload['menu_id'] ?? [];
+        if (!is_array($selectedMenuIds)) {
+            // Support comma-separated input.
+            if (is_string($selectedMenuIds)) {
+                $selectedMenuIds = array_filter(array_map('trim', explode(',', $selectedMenuIds)));
+            } else {
+                $selectedMenuIds = [];
+            }
         }
+        $selectedMenuIds = array_values(array_filter(array_map('intval', $selectedMenuIds)));
 
-        return redirect('/admin/roles/index')->with('success', 'Role deleted successfully.');
-    }
+        $candidateRole = [
+            'name' => $name,
+            'slug' => $slug,
+            'parent_id' => $parentId,
+        ];
 
-    // ─── admin_getsubrole (AJAX) ──────────────────────────────────────────────
-    public function admin_getsubrole(Request $request)
-    {
-        $roleId = $request->input('roleid');
-        $userId = $request->input('userid');
-        
-        $related = [];
-        if (!empty($userId)) {
-            $related = AdminUserRole::where('user_id', $userId)->pluck('role_id')->toArray();
-        }
-
-        $roles = [];
-        if (!empty($roleId)) {
-            $roles = AdminRole::where('parent_id', $roleId)->pluck('name', 'id')->toArray();
-        }
-
-        $html = '';
-        foreach ($roles as $key => $role) {
-            $selected = in_array($key, $related) ? ' selected="selected"' : '';
-            $html .= "<option value='$key'$selected>$role</option>";
-        }
-
-        return response($html);
-    }
-
-    /**
-     * Helper to build recursive menu tree from flat modules list (replaces find('threaded'))
-     */
-    protected function buildMenuTree($menus, $parentId = 0)
-    {
-        $branch = [];
-
-        foreach ($menus as $menu) {
-            if ($menu->parent_id == $parentId) {
-                $children = $this->buildMenuTree($menus, $menu->id);
-                if ($children) {
-                    $menu->children = $children;
-                }
-                $branch[] = $menu;
+        // Only update columns that exist (defensive).
+        $roleTable = 'admin_roles';
+        $filteredRole = [];
+        foreach ($candidateRole as $col => $val) {
+            if (Schema::hasColumn($roleTable, $col)) {
+                $filteredRole[$col] = $val;
             }
         }
 
-        return $branch;
+        if ($isEditing && $roleId !== null) {
+            LegacyAdminRole::query()->whereKey($roleId)->update($filteredRole);
+        } else {
+            $role = LegacyAdminRole::query()->create($filteredRole);
+            $roleId = $role->id;
+        }
+
+        // Permissions mapping.
+        LegacyAdminRolePermission::query()->where('role_id', (int) $roleId)->delete();
+        foreach ($selectedPermissionIds as $pid) {
+            LegacyAdminRolePermission::query()->create([
+                'role_id' => (int) $roleId,
+                'permission_id' => (int) $pid,
+            ]);
+        }
+
+        // Menu mapping.
+        LegacyAdminRoleMenu::query()->where('role_id', (int) $roleId)->delete();
+        foreach ($selectedMenuIds as $mid) {
+            LegacyAdminRoleMenu::query()->create([
+                'role_id' => (int) $roleId,
+                'menu_id' => (int) $mid,
+            ]);
+        }
+
+        return redirect('/admin/roles/index');
+    }
+
+    // CakePHP: app/Controller/RolesController.php::admin_delete($id=null)
+    public function delete(Request $request, $id = null)
+    {
+        if (empty($id) || !is_numeric($id)) {
+            return redirect('/admin/roles/index');
+        }
+
+        $roleId = (int)$id;
+
+        LegacyAdminRolePermission::query()->where('role_id', $roleId)->delete();
+        LegacyAdminRoleMenu::query()->where('role_id', $roleId)->delete();
+        LegacyAdminRole::query()->whereKey($roleId)->delete();
+
+        return redirect('/admin/roles/index');
+    }
+
+    // CakePHP: app/Controller/RolesController.php::admin_getsubrole()
+    // URL: /admin/roles/getsubrole (jQuery posts roleid + userid)
+    public function getsubrole(Request $request)
+    {
+        $role_d = $request->input('roleid');
+        $user_d = $request->input('userid');
+
+        $related = [];
+        if ($user_d !== null && $user_d !== '' && is_numeric($user_d)) {
+            $related = LegacyAdminUserRole::query()
+                ->where('user_id', (int) $user_d)
+                ->pluck('role_id')
+                ->toArray();
+        }
+
+        $childRoles = [];
+        if ($role_d !== null && $role_d !== '' && is_numeric($role_d)) {
+            $childRoles = LegacyAdminRole::query()
+                ->where('parent_id', (int) $role_d)
+                ->get(['id', 'name']);
+        }
+
+        $return = '';
+        foreach ($childRoles as $r) {
+            $selected = in_array((string)$r->id, array_map('strval', $related), true);
+            if ($selected) {
+                $return .= "<option value='{$r->id}' selected='selected'>{$r->name}</option>";
+            } else {
+                $return .= "<option value='{$r->id}'>{$r->name}</option>";
+            }
+        }
+
+        return response($return, 200)->header('Content-Type', 'text/html; charset=utf-8');
     }
 }
+

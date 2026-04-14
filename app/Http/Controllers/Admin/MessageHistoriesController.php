@@ -11,7 +11,7 @@ class MessageHistoriesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_loadmessagehistory(Request $request)
+    public function loadmessagehistory(Request $request)
     {
         $renterId = (int)$request->input('renter_id', 0);
         $ownerId = (int)$request->input('owner_id', 0);
@@ -32,7 +32,7 @@ class MessageHistoriesController extends LegacyAppController
         return response()->view('admin.message_histories.history', compact('rows', 'renterId', 'ownerId'));
     }
 
-    public function admin_loadnewmessage(Request $request)
+    public function loadnewmessage(Request $request)
     {
         return response()->view('admin.message_histories.new_message', [
             'renterId' => (int)$request->input('renter_id', 0),
@@ -40,7 +40,7 @@ class MessageHistoriesController extends LegacyAppController
         ]);
     }
 
-    public function admin_sendnewmessage(Request $request): JsonResponse
+    public function sendnewmessage(Request $request): JsonResponse
     {
         $sender = (int)$request->input('sender_id', 0);
         $receiver = (int)$request->input('receiver_id', 0);

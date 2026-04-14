@@ -14,7 +14,7 @@ class SmslogsController extends LegacyAppController
 
     private const SESSION_LIMIT_KEY = 'smslogs_limit';
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -97,7 +97,7 @@ class SmslogsController extends LegacyAppController
      *
      * @return \Illuminate\Contracts\View\View|\Illuminate\Http\RedirectResponse
      */
-    public function admin_details(Request $request, $id = null)
+    public function details(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -112,7 +112,7 @@ class SmslogsController extends LegacyAppController
         return view('admin.smslogs.details_modal', ['smslog' => $smslog]);
     }
 
-    public function admin_delete(Request $request, $id = null): JsonResponse
+    public function delete(Request $request, $id = null): JsonResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => 'error', 'msg' => 'Unauthorized'], 401);
@@ -150,18 +150,5 @@ class SmslogsController extends LegacyAppController
         }
 
         return 25;
-    }
-
-    private function decodeId($id): ?int
-    {
-        if ($id === null || $id === '') {
-            return null;
-        }
-        $raw = base64_decode((string) $id, true);
-        if ($raw === false || !ctype_digit((string) $raw)) {
-            return null;
-        }
-
-        return (int) $raw;
     }
 }
