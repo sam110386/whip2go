@@ -48,7 +48,7 @@ class WalletController extends LegacyAppController
         if ($row) {
             return $row;
         }
-        DB::table('cs_wallets')->insert(['user_id' => $userId, 'balance' => 0]);
+        DB::table('cs_wallets')->insert(['user_id' => $userId, 'balance' => 0, 'created' => now()]);
 
         return DB::table('cs_wallets')->where('user_id', $userId)->first();
     }

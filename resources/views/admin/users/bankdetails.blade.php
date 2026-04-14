@@ -1,107 +1,196 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
-@section('title', $listTitle)
+@section('title', 'Bank & Stripe Connection')
 
 @section('content')
-<div class="panel">
-    <script src="{{ legacy_asset('js/jquery.maskedinput.js') }}"></script>
-    <script>
-        jQuery(document).ready(function () {
-            jQuery('#UserEinNo').mask('00-000-0000', {placeholder: 'xx-xxx-xxxx'});
-            jQuery('#UserSsNo').mask('000-00-0000', {placeholder: 'xxx-xx-xxxx'});
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4>
+                <i class="icon-arrow-left52 position-left"></i>
+                <span class="text-semibold">User</span> - Bank & Stripe Connection
+            </h4>
+        </div>
+    </div>
 
-            jQuery('#UserBusinessType').change(function () {
-                if (jQuery(this).val() === 'individual') {
-                    jQuery('#ein_noblk').hide();
-                    jQuery('#ssn_noblk').show();
-                } else {
-                    jQuery('#ssn_noblk').hide();
-                    jQuery('#ein_noblk').show();
-                }
-            }).trigger('change');
+    <div class="breadcrumb-line">
+        <ul class="breadcrumb">
+            <li><a href="{{ url('admin/dashboard') }}"><i class="icon-home2 position-left"></i> Home</a></li>
+            <li><a href="{{ url('admin/users/index') }}">Users</a></li>
+            <li class="active">Bank Details</li>
+        </ul>
+    </div>
+</div>
 
-            jQuery('.readyforconnect').click(function () {
-                alert('Stripe connect flow is not migrated in Laravel yet. Use legacy flow for now.');
-            });
-        });
+<div class="content">
+    @include('layouts.flash-messages')
 
-        function getStripeLogin() {
-            alert('Stripe login link is not migrated in Laravel yet.');
-        }
-        function getPayoutSchedule(stripekey) {
-            jQuery('#myModal .modal-content').load('/admin/users/loadPayoutSchedule', {stripekey: stripekey}, function () {
-                jQuery('#myModal').modal('show');
-            });
-        }
-        function savePayoutSchedule() {
-            alert('Payout schedule update is not migrated in Laravel yet.');
-        }
-    </script>
+    <div class="panel panel-flat">
+        <div class="panel-heading">
+            <h5 class="panel-title">Stripe Connect Settings</h5>
+        </div>
 
-    <section class="reportListingHeading" style="margin-bottom: 7px; float: left; width: 100%;padding: 13px 23px 0;">
-        <h3 style="width: 80%; float: left;">{{ $listTitle }}</h3>
-    </section>
-
-    @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-    @if (session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-    @endif
-
-    <div class="row">
-        <fieldset class="col-lg-12">
-            <form action="/admin/users/bankdetails/{{ base64_encode((string)$user->id) }}" method="POST" id="frmadmin" class="form-horizontal">
+        <div class="panel-body">
+            <form action="{{ url('admin/users/bankdetails', base64_encode((string)$id)) }}" method="POST" id="frmadmin" class="form-horizontal">
                 @csrf
-                <div class="panel-body">
-                    <div class="form-group">
-                        <label class="col-lg-2 control-label">Account Type :<span class="text-danger">*</span></label>
-                        <div class="col-lg-4">
-                            <select name="User[business_type]" id="UserBusinessType" class="form-control required">
-                                <option value="individual" @selected(($user->business_type ?? 'individual') === 'individual')>Individual</option>
-                                <option value="company" @selected(($user->business_type ?? '') === 'company')>Company</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group" id="ssn_noblk">
-                        <label class="col-lg-2 control-label">SSN # :<span class="text-danger">*</span></label>
-                        <div class="col-lg-4">
-                            <input type="text" id="UserSsNo" name="User[ss_no]" class="form-control required" value="{{ $user->ss_no ?? '' }}">
-                        </div>
-                    </div>
-                    <div class="form-group" id="ein_noblk" style="display:none;">
-                        <label class="col-lg-2 control-label">EIN # :<span class="text-danger">*</span></label>
-                        <div class="col-lg-4">
-                            <input type="text" id="UserEinNo" name="User[ein_no]" class="form-control required" value="{{ $user->ein_no ?? '' }}">
-                        </div>
-                    </div>
+                <input type="hidden" name="id" value="{{ $user->id ?? '' }}">
 
-                    @if (!empty($user->stripe_key))
-                        <div class="form-group">
-                            <label class="col-lg-2 control-label">&nbsp;</label>
-                            <div class="col-lg-6">
-                                <button type="button" class="btn left-margin btn-cancel" onclick="getStripeLogin('{{ $user->stripe_key }}')">Login To Stripe Account</button>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="col-lg-2 control-label">&nbsp;</label>
-                            <div class="col-lg-6">
-                                <button type="button" class="left-margin btn-danger" onclick="getPayoutSchedule('{{ $user->stripe_key }}')">Update Payout Schedule</button>
-                            </div>
-                        </div>
-                    @endif
+                <div class="row">
+                    <div class="col-md-8 col-md-offset-2">
+                        <fieldset>
+                            <legend class="text-semibold">Verification Data</legend>
 
-                    <div class="form-group">
-                        <label class="col-lg-2 control-label">&nbsp;</label>
-                        <div class="col-lg-6">
-                            <button type="button" class="btn readyforconnect">Connect</button>
-                            <button type="button" class="btn left-margin btn-cancel" onclick="window.location.href='/admin/users/index'">Return</button>
+                            <div class="form-group">
+                                <label class="col-lg-3 control-label text-semibold">Account Type:</label>
+                                <div class="col-lg-9">
+                                    <select name="business_type" id="UserBusinessType" class="form-control" required>
+                                        <option value="individual" @selected(old('business_type', $user->business_type ?? '') == 'individual')>Individual</option>
+                                        <option value="company" @selected(old('business_type', $user->business_type ?? '') == 'company')>Company</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="ssn_noblk" style="{{ old('business_type', $user->business_type ?? 'individual') == 'individual' ? '' : 'display: none;' }}">
+                                <label class="col-lg-3 control-label text-semibold">SSN #:</label>
+                                <div class="col-lg-9">
+                                    <input type="text" name="ss_no" id="UserSsNo" maxlength="50" class="form-control" value="{{ old('ss_no', \App\Helpers\Legacy\Security::decrypt($user->ss_no ?? '')) }}" placeholder="Enter Social Security Number">
+                                    <span class="help-block text-muted">Required for individual verification.</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="ein_noblk" style="{{ old('business_type', $user->business_type ?? 'individual') == 'company' ? '' : 'display: none;' }}">
+                                <label class="col-lg-3 control-label text-semibold">EIN #:</label>
+                                <div class="col-lg-9">
+                                    <input type="text" name="ein_no" id="UserEinNo" maxlength="50" class="form-control" value="{{ old('ein_no', \App\Helpers\Legacy\Security::decrypt($user->ein_no ?? '')) }}" placeholder="Enter Employer Identification Number">
+                                    <span class="help-block text-muted">Required for company verification.</span>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <div class="text-center mt-20">
+                            <hr>
+                            
+                            @if(!empty($user->stripe_key))
+                                <div class="btn-group mb-20">
+                                    <button type="button" class="btn btn-info" onClick="getStripeLogin('{{ $user->stripe_key }}')">
+                                        <i class="icon-stripe position-left"></i> Login To Stripe Account
+                                    </button>
+                                    <button type="button" class="btn btn-danger" onClick="getPayoutSchedule('{{ $user->stripe_key }}')">
+                                        <i class="icon-calendar52 position-left"></i> Update Payout Schedule
+                                    </button>
+                                </div>
+                                <br>
+                            @endif
+
+                            <button type="button" class="btn btn-primary btn-xlg readyforconnect">
+                                <i class="icon-link position-left"></i> Connect Stripe Account
+                            </button>
+                            <a href="{{ url('admin/users/index') }}" class="btn btn-default btn-xlg ml-10">Return</a>
                         </div>
                     </div>
                 </div>
-                <input type="hidden" name="User[id]" value="{{ $user->id }}">
             </form>
-        </fieldset>
+        </div>
     </div>
 </div>
+
+<!-- Payout Schedule Modal -->
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <!-- Loaded via AJAX -->
+            <div class="modal-body text-center p-20">
+                <i class="icon-spinner2 spinner text-muted"></i> Loading schedule...
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript">
+$(document).ready(function() {
+    // Account Type Toggle
+    $("#UserBusinessType").change(function() {
+        if ($(this).val() == 'individual') {
+            $("#ein_noblk").slideUp('fast');
+            $("#ssn_noblk").slideDown('fast');
+        } else {
+            $("#ssn_noblk").slideUp('fast');
+            $("#ein_noblk").slideDown('fast');
+        }
+    });
+
+    // Stripe Connect Form Submission
+    var $form = $("#frmadmin");
+    $(".readyforconnect").click(function() {
+        // Basic validation check
+        var busType = $("#UserBusinessType").val();
+        if (busType === 'individual' && !$("#UserSsNo").val()) {
+            alert('SSN is required for individual accounts.');
+            return;
+        }
+        if (busType === 'company' && !$("#UserEinNo").val()) {
+            alert('EIN is required for company accounts.');
+            return;
+        }
+
+        var btn = $(this);
+        var originalHtml = btn.html();
+        btn.html('<i class="icon-spinner2 spinner position-left"></i> Connecting...').prop('disabled', true);
+
+        $.post("{{ url('admin/users/getmystripeurl') }}", $form.serialize(), function(data) {
+            if (data.status) {
+                btn.html('<i class="icon-checkmark3 position-left"></i> Redirecting to Stripe...').addClass('btn-success');
+                setTimeout(function() {
+                    window.open(data.result.url);
+                    window.location.href = "{{ url('admin/users/index') }}";
+                }, 1000);
+            } else {
+                alert(data.message || 'There was a problem generating the Stripe connection URL.');
+                btn.html(originalHtml).prop('disabled', false);
+            }
+        }, 'json').fail(function() {
+            alert('An error occurred during communication with the server.');
+            btn.html(originalHtml).prop('disabled', false);
+        });
+    });
+});
+
+function getStripeLogin(stripekey) {
+    $.post("{{ url('admin/users/getstripeloginurl') }}", {
+        stripekey: stripekey,
+        _token: '{{ csrf_token() }}'
+    }, function(data) {
+        if (data.status == 'success') {
+            window.open(data.url);
+        } else {
+            alert(data.message);
+        }
+    }, 'json');
+}
+
+function getPayoutSchedule(stripekey) {
+    $("#myModal .modal-content").load("{{ url('admin/users/loadPayoutSchedule') }}", {
+        stripekey: stripekey,
+        _token: '{{ csrf_token() }}'
+    }, function() {
+        $("#myModal").modal('show');
+    });
+}
+
+function savePayoutSchedule() {
+    var $form = $("#payoutfrmadmin");
+    $.post("{{ url('admin/users/updatePayoutSchedule') }}", $form.serialize(), function(data) {
+        alert(data.message);
+        $("#myModal").modal('hide');
+    }, 'json');
+}
+</script>
+
+<style>
+.btn-xlg {
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 500;
+}
+</style>
 @endsection

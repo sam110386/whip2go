@@ -1,61 +1,77 @@
-<div class="modal-header">
+<div class="modal-header bg-primary">
     <button type="button" class="close" data-dismiss="modal">&times;</button>
+    <h5 class="modal-title">Transaction Details</h5>
 </div>
 <div class="modal-body">
     @php $paymentTypeValue = $reportlib->getPaymentType(true); @endphp
-    <center><h3>Booking & Payments</h3></center>
-    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-        <thead>
-            <tr>
-                <th align="center" style="text-align:center;">Booking#</th>
-                <th align="center" style="text-align:center;">Transaction Type</th>
-                <th align="center" style="text-align:center;">Amount</th>
-                <th align="center" style="text-align:center;">Date</th>
-                <th align="center" style="text-align:center;"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($payments as $payment)
-                <tr>
-                    <td align="center">{{ $payment->increment_id }}</td>
-                    <td align="center">{{ $paymentTypeValue[$payment->type] ?? '' }}</td>
-                    <td align="center">{{ $payment->type == 6 ? '-' . $payment->refund : $payment->amount }}</td>
-                    <td align="center">{{ \Carbon\Carbon::parse($payment->created)->format('Y-m-d h:i A') }}</td>
-                    <td align="center">{{ $payment->status == 2 ? 'Refunded' : 'Active' }}</td>
+    <h6 class="text-semibold text-center border-bottom-blue-400 pb-10">Booking & Payments</h6>
+    <div class="table-responsive">
+        <table class="table table-bordered table-condensed table-hover">
+            <thead>
+                <tr class="bg-slate-700">
+                    <th class="text-center">Booking#</th>
+                    <th class="text-center">Transaction Type</th>
+                    <th class="text-center">Amount</th>
+                    <th class="text-center">Date</th>
+                    <th class="text-center">Status</th>
                 </tr>
-            @empty
-                <tr id="set_hide">
-                    <th colspan="5">No Record Available!</th>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @forelse($payments as $payment)
+                    <tr>
+                        <td class="text-center">{{ $payment->increment_id }}</td>
+                        <td class="text-center">{{ $paymentTypeValue[$payment->type] ?? '' }}</td>
+                        <td class="text-center font-weight-semibold">{{ $payment->type == 6 ? '-' . $payment->refund : $payment->amount }}</td>
+                        <td class="text-center"><small>{{ \Carbon\Carbon::parse($payment->created)->format('m/d/Y h:i A') }}</small></td>
+                        <td class="text-center">
+                            <span class="label {{ $payment->status == 2 ? 'label-danger' : 'label-success' }}">
+                                {{ $payment->status == 2 ? 'Refunded' : 'Active' }}
+                            </span>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No Record Available!</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 
-    <center><h3>Payout</h3></center>
-    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-        <thead>
-            <tr>
-                <th align="center" style="text-align:center;">Payout#</th>
-                <th align="center" style="text-align:center;">Transaction Type</th>
-                <th align="center" style="text-align:center;">Amount</th>
-                <th align="center" style="text-align:center;">Date</th>
-                <th align="center" style="text-align:center;"></th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($transactions as $transaction)
-                <tr>
-                    <td align="center">{{ $transaction->id }}</td>
-                    <td align="center">{{ $paymentTypeValue[$transaction->type] ?? '' }}</td>
-                    <td align="center">{{ $transaction->amount }}</td>
-                    <td align="center">{{ \Carbon\Carbon::parse($transaction->created)->format('Y-m-d h:i A') }}</td>
-                    <td align="center">{{ $transaction->status == 2 ? 'Refunded' : 'Active' }}</td>
+    <h6 class="text-semibold text-center border-bottom-blue-400 pb-10 mt-20">Payout</h6>
+    <div class="table-responsive">
+        <table class="table table-bordered table-condensed table-hover">
+            <thead>
+                <tr class="bg-slate-700">
+                    <th class="text-center">Payout#</th>
+                    <th class="text-center">Transaction Type</th>
+                    <th class="text-center">Amount</th>
+                    <th class="text-center">Date</th>
+                    <th class="text-center">Status</th>
                 </tr>
-            @empty
-                <tr id="set_hide">
-                    <th colspan="5">No Record Available!</th>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @forelse($transactions as $transaction)
+                    <tr>
+                        <td class="text-center">{{ $transaction->id }}</td>
+                        <td class="text-center">{{ $paymentTypeValue[$transaction->type] ?? '' }}</td>
+                        <td class="text-center font-weight-semibold">{{ $transaction->amount }}</td>
+                        <td class="text-center"><small>{{ \Carbon\Carbon::parse($transaction->created)->format('m/d/Y h:i A') }}</small></td>
+                        <td class="text-center">
+                            <span class="label {{ $transaction->status == 2 ? 'label-danger' : 'label-success' }}">
+                                {{ $transaction->status == 2 ? 'Refunded' : 'Active' }}
+                            </span>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No Record Available!</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
 </div>

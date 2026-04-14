@@ -1,31 +1,25 @@
 @extends('layouts.admin')
 
+@section('title', 'Accounting Reports')
+
 @section('content')
-<script type="text/javascript">
-    jQuery(document).ready(function () {
-        jQuery('#SearchDateFrom').datepicker({dateFormat: 'mm/dd/yy'});
-        jQuery('#SearchDateTo').datepicker({dateFormat: 'mm/dd/yy'});
-    });
-</script>
-<!-- Modal -->
-<div id="myModal" class="modal fade" role="dialog">
-    <div class="modal-dialog">
-        <div class="modal-content">
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <a href="{{ url('admin/users/index') }}"><i class="icon-arrow-left52 position-left"></i></a>
+                    <span class="text-semibold">{{ 'User' }}</span> — {{ 'Accounting Reports' }}
+                </h4>
+            </div>
         </div>
     </div>
-</div>
-<div class="page-header">
-    <div class="page-header-content">
-        <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Accounting</span> - Reports</h4>
-        </div>
+
+    <div class="row">
+        @include('layouts.flash-messages')
     </div>
-</div>
-<div class="row ">
-    @include('partials.flash')
-</div>
-<div class="panel">
-    <form action="{{ url('admin/accounting/reports/index/' . $userid) }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
+
+    <div class="panel panel-flat">
+        <form action="{{ url('admin/accounting_reports/index', $useridB64) }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
         @csrf
         <div class="panel-body">
             <div class="col-md-2">
@@ -140,7 +134,51 @@
                 </table>
             @endif
         </div>
+<script>
+    function bookingDetail(orderid) {
+        $.ajax({
+            url: "{{ url('admin/accounting_reports/booking') }}",
+            data: { orderid: orderid },
+            success: function(data) {
+                $('#myModal .modal-content').html(data);
+                $('#myModal').modal('show');
+            }
+        });
+    }
+
+    function payoutDetail(payoutid) {
+        $.ajax({
+            url: "{{ url('admin/accounting_reports/payout') }}",
+            data: { payoutid: payoutid },
+            success: function(data) {
+                $('#myModal .modal-content').html(data);
+                $('#myModal').modal('show');
+            }
+        });
+    }
+
+    function transactionDetail(transaction) {
+        $.ajax({
+            url: "{{ url('admin/accounting_reports/transaction') }}",
+            data: { transaction: transaction },
+            success: function(data) {
+                var modalTitle = 'Transaction Details';
+                $('#myModal .modal-content').html(data);
+                $('#myModal').modal('show');
+            }
+        });
+    }
+
+    jQuery(document).ready(function () {
+        jQuery('#SearchDateFrom').datepicker({dateFormat: 'mm/dd/yy'});
+        jQuery('#SearchDateTo').datepicker({dateFormat: 'mm/dd/yy'});
+    });
+</script>
+
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        </div>
     </div>
 </div>
-<script src="{{ asset('Accounting/js/report.js') }}"></script>
 @endsection

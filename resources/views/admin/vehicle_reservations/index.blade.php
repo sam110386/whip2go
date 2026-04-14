@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', ($mode ?? 'index') === 'all' ? 'All Pending Booking' : 'Pending Booking')
 

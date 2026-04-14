@@ -2,20 +2,19 @@
 
 namespace App\Models\Legacy;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
 class AdminRoleMenu extends LegacyModel
 {
     protected $table = 'admin_role_menu';
 
-    protected $casts = [
-        'id' => 'integer',
-        'role_id' => 'integer',
-        'menu_id' => 'integer',
+    protected $fillable = [
+        'role_id',
+        'menu_id',
+        'created_at',
+        'updated_at',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
     ];
 
-    public function role(): BelongsTo
-    {
-        return $this->belongsTo(AdminRole::class, 'role_id');
-    }
 }
