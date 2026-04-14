@@ -13,20 +13,49 @@ class AgreementTemplatesController extends LegacyAppController
         return public_path('files/agreement_templates/');
     }
 
+    private function decodeUserId(?string $b64): ?int
+    {
+        if ($b64 === null || $b64 === '') {
+            return null;
+        }
+        $raw = base64_decode($b64, true);
+        if ($raw === false || !ctype_digit((string)$raw)) {
+            return null;
+        }
+
+        return (int)$raw;
+    }
+
     public function index(Request $request, $userid = null)
     {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+        $userid = $uid;
+        $useridB64 = base64_encode((string)$userid);
+
         $listTitle = 'Agreement Templates';
 
-        return view('admin.agreement_templates.index', compact('listTitle', 'userid'));
+        return view('admin.agreement_templates.index', compact('listTitle', 'userid', 'useridB64'));
     }
 
     public function rental(Request $request, $userid = null)
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.agreement_templates.index')
-                ->with('error', 'Invalid user ID');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
+
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+        $userid = $uid;
+        $useridB64 = base64_encode((string)$userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -46,16 +75,21 @@ class AgreementTemplatesController extends LegacyAppController
         $defaultPath = $this->templateBasePath() . 'rental.html';
         $template = is_file($filePath) ? File::get($filePath) : (is_file($defaultPath) ? File::get($defaultPath) : '');
 
-        return view('admin.agreement_templates.rental', compact('listTitle', 'template', 'userid'));
+        return view('admin.agreement_templates.rental', compact('listTitle', 'template', 'userid', 'useridB64'));
     }
 
     public function rentToOwn(Request $request, $userid = null)
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.agreement_templates.index')
-                ->with('error', 'Invalid user ID');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
+
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+        $userid = $uid;
+        $useridB64 = base64_encode((string)$userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -75,16 +109,21 @@ class AgreementTemplatesController extends LegacyAppController
         $defaultPath = $this->templateBasePath() . 'rent_to_own.html';
         $template = is_file($filePath) ? File::get($filePath) : (is_file($defaultPath) ? File::get($defaultPath) : '');
 
-        return view('admin.agreement_templates.rent_to_own', compact('listTitle', 'template', 'userid'));
+        return view('admin.agreement_templates.rent_to_own', compact('listTitle', 'template', 'userid', 'useridB64'));
     }
 
     public function lease(Request $request, $userid = null)
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.agreement_templates.index')
-                ->with('error', 'Invalid user ID');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
+
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+        $userid = $uid;
+        $useridB64 = base64_encode((string)$userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -104,16 +143,21 @@ class AgreementTemplatesController extends LegacyAppController
         $defaultPath = $this->templateBasePath() . 'lease.html';
         $template = is_file($filePath) ? File::get($filePath) : (is_file($defaultPath) ? File::get($defaultPath) : '');
 
-        return view('admin.agreement_templates.lease', compact('listTitle', 'template', 'userid'));
+        return view('admin.agreement_templates.lease', compact('listTitle', 'template', 'userid', 'useridB64'));
     }
 
     public function leaseToOwn(Request $request, $userid = null)
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.agreement_templates.index')
-                ->with('error', 'Invalid user ID');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
+
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+        $userid = $uid;
+        $useridB64 = base64_encode((string)$userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -133,6 +177,6 @@ class AgreementTemplatesController extends LegacyAppController
         $defaultPath = $this->templateBasePath() . 'lease_to_own.html';
         $template = is_file($filePath) ? File::get($filePath) : (is_file($defaultPath) ? File::get($defaultPath) : '');
 
-        return view('admin.agreement_templates.lease_to_own', compact('listTitle', 'template', 'userid'));
+        return view('admin.agreement_templates.lease_to_own', compact('listTitle', 'template', 'userid', 'useridB64'));
     }
 }

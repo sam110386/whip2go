@@ -1,5 +1,5 @@
 {{-- Stub: port from `app/View/Leases/admin_create_vehicle_unavailability.ctp` (admin AJAX: `/admin/leases/load`, `/admin/leases/addunavailability`, `/admin/leases/remove/{id}`). --}}
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Vehicle unavailability (admin)')
 

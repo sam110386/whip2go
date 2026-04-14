@@ -9,6 +9,44 @@ class VehicleReservation extends LegacyModel
 {
     protected $table = 'vehicle_reservations';
 
+    protected $fillable = [
+        'user_id',
+        'renter_id',
+        'vehicle_id',
+        'start_datetime',
+        'end_datetime',
+        'status',
+        'accepted_time',
+        'details',
+        'note',
+        'notified',
+        'timezone',
+        'user_ip',
+        'pto',
+        'insurance',
+        'sub_insu_frequency',
+        'initial_fee',
+        'initial_discount',
+        'discount_desc',
+        'buy',
+        'delivery',
+        'checkr_status',
+        'income_threshold',
+        'gps',
+        'gps2',
+        'clue_report',
+        'docusign',
+        'cancel_note',
+        'checklists',
+        'ready_for_dealer',
+        'created',
+        'modified',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
+    ];
+
     protected $casts = [
         'id' => 'integer',
         'vehicle_id' => 'integer',

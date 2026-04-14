@@ -126,6 +126,12 @@ return [
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],
+
+        'diaerror' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/dia_error.log'),
+            'level' => 'debug',
+        ],
     ],
 
 ];

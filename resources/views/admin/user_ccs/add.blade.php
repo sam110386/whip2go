@@ -1,68 +1,65 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', $listTitle ?? 'Add CC Details')
 
-@push('head_scripts')
-    <script src="{{ legacy_asset('assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
+@push('scripts')
+    <script src="{{ asset('js/assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
+    <script>
+        $(document).ready(function() {
+            $('#UserCcTokenCreditCardNumber').formatter({
+                pattern: '{{9999}} - {{9999}} - {{9999}} - {{9999}}'
+            });
+            $('#UserCcTokenExpiration').formatter({
+                pattern: '{{99}}/{{9999}}'
+            });
+            $('#UserCcTokenCvv').formatter({
+                pattern: '{{9999}}'
+            });
+            $('#UserCcTokenCreditCardNumber').focusout(function(){
+                var cctype = GetCardType($(this).val());
+                $('#UserCcTokenCardType').val(cctype);
+            });
+            $('#frmadmin').validate();
+        });
+
+        function GetCardType(number) {
+            number = number.replace(/-/g, '').replace(/ /g, '');
+            if (/^4/.test(number)) return 'Visa';
+            if (/^(5[1-5][0-9]{14}|2(22[1-9][0-9]{12}|2[3-9][0-9]{13}|[3-6][0-9]{14}|7[0-1][0-9]{13}|720[0-9]{12}))$/.test(number)) return 'Mastercard';
+            if (/^3[47]/.test(number)) return 'AMEX';
+            if (/^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)/.test(number)) return 'Discover';
+            if (/^3[0-6]/.test(number)) return 'Diners';
+            if (/^35(2[89]|[3-8][0-9])/.test(number)) return 'JCB';
+            return 'Visa';
+        }
+    </script>
 @endpush
 
 @section('content')
-<div class="panel">
-<script>
-    jQuery(document).ready(function() {
-        jQuery('#UserCcTokenCreditCardNumber').formatter({
-            pattern: '{{9999}} - {{9999}} - {{9999}} - {{9999}}'
-        });
-        jQuery('#UserCcTokenExpiration').formatter({
-            pattern: '{{99}}/{{9999}}'
-        });
-        jQuery('#UserCcTokenCvv').formatter({
-            pattern: '{{9999}}'
-        });
-        jQuery('#UserCcTokenCreditCardNumber').focusout(function(){
-            var cctype = GetCardType(jQuery(this).val());
-            jQuery('#UserCcTokenCardType').val(cctype);
-        });
-        jQuery('#frmadmin').validate();
-    });
-    function GetCardType(number) {
-        number = number.replace(/-/g, '');
-        number = number.replace(/ /g, '');
-        var re = new RegExp('^4');
-        if (number.match(re) != null) return 'Visa';
-        if (/^(5[1-5][0-9]{14}|2(22[1-9][0-9]{12}|2[3-9][0-9]{13}|[3-6][0-9]{14}|7[0-1][0-9]{13}|720[0-9]{12}))$/.test(number)) return 'Mastercard';
-        re = new RegExp('^3[47]');
-        if (number.match(re) != null) return 'AMEX';
-        re = new RegExp('^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)');
-        if (number.match(re) != null) return 'Discover';
-        re = new RegExp('^36');
-        if (number.match(re) != null) return 'Diners';
-        re = new RegExp('^30[0-5]');
-        if (number.match(re) != null) return 'Diners';
-        re = new RegExp('^35(2[89]|[3-8][0-9])');
-        if (number.match(re) != null) return 'JCB';
-        re = new RegExp('^(4026|417500|4508|4844|491(3|7))');
-        if (number.match(re) != null) return 'Visa';
-        return '';
-    }
-</script>
-<section class="reportListingHeading" style="margin-bottom: 7px; float: left; width: 100%;padding: 13px 23px 0;">
-    <h3 style="width: 80%; float: left;">{{ $listTitle }}</h3>
-</section>
-@if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-@endif
-@if(session('error'))
-    <div class="alert alert-danger">{{ session('error') }}</div>
-@endif
-<div class="row">
-    <fieldset class="col-lg-12">
-        <form method="post" action="/admin/user_ccs/add/{{ $useridB64 }}" name="frmadmin" id="frmadmin" class="form-horizontal">
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">{{ 'Add' }}</span>
+                    {{ 'CC Details' }}
+                </h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        @include('layouts.flash-messages')
+    </div>
+
+    <div class="panel">
+        <div class="panel-body">
+            <form method="post" action="{{ url('admin/user_ccs/add', $useridB64) }}" name="frmadmin" id="frmadmin" class="form-horizontal">
             @csrf
             <div class="panel-body">
                 @php
                     $u = $user ?? null;
-                    $fullName = trim((string) (($u->first_name ?? '') . ' ' . ($u->last_name ?? '')));
+                    $fullName = trim((string) (($u?->first_name ?? '') . ' ' . ($u?->last_name ?? '')));
                 @endphp
                 <div class="form-group">
                     <label class="col-lg-2 control-label">Card Holder Name :<span class="text-danger">*</span></label>
@@ -102,25 +99,25 @@
                 <div class="form-group">
                     <label class="col-lg-2 control-label">Address :<span class="text-danger">*</span></label>
                     <div class="col-lg-4">
-                        <input type="text" name="UserCcToken[address]" maxlength="150" class="form-control required" value="{{ old('UserCcToken.address', $u->address ?? '') }}">
+                        <input type="text" name="UserCcToken[address]" maxlength="150" class="form-control required" value="{{ old('UserCcToken.address', $u?->address ?? '') }}">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-2 control-label">City :<span class="text-danger">*</span></label>
                     <div class="col-lg-4">
-                        <input type="text" name="UserCcToken[city]" maxlength="50" class="form-control required" value="{{ old('UserCcToken.city', $u->city ?? '') }}">
+                        <input type="text" name="UserCcToken[city]" maxlength="50" class="form-control required" value="{{ old('UserCcToken.city', $u?->city ?? '') }}">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-2 control-label">State :<span class="text-danger">*</span></label>
                     <div class="col-lg-4">
-                        <input type="text" name="UserCcToken[state]" class="form-control required" value="{{ old('UserCcToken.state', $u->state ?? '') }}">
+                        <input type="text" name="UserCcToken[state]" class="form-control required" value="{{ old('UserCcToken.state', $u?->state ?? '') }}">
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-2 control-label">Postal Code :</label>
                     <div class="col-lg-4">
-                        <input type="text" name="UserCcToken[zip]" maxlength="50" class="form-control" value="{{ old('UserCcToken.zip', $u->zip ?? '') }}">
+                        <input type="text" name="UserCcToken[zip]" maxlength="50" class="form-control" value="{{ old('UserCcToken.zip', $u?->zip ?? '') }}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -132,14 +129,13 @@
                 <div class="form-group">
                     <label class="col-lg-2 control-label">&nbsp;</label>
                     <div class="col-lg-6">
-                        <button type="submit" class="btn">Save</button>
-                        <button type="button" class="btn left-margin btn-cancel" onclick="window.location.href='/admin/users/index'">Return</button>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <a href="{{ url('admin/user_ccs/index', $useridB64) }}" class="btn btn-default left-margin">Return</a>
                     </div>
                 </div>
             </div>
             <input type="hidden" name="UserCcToken[user_id]" value="{{ $useridB64 }}">
         </form>
-    </fieldset>
-</div>
+    </div>
 </div>
 @endsection

@@ -9,15 +9,30 @@ use Illuminate\Support\Facades\DB;
 
 class UserNotesController extends LegacyAppController
 {
+    private function decodeUserId(?string $b64): ?int
+    {
+        if ($b64 === null || $b64 === '') {
+            return null;
+        }
+        $raw = base64_decode($b64, true);
+        if ($raw === false || !ctype_digit((string)$raw)) {
+            return null;
+        }
+
+        return (int)$raw;
+    }
+
     public function index(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        if (empty($userid)) {
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
             return redirect('/admin/users/index');
         }
+        $userid = $uid;
 
         $dateFrom = '';
         $dateTo = '';
@@ -72,8 +87,9 @@ class UserNotesController extends LegacyAppController
         }
 
         $user = DB::table('users')->where('id', $userid)->select('first_name', 'last_name')->first();
+        $useridB64 = base64_encode((string)$userid);
 
-        return view('admin.user_note.index', compact('notelists', 'dateFrom', 'dateTo', 'userid', 'user'));
+        return view('admin.user_note.index', compact('notelists', 'dateFrom', 'dateTo', 'userid', 'user', 'useridB64'));
     }
 
     public function add(Request $request)

@@ -190,7 +190,6 @@ class PaymentProcessor
         foreach ($conditions as $key => $value) {
             $query->where($key, $value);
         }
-        $data['modified'] = now();
         $query->update($data);
     }
 
@@ -216,7 +215,6 @@ class PaymentProcessor
     private function insertOrderPayment($data)
     {
         $data['created'] = $data['created'] ?? now();
-        $data['modified'] = now();
         $data['charged_at'] = $data['charged_at'] ?? now();
         $data['status'] = $data['status'] ?? 1;
         return DB::table('cs_order_payments')->insertGetId($data);
@@ -334,8 +332,7 @@ class PaymentProcessor
             $data = (array) $dep;
             unset($data['id']);
             $data['cs_order_id'] = $toOrderId;
-            $data['created'] = now();
-            $data['modified'] = now();
+            $data['created'] = $data['created'] ?? now();
             DB::table('cs_order_payments')->insert($data);
         }
     }
@@ -357,7 +354,6 @@ class PaymentProcessor
                     'type' => $data['type'] ?? 0,
                     'status' => 1,
                     'created' => now(),
-                    'modified' => now(),
                 ]);
             }
         } catch (\Exception $e) {
@@ -370,7 +366,7 @@ class PaymentProcessor
         if (!empty($data['transaction_id'])) {
             DB::table('cs_payout_transactions')
                 ->where('transaction_id', $data['transaction_id'])
-                ->update(['cs_order_id' => $data['order_id'], 'modified' => now()]);
+                ->update(['cs_order_id' => $data['order_id']]);
         }
     }
 
@@ -407,7 +403,6 @@ class PaymentProcessor
                 'balance_transaction' => $result['balance_transaction'] ?? '',
                 'status' => 1,
                 'created' => now(),
-                'modified' => now(),
             ]);
         } catch (\Exception $e) {
             Log::error('savePayoutTransactions: ' . $e->getMessage());
@@ -417,7 +412,7 @@ class PaymentProcessor
     private function saveRefundPayoutTransactions($txn, $amount, $result)
     {
         try {
-            DB::table('cs_payout_transactions')->where('id', $txn['id'])->update(['status' => 2, 'modified' => now()]);
+            DB::table('cs_payout_transactions')->where('id', $txn['id'])->update(['status' => 2]);
             DB::table('cs_payout_transactions')->insert([
                 'cs_order_id' => $txn['cs_order_id'] ?? 0,
                 'cs_payment_id' => $txn['cs_payment_id'] ?? 0,
@@ -433,7 +428,6 @@ class PaymentProcessor
                 'balance_transaction' => is_array($result) ? ($result['balance_transaction'] ?? '') : '',
                 'status' => 1,
                 'created' => now(),
-                'modified' => now(),
             ]);
         } catch (\Exception $e) {
             Log::error('saveRefundPayoutTransactions: ' . $e->getMessage());
@@ -451,12 +445,12 @@ class PaymentProcessor
         }
         if ($balance >= $amount) {
             DB::table('cs_wallets')->where('user_id', $userId)->update([
-                'balance' => DB::raw("balance - {$amount}"), 'modified' => now(),
+                'balance' => DB::raw("balance - {$amount}"), 'updated' => now(),
             ]);
             $txnId = DB::table('cs_wallet_transactions')->insertGetId([
                 'user_id' => $userId, 'amount' => $amount, 'type' => 'debit',
                 'payment_type' => $type, 'description' => $description,
-                'cs_order_id' => $orderId, 'created' => now(), 'modified' => now(),
+                'cs_order_id' => $orderId, 'created' => now(),
             ]);
             return [
                 'status' => true,
@@ -476,12 +470,12 @@ class PaymentProcessor
         $chargeAmt = min($balance, $amount);
         $pending = sprintf('%0.2f', $amount - $chargeAmt);
         DB::table('cs_wallets')->where('user_id', $userId)->update([
-            'balance' => DB::raw("balance - {$chargeAmt}"), 'modified' => now(),
+            'balance' => DB::raw("balance - {$chargeAmt}"), 'updated' => now(),
         ]);
         $txnId = DB::table('cs_wallet_transactions')->insertGetId([
             'user_id' => $userId, 'amount' => $chargeAmt, 'type' => 'debit',
             'payment_type' => $type, 'description' => $description,
-            'cs_order_id' => $orderId, 'created' => now(), 'modified' => now(),
+            'cs_order_id' => $orderId, 'created' => now(),
         ]);
         return [
             'status' => true,
@@ -493,14 +487,25 @@ class PaymentProcessor
     private function walletAddBalance($amount, $userId, $transactionId, $description, $orderId, $chargedAt = null)
     {
         if ($amount <= 0) return;
-        DB::table('cs_wallets')->updateOrInsert(
-            ['user_id' => $userId],
-            ['balance' => DB::raw("COALESCE(balance,0) + {$amount}"), 'modified' => now()]
-        );
+        
+        $wallet = DB::table('cs_wallets')->where('user_id', $userId)->first();
+        if (!$wallet) {
+            DB::table('cs_wallets')->insert([
+                'user_id' => $userId,
+                'balance' => $amount,
+                'created' => now()
+            ]);
+        } else {
+            DB::table('cs_wallets')->where('user_id', $userId)->update([
+                'balance' => DB::raw("balance + {$amount}"),
+                'updated' => now()
+            ]);
+        }
+
         DB::table('cs_wallet_transactions')->insert([
             'user_id' => $userId, 'amount' => $amount, 'type' => 'credit',
             'description' => $description, 'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'cs_order_id' => $orderId, 'charged_at' => $chargedAt, 'created' => now(), 'modified' => now(),
+            'cs_order_id' => $orderId, 'charged_at' => $chargedAt, 'created' => now(),
         ]);
     }
 
@@ -518,24 +523,24 @@ class PaymentProcessor
     public function addNewCard($dataValues, $cust_id = '')
     {
         $return = ['status' => 'error', 'authcode' => '', 'message' => 'Required inputs are missing'];
-        $dataValues->credit_card_number = preg_replace("/[^0-9]/", "", $dataValues->credit_card_number);
-        if (empty($dataValues->credit_card_number) || empty($dataValues->cvv) || empty($dataValues->expiration)) {
+        $dataValues->credit_card_number = preg_replace("/[^0-9]/", "", $dataValues->credit_card_number ?? '');
+        if (empty($dataValues->credit_card_number) || empty($dataValues->cvv ?? '') || empty($dataValues->expiration ?? '')) {
             return $return;
         }
-        $ccexpdate = explode("/", $dataValues->expiration);
+        $ccexpdate = explode("/", $dataValues->expiration ?? '');
         $this->stripe();
         $result = $this->Stripe->createCardToken([
             "card" => [
                 "number" => $dataValues->credit_card_number,
-                "exp_month" => $ccexpdate[0],
-                "exp_year" => $ccexpdate[1],
-                "cvc" => $dataValues->cvv,
-                "name" => $dataValues->card_holder_name,
-                "address_zip" => $dataValues->zip,
-                "address_city" => $dataValues->city,
-                "address_state" => $dataValues->state,
-                "address_country" => ($dataValues->country != '' ? $dataValues->country : 'US'),
-                "address_line1" => $dataValues->address,
+                "exp_month" => $ccexpdate[0] ?? '',
+                "exp_year" => $ccexpdate[1] ?? '',
+                "cvc" => $dataValues->cvv ?? '',
+                "name" => $dataValues->card_holder_name ?? '',
+                "address_zip" => $dataValues->zip ?? '',
+                "address_city" => $dataValues->city ?? '',
+                "address_state" => $dataValues->state ?? '',
+                "address_country" => ($dataValues->country ?? '') != '' ? $dataValues->country : 'US',
+                "address_line1" => $dataValues->address ?? '',
             ],
         ]);
         if (!isset($result['status']) || $result['status'] != 'success') {

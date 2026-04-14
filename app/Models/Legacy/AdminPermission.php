@@ -8,6 +8,18 @@ class AdminPermission extends LegacyModel
 {
     protected $table = 'admin_permissions';
 
+    protected $fillable = [
+        'name',
+        'type',
+        'permissions',
+        'created_at',
+        'updated_at',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
+    ];
+
     protected $casts = [
         'id' => 'integer',
     ];

@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', !empty($offer) ? 'Edit Vehicle Offer' : 'Add Vehicle Offer')
 

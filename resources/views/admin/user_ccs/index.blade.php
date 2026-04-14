@@ -1,26 +1,28 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', $title_for_layout ?? 'Manage User CC Details')
 
 @section('content')
-<div class="page-header">
-    <div class="page-header-content">
-        <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage</span> CC Details</h4>
-        </div>
-        <div class="heading-elements">
-            <a href="/admin/user_ccs/add/{{ $useridB64 }}" class="btn btn-success">Add New</a>
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">{{ 'Manage' }}</span>
+                    {{ 'CC Details' }}
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <a href="{{ url('admin/user_ccs/add', $useridB64) }}" class="btn btn-success">
+                    {{ 'Add New' }}
+                </a>
+            </div>
         </div>
     </div>
-</div>
-<div class="row">
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-    @endif
-</div>
+
+    <div class="row">
+        @include('layouts.flash-messages')
+    </div>
 <div class="panel">
     <div class="panel-body">
         <div id="listing">

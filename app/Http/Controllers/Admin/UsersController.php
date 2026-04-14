@@ -3,17 +3,24 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Http\Controllers\Traits\UsersTrait;
+use App\Http\Controllers\Traits\DriverBackgroundReport;
+use App\Models\Legacy\AdminUserAssociation;
 use App\Models\Legacy\ArgyleUser;
 use App\Models\Legacy\ArgyleUserRecord;
 use App\Models\Legacy\RevSetting;
 use App\Models\Legacy\User as LegacyUser;
+use App\Helpers\Legacy\Security as LegacySecurity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use App\Helpers\Legacy\Number as LegacyNumber;
 
 class UsersController extends LegacyAppController
 {
+    use UsersTrait, DriverBackgroundReport;
+
     protected bool $shouldLoadLegacyModules = true;
 
     public function index(Request $request)
@@ -21,10 +28,33 @@ class UsersController extends LegacyAppController
         $keyword = trim((string) ($request->query('keyword') ?? ''));
         $show = trim((string) ($request->query('show') ?? ''));
         $type = trim((string) ($request->query('type') ?? ''));
+        
+        // Respect the "Records per page" limit from the request
+        $limit = (int) $request->input('Record.limit', $request->input('limit', 50));
+        
+        // Ensure limit is within a reasonable range
+        if (!in_array($limit, [25, 50, 100, 200])) {
+            $limit = 50;
+        }
+
+        // Handle sorting
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+        // Allowed sortable columns
+        $allowedSort = [
+            'id', 'first_name', 'last_name', 'email', 'contact_number', 
+            'created', 'status', 'is_verified', 'is_renter', 
+            'is_driver', 'is_dealer', 'checkr_status', 'trash'
+        ];
+        if (!in_array($sort, $allowedSort)) {
+            $sort = 'id';
+        }
 
         $q = LegacyUser::query()
             ->where('is_admin', 0)
-            ->orderByDesc('id');
+            ->orderBy($sort, $direction);
 
         if ($show === 'Active') {
             $q->where('status', 1);
@@ -33,7 +63,7 @@ class UsersController extends LegacyAppController
         }
 
         if ($keyword !== '') {
-            $like = '%' . $keyword . '%';
+            $like = "%{$keyword}%";
             $q->where(function ($qq) use ($like) {
                 $qq->where('first_name', 'like', $like)
                     ->orWhere('last_name', 'like', $like)
@@ -57,7 +87,17 @@ class UsersController extends LegacyAppController
             $q->where('is_dealer', 2);
         }
 
-        $users = $q->limit(50)->get();
+        $users = $q->paginate($limit);
+
+        if (request()->ajax()) {
+            return view('admin.elements.users.index', [
+                'users' => $users,
+                'keyword' => $keyword,
+                'show' => $show,
+                'type' => $type,
+                'limit' => $limit,
+            ]);
+        }
 
         return view('admin.users.index', [
             'listTitle' => 'Manage Users',
@@ -65,6 +105,7 @@ class UsersController extends LegacyAppController
             'keyword' => $keyword,
             'show' => $show,
             'type' => $type,
+            'limit' => $limit,
         ]);
     }
 
@@ -74,7 +115,8 @@ class UsersController extends LegacyAppController
         if ($userId) {
             LegacyUser::query()->whereKey($userId)->update(['status' => ((string) $status === '1') ? 1 : 0]);
         }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        return $this->redirectBackOr('/admin/users/index', $request)
+            ->with('success', 'User status has been changed.');
     }
 
     public function trash(Request $request, $id = null, $status = null)
@@ -83,7 +125,8 @@ class UsersController extends LegacyAppController
         if ($userId) {
             LegacyUser::query()->whereKey($userId)->update(['trash' => ((string) $status === '1') ? 1 : 0]);
         }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        return $this->redirectBackOr('/admin/users/index', $request)
+            ->with('success', 'User status has been changed.');
     }
 
     public function verify(Request $request, $id = null)
@@ -94,8 +137,14 @@ class UsersController extends LegacyAppController
                 'is_verified' => 1,
                 'verify_token' => '',
             ]);
+            // Mirror CakePHP admin_verify: save lead association on verification
+            $user = LegacyUser::query()->whereKey($userId)->first(['username']);
+            if ($user && !empty($user->username)) {
+                AdminUserAssociation::saveLeadAssociation($user->username, $userId);
+            }
         }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        return $this->redirectBackOr('/admin/users/index', $request)
+            ->with('success', 'User status has been changed.');
     }
 
     public function driverstatus(Request $request, $id = null, $status = null)
@@ -104,7 +153,8 @@ class UsersController extends LegacyAppController
         if ($userId) {
             LegacyUser::query()->whereKey($userId)->update(['is_driver' => ((string) $status === '1') ? 1 : 0]);
         }
-        return $this->redirectBackOr('/admin/users/index', $request);
+        return $this->redirectBackOr('/admin/users/index', $request)
+            ->with('success', 'User status has been changed.');
     }
 
     public function view(Request $request, $id = null)
@@ -126,85 +176,73 @@ class UsersController extends LegacyAppController
         if ($userId) {
             LegacyUser::query()->whereKey($userId)->delete();
         }
-        return redirect('/admin/users/index');
+        return redirect('/admin/users/index')
+            ->with('success', 'User has been deleted successfully.');
     }
 
     public function add(Request $request, $id = null)
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
         $userId = $this->decodeId($id);
-        $user = $userId ? LegacyUser::query()->find($userId) : null;
+        $user   = $userId ? LegacyUser::query()->with('userLicenseDetail')->find($userId) : null;
 
+        // GET: render the form
         if (!$request->isMethod('POST')) {
-            return view('admin.users.add', [
-                'listTitle' => $user ? 'Update User' : 'Add User',
-                'user' => $user,
-                'error' => null,
-                'formAction' => $user ? '/admin/users/add/' . $id : '/admin/users/add',
-            ]);
+            return $this->renderAddForm($user);
         }
 
-        $payload = $request->input('User', []);
-        $firstName = trim((string) ($payload['first_name'] ?? ''));
-        $lastName = trim((string) ($payload['last_name'] ?? ''));
-        $email = trim((string) ($payload['email'] ?? ''));
-        $contact = trim((string) ($payload['contact_number'] ?? ''));
+        // POST: delegate all validation, saving, uploads, and relations
+        //       to _saveUser() defined in UsersTrait
+        $result = $this->_saveUser($request, $userId ?: null);
 
-        if ($firstName === '' || $lastName === '' || $email === '' || $contact === '') {
-            return view('admin.users.add', [
-                'listTitle' => $user ? 'Update User' : 'Add User',
-                'user' => $user,
-                'error' => 'Please fill required fields.',
-                'formAction' => $user ? '/admin/users/add/' . $id : '/admin/users/add',
-            ]);
+        if (!($result['status'] ?? false)) {
+            return back()
+                ->withInput()
+                ->with('error', $result['message'] ?? 'An error occurred.');
         }
 
-        $data = [
-            'first_name' => ucwords(strtolower($firstName)),
-            'last_name' => ucwords(strtolower($lastName)),
-            'email' => $email,
-            'contact_number' => $contact,
-        ];
+        return redirect('/admin/users/index')
+            ->with('success', $result['message']);
+    }
 
-        if (!$user) {
-            $usernameDigits = preg_replace('/[^0-9]/', '', $contact);
-            $data['username'] = (string) $usernameDigits;
-            $data['is_verified'] = 1;
-            $data['status'] = 1;
-            $pwd = (string) ($payload['pwd'] ?? '');
-            if ($pwd !== '') {
-                $data['password'] = sha1($salt . $pwd);
-            }
-            LegacyUser::query()->create($data);
-        } else {
-            $pwd = (string) ($payload['pwd'] ?? '');
-            if ($pwd !== '') {
-                $data['password'] = sha1($salt . $pwd);
-            }
-            LegacyUser::query()->whereKey((int) $user->id)->update($data);
-        }
-
-        return redirect('/admin/users/index');
+    /**
+     * Shared view-data builder for the add/edit form.
+     */
+    private function renderAddForm(?LegacyUser $user)
+    {
+        return view('admin.users.add', [
+            'listTitle'  => $user ? 'Update User' : 'Add User',
+            'user'       => $user,
+            'currencies' => LegacyNumber::getCurrencies(),
+        ]);
     }
 
     public function bankdetails(Request $request, $id = null)
     {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
         $userId = $this->decodeId($id);
         $user = $userId ? LegacyUser::query()->find($userId) : null;
         if (!$user) {
             return redirect('/admin/users/index');
         }
-        if ((int)($user->is_owner ?? 0) !== 1) {
+        if ((int) ($user->is_owner ?? 0) !== 1) {
             return redirect('/admin/users/index');
         }
 
         if ($request->isMethod('POST')) {
-            $payload = (array)$request->input('User', []);
+            // Flat field names match admin_bankdetails.blade.php
+            $businessType = (string) $request->input('business_type', $user->business_type ?? 'individual');
+            $ssNo  = trim((string) $request->input('ss_no', ''));
+            $einNo = trim((string) $request->input('ein_no', ''));
+
             LegacyUser::query()->whereKey($userId)->update([
-                'business_type' => (string)($payload['business_type'] ?? ($user->business_type ?? 'individual')),
-                'ss_no' => (string)($payload['ss_no'] ?? ''),
-                'ein_no' => (string)($payload['ein_no'] ?? ''),
-                'is_owner' => 1,
+                'business_type' => $businessType,
+                // Encrypt sensitive fields to match CakePHP admin_bankdetails
+                'ss_no'         => $ssNo  !== '' ? LegacySecurity::encrypt($ssNo)  : '',
+                'ein_no'        => $einNo !== '' ? LegacySecurity::encrypt($einNo) : '',
+                'is_owner'      => 1,
             ]);
 
             return redirect('/admin/users/index')->with('success', 'Bank Account Details updated successfully.');
@@ -212,7 +250,8 @@ class UsersController extends LegacyAppController
 
         return view('admin.users.bankdetails', [
             'listTitle' => 'Connect with Stripe',
-            'user' => $user,
+            'user'      => $user,
+            'id'        => $userId,
         ]);
     }
 
@@ -236,10 +275,10 @@ class UsersController extends LegacyAppController
 
     public function loadPayoutSchedule(Request $request)
     {
+        // Use admin_load_payout_schedule — a modal partial with full payout form
         return view('admin.users.load_payout_schedule', [
-            'token' => (string)$request->input('stripekey', ''),
-            'Loadeddata' => [],
-            'migrationGap' => 'Payout schedule management via Stripe is not migrated in Laravel yet.',
+            'token'      => (string) $request->input('stripekey', ''),
+            'Loadeddata' => [],  // Stripe payout schedule not migrated yet
         ]);
     }
 
@@ -253,6 +292,10 @@ class UsersController extends LegacyAppController
 
     public function revsetting(Request $request, $id = null)
     {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
         $userId = $this->decodeId($id);
         if (!$userId) {
             return redirect('/admin/users/index');
@@ -261,16 +304,15 @@ class UsersController extends LegacyAppController
         $revSetting = RevSetting::query()->where('user_id', $userId)->first();
 
         if ($request->isMethod('POST')) {
-            $payload = (array)$request->input('RevSetting', []);
+            // admin_revsetting.blade.php uses flat field names (rev, transfer_rev, etc.)
             $save = [
-                'id' => isset($payload['id']) && $payload['id'] !== '' ? (int)$payload['id'] : ($revSetting->id ?? null),
-                'user_id' => $userId,
-                'rev' => isset($payload['rev']) ? (float)$payload['rev'] : 0,
-                'transfer_rev' => isset($payload['transfer_rev']) ? (int)$payload['transfer_rev'] : 0,
-                'transfer_insu' => isset($payload['transfer_insu']) ? (int)$payload['transfer_insu'] : 0,
-                'rental_rev' => isset($payload['rental_rev']) ? (float)$payload['rental_rev'] : 0,
-                'tax_included' => isset($payload['tax_included']) ? (int)$payload['tax_included'] : 0,
-                'dia_fee' => isset($payload['dia_fee']) ? (float)$payload['dia_fee'] : 0,
+                'user_id'      => $userId,
+                'rev'          => (float) $request->input('rev', 0),
+                'transfer_rev' => (int)   $request->input('transfer_rev', 0),
+                'transfer_insu'=> (int)   $request->input('transfer_insu', 0),
+                'rental_rev'   => (float) $request->input('rental_rev', 0),
+                'tax_included' => (int)   $request->input('tax_included', 0),
+                'dia_fee'      => (float) $request->input('dia_fee', 0),
             ];
 
             RevSetting::query()->updateOrCreate(
@@ -282,7 +324,7 @@ class UsersController extends LegacyAppController
         }
 
         return view('admin.users.revsetting', [
-            'user_id' => $userId,
+            'user_id'    => $userId,
             'revSetting' => $revSetting,
         ]);
     }
@@ -300,26 +342,25 @@ class UsersController extends LegacyAppController
         }
 
         if ($request->isMethod('POST')) {
-            $payload = (array)$request->input('User', []);
-            $contact = trim((string)($payload['contact_number'] ?? ''));
-            $oldUsername = (string)($payload['old_username'] ?? ($user->username ?? ''));
-            $username = substr(preg_replace('/[^0-9]/', '', $contact), -10);
+            // admin_change_phone.blade.php uses flat field names (contact_number, old_username)
+            $contact     = trim((string) $request->input('contact_number', ''));
+            $oldUsername = trim((string) $request->input('old_username', $user->username ?? ''));
+            $username    = substr(preg_replace('/[^0-9]/', '', $contact), -10);
 
             if ($username === '') {
-                return redirect('/admin/users/change_phone/' . base64_encode((string)$userId))
+                return redirect('/admin/users/change_phone/' . base64_encode((string) $userId))
                     ->with('error', 'Please enter a valid phone number.');
             }
 
             $save = [
-                'id' => $userId,
                 'contact_number' => $username,
-                'username' => $username,
+                'username'       => $username,
             ];
 
             if ($username !== $oldUsername) {
-                $save['is_verified'] = 0;
-                $save['status'] = 0;
-                $save['verify_token'] = (string)random_int(10000, 99999);
+                $save['is_verified']  = 0;
+                $save['status']       = 0;
+                $save['verify_token'] = (string) random_int(10000, 99999);
             }
 
             LegacyUser::query()->whereKey($userId)->update($save);
@@ -329,14 +370,14 @@ class UsersController extends LegacyAppController
 
         return view('admin.users.change_phone', [
             'listTitle' => 'Change Phone#',
-            'id' => $userId,
-            'user' => $user,
+            'id'        => $userId,
+            'user'      => $user,
         ]);
     }
 
     public function showargyldetails(Request $request)
     {
-        $encoded = (string)$request->input('userid', '');
+        $encoded = (string) $request->input('userid', '');
         $userId = $this->decodeId($encoded);
         $argyleUser = null;
         $records = collect();
@@ -345,21 +386,23 @@ class UsersController extends LegacyAppController
             $argyleUser = ArgyleUser::query()->where('user_id', $userId)->first();
             if ($argyleUser) {
                 $records = ArgyleUserRecord::query()
-                    ->where('argyle_user_id', (int)$argyleUser->id)
+                    ->where('argyle_user_id', (int) $argyleUser->id)
                     ->orderBy('account')
                     ->get(['account', 'account_id']);
             }
         }
 
+        // admin_showargyldetails uses $ArgyleUser array structure — pass both for compatibility
         return view('admin.users.showargyldetails', [
-            'argyleUser' => $argyleUser,
+            'argyleUser'    => $argyleUser,
             'argyleRecords' => $records,
+            'ArgyleUser'    => $argyleUser ? $argyleUser->toArray() : [],
         ]);
     }
 
     public function address_proof_popup(Request $request)
     {
-        $userId = $this->decodeId((string)$request->input('userid', ''));
+        $userId = $this->decodeId((string) $request->input('userid', ''));
         if (!$userId) {
             return response('Invalid user id', 400);
         }
@@ -369,13 +412,13 @@ class UsersController extends LegacyAppController
 
     public function saveaddressproof(Request $request): JsonResponse
     {
-        $userId = (int)$request->input('userid', 0);
+        $userId = (int) $request->input('userid', 0);
         $file = $request->file('proofimage');
         if ($userId <= 0 || !$file) {
             return response()->json(['error' => 'No files were uploaded.']);
         }
         if (!$file->isValid()) {
-            return response()->json(['error' => 'Upload Error #' . (int)$file->getError()]);
+            return response()->json(['error' => 'Upload Error #' . (int) $file->getError()]);
         }
         if ($file->getSize() === 0) {
             return response()->json(['error' => 'File is empty.']);
@@ -384,7 +427,7 @@ class UsersController extends LegacyAppController
             return response()->json(['error' => 'File is too large.', 'preventRetry' => true]);
         }
 
-        $ext = strtolower((string)$file->getClientOriginalExtension());
+        $ext = strtolower((string) $file->getClientOriginalExtension());
         if (!in_array($ext, ['jpeg', 'jpg', 'png'], true)) {
             return response()->json(['error' => 'File has an invalid extension, it should be one of jpeg, jpg, png.']);
         }
@@ -403,7 +446,7 @@ class UsersController extends LegacyAppController
         }
         $docs = [];
         if (!empty($user->address_doc)) {
-            $decoded = json_decode((string)$user->address_doc, true);
+            $decoded = json_decode((string) $user->address_doc, true);
             if (is_array($decoded)) {
                 $docs = $decoded;
             }
@@ -416,8 +459,8 @@ class UsersController extends LegacyAppController
 
     public function getDriverLicense(Request $request): JsonResponse
     {
-        $userId = $this->decodeId((string)$request->input('userid', ''));
-        $pick = (int)$request->input('pick', 1);
+        $userId = $this->decodeId((string) $request->input('userid', ''));
+        $pick = (int) $request->input('pick', 1);
         $return = ['status' => false, 'message' => 'Invalid User ID', 'result' => []];
 
         if (!$userId) {
@@ -433,7 +476,7 @@ class UsersController extends LegacyAppController
         }
 
         if ($pick === 1) {
-            $file = (string)($user->license_doc_1 ?? '');
+            $file = (string) ($user->license_doc_1 ?? '');
             if ($file !== '' && File::exists(public_path('files/userdocs/' . $file))) {
                 return response()->json([
                     'status' => true,
@@ -450,7 +493,7 @@ class UsersController extends LegacyAppController
         }
 
         if ($pick === 2) {
-            $file = (string)($user->license_doc_2 ?? '');
+            $file = (string) ($user->license_doc_2 ?? '');
             if ($file !== '' && File::exists(public_path('files/userdocs/' . $file))) {
                 return response()->json([
                     'status' => true,
@@ -478,7 +521,7 @@ class UsersController extends LegacyAppController
         $userId = $this->decodeId($id);
         if ($userId) {
             LegacyUser::query()->whereKey($userId)->update([
-                'is_dealer' => ((string)$status === '1') ? 1 : 2,
+                'is_dealer' => ((string) $status === '1') ? 1 : 2,
             ]);
         }
 
@@ -488,34 +531,39 @@ class UsersController extends LegacyAppController
 
     public function checkr_status(Request $request, $id = null)
     {
-        $redirect = $this->ensureAdminSession();
-        if ($redirect) {
-            return $redirect;
-        }
-
         $userId = $this->decodeId((string) $id);
         if (!$userId) {
             return redirect('/admin/users/index');
         }
 
-        $user = DB::table('users')
-            ->where('id', $userId)
-            ->first(['id', 'first_name', 'last_name', 'checkr_status', 'email']);
+        // Mirror CakePHP admin_checkr_status action logic
+        $userReport = DB::table('user_reports')->where('user_id', $userId)->first();
 
-        if (!$user) {
-            return redirect('/admin/users/index');
+        if (empty($userReport)) {
+            $CheckrStatus = $this->addCandidateToDriverBackgroundReport($userId);
+            if ($CheckrStatus['status']) {
+                session()->flash('success', "User is added to Checkr API for processing");
+            } else {
+                session()->flash('error', $CheckrStatus['message']);
+            }
+        } elseif (!empty($userReport->status) && !empty($userReport->checkr_reportid)) {
+            $report = $this->pullBackgroundReport($userId);
+            if ($report['status']) {
+                session()->flash('success', "User Report is Ready");
+            } else {
+                session()->flash('error', $report['message']);
+            }
+        } elseif (!empty($userReport) && (int)$userReport->status === 0) {
+            $CheckrReport = $this->createBackgroundReport($userId);
+            if ($CheckrReport['status']) {
+                session()->flash('success', "User Report is requested");
+            } else {
+                session()->flash('error', $CheckrReport['message']);
+            }
         }
 
-        $reports = DB::table('user_reports')
-            ->where('user_id', $userId)
-            ->orderByDesc('id')
-            ->get();
-
-        return view('admin.users.checkr_status', [
-            'user' => $user,
-            'reports' => $reports,
-            'basePath' => '/admin/users',
-        ]);
+        // Match CakePHP exactly: always redirect back after triggering/pulling report
+        return redirect()->back();
     }
 
     public function checkrreport(Request $request): JsonResponse

@@ -23,7 +23,7 @@
                         </div>
                         <div class="form-group">
                             <div class="col-lg-6">
-                                <button type="button" class="btn btn-primary pull-right" disabled>Charge (legacy JS)</button>
+                                <button type="button" class="btn btn-primary pull-right" onclick="walletChargePartialAmt()">Charge</button>
                             </div>
                         </div>
                     </fieldset>

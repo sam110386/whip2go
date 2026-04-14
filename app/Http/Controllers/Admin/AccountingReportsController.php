@@ -12,6 +12,19 @@ class AccountingReportsController extends LegacyAppController
 {
     protected int $recordsPerPage = 25;
 
+    private function decodeUserId(?string $b64): ?int
+    {
+        if ($b64 === null || $b64 === '') {
+            return null;
+        }
+        $raw = base64_decode($b64, true);
+        if ($raw === false || !ctype_digit((string)$raw)) {
+            return null;
+        }
+
+        return (int)$raw;
+    }
+
     private function getTimezone($userid): string
     {
         $tz = DB::table('users')->where('id', $userid)->value('timezone');
@@ -20,6 +33,17 @@ class AccountingReportsController extends LegacyAppController
 
     public function index(Request $request, $userid = null)
     {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+        $userid = $uid;
+        $useridB64 = base64_encode((string)$userid);
+
         $keyword = $rtype = $dateFrom = $dateTo = $type = '';
 
         $query = DB::table('reports as Report')
@@ -73,7 +97,7 @@ class AccountingReportsController extends LegacyAppController
         $reportlib = new Reportlib();
 
         return view('admin.accounting.index', compact(
-            'reportlists', 'keyword', 'rtype', 'dateFrom', 'dateTo', 'userid', 'type', 'timezone', 'reportlib'
+            'reportlists', 'keyword', 'rtype', 'dateFrom', 'dateTo', 'userid', 'type', 'timezone', 'reportlib', 'useridB64'
         ));
     }
 

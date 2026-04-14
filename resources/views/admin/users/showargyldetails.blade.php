@@ -2,21 +2,29 @@
     <button type="button" class="close" data-dismiss="modal">&times;</button>
 </div>
 <div class="modal-body">
-    <form action="" method="post" class="form-horizontal">
+    <form action="#" method="POST" class="form-horizontal">
+        @csrf
         <fieldset>
             <div class="form-group">
                 <label class="col-lg-4 control-label">Account</label>
-                <div class="col-lg-8 control-label">Account ID</div>
+                <div class="col-lg-8 control-label">Account ID</div>  
             </div>
-            @foreach ($argyleRecords as $record)
+            @if(isset($ArgyleUser['ArgyleUserRecord']) && is_array($ArgyleUser['ArgyleUserRecord']))
+                @foreach($ArgyleUser['ArgyleUserRecord'] as $record)
+                    <div class="form-group"> 
+                        <label class="col-lg-4 control-label">
+                            {{ ucfirst($record['account'] ?? 'Unknown') }}:
+                        </label>
+                        <div class="col-lg-8 control-label">
+                            {{ $record['account_id'] ?? '' }}
+                        </div>  
+                    </div>
+                @endforeach
+            @else
                 <div class="form-group">
-                    <label class="col-lg-4 control-label">{{ ucfirst((string)$record->account) }}:</label>
-                    <div class="col-lg-8 control-label">{{ $record->account_id }}</div>
-                </div>
-            @endforeach
-            @if ($argyleRecords->isEmpty())
-                <div class="form-group">
-                    <div class="col-lg-12 control-label">No Argyle records found.</div>
+                    <div class="col-lg-12">
+                        <p>No Argyle records found or Argyle Plugin is pending integration.</p>
+                    </div>
                 </div>
             @endif
         </fieldset>
