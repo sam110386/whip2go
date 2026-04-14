@@ -17,7 +17,7 @@ class RolesController extends LegacyAppController
 
     // CakePHP: app/Controller/RolesController.php::admin_index()
     // URL: /admin/roles/index
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $keyword = trim((string)($request->query('keyword') ?? ''));
 
@@ -52,7 +52,7 @@ class RolesController extends LegacyAppController
     // URL:
     // - /admin/roles/add
     // - /admin/roles/admin_add/{id}
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         $isEditing = !empty($id);
         $roleId = null;
@@ -176,7 +176,7 @@ class RolesController extends LegacyAppController
     }
 
     // CakePHP: app/Controller/RolesController.php::admin_delete($id=null)
-    public function admin_delete(Request $request, $id = null)
+    public function delete(Request $request, $id = null)
     {
         if (empty($id) || !is_numeric($id)) {
             return redirect('/admin/roles/index');
@@ -193,7 +193,7 @@ class RolesController extends LegacyAppController
 
     // CakePHP: app/Controller/RolesController.php::admin_getsubrole()
     // URL: /admin/roles/getsubrole (jQuery posts roleid + userid)
-    public function admin_getsubrole(Request $request)
+    public function getsubrole(Request $request)
     {
         $role_d = $request->input('roleid');
         $user_d = $request->input('userid');

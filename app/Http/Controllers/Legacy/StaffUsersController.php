@@ -42,12 +42,6 @@ class StaffUsersController extends LegacyAppController
 
         return 50;
     }
-
-    private function decodeId(?string $b64): ?int
-    {
-        if ($b64 === null || $b64 === '') {
-            return null;
-        }
         $raw = base64_decode($b64, true);
         if ($raw === false || !ctype_digit((string)$raw)) {
             return null;

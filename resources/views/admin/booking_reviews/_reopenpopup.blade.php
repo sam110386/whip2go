@@ -6,7 +6,7 @@
         <p><label><input type="checkbox" name="BookingReview[refund_py]" value="1"> Refund dealer-paid insurance (not executed in Laravel)</label></p>
         <p><button type="button" onclick="
             var fd = new FormData(document.getElementById('frmReopen'));
-            fetch('{{ $basePath ?? '/admin/booking_reviews' }}/admin_reopenbooking', {method:'POST', body: fd}).then(r=>r.json()).then(function(d){ alert(d.message||''); if(d.status) location.reload(); });
+            fetch('{{ $basePath ?? '/admin/booking_reviews' }}/reopenbooking', {method:'POST', body: fd}).then(r=>r.json()).then(function(d){ alert(d.message||''); if(d.status) location.reload(); });
         ">Submit</button></p>
     </form>
 </div>

@@ -1,0 +1,182 @@
+<?php
+
+namespace App\Services\Legacy;
+
+/**
+ * Ported from CakePHP app/Controller/Component/StaticformatComponent.php
+ *
+ * Returns static array shapes for API responses (vehicle search, lease details).
+ */
+class StaticFormat
+{
+    public function getSearchVehicleFormat(): array
+    {
+        return [
+            'distance' => 0,
+            'id' => '',
+            'vehicle_id' => '',
+            'pickup_address' => '',
+            'lat' => '',
+            'lng' => '',
+            'rate' => '',
+            'cal_fare' => '',
+            'fare_des' => '',
+            'details' => '',
+            'min_hour' => '',
+            'min_rental_period' => 48,
+            'max_rental_period' => 720,
+            'vehicle_name' => '',
+            'cab_type' => '',
+            'make' => '',
+            'model' => '',
+            'color' => '',
+            'plate_number' => '',
+            'year' => '',
+            'transmition_type' => 'A',
+            'allowed_miles' => 0,
+            'insurance_included_fee' => 0,
+            'maintenance_included_fee' => 1,
+            'sharing_allowed' => 0,
+            'image' => '',
+            'vin_no' => '',
+            'interior_color' => '',
+            'trim' => '',
+            'mileage' => 0,
+            'owner_id' => '',
+            'share' => 1,
+            'engine' => '',
+            'mpg_city' => 0,
+            'mpg_hwy' => 0,
+            'doors' => 4,
+            'equipment' => '',
+            'odometer' => 0,
+            'stock_no' => '',
+        ];
+    }
+
+    public function getLeaseDetailFormat(): array
+    {
+        return [
+            'id' => '',
+            'vehicle_id' => '',
+            'start_date' => '',
+            'end_date' => '',
+            'details' => '',
+            'rate' => '0.00',
+            'fare_des' => '',
+            'vehicle_name' => '',
+            'cab_type' => '',
+            'make' => '',
+            'model' => '',
+            'color' => '',
+            'plate_number' => '',
+            'year' => '',
+            'transmition_type' => 'A',
+            'min_rental_period' => 48,
+            'max_rental_period' => 720,
+            'dealer' => '',
+            'owner_business_name' => '',
+            'min_rent' => 0,
+            'allowed_miles' => 0,
+            'insurance_included_fee' => 0,
+            'maintenance_included_fee' => 1,
+            'sharing_allowed' => 0,
+            'images' => [],
+            'vin_no' => '',
+            'interior_color' => '',
+            'trim' => '',
+            'mileage' => 0,
+            'owner_id' => '',
+            'share' => 1,
+            'discount_info' => [],
+            'rental_options' => [],
+            'initial_fee_options' => [],
+            'convert_to_ownership' => '',
+            'estimate_rate_after' => '',
+            'vehicle_cost' => 0,
+        ];
+    }
+
+    public function getNewSearchVehicleFormat(): array
+    {
+        return [
+            'id' => '',
+            'vehicle_id' => '',
+            'details' => '',
+            'min_hour' => '',
+            'min_rental_period' => 48,
+            'max_rental_period' => 720,
+            'vehicle_name' => '',
+            'cab_type' => '',
+            'make' => '',
+            'model' => '',
+            'color' => '',
+            'plate_number' => '',
+            'year' => '',
+            'transmition_type' => 'A',
+            'sharing_allowed' => 0,
+            'image' => '',
+            'vin_no' => '',
+            'msrp' => 0,
+            'interior_color' => '',
+            'trim' => '',
+            'mileage' => 0,
+            'owner_id' => '',
+            'share' => 1,
+            'engine' => '',
+            'mpg_city' => 0,
+            'mpg_hwy' => 0,
+            'doors' => 4,
+            'equipment' => '',
+            'odometer' => 0,
+            'stock_no' => '',
+        ];
+    }
+
+    public function getNewLeaseDetailFormat(): array
+    {
+        return [
+            'id' => '',
+            'vehicle_id' => '',
+            'pickup_address' => '',
+            'lat' => '',
+            'lng' => '',
+            'start_date' => '',
+            'end_date' => '',
+            'details' => '',
+            'vehicle_name' => '',
+            'cab_type' => '',
+            'make' => '',
+            'model' => '',
+            'color' => '',
+            'plate_number' => '',
+            'year' => '',
+            'transmition_type' => 'A',
+            'min_rental_period' => 48,
+            'max_rental_period' => 720,
+            'dealer' => '',
+            'owner_business_name' => '',
+            'allowed_miles' => 0,
+            'insurance_included_fee' => 0,
+            'maintenance_included_fee' => 1,
+            'sharing_allowed' => 0,
+            'images' => [],
+            'vin_no' => '',
+            'interior_color' => '',
+            'trim' => '',
+            'mileage' => 0,
+            'owner_id' => '',
+            'share' => 1,
+            'discount_info' => [],
+            'engine' => '',
+            'mpg_city' => '',
+            'mpg_hwy' => '',
+            'doors' => '',
+            'equipment' => '',
+            'cash_value' => '',
+            'auction_average' => '',
+            'dealer_retail_average' => '',
+            'driveitaway_value' => '',
+        ];
+    }
+}

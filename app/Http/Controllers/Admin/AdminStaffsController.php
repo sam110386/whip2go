@@ -23,7 +23,7 @@ class AdminStaffsController extends LegacyAppController
         return '/admin/admin_staffs';
     }
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -87,7 +87,7 @@ class AdminStaffsController extends LegacyAppController
         ]);
     }
 
-    public function admin_multiplAction(Request $request)
+    public function multiplAction(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -128,7 +128,7 @@ class AdminStaffsController extends LegacyAppController
         return redirect($this->staffBasePath() . '/index');
     }
 
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -166,8 +166,8 @@ class AdminStaffsController extends LegacyAppController
                 'roles' => $roles,
                 'basePath' => $this->staffBasePath(),
                 'formAction' => $user
-                    ? $this->staffBasePath() . '/admin_add/' . base64_encode((string)$user->id)
-                    : $this->staffBasePath() . '/admin_add',
+                    ? $this->staffBasePath() . '/add/' . base64_encode((string)$user->id)
+                    : $this->staffBasePath() . '/add',
             ]);
         }
 
@@ -177,12 +177,12 @@ class AdminStaffsController extends LegacyAppController
             'roles' => $roles,
             'basePath' => $this->staffBasePath(),
             'formAction' => $user
-                ? $this->staffBasePath() . '/admin_add/' . base64_encode((string)$user->id)
-                : $this->staffBasePath() . '/admin_add',
+                ? $this->staffBasePath() . '/add/' . base64_encode((string)$user->id)
+                : $this->staffBasePath() . '/add',
         ]);
     }
 
-    public function admin_status(Request $request, $id = null, $status = null)
+    public function status(Request $request, $id = null, $status = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -205,7 +205,7 @@ class AdminStaffsController extends LegacyAppController
         return redirect($this->staffBasePath() . '/index')->with('success', 'Status updated.');
     }
 
-    public function admin_delete(Request $request, $id = null)
+    public function delete(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;

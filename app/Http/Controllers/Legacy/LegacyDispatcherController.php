@@ -153,6 +153,12 @@ class LegacyDispatcherController extends BaseController
             return $action;
         }
 
+        // Cake-style underscored URLs (e.g. `sync_my_vehicle` -> `syncMyVehicle`).
+        $camelAction = Str::camel($action);
+        if ($camelAction !== $action && method_exists($instance, $camelAction)) {
+            return $camelAction;
+        }
+
         if ($prefix) {
             $prefixed = $prefix . '_' . $action;
             if (method_exists($instance, $prefixed)) {

@@ -20,7 +20,7 @@ class SettingsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request, $userId)
+    public function index(Request $request, $userId)
     {
         $decodedUserId = $this->decodeId($userId);
         if (!$decodedUserId) {
@@ -113,7 +113,7 @@ class SettingsController extends LegacyAppController
         ]);
     }
 
-    public function admin_syncVehicleAllowedMiles(Request $request): JsonResponse
+    public function syncVehicleAllowedMiles(Request $request): JsonResponse
     {
         $userId = (int)$request->input('userid');
         $allowedMiles = (float)$request->input('allowed_miles', 0);
@@ -122,7 +122,7 @@ class SettingsController extends LegacyAppController
         return response()->json(['status' => 1, 'message' => 'Vehicle updated successfully']);
     }
 
-    public function admin_syncVehicleProgram(Request $request): JsonResponse
+    public function syncVehicleProgram(Request $request): JsonResponse
     {
         $userId = (int)$request->input('userid');
         $program = (string)$request->input('program', '');
@@ -131,7 +131,7 @@ class SettingsController extends LegacyAppController
         return response()->json(['status' => 1, 'message' => 'Vehicle updated successfully']);
     }
 
-    public function admin_syncVehicleFinancing(Request $request): JsonResponse
+    public function syncVehicleFinancing(Request $request): JsonResponse
     {
         $userId = (int)$request->input('userid');
         $finance = (string)$request->input('finance', '');
@@ -140,7 +140,7 @@ class SettingsController extends LegacyAppController
         return response()->json(['status' => 1, 'message' => 'Vehicle updated successfully']);
     }
 
-    public function admin_syncVehicleAddress(Request $request): JsonResponse
+    public function syncVehicleAddress(Request $request): JsonResponse
     {
         $userId = (int)$request->input('CsSetting.user_id');
         $multiLocation = (int)$request->input('CsSetting.multi_location', 0);
@@ -210,7 +210,7 @@ class SettingsController extends LegacyAppController
         }
     }
 
-    public function admin_syncVehicleDefaultAddress(Request $request): JsonResponse
+    public function syncVehicleDefaultAddress(Request $request): JsonResponse
     {
         $userId = (int)$request->input('CsSetting.user_id');
         $address = (string)$request->input('CsSetting.address', '');
@@ -225,7 +225,7 @@ class SettingsController extends LegacyAppController
         return response()->json(['status' => 1, 'message' => 'Vehicle updated successfully']);
     }
 
-    public function admin_validateGeotab(Request $request): JsonResponse
+    public function validateGeotab(Request $request): JsonResponse
     {
         $server = (string)$request->input('server', '');
         $username = (string)$request->input('username', '');
@@ -241,7 +241,7 @@ class SettingsController extends LegacyAppController
         return response()->json($out);
     }
 
-    public function admin_validateOneStepGPSKey(Request $request): JsonResponse
+    public function validateOneStepGPSKey(Request $request): JsonResponse
     {
         $key = (string)$request->input('key', '');
         $out = (new OnestepGpsClient())->authenticate($key);
@@ -249,7 +249,7 @@ class SettingsController extends LegacyAppController
         return response()->json($out);
     }
 
-    public function admin_syncDeviceWithGeotab(Request $request): JsonResponse
+    public function syncDeviceWithGeotab(Request $request): JsonResponse
     {
         $server = (string)$request->input('server', '');
         $username = (string)$request->input('username', '');
@@ -306,7 +306,7 @@ class SettingsController extends LegacyAppController
         return response()->json(['status' => true, 'result' => $devices]);
     }
 
-    public function admin_syncVehicleWithOnestep(Request $request): JsonResponse
+    public function syncVehicleWithOnestep(Request $request): JsonResponse
     {
         $apikey = (string)$request->input('apikey', '');
         $userId = (int)$request->input('userid', 0);
@@ -359,7 +359,7 @@ class SettingsController extends LegacyAppController
         return response()->json(['status' => true, 'result' => $rows]);
     }
 
-    public function admin_pullDevicesFromAutoPi(Request $request): JsonResponse
+    public function pullDevicesFromAutoPi(Request $request): JsonResponse
     {
         $autopiToken = (string)$request->input('autopi_token', '');
         $type = (string)$request->input('type', '');
@@ -408,20 +408,5 @@ class SettingsController extends LegacyAppController
         }
 
         return response()->json(['status' => true, 'result' => $raw['result']]);
-    }
-
-    private function decodeId($id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if (is_string($id) && $id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 }

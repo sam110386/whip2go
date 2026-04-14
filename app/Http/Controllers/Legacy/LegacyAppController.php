@@ -142,5 +142,25 @@ class LegacyAppController extends Controller
             ViewFacade::share('adminUser', $this->getAdminUserid());
         }
     }
+
+    protected function decodeId($id): ?int
+    {
+        if (is_numeric($id)) {
+            return (int)$id;
+        }
+        if (is_string($id) && $id !== '') {
+            $decoded = base64_decode($id, true);
+            if ($decoded !== false && is_numeric($decoded)) {
+                return (int)$decoded;
+            }
+        }
+
+        return null;
+    }
+
+    protected function encodeId(?int $id): string
+    {
+        return base64_encode((string)((int)$id));
+    }
 }
 

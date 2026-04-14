@@ -13,7 +13,7 @@
 
     @php $isEditing = !empty($role) && !empty($role->id); @endphp
 
-    <form method="POST" action="{{ $isEditing ? ('/admin/roles/admin_add/' . $role->id) : '/admin/roles/add' }}" style="display:flex; flex-direction:column; gap:12px; max-width: 720px;">
+    <form method="POST" action="{{ $isEditing ? ('/admin/roles/add/' . $role->id) : '/admin/roles/add' }}" style="display:flex; flex-direction:column; gap:12px; max-width: 720px;">
         @csrf
 
         @if($isEditing)

@@ -11,7 +11,7 @@
         </div>
     @endif
 
-    <form method="POST" action="/admin/admins/admin_profile" style="display:flex; flex-direction:column; gap:12px; max-width: 520px;">
+    <form method="POST" action="/admin/admins/profile" style="display:flex; flex-direction:column; gap:12px; max-width: 520px;">
         @csrf
 
         <input type="hidden" name="User[id]" value="{{ $user->id ?? '' }}">

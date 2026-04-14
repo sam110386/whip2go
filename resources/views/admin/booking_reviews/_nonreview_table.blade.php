@@ -22,9 +22,9 @@
                 <td style="text-align:center;">{{ (float)$o->rent + (float)$o->tax }}</td>
                 <td style="text-align:center;">{{ $o->deposit }}</td>
                 <td style="text-align:center;">
-                    <a href="{{ $basePath }}/admin_initial/{{ base64_encode((string)$o->id) }}">Initial</a>
+                    <a href="{{ $basePath }}/initial/{{ base64_encode((string)$o->id) }}">Initial</a>
                     ·
-                    <a href="{{ $basePath }}/admin_finalreview/{{ base64_encode((string)$o->id) }}">Final</a>
+                    <a href="{{ $basePath }}/finalreview/{{ base64_encode((string)$o->id) }}">Final</a>
                 </td>
             </tr>
         @empty

@@ -8,164 +8,164 @@ use Illuminate\Http\Request;
 
 class VehicleReservationsController extends AdminVehicleReservationsController
 {
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
-        return $this->scopedResponse($request, 'admin_index');
+        return $this->scopedResponse($request, 'index');
     }
 
-    public function cloud_all(Request $request)
+    public function all(Request $request)
     {
-        return $this->scopedResponse($request, 'admin_all');
+        return $this->scopedResponse($request, 'all');
     }
 
-    public function cloud_singleload(Request $request)
+    public function singleload(Request $request)
     {
-        return $this->admin_singleload($request);
+        return parent::singleload($request);
     }
 
-    public function cloud_changeSaveStatus(Request $request)
+    public function changeSaveStatus(Request $request)
     {
-        return $this->admin_changeSaveStatus($request);
+        return parent::changeSaveStatus($request);
     }
 
-    public function cloud_markBookingCancel(Request $request)
+    public function markBookingCancel(Request $request)
     {
-        return $this->admin_markBookingCancel($request);
+        return parent::markBookingCancel($request);
     }
 
-    public function cloud_markBookingCompleted(Request $request)
+    public function markBookingCompleted(Request $request)
     {
-        return $this->admin_markBookingCompleted($request);
+        return parent::markBookingCompleted($request);
     }
 
-    public function cloud_getuserdetails(Request $request)
+    public function getuserdetails(Request $request)
     {
-        return $this->admin_getuserdetails($request);
+        return parent::getuserdetails($request);
     }
 
-    public function cloud_updatelist(Request $request)
+    public function updatelist(Request $request)
     {
-        return $this->scopedResponse($request, 'admin_updatelist');
+        return $this->scopedResponse($request, 'updatelist');
     }
 
-    public function cloud_updatemvr(Request $request)
+    public function updatemvr(Request $request)
     {
-        return $this->admin_updatemvr($request);
+        return parent::updatemvr($request);
     }
 
-    public function cloud_createBooking(Request $request)
+    public function createBooking(Request $request)
     {
-        return $this->admin_createBooking($request);
+        return parent::createBooking($request);
     }
 
-    public function cloud_saveVehicleBooking(Request $request)
+    public function saveVehicleBooking(Request $request)
     {
-        return $this->admin_saveVehicleBooking($request);
+        return parent::saveVehicleBooking($request);
     }
 
-    public function cloud_changeVehicle(Request $request)
+    public function changeVehicle(Request $request)
     {
-        return $this->admin_changeVehicle($request);
+        return parent::changeVehicle($request);
     }
 
-    public function cloud_updateReservationVehicle(Request $request)
+    public function updateReservationVehicle(Request $request)
     {
-        return $this->admin_updateReservationVehicle($request);
+        return parent::updateReservationVehicle($request);
     }
 
-    public function cloud_changeDatetime(Request $request)
+    public function changeDatetime(Request $request)
     {
-        return $this->admin_changeDatetime($request);
+        return parent::changeDatetime($request);
     }
 
-    public function cloud_updateDatetime(Request $request)
+    public function updateDatetime(Request $request)
     {
-        return $this->admin_updateDatetime($request);
+        return parent::updateDatetime($request);
     }
 
-    public function cloud_changeStatus(Request $request)
+    public function changeStatus(Request $request)
     {
-        return $this->admin_changeStatus($request);
+        return parent::changeStatus($request);
     }
 
-    public function cloud_loadstatuschecklist(Request $request)
+    public function loadstatuschecklist(Request $request)
     {
-        return $this->admin_loadstatuschecklist($request);
+        return parent::loadstatuschecklist($request);
     }
 
-    public function cloud_updatechecklist(Request $request)
+    public function updatechecklist(Request $request)
     {
-        return $this->admin_updatechecklist($request);
+        return parent::updatechecklist($request);
     }
 
-    public function cloud_vehicleReservationLog(Request $request)
+    public function vehicleReservationLog(Request $request)
     {
-        return $this->admin_vehicleReservationLog($request);
+        return parent::vehicleReservationLog($request);
     }
 
-    public function cloud_getfarecalculations(Request $request)
+    public function getfarecalculations(Request $request)
     {
-        return $this->admin_getfarecalculations($request);
+        return parent::getfarecalculations($request);
     }
 
-    public function cloud_loadcancelblock(Request $request)
+    public function loadcancelblock(Request $request)
     {
-        return $this->admin_loadcancelblock($request);
+        return parent::loadcancelblock($request);
     }
 
-    public function cloud_loadinsurancepopup(Request $request)
+    public function loadinsurancepopup(Request $request)
     {
-        return $this->admin_loadinsurancepopup($request);
+        return parent::loadinsurancepopup($request);
     }
 
-    public function cloud_changeinsurancepopup(Request $request)
+    public function changeinsurancepopup(Request $request)
     {
-        return $this->admin_changeinsurancepopup($request);
+        return parent::changeinsurancepopup($request);
     }
 
-    public function cloud_changeinsurancesave(Request $request)
+    public function changeinsurancesave(Request $request)
     {
-        return $this->admin_changeinsurancesave($request);
+        return parent::changeinsurancesave($request);
     }
 
-    public function cloud_changeinsurancetypepopup(Request $request)
+    public function changeinsurancetypepopup(Request $request)
     {
-        return $this->admin_changeinsurancetypepopup($request);
+        return parent::changeinsurancetypepopup($request);
     }
 
-    public function cloud_saveinsurancepayer(Request $request)
+    public function saveinsurancepayer(Request $request)
     {
-        return $this->admin_saveinsurancepayer($request);
+        return parent::saveinsurancepayer($request);
     }
 
-    public function cloud_generateAgrement(Request $request)
+    public function generateAgrement(Request $request)
     {
-        return $this->admin_generateAgrement($request);
+        return parent::generateAgrement($request);
     }
 
-    public function cloud_capturepayment(Request $request)
+    public function capturepayment(Request $request)
     {
-        return $this->admin_capturepayment($request);
+        return parent::capturepayment($request);
     }
 
-    public function cloud_processcapturepayment(Request $request)
+    public function processcapturepayment(Request $request)
     {
-        return $this->admin_processcapturepayment($request);
+        return parent::processcapturepayment($request);
     }
 
-    public function cloud_paymentcapturevehiclereservation(Request $request)
+    public function paymentcapturevehiclereservation(Request $request)
     {
-        return $this->admin_paymentcapturevehiclereservation($request);
+        return parent::paymentcapturevehiclereservation($request);
     }
 
-    public function cloud_recapturevehiclereservation(Request $request)
+    public function recapturevehiclereservation(Request $request)
     {
-        return $this->admin_recapturevehiclereservation($request);
+        return parent::recapturevehiclereservation($request);
     }
 
-    public function cloud_renderlog($filename)
+    public function renderlog($filename)
     {
-        return $this->admin_renderlog($filename);
+        return parent::renderlog($filename);
     }
 
     protected function reservationQuery(?array $statuses = null)
