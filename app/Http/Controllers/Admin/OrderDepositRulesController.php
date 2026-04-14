@@ -31,7 +31,7 @@ class OrderDepositRulesController extends LegacyAppController
         ];
     }
 
-    public function admin_update(Request $request, $id = null)
+    public function update(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -45,7 +45,7 @@ class OrderDepositRulesController extends LegacyAppController
         return $this->runDepositRuleUpdate(
             $request,
             $id,
-            '/admin/order_deposit_rules/admin_update/',
+            '/admin/order_deposit_rules/update/',
             '/admin/bookings/index'
         );
     }

@@ -14,7 +14,7 @@ class LinkedUsersController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -57,10 +57,10 @@ class LinkedUsersController extends LegacyAppController
 
         $users = $q->paginate($limit)->withQueryString();
 
-        return view('admin.linked_users.index', compact('users', 'keyword', 'searchin', 'type', 'limit'));
+        return view('cloud.linked_users.index', compact('users', 'keyword', 'searchin', 'type', 'limit'));
     }
 
-    public function cloud_view(Request $request)
+    public function view(Request $request)
     {
         $id = $this->decodeId((string)$request->input('userid', ''));
         if (!$id) {
@@ -77,10 +77,10 @@ class LinkedUsersController extends LegacyAppController
         }
         $user = DB::table('users')->where('id', $id)->first();
 
-        return response()->view('admin.linked_users.view_modal', compact('user', 'assoc'));
+        return response()->view('cloud.linked_users.view_modal', compact('user', 'assoc'));
     }
 
-    public function cloud_edit(Request $request, $id = null)
+    public function edit(Request $request, $id = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -115,10 +115,10 @@ class LinkedUsersController extends LegacyAppController
             return redirect('/cloud/linked_users/index')->with('success', 'User saved successfully');
         }
 
-        return view('admin.linked_users.edit', ['user' => $user]);
+        return view('cloud.linked_users.edit', ['user' => $user]);
     }
 
-    public function cloud_ccindex($userid)
+    public function ccindex($userid)
     {
         $userId = $this->decodeId((string)$userid);
         if (!$userId) {
@@ -126,10 +126,10 @@ class LinkedUsersController extends LegacyAppController
         }
         $cards = UserCcToken::query()->where('user_id', $userId)->orderByDesc('id')->get();
 
-        return view('admin.linked_users.ccindex', ['cards' => $cards, 'userId' => $userId]);
+        return view('cloud.linked_users.ccindex', ['cards' => $cards, 'userId' => $userId]);
     }
 
-    public function cloud_ccdelete($id = null, $userid = null)
+    public function ccdelete($id = null, $userid = null)
     {
         $cardId = $this->decodeId((string)$id);
         $userId = $this->decodeId((string)$userid);
@@ -140,7 +140,7 @@ class LinkedUsersController extends LegacyAppController
         return redirect('/cloud/linked_users/ccindex/' . base64_encode((string)$userId))->with('success', 'Card deleted');
     }
 
-    public function cloud_makeccdefault($ccid, $userid)
+    public function makeccdefault($ccid, $userid)
     {
         $cardId = $this->decodeId((string)$ccid);
         $userId = $this->decodeId((string)$userid);
@@ -152,7 +152,7 @@ class LinkedUsersController extends LegacyAppController
         return redirect('/cloud/linked_users/ccindex/' . base64_encode((string)$userId))->with('success', 'Default card updated');
     }
 
-    public function cloud_ccadd(Request $request, $userid = null)
+    public function ccadd(Request $request, $userid = null)
     {
         $userId = $this->decodeId((string)$userid);
         if (!$userId) {
@@ -172,15 +172,15 @@ class LinkedUsersController extends LegacyAppController
             return redirect('/cloud/linked_users/ccindex/' . base64_encode((string)$userId))->with('success', 'Card added');
         }
 
-        return view('admin.linked_users.ccadd', ['userId' => $userId]);
+        return view('cloud.linked_users.ccadd', ['userId' => $userId]);
     }
 
-    public function cloud_customer(Request $request)
+    public function customer(Request $request)
     {
-        return $this->cloud_index($request);
+        return $this->index($request);
     }
 
-    public function cloud_updatetargetscore(Request $request): JsonResponse
+    public function updatetargetscore(Request $request): JsonResponse
     {
         $userId = (int)$request->input('pk', 0);
         $score = (float)$request->input('value', 0);
@@ -197,7 +197,7 @@ class LinkedUsersController extends LegacyAppController
         return response()->json(['status' => 'success', 'message' => 'Record updated successfully']);
     }
 
-    public function cloud_dynamicfares($userId)
+    public function dynamicfares($userId)
     {
         $id = $this->decodeId((string)$userId);
         if (!$id) {
@@ -205,7 +205,7 @@ class LinkedUsersController extends LegacyAppController
         }
         $fares = DB::table('dynamic_fares')->where('user_id', $id)->orderByDesc('id')->get();
 
-        return view('admin.linked_users.dynamicfares', ['rows' => $fares, 'userId' => $id]);
+        return view('cloud.linked_users.dynamicfares', ['rows' => $fares, 'userId' => $id]);
     }
 
     private function filterUserPayload(array $payload): array
@@ -248,19 +248,5 @@ class LinkedUsersController extends LegacyAppController
         return $limit > 0 ? $limit : 50;
     }
 
-    private function decodeId(string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if ($id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
-    }
 }
 

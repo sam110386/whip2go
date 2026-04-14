@@ -11,7 +11,7 @@ class PayoutsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    /** @see app/Lib/Common.php getPayoutTypeValue(1) */
+    /** @see \App\Services\Legacy\Common::getPayoutTypeValue() */
     private static function payoutTypeLabels(): array
     {
         return [
@@ -42,7 +42,7 @@ class PayoutsController extends LegacyAppController
     /**
      * Cake PayoutsController::admin_index
      */
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($request->isMethod('POST') && (string)$request->input('search') === 'EXPORT') {
             return redirect()->back()->with('error', 'CSV export is not ported yet; use Cake admin or add export here.');
@@ -138,7 +138,7 @@ class PayoutsController extends LegacyAppController
     /**
      * Cake PayoutsController::admin_transactions (POST payoutid)
      */
-    public function admin_transactions(Request $request)
+    public function transactions(Request $request)
     {
         $payoutId = (int)$request->input('payoutid');
         if ($payoutId <= 0) {

@@ -13,59 +13,59 @@ class VehicleOffersController extends AdminVehicleOffersController
         return '/cloud/vehicle_offers';
     }
 
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
-        return $this->admin_index($request);
+        return parent::index($request);
     }
 
-    public function cloud_add(Request $request, $offer_id = null)
+    public function add(Request $request, $offer_id = null)
     {
-        return $this->admin_add($request, $offer_id);
+        return parent::add($request, $offer_id);
     }
 
-    public function cloud_userautocomplete(Request $request)
+    public function userautocomplete(Request $request)
     {
-        return $this->admin_userautocomplete($request);
+        return parent::userautocomplete($request);
     }
 
-    public function cloud_vehicleautocomplete(Request $request)
+    public function vehicleautocomplete(Request $request)
     {
-        return $this->admin_vehicleautocomplete($request);
+        return parent::vehicleautocomplete($request);
     }
 
-    public function cloud_cancel($id = null)
+    public function cancel($id = null)
     {
-        return $this->admin_cancel($id);
+        return parent::cancel($id);
     }
 
-    public function cloud_delete($id = null)
+    public function delete($id = null)
     {
-        return $this->admin_delete($id);
+        return parent::delete($id);
     }
 
-    public function cloud_view($offer_id = null)
+    public function view($offer_id = null)
     {
-        return $this->admin_view($offer_id);
+        return parent::view($offer_id);
     }
 
-    public function cloud_qualify(Request $request)
+    public function qualify(Request $request)
     {
-        return $this->admin_qualify($request);
+        return parent::qualify($request);
     }
 
-    public function cloud_qualifyIncome(Request $request)
+    public function qualifyIncome(Request $request)
     {
-        return $this->admin_qualifyIncome($request);
+        return parent::qualifyIncome($request);
     }
 
-    public function cloud_getVehicleDynamicFareMatrix(Request $request)
+    public function getVehicleDynamicFareMatrix(Request $request)
     {
-        return $this->admin_getVehicleDynamicFareMatrix($request);
+        return parent::getVehicleDynamicFareMatrix($request);
     }
 
-    public function cloud_duplicate($offerid)
+    public function duplicate($offerid)
     {
-        return $this->admin_duplicate($offerid);
+        return parent::duplicate($offerid);
     }
 
     protected function offerQuery()

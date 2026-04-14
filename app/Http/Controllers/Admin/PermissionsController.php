@@ -10,7 +10,7 @@ class PermissionsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $keyword = trim((string)($request->query('keyword') ?? ''));
 
@@ -31,7 +31,7 @@ class PermissionsController extends LegacyAppController
         ]);
     }
 
-    public function admin_delete(Request $request, $id = null)
+    public function delete(Request $request, $id = null)
     {
         if (empty($id) || !is_numeric($id)) {
             return redirect('/admin/permissions/index');
@@ -42,7 +42,7 @@ class PermissionsController extends LegacyAppController
         return redirect('/admin/permissions/index');
     }
 
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         $isEditing = !empty($id) && is_numeric($id);
         $permission = $isEditing ? LegacyAdminPermission::query()->find((int)$id) : null;

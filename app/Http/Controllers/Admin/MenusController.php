@@ -10,7 +10,7 @@ class MenusController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $menu = $this->getThreadedMenu();
         $menus = AdminModule::query()
@@ -26,13 +26,13 @@ class MenusController extends LegacyAppController
         ]);
     }
 
-    public function admin_reload(Request $request)
+    public function reload(Request $request)
     {
         $menu = $this->getThreadedMenu();
         return view('admin.menus._menu_tree', ['nodes' => $menu]);
     }
 
-    public function admin_edit(Request $request, $id)
+    public function edit(Request $request, $id)
     {
         $decodedId = $this->decodeId($id);
         if (!$decodedId) {
@@ -56,7 +56,7 @@ class MenusController extends LegacyAppController
         ]);
     }
 
-    public function admin_delete(Request $request, $id)
+    public function delete(Request $request, $id)
     {
         $decodedId = $this->decodeId($id);
         if ($decodedId) {
@@ -66,7 +66,7 @@ class MenusController extends LegacyAppController
         return response()->noContent();
     }
 
-    public function admin_updateOrder(Request $request)
+    public function updateOrder(Request $request)
     {
         $return = ['status' => true];
 
@@ -83,7 +83,7 @@ class MenusController extends LegacyAppController
         return response()->json($return);
     }
 
-    public function admin_saveNewMenu(Request $request)
+    public function saveNewMenu(Request $request)
     {
         $return = ['status' => false, 'message' => 'Sorry, something went wrong.'];
 
@@ -191,22 +191,6 @@ class MenusController extends LegacyAppController
         }
 
         return $nodes;
-    }
-
-    private function decodeId($id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-
-        if (is_string($id) && $id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 }
 

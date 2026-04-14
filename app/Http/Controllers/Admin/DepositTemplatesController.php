@@ -14,7 +14,7 @@ class DepositTemplatesController extends LegacyAppController
     /**
      * Cake DepositTemplatesController::admin_updateFareType (subset: settings sync buttons).
      */
-    public function admin_updateFareType(Request $request): JsonResponse
+    public function updateFareType(Request $request): JsonResponse
     {
         $userId = (int)$request->input('user_id');
         $field = (string)$request->input('field');

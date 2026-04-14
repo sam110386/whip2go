@@ -6,7 +6,7 @@
     <h1>Manage Admin Users</h1>
 
     <div style="margin: 10px 0;">
-        <a href="/admin/admins/admin_add">Add New User</a>
+        <a href="/admin/admins/add">Add New User</a>
     </div>
 
     <form method="GET" action="/admin/admins/index" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">

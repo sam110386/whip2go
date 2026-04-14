@@ -12,7 +12,7 @@ class VehicleOffersController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $limit = $this->resolveLimit($request);
         $offers = $this->offerQuery()
@@ -27,7 +27,7 @@ class VehicleOffersController extends LegacyAppController
         ]);
     }
 
-    public function admin_add(Request $request, $offer_id = null)
+    public function add(Request $request, $offer_id = null)
     {
         $id = $this->decodeId((string)$offer_id);
         $offer = $id ? DB::table('vehicle_offers')->where('id', $id)->first() : null;
@@ -52,7 +52,7 @@ class VehicleOffersController extends LegacyAppController
         ]);
     }
 
-    public function admin_userautocomplete(Request $request): JsonResponse
+    public function userautocomplete(Request $request): JsonResponse
     {
         $term = trim((string)$request->query('term', ''));
         $id = (int)$request->query('id', 0);
@@ -76,7 +76,7 @@ class VehicleOffersController extends LegacyAppController
         ])->values()->all());
     }
 
-    public function admin_vehicleautocomplete(Request $request): JsonResponse
+    public function vehicleautocomplete(Request $request): JsonResponse
     {
         $term = trim((string)$request->query('term', ''));
         $id = (int)$request->query('id', 0);
@@ -99,7 +99,7 @@ class VehicleOffersController extends LegacyAppController
         ])->values()->all());
     }
 
-    public function admin_cancel($id = null)
+    public function cancel($id = null)
     {
         $offerId = $this->decodeId((string)$id);
         if ($offerId) {
@@ -109,7 +109,7 @@ class VehicleOffersController extends LegacyAppController
         return redirect($this->offerBasePath() . '/index')->with('success', 'Offer cancelled');
     }
 
-    public function admin_delete($id = null)
+    public function delete($id = null)
     {
         $offerId = $this->decodeId((string)$id);
         if ($offerId) {
@@ -119,7 +119,7 @@ class VehicleOffersController extends LegacyAppController
         return redirect($this->offerBasePath() . '/index')->with('success', 'Offer deleted');
     }
 
-    public function admin_view($offer_id = null)
+    public function view($offer_id = null)
     {
         $id = $this->decodeId((string)$offer_id);
         if (!$id) {
@@ -133,22 +133,22 @@ class VehicleOffersController extends LegacyAppController
         return view('admin.vehicle_offers.view', ['offer' => $offer, 'basePath' => $this->offerBasePath()]);
     }
 
-    public function admin_qualify(Request $request): JsonResponse
+    public function qualify(Request $request): JsonResponse
     {
         return response()->json(['status' => true, 'message' => 'Qualification checks passed']);
     }
 
-    public function admin_qualifyIncome(Request $request): JsonResponse
+    public function qualifyIncome(Request $request): JsonResponse
     {
         return response()->json(['status' => true, 'message' => 'Income qualifies']);
     }
 
-    public function admin_getVehicleDynamicFareMatrix(Request $request): JsonResponse
+    public function getVehicleDynamicFareMatrix(Request $request): JsonResponse
     {
         return response()->json(['status' => true, 'data' => ['matrix' => []]]);
     }
 
-    public function admin_duplicate($offerid)
+    public function duplicate($offerid)
     {
         $id = $this->decodeId((string)$offerid);
         if (!$id) {
@@ -217,21 +217,6 @@ class VehicleOffersController extends LegacyAppController
         $limit = (int)session('vehicle_offers_limit', 50);
 
         return $limit > 0 ? $limit : 50;
-    }
-
-    protected function decodeId(string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if ($id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 }
 

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"/>
+    <link rel="stylesheet" href="{{ asset('css/theme2/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/theme2/core.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/theme2/components.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/theme2/colors.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/driveitawaystyle.css') }}">
+    <script src="{{ asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>
+</head>
+<body class="text-center">
+    <div class="page-container login-container">
+        <div class="page-content">
+            <div class="content-wrapper">
+                <div class="content">
+                    <div class="panel panel-body login-form text-damger" id="congratulation">
+                        <div class="content-group">&nbsp;</div>
+                        <div class="text-center">
+                            <div class="col-xs-11">
+                                <h4 class="content-group text-danger text-uppercase">Sorry, something went wrong. Please contact to support team at {{ config('legacy.support_phone', '') }}</h4>
+                            </div>
+                        </div>
+                        <div class="content-group">&nbsp;</div>
+                        <div class="content-group">&nbsp;</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
