@@ -12,49 +12,49 @@ class AdminStaffsController extends AdminAdminStaffsController
         return '/cloud/admin_staffs';
     }
 
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
         }
 
-        return parent::admin_index($request);
+        return parent::index($request);
     }
 
-    public function cloud_multiplAction(Request $request)
+    public function multiplAction(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
         }
 
-        return parent::admin_multiplAction($request);
+        return parent::multiplAction($request);
     }
 
-    public function cloud_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
         }
 
-        return parent::admin_add($request, $id);
+        return parent::add($request, $id);
     }
 
-    public function cloud_status(Request $request, $id = null, $status = null)
+    public function status(Request $request, $id = null, $status = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
         }
 
-        return parent::admin_status($request, $id, $status);
+        return parent::status($request, $id, $status);
     }
 
-    public function cloud_delete(Request $request, $id = null)
+    public function delete(Request $request, $id = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
         }
 
-        return parent::admin_delete($request, $id);
+        return parent::delete($request, $id);
     }
 
     protected function adminsSearchRedirectUrl(string $keyword, string $searchin, string $show): string

@@ -2,104 +2,176 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use App\Models\Legacy\PlaidUser;
-use App\Models\Legacy\User;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
-class PlaidUsersController extends Controller
+/**
+ * CakePHP `PlaidUsersController` admin actions (`admin_*` prefix removed). Plaid API calls stubbed.
+ */
+class PlaidUsersController extends LegacyAppController
 {
-    private function pendingResponse(string $action)
+    public function index(Request $request, ?string $userid = null): View|RedirectResponse
     {
-        return response()->json([
-            'status' => 0,
-            'message' => "AdminPlaidUsers::{$action} pending migration",
-            'result' => (object)[],
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->indexForUser($request, $userid);
+    }
+
+    public function balance(Request $request): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->plaidApiStubResponse();
+    }
+
+    public function transactions(Request $request): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->plaidApiStubResponse();
+    }
+
+    public function income(Request $request): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->plaidApiStubResponse();
+    }
+
+    public function combinedincome(Request $request): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->plaidApiStubResponse();
+    }
+
+    public function payrollincome(Request $request): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->plaidApiStubResponse();
+    }
+
+    public function pullPlaidBank(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->pullPlaidBankView($request);
+    }
+
+    public function pullPlaidPaystub(Request $request): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->pullPlaidPaystubView($request);
+    }
+
+    public function pullBankDetail(Request $request): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->plaidApiStubResponse();
+    }
+
+    public function downloadpaystub(Request $request, ?string $verificationid = null): Response|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        return $this->downloadpaystubStub();
+    }
+
+    /**
+     * Shared listing logic for admin + cloud (session checked by caller).
+     */
+    protected function indexForUser(Request $request, ?string $userid): View|RedirectResponse
+    {
+        $decoded = $userid !== null && $userid !== '' ? base64_decode($userid, true) : false;
+        $userId = ($decoded !== false && ctype_digit((string) $decoded)) ? (int) $decoded : null;
+        if ($userId === null || $userId === 0) {
+            return redirect('/admin/users');
+        }
+
+        $plaids = DB::table('plaid_users')
+            ->where('user_id', $userId)
+            ->orderByDesc('id')
+            ->get();
+
+        return view('admin.plaid_users.index', [
+            'title_for_layout' => 'Connected Bank Accounts',
+            'plaids' => $plaids,
+            'userid' => $userId,
         ]);
     }
 
-    public function index(Request $request, $userid = null)
+    protected function plaidApiStubResponse(): Response
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect()->route('admin.users.index');
+        return response('Plaid API not yet ported', 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+    }
+
+    protected function pullPlaidBankView(Request $request): View
+    {
+        $userid = $this->decodePostedUserId($request);
+        $plaids = $userid > 0
+            ? DB::table('plaid_users')->where('user_id', $userid)->where('paystub', 0)->orderByDesc('id')->get()
+            : collect();
+
+        return view('admin.plaid_users.pull_plaid_bank', [
+            'plaids' => $plaids,
+            'userid' => $userid,
+            'modal' => 'statementModal',
+        ]);
+    }
+
+    protected function pullPlaidPaystubView(Request $request): View
+    {
+        $userid = $this->decodePostedUserId($request);
+        $plaids = $userid > 0
+            ? DB::table('plaid_users')->where('user_id', $userid)->where('paystub', 1)->orderByDesc('id')->get()
+            : collect();
+
+        return view('admin.plaid_users.pull_plaid_paystub', [
+            'plaids' => $plaids,
+            'userid' => $userid,
+            'modal' => 'statementModal',
+        ]);
+    }
+
+    protected function downloadpaystubStub(): Response
+    {
+        return response('Plaid API not yet ported', 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+    }
+
+    private function decodePostedUserId(Request $request): int
+    {
+        if (!$request->filled('userid')) {
+            return 0;
         }
+        $decoded = base64_decode((string) $request->input('userid'), true);
 
-        $plaids = PlaidUser::where('user_id', $userid)->get();
-
-        return view('admin.plaidusers.index', compact('plaids', 'userid'));
+        return ($decoded !== false && ctype_digit((string) $decoded)) ? (int) $decoded : 0;
     }
-
-    public function balance(Request $request)
-    {
-        $id = $request->input('id');
-        $accountId = $request->input('token');
-        $plaidObj = PlaidUser::find($id);
-
-        if (empty($plaidObj)) {
-            return response('something went wrong', 400);
-        }
-
-        // Placeholder for Plaid service call
-        // $BalanceObj = $this->plaidService->getBalance($plaidObj->token, [], [$accountId]);
-        
-        return view('admin.plaidusers.balance', ['accounts' => []]);
-    }
-
-    public function transactions(Request $request)
-    {
-        $id = $request->input('id');
-        $accountId = $request->input('token');
-        $plaidObj = PlaidUser::find($id);
-
-        if (empty($plaidObj)) {
-            return response('something went wrong', 400);
-        }
-
-        // Placeholder for Plaid service call
-        // $TransactionObj = $this->plaidService->getTransactionHistory($plaidObj->token, now()->subDays(30)->toDateString(), now()->toDateString(), [], [$accountId]);
-        
-        return view('admin.plaidusers.transactions', ['transactions' => []]);
-    }
-
-    public function downloadpaystub(Request $request, $verificationid)
-    {
-        // Placeholder for Plaid service call
-        // return $this->plaidService->downloadPaystub(['income_verification_id' => $verificationid]);
-        
-        return response('Plaid service not yet migrated', 501);
-    }
-
-    public function pullPlaidBank(Request $request)
-    {
-        $userid = base64_decode($request->input('userid'));
-        $plaids = PlaidUser::where('user_id', $userid)->where('paystub', 0)->get();
-
-        return view('admin.elements.plaidusers.banks', compact('plaids', 'userid'))->with('modal', 'statementModal');
-    }
-
-    public function pullPlaidPaystub(Request $request)
-    {
-        $userid = base64_decode($request->input('userid'));
-        $plaids = PlaidUser::where('user_id', $userid)->where('paystub', 1)->get();
-
-        return view('admin.elements.plaidusers.paystub', compact('plaids', 'userid'))->with('modal', 'statementModal');
-    }
-
-    public function income(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function payrollincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function combinedincome(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-    public function pullBankDetail(Request $request) { return $this->pendingResponse(__FUNCTION__); }
-
-    public function admin_index(Request $request, $userid = null) { return $this->index($request, $userid); }
-    public function admin_balance(Request $request) { return $this->balance($request); }
-    public function admin_transactions(Request $request) { return $this->transactions($request); }
-    public function admin_downloadpaystub(Request $request, $verificationid) { return $this->downloadpaystub($request, $verificationid); }
-    public function admin_pullPlaidBank(Request $request) { return $this->pullPlaidBank($request); }
-    public function admin_pullPlaidPaystub(Request $request) { return $this->pullPlaidPaystub($request); }
-    public function admin_income(Request $request) { return $this->income($request); }
-    public function admin_payrollincome(Request $request) { return $this->payrollincome($request); }
-    public function admin_combinedincome(Request $request) { return $this->combinedincome($request); }
-    public function admin_pullBankDetail(Request $request) { return $this->pullBankDetail($request); }
 }

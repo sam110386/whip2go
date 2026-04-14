@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class OrderDepositRulesController extends AdminOrderDepositRulesController
 {
-    public function cloud_linkedupdate(Request $request, $id = null)
+    public function linkedupdate(Request $request, $id = null)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -45,11 +45,4 @@ class OrderDepositRulesController extends AdminOrderDepositRulesController
         );
     }
 
-    /**
-     * @internal Used by {@see cloud_linkedupdate()} via parent; exposed for dispatcher if URL uses this action name.
-     */
-    public function linkedupdate(Request $request, $id = null)
-    {
-        return $this->cloud_linkedupdate($request, $id);
-    }
 }

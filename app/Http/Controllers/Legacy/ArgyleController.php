@@ -2,241 +2,210 @@
 
 namespace App\Http\Controllers\Legacy;
 
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use App\Models\Legacy\User as LegacyUser;
-use App\Models\Legacy\ArgyleUser as LegacyArgyleUser;
-use App\Models\Legacy\ArgyleUserRecord as LegacyArgyleUserRecord;
-use App\Models\Legacy\VehicleReservation as LegacyVehicleReservation;
-use App\Models\Legacy\ArgyleActivity as LegacyArgyleActivity;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\View\View;
 
+/**
+ * CakePHP `ArgyleController` — Argyle Link / webhooks (external API calls stubbed in Laravel).
+ */
 class ArgyleController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = false;
 
-    public function index(Request $request, $userid)
+    public function index(Request $request, ?string $userid = null): View|RedirectResponse
     {
-        $decodedUserId = base64_decode($userid, true);
-        if ($decodedUserId === false) {
+        $decodedUserId = $this->decodeUserIdFromSegment($userid);
+        if ($decodedUserId === null) {
             return redirect('/argyle/error');
         }
 
-        $ouruser = LegacyUser::query()->whereKey((int)$decodedUserId)->count();
-        if (!$ouruser) {
+        $userCount = DB::table('users')->where('id', $decodedUserId)->count();
+        if ($userCount === 0) {
             return redirect('/argyle/error');
         }
 
-        $argyleObj = LegacyArgyleUser::query()->where('user_id', (int)$decodedUserId)->first();
+        $argyleRow = DB::table('argyle_users')->where('user_id', $decodedUserId)->first();
+        $token = $argyleRow->auth_token ?? '';
 
         $uberlyftPartners = ['lyft', 'grubhub', 'doordash', 'shipt', 'postmates', 'uber'];
         $incomedataPartners = [];
-        $token = $argyleObj ? $argyleObj->auth_token : null;
 
-        return view('argyle.index', [
-            'userid' => $userid,
-            'token' => $token,
-            'uberlyftPartners' => $uberlyftPartners,
-            'incomedataPartners' => $incomedataPartners,
-        ]);
+        return view('argyle.index', compact('userid', 'token', 'uberlyftPartners', 'incomedataPartners'));
     }
 
-    public function linkincome(Request $request, $userid)
+    public function linkincome(?string $userid = null): RedirectResponse
     {
-        return redirect('/argyle/index/' . $userid);
+        return redirect('/argyle/index/' . ($userid ?? ''));
     }
 
-    public function uber(Request $request, $userid)
+    public function uber(?string $userid = null): View
     {
-        return view('argyle.uber', ['userid' => $userid]);
+        return view('argyle.uber', compact('userid'));
     }
 
-    public function lyft(Request $request, $userid)
+    public function lyft(?string $userid = null): View
     {
-        return view('argyle.lyft', ['userid' => $userid]);
+        return view('argyle.lyft', compact('userid'));
     }
 
-    public function error(Request $request)
+    public function error(): View
     {
         return view('argyle.error');
     }
 
-    public function success(Request $request)
+    public function success(): View
     {
         return view('argyle.success');
     }
 
-    public function saveUser(Request $request)
+    public function saveUser(Request $request): JsonResponse
     {
-        $return = ["status" => false, "msg" => "Sorry, something went wrong, please try again"];
-        if (!$request->input('isAjax')) {
-            $return['msg'] = "sorry wrong page";
+        $return = ['status' => false, 'msg' => 'Sorry, something went wrong, please try again'];
+        if (!$request->boolean('isAjax')) {
+            $return['msg'] = 'sorry wrong page';
+
             return response()->json($return);
         }
 
-        $userEncoded = $request->input('user', '');
-        $user = $userEncoded !== '' ? base64_decode($userEncoded) : "";
-        $accountId = trim((string)$request->input('accountId'));
-        $userId = trim((string)$request->input('userId'));
-        $account = trim((string)$request->input('account'));
-        $income = filter_var($request->input('income'), FILTER_VALIDATE_BOOLEAN);
+        $user = 0;
+        if ($request->filled('user')) {
+            $decodedUser = base64_decode((string) $request->input('user'), true);
+            if ($decodedUser !== false && ctype_digit((string) $decodedUser)) {
+                $user = (int) $decodedUser;
+            }
+        }
+        $accountId = trim((string) $request->input('accountId', ''));
+        $account = trim((string) $request->input('account', ''));
+        $income = $request->boolean('income');
 
-        $userObj = LegacyUser::query()->select(['id', 'uberlyft_verified', 'uber_lyft'])->find((int)$user);
-        if (empty($userObj)) {
+        if ($user <= 0) {
             return response()->json($return);
         }
 
-        $exists = LegacyArgyleUser::query()
-            ->select(['id', 'income'])
-            ->where('user_id', (int)$user)
-            ->first();
+        $userObj = DB::table('users')->where('id', $user)->first(['id', 'uberlyft_verified', 'uber_lyft']);
+        if ($userObj === null) {
+            return response()->json($return);
+        }
 
-        if (empty($exists)) {
-            $return['msg'] = "sorry wrong page";
+        $exists = DB::table('argyle_users')
+            ->where('user_id', $user)
+            ->first(['id', 'income']);
+
+        if ($exists === null) {
+            $return['msg'] = 'sorry wrong page';
+
             return response()->json($return);
         }
 
         try {
-            LegacyArgyleUserRecord::query()->create([
-                "user_id" => (int)$user,
-                "account_id" => $accountId,
-                "account" => $account,
-                "argyle_user_id" => $exists->id
-            ]);
-        } catch (\Exception $e) {
-            // CakePHP ignored this error intentionally.
+            DB::table('argyle_user_records')->updateOrInsert(
+                ['user_id' => $user, 'account' => $account],
+                [
+                    'argyle_user_id' => (int) $exists->id,
+                    'account_id' => $accountId,
+                ]
+            );
+        } catch (\Throwable) {
+            // parity with Cake: swallow save errors
         }
 
         if ($income) {
-            $exists->update(['income' => 1]);
-        }
-        
-        LegacyUser::query()->whereKey((int)$user)->update([
-            "uberlyft_verified" => 1,
-            "uber_lyft" => 1
-        ]);
-        
-        if ($userObj->uber_lyft == 0 || $income) {
-            // Custom model logic replication 
-            if (method_exists(LegacyVehicleReservation::class, 'updatePendingBooking')) {
-                $vRes = new LegacyVehicleReservation();
-                $vRes->updatePendingBooking((int)$user, 1);
-            }
+            DB::table('argyle_users')->where('id', $exists->id)->update(['income' => 1]);
         }
 
-        return response()->json(["status" => true, "msg" => "You are successfully connected now"]);
+        DB::table('users')->where('id', $user)->update([
+            'uberlyft_verified' => 1,
+            'uber_lyft' => 1,
+        ]);
+
+        return response()->json(['status' => true, 'msg' => 'You are successfully connected now']);
     }
 
-    public function saveToken(Request $request)
+    public function saveToken(Request $request): JsonResponse
     {
-        $return = ["status" => false, "msg" => "Sorry, something went wrong, please try again"];
-        if (!$request->input('isAjax')) {
-            $return['msg'] = "sorry wrong page";
+        $return = ['status' => false, 'msg' => 'Sorry, something went wrong, please try again'];
+        if (!$request->boolean('isAjax')) {
+            $return['msg'] = 'sorry wrong page';
+
             return response()->json($return);
         }
 
-        $userEncoded = $request->input('user', '');
-        $user = $userEncoded !== '' ? base64_decode($userEncoded) : "";
+        $user = 0;
+        if ($request->filled('user')) {
+            $decodedUser = base64_decode((string) $request->input('user'), true);
+            if ($decodedUser !== false && ctype_digit((string) $decodedUser)) {
+                $user = (int) $decodedUser;
+            }
+        }
         $token = $request->input('token');
         $userId = $request->input('userId');
 
-        $userObj = LegacyUser::query()->select(['id', 'uberlyft_verified', 'uber_lyft'])->find((int)$user);
-        if (empty($userObj)) {
+        if ($user <= 0) {
             return response()->json($return);
         }
 
-        $exists = LegacyArgyleUser::query()->where('user_id', (int)$user)->first();
-        if ($exists) {
-            $exists->update([
-                "auth_token" => $token,
-                "argyle_user_id" => $userId
-            ]);
+        $userObj = DB::table('users')->where('id', $user)->first(['id']);
+        if ($userObj === null) {
+            return response()->json($return);
+        }
+
+        $exists = DB::table('argyle_users')->where('user_id', $user)->first(['id']);
+        $payload = [
+            'user_id' => $user,
+            'auth_token' => $token,
+            'argyle_user_id' => $userId,
+        ];
+        if ($exists !== null) {
+            DB::table('argyle_users')->where('id', $exists->id)->update($payload);
         } else {
-            LegacyArgyleUser::query()->create([
-                "user_id" => (int)$user,
-                "auth_token" => $token,
-                "argyle_user_id" => $userId
-            ]);
+            $payload['created'] = now();
+            DB::table('argyle_users')->insert($payload);
         }
 
-        return response()->json(["status" => true, "msg" => "You are succcessfully connected now"]);
+        return response()->json(['status' => true, 'msg' => 'You are succcessfully connected now']);
     }
 
-    public function refreshToken(Request $request)
+    public function refreshToken(Request $request): JsonResponse
     {
-        $return = ["status" => false, "msg" => "Sorry, something went wrong, please try again"];
-        if (!$request->input('isAjax')) {
-            $return['msg'] = "sorry wrong page";
-            return response()->json($return);
-        }
-
-        $userEncoded = $request->input('user', '');
-        $user = $userEncoded !== '' ? base64_decode($userEncoded) : "";
-        $exists = LegacyArgyleUser::query()->where('user_id', (int)$user)->first();
-
-        if (empty($user) || empty($exists) || empty($exists->argyle_user_id)) {
-            return response()->json($return);
-        }
-
-        $requestBody = ["user" => $exists->argyle_user_id];
-        $resp = $this->sendHttpRequest($requestBody);
-
-        if (empty($resp) || empty($resp['access'])) {
-            return response()->json($return);
-        }
-
-        $token = $resp['access'];
-        LegacyArgyleUser::query()->whereKey((int)$exists->id)->update([
-            "auth_token" => $token
+        return response()->json([
+            'status' => false,
+            'msg' => 'Argyle refreshToken not yet ported (API stub).',
         ]);
-
-        return response()->json(["status" => true, "msg" => "You are succcessfully connected now", "token" => $token]);
     }
 
-    private function sendHttpRequest(array $requestBody)
+    public function webhook(Request $request): Response
     {
-        $clientId = config('services.argyle.client_id', config('argyle.client_id', ''));
-        $clientSecret = config('services.argyle.client_secret', config('argyle.client_secret', ''));
-        $apiHost = config('services.argyle.api_host', config('argyle.apiHost', ''));
+        $raw = $request->getContent();
+        if ($raw === '' || $raw === '0') {
+            exit('Sorry, wrong effort!!');
+        }
 
-        $url = rtrim($apiHost, '/') . '/user-tokens';
+        $logPath = storage_path('logs/argyle_' . date('Y-m-d') . '.log');
+        File::append($logPath, "\n" . date('Y-m-d H:i:s') . '=' . $raw);
 
-        $response = Http::withHeaders([
-            'Charset' => 'UTF-8',
-            'Cache-Control' => 'no-cache',
-            'Pragma' => 'no-cache'
-        ])
-        ->withBasicAuth($clientId, $clientSecret)
-        ->withoutVerifying()
-        ->post($url, $requestBody);
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded) && ($decoded['event'] ?? null) === 'activities.updated') {
+            // Stub: ArgyleActivity::processWebhookData not ported
+        }
 
-        if ($response->successful()) {
-            return $response->json();
+        return response('finished', 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+    }
+
+    private function decodeUserIdFromSegment(?string $userid): ?int
+    {
+        if ($userid === null || $userid === '') {
+            return null;
+        }
+        $decoded = base64_decode($userid, true);
+        if ($decoded !== false && ctype_digit($decoded)) {
+            return (int) $decoded;
         }
 
         return null;
-    }
-
-    public function webhook(Request $request)
-    {
-        $postData = $request->getContent();
-        if (empty($postData)) {
-            return response("Sorry, wrong effort!!");
-        }
-
-        Log::build(['driver' => 'single', 'path' => storage_path('logs/argyle_' . date('Y-m-d') . '.log')])
-            ->info('Argyle Webhook', ['data' => $postData]);
-
-        $decodedData = json_decode($postData, true);
-        if (isset($decodedData['event']) && $decodedData['event'] === 'activities.updated') {
-            if (method_exists(LegacyArgyleActivity::class, 'processWebhookData')) {
-                $activityModel = new LegacyArgyleActivity();
-                $activityModel->processWebhookData($decodedData['data'] ?? []);
-            } else {
-                Log::warning("LegacyArgyleActivity::processWebhookData not found.");
-            }
-        }
-        
-        return response('finished');
     }
 }

@@ -74,7 +74,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_index
      */
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -161,7 +161,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_status
      */
-    public function admin_status($id = null, $status = null): RedirectResponse
+    public function status($id = null, $status = null): RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -181,7 +181,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_relatedpayments
      */
-    public function admin_relatedpayments($id = null)
+    public function relatedpayments($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -229,7 +229,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_subscription
      */
-    public function admin_subscription(Request $request, $userid = null)
+    public function subscription(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -304,7 +304,7 @@ class CustomerBalancesController extends LegacyAppController
      *
      * @return \Illuminate\Http\RedirectResponse|\Illuminate\Contracts\View\View
      */
-    public function admin_addsubscription(Request $request, $userid = null, $id = '')
+    public function addsubscription(Request $request, $userid = null, $id = '')
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -433,7 +433,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_add
      */
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;

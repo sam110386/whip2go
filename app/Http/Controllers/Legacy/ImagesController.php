@@ -3,51 +3,68 @@
 namespace App\Http\Controllers\Legacy;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class ImagesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = false;
 
-    private $MEMORY_TO_ALLOCATE = '100M';
-    private $DEFAULT_QUALITY = 90;
+    private string $MEMORY_TO_ALLOCATE = '100M';
+    private int $DEFAULT_QUALITY = 90;
+    private string $CACHE_DIR = '';
+    private string $DOCUMENT_ROOT = '';
 
-    public function index(Request $request)
+    public function index(Request $request): void
     {
-        $cacheDir = public_path('img/imagecache/');
-        $docRoot = public_path();
+        $this->CACHE_DIR = public_path('img/imagecache/');
+        $this->DOCUMENT_ROOT = public_path('/');
 
         if (!$request->has('image')) {
-            return response('Error: no image was specified', 400);
+            header('HTTP/1.1 400 Bad Request');
+            echo 'Error: no image was specified';
+            exit();
         }
 
-        $image = preg_replace('/^(s?f|ht)tps?:\/\/[^\/]+/i', '', (string)$request->query('image'));
+        $image = preg_replace('/^(s?f|ht)tps?:\/\/[^\/]+/i', '', (string) $request->query('image'));
 
-        if ($image === '' || $image[0] != '/' || strpos(dirname($image), ':') !== false || preg_match('/(\.\.|<|>)/', $image)) {
-            return response("Error: malformed image path. Image paths must begin with '/'", 400);
+        if ($image[0] !== '/' || strpos(dirname($image), ':') !== false || preg_match('/(\.\.|<|>)/', $image)) {
+            header('HTTP/1.1 400 Bad Request');
+            echo 'Error: malformed image path. Image paths must begin with \'/\'';
+            exit();
         }
 
-        $docRoot = preg_replace('/\/$/', '', $docRoot);
+        if (!$image) {
+            header('HTTP/1.1 400 Bad Request');
+            echo 'Error: no image was specified';
+            exit();
+        }
+
+        $docRoot = preg_replace('/\/$/', '', $this->DOCUMENT_ROOT);
 
         if (!file_exists($docRoot . $image)) {
-            return response('Error: image does not exist: ' . $docRoot . $image, 404);
+            header('HTTP/1.1 404 Not Found');
+            echo 'Error: image does not exist: ' . $docRoot . $image;
+            exit();
         }
 
-        $size = getimagesize($docRoot . $image);
-        if (!$size) {
-            return response('Error: unable to retrieve image size.', 400);
-        }
+        $size = GetImageSize($docRoot . $image);
         $mime = $size['mime'];
 
-        if (substr($mime, 0, 6) != 'image/') {
-            return response('Error: requested file is not an accepted type: ' . $docRoot . $image, 400);
+        if (substr($mime, 0, 6) !== 'image/') {
+            header('HTTP/1.1 400 Bad Request');
+            echo 'Error: requested file is not an accepted type: ' . $docRoot . $image;
+            exit();
         }
 
         $width = $size[0];
         $height = $size[1];
 
-        $maxWidth = (int)$request->query('width', 0);
-        $maxHeight = (int)$request->query('height', 0);
-        $color = $request->query('color') ? preg_replace('/[^0-9a-fA-F]/', '', (string)$request->query('color')) : false;
+        $maxWidth = $request->has('width') ? (int) $request->query('width') : 0;
+        $maxHeight = $request->has('height') ? (int) $request->query('height') : 0;
+
+        $color = $request->has('color')
+            ? preg_replace('/[^0-9a-fA-F]/', '', (string) $request->query('color'))
+            : false;
 
         if (!$maxWidth && $maxHeight) {
             $maxWidth = 99999999999999;
@@ -62,35 +79,29 @@ class ImagesController extends LegacyAppController
             $data = file_get_contents($docRoot . '/' . $image);
             $lastModifiedString = gmdate('D, d M Y H:i:s', filemtime($docRoot . '/' . $image)) . ' GMT';
             $etag = md5($data);
-
-            if ($response = $this->doConditionalGet($request, $etag, $lastModifiedString)) {
-                return $response;
-            }
-
-            return response($data)
-                ->header('Content-type', $mime)
-                ->header('Content-Length', strlen($data))
-                ->header('Last-Modified', $lastModifiedString)
-                ->header('ETag', "\"{$etag}\"");
+            $this->doConditionalGet($etag, $lastModifiedString);
+            header("Content-type: $mime");
+            header('Content-Length: ' . strlen($data));
+            echo $data;
+            exit();
         }
 
         $offsetX = 0;
         $offsetY = 0;
 
         if ($request->has('cropratio')) {
-            $cropRatio = explode(':', (string)$request->query('cropratio'));
+            $cropRatio = explode(':', (string) $request->query('cropratio'));
             if (count($cropRatio) == 2) {
                 $ratioComputed = $width / $height;
-                $cropRatioComputed = (float)$cropRatio[0] / (float)$cropRatio[1];
-
+                $cropRatioComputed = (float) $cropRatio[0] / (float) $cropRatio[1];
                 if ($ratioComputed < $cropRatioComputed) {
                     $origHeight = $height;
-                    $height = (int)($width / $cropRatioComputed);
-                    $offsetY = (int)(($origHeight - $height) / 2);
-                } else if ($ratioComputed > $cropRatioComputed) {
+                    $height = $width / $cropRatioComputed;
+                    $offsetY = ($origHeight - $height) / 2;
+                } elseif ($ratioComputed > $cropRatioComputed) {
                     $origWidth = $width;
-                    $width = (int)($height * $cropRatioComputed);
-                    $offsetX = (int)(($origWidth - $width) / 2);
+                    $width = $height * $cropRatioComputed;
+                    $offsetX = ($origWidth - $width) / 2;
                 }
             }
         }
@@ -106,34 +117,31 @@ class ImagesController extends LegacyAppController
             $tnHeight = $maxHeight;
         }
 
-        $quality = (int)$request->query('quality', $this->DEFAULT_QUALITY);
+        $quality = $request->has('quality') ? (int) $request->query('quality') : $this->DEFAULT_QUALITY;
 
         $resizedImageSource = $tnWidth . 'x' . $tnHeight . 'x' . $quality;
-        if ($color) $resizedImageSource .= 'x' . $color;
-        if ($request->has('cropratio')) $resizedImageSource .= 'x' . (string)$request->query('cropratio');
+        if ($color) {
+            $resizedImageSource .= 'x' . $color;
+        }
+        if ($request->has('cropratio')) {
+            $resizedImageSource .= 'x' . (string) $request->query('cropratio');
+        }
         $resizedImageSource .= '-' . $image;
-
         $resizedImage = md5($resizedImageSource);
-        $resized = $cacheDir . $resizedImage;
+        $resized = $this->CACHE_DIR . $resizedImage;
 
         if (!$request->has('nocache') && file_exists($resized)) {
             $imageModified = filemtime($docRoot . $image);
             $thumbModified = filemtime($resized);
-
             if ($imageModified < $thumbModified) {
                 $data = file_get_contents($resized);
                 $lastModifiedString = gmdate('D, d M Y H:i:s', $thumbModified) . ' GMT';
                 $etag = md5($data);
-
-                if ($response = $this->doConditionalGet($request, $etag, $lastModifiedString)) {
-                    return $response;
-                }
-
-                return response($data)
-                    ->header('Content-type', $mime)
-                    ->header('Content-Length', strlen($data))
-                    ->header('Last-Modified', $lastModifiedString)
-                    ->header('ETag', "\"{$etag}\"");
+                $this->doConditionalGet($etag, $lastModifiedString);
+                header("Content-type: $mime");
+                header('Content-Length: ' . strlen($data));
+                echo $data;
+                exit();
             }
         }
 
@@ -147,14 +155,14 @@ class ImagesController extends LegacyAppController
                 $outputFunction = 'ImagePng';
                 $mime = 'image/png';
                 $doSharpen = false;
-                $quality = round(10 - ($quality / 10)); 
+                $quality = round(10 - ($quality / 10));
                 break;
             case 'image/x-png':
             case 'image/png':
                 $creationFunction = 'ImageCreateFromPng';
                 $outputFunction = 'ImagePng';
                 $doSharpen = false;
-                $quality = round(10 - ($quality / 10)); 
+                $quality = round(10 - ($quality / 10));
                 break;
             default:
                 $creationFunction = 'ImageCreateFromJpeg';
@@ -170,12 +178,13 @@ class ImagesController extends LegacyAppController
                 imagealphablending($dst, false);
                 imagesavealpha($dst, true);
             } else {
-                if ($color[0] == '#') $color = substr($color, 1);
+                if ($color[0] === '#') {
+                    $color = substr($color, 1);
+                }
                 $background = false;
-
                 if (strlen($color) == 6) {
                     $background = imagecolorallocate($dst, hexdec($color[0] . $color[1]), hexdec($color[2] . $color[3]), hexdec($color[4] . $color[5]));
-                } else if (strlen($color) == 3) {
+                } elseif (strlen($color) == 3) {
                     $background = imagecolorallocate($dst, hexdec($color[0] . $color[0]), hexdec($color[1] . $color[1]), hexdec($color[2] . $color[2]));
                 }
                 if ($background) {
@@ -184,25 +193,32 @@ class ImagesController extends LegacyAppController
             }
         }
 
-        imagecopyresampled($dst, $src, 0, 0, $offsetX, $offsetY, $tnWidth, $tnHeight, $width, $height);
+        ImageCopyResampled($dst, $src, 0, 0, $offsetX, $offsetY, $tnWidth, $tnHeight, $width, $height);
 
         if ($doSharpen) {
             $sharpness = $this->findSharp($width, $tnWidth);
             $sharpenMatrix = [
                 [-1, -2, -1],
                 [-2, $sharpness + 12, -2],
-                [-1, -2, -1]
+                [-1, -2, -1],
             ];
             $divisor = $sharpness;
-            imageconvolution($dst, $sharpenMatrix, $divisor, 0);
+            $offset = 0;
+            imageconvolution($dst, $sharpenMatrix, $divisor, $offset);
         }
 
-        if (!file_exists($cacheDir)) {
-            mkdir($cacheDir, 0755, true);
+        if (!file_exists($this->CACHE_DIR)) {
+            mkdir($this->CACHE_DIR, 0755);
         }
 
-        if (!is_readable($cacheDir) || !is_writable($cacheDir)) {
-            return response('Error: the cache directory is not readable/writable', 500);
+        if (!is_readable($this->CACHE_DIR)) {
+            header('HTTP/1.1 500 Internal Server Error');
+            echo 'Error: the cache directory is not readable';
+            exit();
+        } elseif (!is_writable($this->CACHE_DIR)) {
+            header('HTTP/1.1 500 Internal Server Error');
+            echo 'Error: the cache directory is not writable';
+            exit();
         }
 
         $outputFunction($dst, $resized, $quality);
@@ -212,51 +228,31 @@ class ImagesController extends LegacyAppController
         $data = ob_get_contents();
         ob_end_clean();
 
-        imagedestroy($src);
-        imagedestroy($dst);
+        ImageDestroy($src);
+        ImageDestroy($dst);
 
         $lastModifiedString = gmdate('D, d M Y H:i:s', filemtime($resized)) . ' GMT';
         $etag = md5($data);
+        $this->doConditionalGet($etag, $lastModifiedString);
 
-        if ($response = $this->doConditionalGet($request, $etag, $lastModifiedString)) {
-            return $response;
-        }
-
-        return response($data)
-            ->header('Content-type', $mime)
-            ->header('Content-Length', strlen($data))
-            ->header('Last-Modified', $lastModifiedString)
-            ->header('ETag', "\"{$etag}\"");
+        header("Content-type: $mime");
+        header('Content-Length: ' . strlen($data));
+        echo $data;
+        exit();
     }
 
     public function crop(Request $request)
     {
-        $file = $request->input('vehicleimage', '');
-        $name = $request->input('image', '');
+        $file = $request->input('vehicleimage');
+        $name = $request->input('image');
 
         $filename = public_path('img/custom/vehicle_photo/' . $name);
-        
-        $imgDir = dirname($filename);
-        if (!file_exists($imgDir)) {
-            mkdir($imgDir, 0755, true);
-        }
-
-        // Clean out data:image... prefix and write
         file_put_contents($filename, base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $file)));
 
-        return response()->json([
-            'status' => true,
-            'message' => '',
-            'url' => $filename
-        ]);
+        return response()->json(['status' => true, 'message' => '', 'url' => $filename]);
     }
 
-    protected function _crop(Request $request)
-    {
-        return $this->crop($request);
-    }
-
-    private function findSharp($orig, $final)
+    private function findSharp(int $orig, int $final): int
     {
         $final = $final * (750.0 / $orig);
         $a = 52;
@@ -266,24 +262,29 @@ class ImagesController extends LegacyAppController
         return max(round($result), 0);
     }
 
-    private function doConditionalGet(Request $request, $etag, $lastModified)
+    private function doConditionalGet(string $etag, string $lastModified): void
     {
-        $ifNoneMatch = stripslashes($request->header('If-None-Match', ''));
-        $ifModifiedSince = stripslashes($request->header('If-Modified-Since', ''));
+        header("Last-Modified: $lastModified");
+        header("ETag: \"{$etag}\"");
 
-        if (!$ifModifiedSince && !$ifNoneMatch) {
-            return null;
+        $if_none_match = isset($_SERVER['HTTP_IF_NONE_MATCH'])
+            ? stripslashes($_SERVER['HTTP_IF_NONE_MATCH'])
+            : false;
+        $if_modified_since = isset($_SERVER['HTTP_IF_MODIFIED_SINCE'])
+            ? stripslashes($_SERVER['HTTP_IF_MODIFIED_SINCE'])
+            : false;
+
+        if (!$if_modified_since && !$if_none_match) {
+            return;
+        }
+        if ($if_none_match && $if_none_match != $etag && $if_none_match != '"' . $etag . '"') {
+            return;
+        }
+        if ($if_modified_since && $if_modified_since != $lastModified) {
+            return;
         }
 
-        if ($ifNoneMatch && $ifNoneMatch != $etag && $ifNoneMatch != '"' . $etag . '"') {
-            return null;
-        }
-
-        if ($ifModifiedSince && $ifModifiedSince != $lastModified) {
-            return null;
-        }
-
-        // Return a response directly replacing `exit`
-        return response('', 304);
+        header('HTTP/1.1 304 Not Modified');
+        exit();
     }
 }

@@ -44,7 +44,7 @@ class BookingReviewsController extends LegacyAppController
         return $this->ensureAdminSession();
     }
 
-    public function admin_nonreview(Request $request)
+    public function nonreview(Request $request)
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return $redirect;
@@ -61,14 +61,14 @@ class BookingReviewsController extends LegacyAppController
             ]);
         }
 
-        return view('admin.booking_reviews.admin_nonreview', [
+        return view('admin.booking_reviews.nonreview', [
             'nonreviews' => $nonreviews,
             'limit' => $limit,
             'basePath' => $this->bookingReviewsBasePath(),
         ]);
     }
 
-    public function admin_initial(Request $request, $orderid = null)
+    public function initial(Request $request, $orderid = null)
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return $redirect;
@@ -99,7 +99,7 @@ class BookingReviewsController extends LegacyAppController
             $pickupData = is_array($decoded) ? $decoded : [];
         }
 
-        return view('admin.booking_reviews.admin_initial', [
+        return view('admin.booking_reviews.initial', [
             'CsOrder' => ['CsOrder' => (array)$csOrder],
             'CsOrderReview' => ['CsOrderReview' => (array)$review],
             'orderid' => $orderId,
@@ -108,7 +108,7 @@ class BookingReviewsController extends LegacyAppController
         ]);
     }
 
-    public function admin_finalreview(Request $request, $orderid = null)
+    public function finalreview(Request $request, $orderid = null)
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return $redirect;
@@ -215,7 +215,7 @@ class BookingReviewsController extends LegacyAppController
             ->orderBy('id')
             ->get();
 
-        return view('admin.booking_reviews.admin_finalreview', [
+        return view('admin.booking_reviews.finalreview', [
             'CsOrder' => ['CsOrder' => (array)$csOrder],
             'CsOrderReview' => ['CsOrderReview' => $reviewArr],
             'CsOrderReviewImages' => $reviewImages,
@@ -225,7 +225,7 @@ class BookingReviewsController extends LegacyAppController
         ]);
     }
 
-    public function admin_reservationreview(Request $request, $orderid = null)
+    public function reservationreview(Request $request, $orderid = null)
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return $redirect;
@@ -276,7 +276,7 @@ class BookingReviewsController extends LegacyAppController
             $pickupData = is_array($decoded) ? $decoded : [];
         }
 
-        return view('admin.booking_reviews.admin_reservationreview', [
+        return view('admin.booking_reviews.reservationreview', [
             'CsOrder' => null,
             'CsOrderReview' => ['CsOrderReview' => (array)$review],
             'orderid' => $reservationId,
@@ -285,7 +285,7 @@ class BookingReviewsController extends LegacyAppController
         ]);
     }
 
-    public function admin_saveImage(Request $request): JsonResponse
+    public function saveImage(Request $request): JsonResponse
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response()->json(['error' => 'Unauthorized'], 401);
@@ -294,7 +294,7 @@ class BookingReviewsController extends LegacyAppController
         return $this->jsonHandleUpload($request);
     }
 
-    public function admin_deleteImage(Request $request): JsonResponse
+    public function deleteImage(Request $request): JsonResponse
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response()->json(['success' => false, 'key' => ''], 401);
@@ -303,7 +303,7 @@ class BookingReviewsController extends LegacyAppController
         return $this->jsonDeleteReviewImage($request);
     }
 
-    public function admin_settlefinaldamage(Request $request): JsonResponse
+    public function settlefinaldamage(Request $request): JsonResponse
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized']);
@@ -315,7 +315,7 @@ class BookingReviewsController extends LegacyAppController
         ]);
     }
 
-    public function admin_reviewimages(Request $request, $orderid = null): Response
+    public function reviewimages(Request $request, $orderid = null): Response
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response('Unauthorized', 401);
@@ -333,10 +333,10 @@ class BookingReviewsController extends LegacyAppController
             $result[$title] = ['CsOrderReview' => (array)$row];
         }
 
-        return response()->view('admin.booking_reviews.admin_reviewimages', ['result' => $result]);
+        return response()->view('admin.booking_reviews.reviewimages', ['result' => $result]);
     }
 
-    public function admin_reviewpopup(Request $request): Response
+    public function reviewpopup(Request $request): Response
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response('Unauthorized', 401);
@@ -344,10 +344,10 @@ class BookingReviewsController extends LegacyAppController
 
         $orderid = trim((string)$request->input('orderid', ''));
 
-        return response()->view('admin.booking_reviews.admin_reviewpopup', ['orderid' => $orderid]);
+        return response()->view('admin.booking_reviews.reviewpopup', ['orderid' => $orderid]);
     }
 
-    public function admin_reopenbookingpopup(Request $request): Response
+    public function reopenbookingpopup(Request $request): Response
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response('Unauthorized', 401);
@@ -368,7 +368,7 @@ class BookingReviewsController extends LegacyAppController
         ]);
     }
 
-    public function admin_reopenbooking(Request $request): JsonResponse
+    public function reopenbooking(Request $request): JsonResponse
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized']);
@@ -411,7 +411,7 @@ class BookingReviewsController extends LegacyAppController
         ]);
     }
 
-    public function admin_pullVehicleOdometer(Request $request): JsonResponse
+    public function pullVehicleOdometer(Request $request): JsonResponse
     {
         if ($redirect = $this->bookingReviewGuard()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []]);
@@ -430,30 +430,6 @@ class BookingReviewsController extends LegacyAppController
             'miles' => $lastMile !== null ? (int)$lastMile : 0,
             'result' => [],
         ]);
-    }
-
-    /**
-     * Cake URL used `saveImage` / `deleteImage` under /admin/ — dispatcher resolves admin_saveImage.
-     * Alias for JS that posts to `admin/booking_reviews/saveImage`.
-     */
-    public function saveImage(Request $request): JsonResponse
-    {
-        return $this->admin_saveImage($request);
-    }
-
-    public function deleteImage(Request $request): JsonResponse
-    {
-        return $this->admin_deleteImage($request);
-    }
-
-    public function settlefinaldamage(Request $request): JsonResponse
-    {
-        return $this->admin_settlefinaldamage($request);
-    }
-
-    public function pullVehicleOdometer(Request $request): JsonResponse
-    {
-        return $this->admin_pullVehicleOdometer($request);
     }
 
     protected function nonreviewOrdersQuery(?array $dealerUserIds)

@@ -2,189 +2,321 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use App\Models\Legacy\CsLeaseAvailability;
-use App\Models\Legacy\CsLease;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\View\View;
 
+/**
+ * CakePHP `LeaseHistoriesController` — dealer session (`/lease_histories/...`).
+ *
+ * Listing uses `cs_lease_availabilities`; lease status/detail/edit use `cs_leases` (Cake `Lease` / `CsLease`).
+ */
 class LeaseHistoriesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function index(Request $request)
+    public function index(Request $request): View|RedirectResponse
     {
-        $userId = session('userParentId');
-        if (empty($userId) || $userId == 0) {
-            $userId = session('userid');
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
         }
 
-        $value = $paymentMethod = $addressType = $fieldname = $statusType = $dateFrom = $dateTo = '';
+        $userId = $this->effectiveUserId();
+        $limit = $this->resolveLimit($request, 'lease_histories_limit');
 
-        // Mimic Cake PHP's request data merging
-        $searchData = $request->input('Search', []);
-        $namedData = $request->query();
+        $keyword = trim((string) $this->searchInput($request, 'keyword'));
+        $fieldname = trim((string) $this->searchInput($request, 'searchin'));
+        $addressType = trim((string) $this->searchInput($request, 'show_address'));
+        if ($addressType === '') {
+            $addressType = trim((string) $request->input('type', ''));
+        }
+        $dateFrom = trim((string) $this->searchInput($request, 'date_from'));
+        $dateTo = trim((string) $this->searchInput($request, 'date_to'));
+        $statusType = trim((string) $this->searchInput($request, 'status_type'));
+        $paymentMethod = trim((string) $this->searchInput($request, 'payment_method'));
 
-        $fieldname = $namedData['searchin'] ?? $searchData['searchin'] ?? '';
-        $value = $namedData['keyword'] ?? $searchData['keyword'] ?? '';
-        $paymentMethod = $namedData['payment_method'] ?? $searchData['payment_method'] ?? '';
-        $dateFrom = $namedData['date_from'] ?? $searchData['date_from'] ?? '';
-        $dateTo = $namedData['date_to'] ?? $searchData['date_to'] ?? '';
-        $statusType = $namedData['status_type'] ?? $searchData['status_type'] ?? '';
-
-        if (!empty($dateFrom) && empty($dateTo)) {
-            $dateTo = date('Y-m-d');
+        if ($dateFrom !== '' && $dateTo === '') {
+            $dateTo = Carbon::now()->format('Y-m-d');
         }
 
-        $query = CsLeaseAvailability::query()
-            ->from('cs_lease_availabilities as CsLeaseAvailability')
-            ->leftJoin('cs_leases as Lease', 'Lease.id', '=', 'CsLeaseAvailability.lease_id')
-            ->leftJoin('users as User', 'User.id', '=', 'Lease.user_id')
-            ->select('CsLeaseAvailability.*', 'Lease.*', 'User.unique_code')
-            ->selectRaw('(Lease.fare * 0.025) AS black_car_fund')
-            ->where('CsLeaseAvailability.user_id', $userId);
+        $q = DB::table('cs_lease_availabilities as a')
+            ->leftJoin('cs_leases as l', 'l.id', '=', 'a.lease_id')
+            ->where('a.user_id', $userId)
+            ->select(['a.*']);
 
-        if (!empty($fieldname)) {
-            $fieldnameParsed = date('Y-m-d', strtotime($fieldname));
-            $query->whereDate('CsLeaseAvailability.start_date', $fieldnameParsed);
+        // Legacy parity: non-empty `searchin` was passed through strtotime as a date filter.
+        if ($fieldname !== '' && !in_array($fieldname, ['1', '2', '3', '4'], true)) {
+            $parsed = $this->parseFlexibleDate($fieldname);
+            if ($parsed) {
+                $q->whereDate('a.start_date', '=', $parsed->format('Y-m-d'));
+            }
         }
 
-        if (!empty($value)) {
-            $addressType = $namedData['type'] ?? $searchData['show_address'] ?? '';
+        if ($keyword !== '') {
+            $escaped = '%' . addcslashes($keyword, '%_\\') . '%';
             if ($addressType === '1') {
-                $query->where('CsLeaseAvailability.pickup_address', 'LIKE', '%' . $value . '%');
+                $q->where('a.pickup_address', 'like', $escaped);
             } elseif ($addressType === '2') {
-                $query->where('Lease.vehicle_unique_id', $value);
+                $q->where('l.vehicle_unique_id', '=', $keyword);
             } elseif ($addressType === '3') {
-                $query->where('CsLeaseAvailability.id', $value);
-            } elseif ($addressType === '4') {
-                $query->where('CsLeaseAvailability.telephone', $value);
+                $q->where('a.id', '=', ctype_digit($keyword) ? (int) $keyword : $keyword);
+            } elseif ($addressType === '4' && Schema::hasColumn('cs_lease_availabilities', 'telephone')) {
+                $q->where('a.telephone', '=', $keyword);
             }
         }
 
-        if (!empty($dateFrom)) {
-            $query->whereDate('CsLeaseAvailability.start_date', '>=', date('Y-m-d', strtotime($dateFrom)));
+        $df = $dateFrom !== '' ? $this->parseFlexibleDate($dateFrom) : null;
+        if ($df) {
+            $q->where('a.start_date', '>=', $df->format('Y-m-d'));
         }
-        if (!empty($dateTo)) {
-            $query->whereDate('CsLeaseAvailability.start_date', '<=', date('Y-m-d', strtotime($dateTo)));
-        }
-
-        if (!empty($statusType)) {
-            if ($statusType === 'cancel') {
-                $query->where('CsLeaseAvailability.status', '2');
-            } elseif ($statusType === 'complete') {
-                $query->where('CsLeaseAvailability.status', '3');
-            } elseif ($statusType === 'incomplete') {
-                $query->where('CsLeaseAvailability.status', '!=', '3');
-            }
+        $dt = $dateTo !== '' ? $this->parseFlexibleDate($dateTo) : null;
+        if ($dt) {
+            $q->where('a.start_date', '<=', $dt->format('Y-m-d'));
         }
 
-        // Pagination limit
-        $sessionLimitKey = 'LeaseHistories_limit';
-        $limitFromSession = session($sessionLimitKey, 20); // Fallback to assumed 20 default
-        $limit = $request->input('Record.limit', $limitFromSession);
-        
-        if ($limit < 1) {
-            $limit = 20;
+        if ($statusType === 'cancel') {
+            $q->where('a.status', 2);
+        } elseif ($statusType === 'complete') {
+            $q->where('a.status', 3);
+        } elseif ($statusType === 'incomplete') {
+            $q->where('a.status', '!=', 3);
         }
-        session([$sessionLimitKey => $limit]);
 
-        $tripLog = $query->orderBy('CsLeaseAvailability.id', 'DESC')->paginate($limit)->withQueryString();
+        if ($paymentMethod !== '' && Schema::hasColumn('cs_lease_availabilities', 'payment_method')) {
+            $q->where('a.payment_method', $paymentMethod);
+        }
 
-        return view('legacy.lease_histories.index', [
-            'listTitle' => 'Reports',
+        $triploglist = $q->orderByDesc('a.id')->paginate($limit)->withQueryString();
+
+        return view('lease_histories.index', [
             'title_for_layout' => 'Reports',
-            'triploglist' => $tripLog,
-            'keyword' => $value,
+            'keyword' => $keyword,
             'payment_method' => $paymentMethod,
             'fieldname' => $fieldname,
             'address_type' => $addressType,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
             'status_type' => $statusType,
-            'limit' => $limit
+            'triploglist' => $triploglist,
+            'limit' => $limit,
         ]);
     }
 
-    public function cancel_lease($id = null)
+    public function cancel_lease(Request $request, ?string $id = null): RedirectResponse
     {
-        $id = base64_decode($id);
-        if ($id) {
-            CsLease::where('id', $id)->update(['status' => 2]);
-            return redirect('/lease_histories/index')->with('success', 'Record updated successfully.');
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
         }
-        return redirect('/lease_histories/index')->with('error', 'Invalid ID.');
+
+        $leaseId = $this->decodeId((string) $id);
+        if (!$leaseId || !$this->userOwnsLeaseAvailability($leaseId, $this->effectiveUserId())) {
+            return redirect('/lease_histories/index')->with('error', 'Invalid lease or not authorized.');
+        }
+
+        DB::table('cs_leases')->where('id', $leaseId)->update([
+            'status' => 2,
+            'modified' => now()->toDateTimeString(),
+        ]);
+
+        return redirect('/lease_histories/index')->with('success', 'Record updated successfully.');
     }
 
-    public function auto_complete($id = null)
+    public function auto_complete(Request $request, ?string $id = null): RedirectResponse
     {
-        $id = base64_decode($id);
-        if ($id) {
-            CsLease::where('id', $id)->update(['status' => 3]);
-            return redirect('/lease_histories/index')->with('success', 'Lease autocompleted successfully.');
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
         }
-        return redirect('/lease_histories/index')->with('error', 'Invalid ID.');
+
+        $leaseId = $this->decodeId((string) $id);
+        if (!$leaseId || !$this->userOwnsLeaseAvailability($leaseId, $this->effectiveUserId())) {
+            return redirect('/lease_histories/index')->with('error', 'Invalid lease or not authorized.');
+        }
+
+        DB::table('cs_leases')->where('id', $leaseId)->update([
+            'status' => 3,
+            'modified' => now()->toDateTimeString(),
+        ]);
+
+        return redirect('/lease_histories/index')->with('success', 'Lease autocompleted successfully.');
     }
 
-    public function lease_details($id)
+    public function lease_details(?string $id = null): View|RedirectResponse
     {
-        // Legacy returned ajax layout
-        $dispacherId = session('dispacherParentId');
-        if (empty($dispacherId) || $dispacherId == 0) {
-            $dispacherId = session('dispacherId');
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
         }
 
-        $data = CsLease::query()
-            ->from('cs_leases as Lease')
-            ->leftJoin('users as User', 'User.id', '=', 'Lease.user_id')
-            ->select('Lease.*', 'User.unique_code')
-            ->selectRaw('(Lease.fare * 0.025) AS black_car_fund')
-            ->where('Lease.id', $id)
+        $leaseId = $this->decodeId((string) $id);
+        if (!$leaseId) {
+            abort(404);
+        }
+
+        $userId = $this->effectiveUserId();
+        if (!$this->userOwnsLeaseAvailability($leaseId, $userId)) {
+            abort(403);
+        }
+
+        $fareExpr = Schema::hasColumn('cs_leases', 'fare')
+            ? '(COALESCE(l.fare, 0) * 0.025) AS black_car_fund'
+            : '0 AS black_car_fund';
+
+        $row = DB::table('cs_leases as l')
+            ->leftJoin('users as u', 'u.id', '=', 'l.user_id')
+            ->where('l.id', $leaseId)
+            ->selectRaw('l.*, u.unique_code, ' . $fareExpr)
             ->first();
 
-        return view('legacy.lease_histories.lease_details', [
+        if (!$row) {
+            abort(404);
+        }
+
+        $triplog = $this->formatTriplogRecord($row);
+
+        return view('lease_histories.lease_details', [
             'title_for_layout' => 'Lease Detail',
-            'triplog' => $data ? $data->toArray() : []
+            'triplog' => $triplog,
         ]);
     }
 
-    public function edit_lease_details(Request $request, $id)
+    public function edit_lease_details(Request $request, ?string $id = null): View|RedirectResponse
     {
-        $dispacherId = session('dispacherParentId');
-        if (empty($dispacherId) || $dispacherId == 0) {
-            $dispacherId = session('dispacherId');
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
         }
 
-        $decodedId = base64_decode($id);
+        $leaseId = $this->decodeId((string) $id);
+        if (!$leaseId) {
+            return redirect('/lease_histories/index')->with('error', 'Invalid lease.');
+        }
+
+        $userId = $this->effectiveUserId();
+        if (!$this->userOwnsLeaseAvailability($leaseId, $userId)) {
+            return redirect('/lease_histories/index')->with('error', 'Not authorized.');
+        }
 
         if ($request->isMethod('post')) {
-            $updateData = $request->input('Lease', []);
-            $lease = CsLease::find($decodedId);
+            $payload = $request->input('Lease', []);
+            $update = ['modified' => now()->toDateTimeString()];
 
-            if ($lease) {
-                // Ensure ID is not overwritten
-                unset($updateData['id']);
-                try {
-                    $lease->fill($updateData);
-                    $lease->save();
-                    return redirect('/lease_histories/index')->with('success', 'Lease record updated successfully.');
-                } catch (\Exception $e) {
-                    return redirect('/lease_histories/index')->with('error', 'Sorry, something went wrong.');
+            if (isset($payload['pickup_address'])) {
+                $update['pickup_address'] = (string) $payload['pickup_address'];
+            }
+            if (isset($payload['details'])) {
+                $update['details'] = (string) $payload['details'];
+            }
+            if (!empty($payload['pickup_date'])) {
+                $pd = $this->parseFlexibleDate((string) $payload['pickup_date']);
+                if ($pd) {
+                    $update['start_date'] = $pd->format('Y-m-d');
                 }
             }
+
+            DB::table('cs_leases')->where('id', $leaseId)->update($update);
+
+            return redirect('/lease_histories/index')->with('success', 'Lease record updated successfully.');
+        }
+
+        $fareExpr = Schema::hasColumn('cs_leases', 'fare')
+            ? '(COALESCE(l.fare, 0) * 0.025) AS black_car_fund'
+            : '0 AS black_car_fund';
+
+        $row = DB::table('cs_leases as l')
+            ->leftJoin('users as u', 'u.id', '=', 'l.user_id')
+            ->where('l.id', $leaseId)
+            ->selectRaw('l.*, u.unique_code, ' . $fareExpr)
+            ->first();
+
+        if (!$row) {
             return redirect('/lease_histories/index')->with('error', 'Lease not found.');
         }
 
-        $data = CsLease::query()
-            ->from('cs_leases as Lease')
-            ->leftJoin('users as User', 'User.id', '=', 'Lease.user_id')
-            ->select('Lease.*', 'User.unique_code')
-            ->selectRaw('(Lease.fare * 0.025) AS black_car_fund')
-            ->where('Lease.id', $decodedId)
-            ->first();
+        $triplog = $this->formatTriplogRecord($row);
 
-        return view('legacy.lease_histories.edit_lease_details', [
+        return view('lease_histories.edit_lease_details', [
             'title_for_layout' => 'Update Lease Detail',
-            'triplog' => $data ? $data->toArray() : [],
-            'requestData' => ['Lease' => $data ? $data->toArray() : []]
+            'triplog' => $triplog,
         ]);
+    }
+
+    private function userOwnsLeaseAvailability(int $leaseId, int $userId): bool
+    {
+        return DB::table('cs_lease_availabilities')
+            ->where('lease_id', $leaseId)
+            ->where('user_id', $userId)
+            ->exists();
+    }
+
+    private function formatTriplogRecord(object $row): array
+    {
+        $lease = (array) $row;
+        $uniqueCode = (string) ($lease['unique_code'] ?? '');
+        unset($lease['unique_code']);
+
+        return [
+            'Lease' => array_merge($lease, [
+                'car_no' => $lease['vehicle_unique_id'] ?? $lease['vehicle_name'] ?? '',
+                'pickup_date' => $lease['start_date'] ?? null,
+                'pickup_time' => $lease['pickup_time'] ?? null,
+                'pickup_address' => $lease['pickup_address'] ?? null,
+            ]),
+            'User' => ['unique_code' => $uniqueCode],
+        ];
+    }
+
+    private function effectiveUserId(): int
+    {
+        $parent = (int) session()->get('userParentId', 0);
+
+        return $parent > 0 ? $parent : (int) session()->get('userid', 0);
+    }
+
+    private function searchInput(Request $request, string $key): ?string
+    {
+        $v = $request->input('Search.' . $key);
+        if ($v !== null && $v !== '' && is_scalar($v)) {
+            return (string) $v;
+        }
+
+        $v2 = $request->input($key);
+        if ($v2 !== null && $v2 !== '' && is_scalar($v2)) {
+            return (string) $v2;
+        }
+
+        return null;
+    }
+
+    private function resolveLimit(Request $request, string $sessionKey): int
+    {
+        if ($request->has('Record.limit')) {
+            $lim = (int) $request->input('Record.limit');
+            if ($lim > 0 && $lim <= 500) {
+                session([$sessionKey => $lim]);
+            }
+        }
+        $limit = (int) session($sessionKey, 50);
+
+        return $limit > 0 ? $limit : 50;
+    }
+
+    private function parseFlexibleDate(string $value): ?Carbon
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        foreach (['Y-m-d', 'm/d/Y', 'n/j/Y'] as $fmt) {
+            try {
+                return Carbon::createFromFormat($fmt, $value)->startOfDay();
+            } catch (\Throwable $e) {
+            }
+        }
+        try {
+            return Carbon::parse($value)->startOfDay();
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

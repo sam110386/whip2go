@@ -10,49 +10,103 @@ class TrackingsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    private const SESSION_LIMIT_KEY = 'trackings_limit';
+
+    protected function basePath(): string
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $limit = (int) $request->input('Record.limit', session('Trackings_limit', 20));
-        $limit = $limit > 0 ? $limit : 20;
-        session(['Trackings_limit' => $limit]);
-
-        $trackings = DB::table('trackings as Tracking')
-            ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'Tracking.vehicle_id')
-            ->leftJoin('users as User', 'User.id', '=', 'Tracking.user_id')
-            ->select('Tracking.*', 'Vehicle.vehicle_name', 'User.first_name', 'User.last_name')
-            ->orderByDesc('Tracking.id')
-            ->paginate($limit)
-            ->withQueryString();
-
-        return view('admin.trackings.admin_index', [
-            'trackings' => $trackings,
-        ]);
+        return '/admin/trackings';
     }
 
-    public function admin_view(Request $request)
+    /**
+     * Cake `admin_index`: paginated tracking rows with vehicle + user; AJAX returns listing fragment.
+     */
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $limit = (int) $request->input('Record.limit', session('Trackings_limit', 20));
-        $limit = $limit > 0 ? $limit : 20;
-        session(['Trackings_limit' => $limit]);
+        $limit = $this->resolveLimit($request);
+        $request->merge(['Record' => ['limit' => $limit]]);
 
-        $trackings = DB::table('trackings as Tracking')
-            ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'Tracking.vehicle_id')
-            ->selectRaw('COUNT(Tracking.vehicle_id) as views, Vehicle.vehicle_name')
-            ->groupBy('Tracking.vehicle_id', 'Vehicle.vehicle_name')
-            ->orderByDesc('Tracking.id')
+        $trackings = DB::table('trackings')
+            ->leftJoin('vehicles', 'vehicles.id', '=', 'trackings.vehicle_id')
+            ->leftJoin('users', 'users.id', '=', 'trackings.user_id')
+            ->select(
+                'trackings.*',
+                'vehicles.vehicle_name',
+                'users.first_name',
+                'users.last_name'
+            )
+            ->orderByDesc('trackings.id')
             ->paginate($limit)
             ->withQueryString();
 
-        return view('admin.trackings.admin_view', [
+        $viewData = [
+            'title_for_layout' => 'Tracking Data',
             'trackings' => $trackings,
-        ]);
+            'limit' => $limit,
+            'basePath' => $this->basePath(),
+        ];
+
+        if ($request->ajax()) {
+            return response()->view('admin.trackings.partials.index_listing', $viewData);
+        }
+
+        return view('admin.trackings.index', $viewData);
+    }
+
+    /**
+     * Cake `admin_view`: counts per vehicle with vehicle name; paginated; AJAX returns listing fragment.
+     */
+    public function view(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $limit = $this->resolveLimit($request);
+        $request->merge(['Record' => ['limit' => $limit]]);
+
+        $trackings = DB::table('trackings')
+            ->leftJoin('vehicles', 'vehicles.id', '=', 'trackings.vehicle_id')
+            ->selectRaw('trackings.vehicle_id, vehicles.vehicle_name, COUNT(trackings.vehicle_id) AS views')
+            ->groupBy('trackings.vehicle_id', 'vehicles.vehicle_name')
+            ->orderByDesc(DB::raw('views'))
+            ->paginate($limit)
+            ->withQueryString();
+
+        $viewData = [
+            'title_for_layout' => 'Vehicle Views',
+            'trackings' => $trackings,
+            'limit' => $limit,
+            'basePath' => $this->basePath(),
+        ];
+
+        if ($request->ajax()) {
+            return response()->view('admin.trackings.partials.view_listing', $viewData);
+        }
+
+        return view('admin.trackings.view', $viewData);
+    }
+
+    protected function resolveLimit(Request $request): int
+    {
+        $allowed = [25, 50, 100, 200];
+        $fromForm = $request->input('Record.limit');
+        if ($fromForm !== null && $fromForm !== '') {
+            $lim = (int) $fromForm;
+            if (in_array($lim, $allowed, true)) {
+                session()->put(self::SESSION_LIMIT_KEY, $lim);
+
+                return $lim;
+            }
+        }
+        $sess = (int) session()->get(self::SESSION_LIMIT_KEY, 0);
+        if (in_array($sess, $allowed, true)) {
+            return $sess;
+        }
+
+        return 25;
     }
 }

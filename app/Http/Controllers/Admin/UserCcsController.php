@@ -2,118 +2,212 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\UserCcsController as LegacyUserCcsController;
-use App\Models\Legacy\UserCcToken;
-use App\Models\Legacy\User;
+use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Services\Legacy\PaymentProcessor;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
-class UserCcsController extends LegacyUserCcsController
+class UserCcsController extends LegacyAppController
 {
-    public function admin_index($userid)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
+    protected bool $shouldLoadLegacyModules = true;
 
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
+    public function index(Request $request, ?string $userid = null): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeId($userid);
+        if (!$uid) {
             return redirect('/admin/users/index');
         }
 
-        $this->layout = 'admin';
-        $UserCcTokens = UserCcToken::where('user_id', $userid)->orderBy('id', 'DESC')->get();
-        $user = User::find($userid);
-        $defaultcctoken = $user ? $user->cc_token_id : null;
+        $tokens = DB::table('user_cc_tokens')
+            ->where('user_id', $uid)
+            ->orderByDesc('id')
+            ->get();
 
-        return view('admin.userccs.index', compact('UserCcTokens', 'userid', 'defaultcctoken'));
+        $defaultCcTokenId = DB::table('users')
+            ->where('id', $uid)
+            ->value('cc_token_id');
+
+        return view('admin.user_ccs.index', [
+            'title_for_layout' => 'Manage User CC Details',
+            'UserCcTokens' => $tokens,
+            'userid' => $uid,
+            'useridB64' => $this->encodeId($uid),
+            'defaultcctoken' => $defaultCcTokenId !== null ? (int) $defaultCcTokenId : null,
+        ]);
     }
 
-    public function admin_status($id = null, $status = null)
+    public function status(Request $request, ?string $id = null, ?string $status = null): RedirectResponse
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-
-        $id = base64_decode($id);
-        if (!empty($id)) {
-            UserCcToken::where('id', $id)->update(['status' => $status]);
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
+        $tokenId = $this->decodeId($id);
+        if ($tokenId) {
+            DB::table('user_cc_tokens')
+                ->where('id', $tokenId)
+                ->update(['status' => ((string) $status === '1') ? 1 : 0]);
+        }
+        session()->flash('success', 'Record status has been changed.');
 
-        return redirect()->back()->with('success', "Record status has been changed.");
+        return back();
     }
 
-    public function admin_delete($id = null, $userid)
+    public function delete(Request $request, ?string $id = null, ?string $userid = null): RedirectResponse
     {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-
-        $id = base64_decode($id);
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect('/admin/users/admin_index');
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
-
-        $isdefault = User::where('id', $userid)->where('cc_token_id', $id)->count();
-
-        if ($isdefault) {
-            return redirect()->back()->with('error', "Sorry, this is default CC record, this cant be deleted.");
-        }
-
-        $UserCcTokenObj = UserCcToken::where('id', $id)->where('user_id', $userid)->first();
-        if (empty($UserCcTokenObj)) {
-            return redirect()->back()->with('error', "Sorry, this CC record doesnt belong to selected user.");
-        }
-
-        /** @var PaymentProcessor $paymentProcessor */
-        $paymentProcessor = app(PaymentProcessor::class);
-        $paymentProcessor->deleteCustomerCard((string) $UserCcTokenObj->stripe_token, (string) $UserCcTokenObj->card_id);
-
-        UserCcToken::where('id', $id)->delete();
-        return redirect()->back()->with('success', "Record has been deleted successfully.");
-    }
-
-    public function admin_add(Request $request, $userid = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
+        $tokenId = $this->decodeId($id);
+        $uid = $this->decodeId($userid);
+        if (!$uid) {
             return redirect('/admin/users/index');
         }
 
-        $this->layout = 'admin';
-        
-        if ($request->isMethod('post')) {
-            $dataInputs = $request->input('UserCcToken', []);
-            $return = $this->_addCardLogic($userid, $dataInputs);
+        $isDefault = DB::table('users')
+            ->where('id', $uid)
+            ->where('cc_token_id', $tokenId)
+            ->exists();
+        if ($isDefault) {
+            session()->flash('error', 'Sorry, this is default CC record, this cant be deleted.');
 
-            if ($return['status']) {
-                return redirect('/admin/user_ccs/admin_index/' . base64_encode($userid))->with('success', $return['message']);
-            } else {
-                return redirect()->back()->with('error', $return['message']);
-            }
+            return back();
         }
 
-        return view('admin.userccs.add', compact('userid'));
-    }
+        $row = DB::table('user_cc_tokens')
+            ->where('id', $tokenId)
+            ->where('user_id', $uid)
+            ->first();
+        if ($row === null) {
+            session()->flash('error', 'Sorry, this CC record doesnt belong to selected user');
 
-    public function admin_makeccdefault($ccid, $userid)
-    {
-        if ($redirect = $this->ensureAdminSession()) return $redirect;
-
-        $ccid = base64_decode($ccid);
-        $userid = base64_decode($userid);
-        if (empty($userid) || empty($ccid)) {
-            return redirect('/admin/user_ccs/index');
+            return back();
         }
 
-        $isassociatedwithUser = UserCcToken::where('id', $ccid)->where('user_id', $userid)->first();
-        if (!empty($isassociatedwithUser)) {
-            User::where('id', $userid)->update(['cc_token_id' => $ccid]);
-
-            /** @var PaymentProcessor $paymentProcessor */
-            $paymentProcessor = app(PaymentProcessor::class);
-            $paymentProcessor->makeCardDefault((string) $isassociatedwithUser->stripe_token, (string) $isassociatedwithUser->card_id);
-
-            return redirect()->back()->with('success', "CC record has been updated successfully.");
+        $processor = new PaymentProcessor();
+        $return = $processor->deleteCustomerCard($row->stripe_token ?? null, $row->card_id ?? null);
+        if (($return['status'] ?? '') === 'success') {
+            DB::table('user_cc_tokens')->where('id', $tokenId)->delete();
+            session()->flash('success', 'Record has been deleted succesfully');
         } else {
-            return redirect()->back()->with('error', "Sorry, this CC record doesnt belong to selected user.");
+            session()->flash('error', $return['message'] ?? 'Payment processing not yet ported to Laravel');
         }
+
+        return back();
+    }
+
+    public function add(Request $request, ?string $userid = null): View|RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeId($userid);
+        if (!$uid) {
+            return redirect('/admin/users/index');
+        }
+
+        $user = DB::table('users')->where('id', $uid)->first();
+
+        if ($request->isMethod('post')) {
+            $input = $request->input('UserCcToken', []);
+            if (!is_array($input)) {
+                $input = [];
+            }
+            $input['user_id'] = $uid;
+            $input['status'] = 1;
+            $dataValues = json_decode(json_encode($input));
+
+            $existing = DB::table('user_cc_tokens')
+                ->where('user_id', $uid)
+                ->orderBy('id')
+                ->first();
+
+            $processor = new PaymentProcessor();
+            $return = $processor->addNewCard(
+                $dataValues,
+                $existing && !empty($existing->stripe_token) ? (string) $existing->stripe_token : ''
+            );
+
+            if (($return['status'] ?? '') === 'success') {
+                $ccDigits = preg_replace('/\D/', '', (string) ($dataValues->credit_card_number ?? ''));
+                $last4 = $ccDigits !== '' ? substr($ccDigits, -4) : substr((string) ($dataValues->credit_card_number ?? ''), -4);
+
+                $ccid = DB::table('user_cc_tokens')->insertGetId([
+                    'user_id' => $uid,
+                    'card_type' => $dataValues->card_type ?? null,
+                    'credit_card_number' => $last4,
+                    'card_holder_name' => $dataValues->card_holder_name ?? null,
+                    'expiration' => $dataValues->expiration ?? null,
+                    'card_funding' => $return['card_funding'] ?? '',
+                    'cvv' => $input['cvv'] ?? '',
+                    'address' => $input['address'] ?? null,
+                    'city' => $input['city'] ?? null,
+                    'state' => $input['state'] ?? null,
+                    'zip' => $input['zip'] ?? null,
+                    'country' => 'US',
+                    'stripe_token' => $return['stripe_token'] ?? '',
+                    'card_id' => $return['card_id'] ?? '',
+                    'status' => 1,
+                    'created' => now(),
+                ]);
+
+                $cctokenid = DB::table('users')->where('id', $uid)->value('cc_token_id');
+                $defaultChecked = $request->has('UserCcToken.default');
+                if (empty($cctokenid) || $defaultChecked) {
+                    DB::table('users')->where('id', $uid)->update([
+                        'cc_token_id' => $ccid,
+                        'is_renter' => 1,
+                    ]);
+                }
+                if ($existing !== null && $defaultChecked && !empty($return['card_id'] ?? '')) {
+                    $processor->makeCardDefault((string) $existing->stripe_token, (string) ($return['card_id'] ?? ''));
+                }
+                session()->flash('success', 'Card has been added successfully.');
+
+                return redirect('/admin/user_ccs/index/' . $this->encodeId($uid));
+            }
+            session()->flash('error', $return['message'] ?? 'Payment processing not yet ported to Laravel');
+
+            return back()->withInput();
+        }
+
+        return view('admin.user_ccs.add', [
+            'listTitle' => 'Add CC Details',
+            'userid' => $uid,
+            'useridB64' => $this->encodeId($uid),
+            'user' => $user,
+        ]);
+    }
+
+    public function makeccdefault(Request $request, ?string $ccid = null, ?string $userid = null): RedirectResponse
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+        $tokenId = $this->decodeId($ccid);
+        $uid = $this->decodeId($userid);
+        if (!$uid || !$tokenId) {
+            return redirect('/admin/users/index');
+        }
+
+        $token = DB::table('user_cc_tokens')
+            ->where('id', $tokenId)
+            ->where('user_id', $uid)
+            ->first();
+        if ($token !== null) {
+            DB::table('users')->where('id', $uid)->update(['cc_token_id' => $tokenId]);
+            if (!empty($token->stripe_token) && !empty($token->card_id)) {
+                (new PaymentProcessor())->makeCardDefault((string) $token->stripe_token, (string) $token->card_id);
+            }
+            session()->flash('success', 'CC record has been updated succesfully');
+        } else {
+            session()->flash('error', 'Sorry, this CC record doesnt belong to selected user');
+        }
+
+        return back();
     }
 }

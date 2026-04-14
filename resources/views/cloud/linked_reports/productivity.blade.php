@@ -1,4 +1,1 @@
-<div class="container">
-    <h3>Linked Productivity Report</h3>
-    @include('cloud.elements.reports.index')
-</div>
+@include('admin.linked_reports.productivity')

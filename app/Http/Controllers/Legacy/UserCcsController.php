@@ -2,67 +2,162 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use App\Models\Legacy\UserCcToken;
-use App\Models\Legacy\User;
-use App\Http\Controllers\Traits\UserCcsTrait;
+use App\Services\Legacy\PaymentProcessor;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class UserCcsController extends LegacyAppController
 {
-    use UserCcsTrait;
+    protected bool $shouldLoadLegacyModules = true;
 
-    public function index($userid)
+    /**
+     * @return array<string, string>
+     */
+    private function usStateOptions(): array
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
-            return redirect('/users/index');
-        }
-
-        $this->layout = 'main';
-        $UserCcTokens = UserCcToken::where('user_id', $userid)->orderBy('id', 'DESC')->get();
-
-        return view('legacy.userccs.index', compact('UserCcTokens', 'userid'));
+        return [
+            'AL' => 'Alabama', 'AK' => 'Alaska', 'AZ' => 'Arizona', 'AR' => 'Arkansas', 'CA' => 'California',
+            'CO' => 'Colorado', 'CT' => 'Connecticut', 'DE' => 'Delaware', 'DC' => 'District Of Columbia',
+            'FL' => 'Florida', 'GA' => 'Georgia', 'HI' => 'Hawaii', 'ID' => 'Idaho', 'IL' => 'Illinois',
+            'IN' => 'Indiana', 'IA' => 'Iowa', 'KS' => 'Kansas', 'KY' => 'Kentucky', 'LA' => 'Louisiana',
+            'ME' => 'Maine', 'MD' => 'Maryland', 'MA' => 'Massachusetts', 'MI' => 'Michigan', 'MN' => 'Minnesota',
+            'MS' => 'Mississippi', 'MO' => 'Missouri', 'MT' => 'Montana', 'NE' => 'Nebraska', 'NV' => 'Nevada',
+            'NH' => 'New Hampshire', 'NJ' => 'New Jersey', 'NM' => 'New Mexico', 'NY' => 'New York',
+            'NC' => 'North Carolina', 'ND' => 'North Dakota', 'OH' => 'Ohio', 'OK' => 'Oklahoma', 'OR' => 'Oregon',
+            'PA' => 'Pennsylvania', 'RI' => 'Rhode Island', 'SC' => 'South Carolina', 'SD' => 'South Dakota',
+            'TN' => 'Tennessee', 'TX' => 'Texas', 'UT' => 'Utah', 'VT' => 'Vermont', 'VA' => 'Virginia',
+            'WA' => 'Washington', 'WV' => 'West Virginia', 'WI' => 'Wisconsin', 'WY' => 'Wyoming',
+        ];
     }
 
-    public function delete($id = null, $userid)
+    public function index(Request $request, ?string $userid = null): View|RedirectResponse
     {
-        $id = base64_decode($id);
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeId($userid);
+        if (!$uid) {
             return redirect('/users/index');
         }
 
-        $isdefault = User::where('id', $userid)->where('cc_token_id', $id)->count();
+        $tokens = DB::table('user_cc_tokens')
+            ->where('user_id', $uid)
+            ->orderByDesc('id')
+            ->get();
 
-        if (!$isdefault) {
-            UserCcToken::where('id', $id)->delete();
-            return redirect()->back()->with('success', "Record has been deleted successfully.");
+        return view('user_ccs.index', [
+            'title_for_layout' => 'Manage User CC Details',
+            'UserCcTokens' => $tokens,
+            'userid' => $uid,
+            'useridB64' => $this->encodeId($uid),
+        ]);
+    }
+
+    public function delete(Request $request, ?string $id = null, ?string $userid = null): RedirectResponse
+    {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $tokenId = $this->decodeId($id);
+        $uid = $this->decodeId($userid);
+        if (!$uid) {
+            return redirect('/users/index');
+        }
+
+        $isDefault = DB::table('users')
+            ->where('id', $uid)
+            ->where('cc_token_id', $tokenId)
+            ->exists();
+        if (!$isDefault) {
+            DB::table('user_cc_tokens')->where('id', $tokenId)->delete();
+            session()->flash('success', 'Record has been deleted succesfully');
         } else {
-            return redirect()->back()->with('error', "Sorry, this is default CC record, this cant be deleted.");
+            session()->flash('error', 'Sorry, this is default CC record, this cant be deleted.');
         }
+
+        return back();
     }
 
-    public function add(Request $request, $userid = null)
+    public function add(Request $request, ?string $userid = null): View|RedirectResponse
     {
-        $userid = base64_decode($userid);
-        if (empty($userid)) {
+        if ($redirect = $this->ensureUserSession()) {
+            return $redirect;
+        }
+        $uid = $this->decodeId($userid);
+        if (!$uid) {
             return redirect('/users/index');
         }
 
-        $this->layout = 'main';
-        
         if ($request->isMethod('post')) {
-            $dataInputs = $request->input('UserCcToken', []);
-            $return = $this->_addCardLogic($userid, $dataInputs);
-
-            if ($return['status']) {
-                return redirect('/user_ccs/index/' . base64_encode($userid))->with('success', $return['message']);
-            } else {
-                return redirect()->back()->with('error', $return['message']);
+            $input = $request->input('UserCcToken', []);
+            if (!is_array($input)) {
+                $input = [];
             }
+            $input['user_id'] = $uid;
+            $input['status'] = 1;
+            $dataValues = json_decode(json_encode($input));
+
+            $existing = DB::table('user_cc_tokens')
+                ->where('user_id', $uid)
+                ->orderBy('id')
+                ->first();
+
+            $processor = new PaymentProcessor();
+            $return = $processor->addNewCard(
+                $dataValues,
+                $existing && !empty($existing->stripe_token) ? (string) $existing->stripe_token : ''
+            );
+
+            if (($return['status'] ?? '') === 'success') {
+                $ccDigits = preg_replace('/\D/', '', (string) ($dataValues->credit_card_number ?? ''));
+                $last4 = $ccDigits !== '' ? substr($ccDigits, -4) : substr((string) ($dataValues->credit_card_number ?? ''), -4);
+
+                $ccid = DB::table('user_cc_tokens')->insertGetId([
+                    'user_id' => $uid,
+                    'card_type' => $dataValues->card_type ?? null,
+                    'credit_card_number' => $last4,
+                    'card_holder_name' => $dataValues->card_holder_name ?? null,
+                    'expiration' => $dataValues->expiration ?? null,
+                    'card_funding' => $return['card_funding'] ?? '',
+                    'cvv' => $input['cvv'] ?? '',
+                    'address' => $input['address'] ?? null,
+                    'city' => $input['city'] ?? null,
+                    'state' => $input['state'] ?? null,
+                    'zip' => $input['zip'] ?? null,
+                    'country' => 'US',
+                    'stripe_token' => $return['stripe_token'] ?? '',
+                    'card_id' => $return['card_id'] ?? '',
+                    'status' => 1,
+                    'created' => now(),
+                ]);
+
+                $cctokenid = DB::table('users')->where('id', $uid)->value('cc_token_id');
+                $defaultChecked = $request->has('UserCcToken.default');
+                if (empty($cctokenid) || $defaultChecked) {
+                    DB::table('users')->where('id', $uid)->update([
+                        'cc_token_id' => $ccid,
+                        'is_renter' => 1,
+                    ]);
+                }
+                if ($existing !== null && $defaultChecked && !empty($return['card_id'] ?? '')) {
+                    $processor->makeCardDefault((string) $existing->stripe_token, (string) ($return['card_id'] ?? ''));
+                }
+                session()->flash('success', 'Card has been added successfully.');
+
+                return redirect('/user_ccs/index/' . $this->encodeId($uid));
+            }
+            session()->flash('error', $return['message'] ?? 'Payment processing not yet ported to Laravel');
+
+            return back()->withInput();
         }
 
-        return view('legacy.userccs.add', compact('userid'));
+        return view('user_ccs.add', [
+            'listTitle' => 'Add CC Details',
+            'userid' => $uid,
+            'useridB64' => $this->encodeId($uid),
+            'stateOptions' => $this->usStateOptions(),
+        ]);
     }
 }

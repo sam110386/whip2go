@@ -11,7 +11,7 @@ class LinkedPayoutsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -70,7 +70,7 @@ class LinkedPayoutsController extends LegacyAppController
             $payoutlists = $q->orderByDesc('pt.id')->paginate($limit)->withQueryString();
         }
 
-        return view('admin.linked_payouts.index', [
+        return view('cloud.linked_payouts.index', [
             'payoutlists' => $payoutlists,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
@@ -81,7 +81,7 @@ class LinkedPayoutsController extends LegacyAppController
         ]);
     }
 
-    public function cloud_transactions(Request $request)
+    public function transactions(Request $request)
     {
         $csPayoutId = (int)$request->input('payoutid', 0);
         $transactions = DB::table('cs_payout_transactions as pt')
@@ -102,7 +102,7 @@ class LinkedPayoutsController extends LegacyAppController
             ])
             ->get();
 
-        return response()->view('admin.linked_payouts.transactions', compact('transactions'));
+        return response()->view('cloud.linked_payouts.transactions', compact('transactions'));
     }
 
     public function cloudexport(Request $request, ?array $dealerIds = null)
