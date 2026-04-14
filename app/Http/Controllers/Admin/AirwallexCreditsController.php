@@ -12,7 +12,9 @@ class AirwallexCreditsController extends LegacyAppController
 {
     public function index(Request $request)
     {
-        $this->ensureAdminSession();
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
 
         $dateFrom = $dateTo = $status = $userid = '';
         $query = DB::table('airwallex_credits as AirwallexCredit')
@@ -59,7 +61,9 @@ class AirwallexCreditsController extends LegacyAppController
 
     public function issue(Request $request, $user = null)
     {
-        $this->ensureAdminSession();
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
 
         $userId = base64_decode($user);
         if (empty($userId)) {
@@ -97,7 +101,9 @@ class AirwallexCreditsController extends LegacyAppController
 
     public function issuecard(Request $request)
     {
-        $this->ensureAdminSession();
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
 
         if (!$request->isMethod('post')) {
             return redirect()->back()->with('error', 'Invalid request');
@@ -172,11 +178,4 @@ class AirwallexCreditsController extends LegacyAppController
         ]);
     }
 
-    private function ensureAdminSession(): void
-    {
-        $redirect = $this->ensureUserSession();
-        if ($redirect) {
-            abort(403, 'Unauthorized');
-        }
-    }
 }

@@ -8,6 +8,18 @@ class Wishlist extends LegacyModel
 {
     protected $table = 'wishlists';
 
+    protected $fillable = [
+        'user_id',
+        'vehicle_id',
+        'program',
+        'financing',
+        'created',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
+    ];
+
     protected $casts = [
         'id' => 'integer',
         'user_id' => 'integer',

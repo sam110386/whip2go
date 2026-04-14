@@ -8,6 +8,17 @@ class AdminUserRole extends LegacyModel
 {
     protected $table = 'admin_user_roles';
 
+    protected $fillable = [
+        'user_id',
+        'role_id',
+        'created_at',
+        'updated_at',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
+    ];
+
     protected $casts = [
         'id' => 'integer',
         'user_id' => 'integer',

@@ -1,4 +1,4 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Checkr Status')
 
@@ -8,8 +8,14 @@
     <div class="panel panel-flat">
         <div class="panel-heading">
             <h5 class="panel-title">User Information</h5>
+            <div class="heading-elements">
+                <a href="{{ $basePath }}/checkr_status/{{ base64_encode($user->id) }}?action=refresh" class="btn btn-primary btn-xs">
+                    <i class="icon-sync position-left"></i> Update Status
+                </a>
+            </div>
         </div>
         <div class="panel-body">
+            @include('layouts.flash-messages')
             <dl class="dl-horizontal">
                 <dt>Name</dt>
                 <dd>{{ e($user->first_name ?? '') }} {{ e($user->last_name ?? '') }}</dd>

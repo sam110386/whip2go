@@ -15,10 +15,11 @@ class AdminModule extends LegacyModel
         'status',
         'icon',
         'created',
-        'modified'
+        'modified',
     ];
-
+    protected $hidden = [];
     protected $guarded = [
         'id',
     ];
+
 }

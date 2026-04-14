@@ -8,8 +8,8 @@ class UserLicenseDetail extends LegacyModel
 
     protected $fillable = [
         'user_id',
-        'jurisdictionEndorsementCodes',
         'jurisdictionRestrictionCodes',
+        'jurisdictionEndorsementCodes',
         'dateOfExpiry',
         'lastName',
         'givenName',
@@ -28,8 +28,9 @@ class UserLicenseDetail extends LegacyModel
         'created',
         'modified',
     ];
-
+    protected $hidden = [];
     protected $guarded = [
         'id',
     ];
+
 }

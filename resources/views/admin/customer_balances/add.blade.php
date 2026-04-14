@@ -1,127 +1,206 @@
-@extends('admin.layouts.app')
+@extends('layouts.admin')
 
 @section('title', $listTitle)
 
 @section('content')
-    <h1>{{ $listTitle }}</h1>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4>
+                <i class="icon-arrow-left52 position-left"></i>
+                <span class="text-semibold">Customer Balance</span> - {{ $listTitle }}
+            </h4>
+        </div>
+    </div>
 
-    @if (session('success'))
-        <p style="color:#0a0;">{{ session('success') }}</p>
-    @endif
-    @if (session('error'))
-        <p style="color:#b00020;">{{ session('error') }}</p>
-    @endif
+    <div class="breadcrumb-line">
+        <ul class="breadcrumb">
+            <li><a href="{{ url('admin/dashboard') }}"><i class="icon-home2 position-left"></i> Home</a></li>
+            <li><a href="{{ url('admin/users/index') }}">Users</a></li>
+            <li><a href="{{ url('admin/customer_balances/index') }}">Customer Balances</a></li>
+            <li class="active">{{ $balance ? 'Update' : 'Add' }} Charge</li>
+        </ul>
+    </div>
+</div>
 
-    @php
-        $b = $balance;
-    @endphp
+<div class="content">
+    @include('layouts.flash-messages')
 
-    <form method="post" action="/admin/customer_balances/add{{ $b ? '/' . base64_encode((string)$b->id) : '' }}" style="max-width:720px;">
-        @if ($b)
-            <input type="hidden" name="CsUserBalance[id]" value="{{ $b->id }}">
-        @endif
+    <div class="row">
+        <div class="col-md-8">
+            <div class="panel panel-flat">
+                <div class="panel-heading">
+                    <h5 class="panel-title">Add / Edit Balance Record</h5>
+                </div>
 
-        <div style="margin-bottom:14px;">
-            <label><strong>Driver (user id)</strong></label><br>
-            @if ($b)
-                <input type="hidden" name="CsUserBalance[user_id]" value="{{ $b->user_id }}">
-                <span>{{ $b->user_id }}</span>
-            @else
-                <input type="number" name="CsUserBalance[user_id]" value="{{ old('CsUserBalance.user_id') }}" min="1" required style="width:200px;">
-            @endif
+                <div class="panel-body">
+                    <form method="POST" action="{{ url('admin/customer_balances/add', [$balance ? base64_encode((string)$balance->id) : '']) }}" class="form-horizontal">
+                        @csrf
+                        @if ($balance)
+                            <input type="hidden" name="CsUserBalance[id]" value="{{ $balance->id }}">
+                        @endif
+
+                        <div class="form-group">
+                            <label class="col-lg-3 control-label text-semibold">Target User ID:</label>
+                            <div class="col-lg-9">
+                                @if ($balance)
+                                    <input type="hidden" name="CsUserBalance[user_id]" value="{{ $balance->user_id }}">
+                                    <div class="form-control-static"><span class="label label-flat border-grey text-grey-600">{{ $balance->user_id }}</span></div>
+                                @else
+                                    <input type="number" name="CsUserBalance[user_id]" value="{{ old('CsUserBalance.user_id') }}" class="form-control" min="1" required placeholder="Enter User ID">
+                                @endif
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="col-lg-3 control-label text-semibold">Status:</label>
+                            <div class="col-lg-9">
+                                <select name="CsUserBalance[status]" class="form-control">
+                                    <option value="1" @selected((int)old('CsUserBalance.status', $balance->status ?? 1) === 1)>Active</option>
+                                    <option value="0" @selected((int)old('CsUserBalance.status', $balance->status ?? 1) === 0)>Inactive</option>
+                                    <option value="2" @selected((int)old('CsUserBalance.status', $balance->status ?? 1) === 2)>Completed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        @if ($balance)
+                        <div class="row mb-20 text-center">
+                            <div class="col-xs-4">
+                                <div class="text-uppercase text-size-mini text-muted">Credit</div>
+                                <h6 class="text-semibold no-margin text-success">{{ number_format($balance->credit, 2) }}</h6>
+                            </div>
+                            <div class="col-xs-4">
+                                <div class="text-uppercase text-size-mini text-muted">Debit</div>
+                                <h6 class="text-semibold no-margin text-danger">{{ number_format($balance->debit, 2) }}</h6>
+                            </div>
+                            <div class="col-xs-4">
+                                <div class="text-uppercase text-size-mini text-muted">Balance</div>
+                                <h6 class="text-semibold no-margin text-primary">{{ number_format($balance->balance, 2) }}</h6>
+                            </div>
+                        </div>
+                        <hr>
+                        @endif
+
+                        <fieldset>
+                            <legend class="text-semibold">Update Balance</legend>
+                            <div class="form-group">
+                                <label class="col-lg-3 control-label text-semibold">Action Type:</label>
+                                <div class="col-lg-9">
+                                    <select name="CsUserBalance[creditdebit]" class="form-control">
+                                        <option value="credit">Charge To Driver (Add Credit)</option>
+                                        <option value="debit">Give Refund/Debit to Customer</option>
+                                    </select>
+                                    <span class="help-block text-muted">Credit: increases amount owed by user. Debit: decreases it.</span>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-lg-3 control-label text-semibold">Record Category:</label>
+                                <div class="col-lg-9">
+                                    <select name="CsUserBalance[type]" class="form-control">
+                                        @foreach ($balanceTypes as $k => $label)
+                                            <option value="{{ $k }}" @selected((string)old('CsUserBalance.type', $balance->type ?? '') === (string)$k)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-lg-3 control-label text-semibold">Adjustment Amount ($):</label>
+                                <div class="col-lg-9">
+                                    <input type="number" step="0.01" name="CsUserBalance[balance]" value="{{ old('CsUserBalance.balance') }}" class="form-control" placeholder="0.00">
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <legend class="text-semibold">Capture Schedule</legend>
+                            <div class="form-group">
+                                <label class="col-lg-3 control-label text-semibold">Payment Mode:</label>
+                                <div class="col-lg-9">
+                                    <select name="CsUserBalance[chargetype]" id="capture-mode" class="form-control">
+                                        <option value="lumpsum" @selected(old('CsUserBalance.chargetype', $balance->chargetype ?? 'lumpsum') === 'lumpsum')>Lumpsum (One Time)</option>
+                                        <option value="installment" @selected(old('CsUserBalance.chargetype', $balance->chargetype ?? '') === 'installment')>Installments (Tiers)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="installment-fields" style="display:none;">
+                                <div class="form-group">
+                                    <label class="col-lg-3 control-label text-semibold">Installment Frequency:</label>
+                                    <div class="col-lg-9">
+                                        <select name="CsUserBalance[installment_type]" class="form-control">
+                                            <option value="daily" @selected(old('CsUserBalance.installment_type', $balance->installment_type ?? 'daily') === 'daily')>Daily</option>
+                                            <option value="weekly" @selected(old('CsUserBalance.installment_type', $balance->installment_type ?? '') === 'weekly')>Weekly</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="col-lg-3 control-label text-semibold">Partial Amount ($):</label>
+                                    <div class="col-lg-9">
+                                        <input type="number" step="0.01" name="CsUserBalance[installment]" value="{{ old('CsUserBalance.installment', $balance->installment ?? '0') }}" class="form-control">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="col-lg-3 control-label text-semibold">Processing Weekday:</label>
+                                <div class="col-lg-9">
+                                    <select name="CsUserBalance[installment_day]" class="form-control">
+                                        @foreach ($weekdays as $k => $label)
+                                            <option value="{{ $k }}" @selected(old('CsUserBalance.installment_day', $balance->installment_day ?? 'sun') === $k)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        <div class="form-group">
+                            <label class="col-lg-3 control-label text-semibold">Internal Notes:</label>
+                            <div class="col-lg-9">
+                                <textarea name="CsUserBalance[note]" rows="3" class="form-control" maxlength="255" placeholder="Reason for adjustment...">{{ old('CsUserBalance.note', $balance->note ?? '') }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="text-right">
+                            <button type="submit" class="btn btn-primary">Save Balance Record <i class="icon-database-insert position-right"></i></button>
+                            <a href="{{ url('admin/customer_balances/index') }}" class="btn btn-default">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
 
-        <div style="margin-bottom:14px;">
-            <label>Status</label><br>
-            <select name="CsUserBalance[status]">
-                <option value="1" @selected((int)old('CsUserBalance.status', $b->status ?? 1) === 1)>Active</option>
-                <option value="0" @selected((int)old('CsUserBalance.status', $b->status ?? 1) === 0)>Inactive</option>
-                <option value="2" @selected((int)old('CsUserBalance.status', $b->status ?? 1) === 2)>Completed</option>
-            </select>
+        <div class="col-md-4">
+            <div class="panel panel-flat border-top-primary">
+                <div class="panel-heading">
+                    <h5 class="panel-title">System Guidance</h5>
+                </div>
+                <div class="panel-body">
+                    <p class="text-size-small">Use this form to add ad-hoc charges (Credits) or refunds (Debits) to a customer balance.</p>
+                    <div class="alert alert-info border-grey alert-styled-left alert-xs">
+                        Lumpsum payments will attempt to capture the full balance on the next processing cycle.
+                    </div>
+                </div>
+            </div>
         </div>
+    </div>
+</div>
 
-        @if ($b)
-            <p><strong>Current</strong> — Charge on driver: {{ $b->credit }} &nbsp; Debit: {{ $b->debit }} &nbsp; Balance: {{ $b->balance }}</p>
-        @endif
+<script>
+$(document).ready(function() {
+    function toggleFields() {
+        var mode = $('#capture-mode').val();
+        if (mode === 'installment') {
+            $('.installment-fields').slideDown();
+        } else {
+            $('.installment-fields').slideUp();
+        }
+    }
 
-        <fieldset style="border:1px solid #ddd; padding:12px; margin-bottom:14px;">
-            <legend>Update Balance</legend>
-            <div style="margin-bottom:10px;">
-                <label>Credit / Debit</label><br>
-                <select name="CsUserBalance[creditdebit]">
-                    <option value="credit">Charge To Driver</option>
-                    <option value="debit">Give Refund to Customer</option>
-                </select>
-                <div style="font-size:12px;color:#555;">Credit: charge to driver. Debit: refund to customer.</div>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>Type</label><br>
-                <select name="CsUserBalance[type]">
-                    @foreach ($balanceTypes as $k => $label)
-                        <option value="{{ $k }}" @selected((string)old('CsUserBalance.type', $b->type ?? '') === (string)$k)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>Amount</label><br>
-                <input type="text" name="CsUserBalance[balance]" value="{{ old('CsUserBalance.balance') }}" class="form-control" style="width:200px;">
-            </div>
-        </fieldset>
-
-        <fieldset style="border:1px solid #ddd; padding:12px; margin-bottom:14px;">
-            <legend>Balance capture</legend>
-            <div style="margin-bottom:10px;">
-                <label>Capture as</label><br>
-                <select name="CsUserBalance[chargetype]" id="CsUserBalanceChargetype">
-                    <option value="lumpsum" @selected(old('CsUserBalance.chargetype', $b->chargetype ?? 'lumpsum') === 'lumpsum')>Lumpsum</option>
-                    <option value="installment" @selected(old('CsUserBalance.chargetype', $b->chargetype ?? '') === 'installment')>Installment</option>
-                </select>
-            </div>
-            <div class="installment-row" style="margin-bottom:10px; display:none;">
-                <label>Installment type</label><br>
-                <select name="CsUserBalance[installment_type]">
-                    <option value="daily" @selected(old('CsUserBalance.installment_type', $b->installment_type ?? 'daily') === 'daily')>Daily</option>
-                    <option value="weekly" @selected(old('CsUserBalance.installment_type', $b->installment_type ?? '') === 'weekly')>Weekly</option>
-                </select>
-            </div>
-            <div style="margin-bottom:10px;">
-                <label>Week day</label><br>
-                <select name="CsUserBalance[installment_day]">
-                    @foreach ($weekdays as $k => $label)
-                        <option value="{{ $k }}" @selected(old('CsUserBalance.installment_day', $b->installment_day ?? 'sun') === $k)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="installment-row" style="margin-bottom:10px; display:none;">
-                <label>Installment</label><br>
-                <input type="text" name="CsUserBalance[installment]" value="{{ old('CsUserBalance.installment', $b->installment ?? '0') }}" style="width:200px;">
-            </div>
-        </fieldset>
-
-        <div style="margin-bottom:14px;">
-            <label>Note</label><br>
-            <input type="text" name="CsUserBalance[note]" value="{{ old('CsUserBalance.note', $b->note ?? '') }}" maxlength="255" style="width:100%; max-width:520px;">
-        </div>
-
-        <button type="submit" style="padding:8px 16px;">Save</button>
-        <a href="/admin/customer_balances/index" style="margin-left:12px;">Back to list</a>
-    </form>
-
-    @push('scripts')
-        <script>
-            (function () {
-                var sel = document.getElementById('CsUserBalanceChargetype');
-                function sync() {
-                    var show = sel && sel.value === 'installment';
-                    document.querySelectorAll('.installment-row').forEach(function (el) {
-                        el.style.display = show ? 'block' : 'none';
-                    });
-                }
-                if (sel) {
-                    sel.addEventListener('change', sync);
-                    sync();
-                }
-            })();
-        </script>
-    @endpush
+    $('#capture-mode').on('change', toggleFields);
+    toggleFields();
+});
+</script>
 @endsection

@@ -8,6 +8,7 @@ use App\Models\Legacy\UserReport;
 use App\Models\Legacy\CsSetting;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
+use App\Services\Legacy\CheckrApiClient;
 
 trait DriverBackgroundReport {
 
@@ -57,9 +58,8 @@ trait DriverBackgroundReport {
         try {
             if (!empty($userExist)) {
                 if ($userExist->channel == 'CKR') {
-                    // Placeholder for CheckrApi
-                    Log::info("CheckrApi: _updateCandidateToApi for user $userid");
-                    return ['status' => true, 'message' => "Checkr candidate update pending Lib migration."];
+                    $checkr = new CheckrApiClient();
+                    return $checkr->updateCandidateToApi($userdata, $userExist->checkr_id);
                 }
                 if ($userExist->channel == 'DIG') {
                     // Placeholder for DigisureApi
@@ -83,9 +83,8 @@ trait DriverBackgroundReport {
                 $response = ['status' => true, 'message' => "Digisure candidate add pending Lib migration."];
             }
             if ($driver_checker == 'CKR') {
-                // Placeholder for CheckrApi
-                Log::info("CheckrApi: _addCandidateToApi for user $userid");
-                $response = ['status' => true, 'message' => "Checkr candidate add pending Lib migration."];
+                $checkr = new CheckrApiClient();
+                $response = $checkr->addCandidateAndSave($userdata);
             }
 
             if (!$response['status']) {
@@ -185,13 +184,11 @@ trait DriverBackgroundReport {
                 'state' => $this->_userObj->state
             ];
 
-            // Placeholder for CheckrApi->createReport
-            Log::info("CheckrApi: createReport for user $userid");
+            // Actual CheckrApi->createReport call
+            $checkr = new CheckrApiClient();
+            $response = $checkr->createReport($userReport->checkr_id, $worklocation);
             
-            // Simulation of success
-            $response = ['status' => true, 'report_id' => 'rep_simulated_' . $userid];
-            
-            if ($response['status']) {
+            if ($response['status'] && !empty($response['report_id'])) {
                 $userReport->update(["status" => 1, "checkr_reportid" => $response['report_id']]);
             }
             return $response;
@@ -213,9 +210,8 @@ trait DriverBackgroundReport {
         }
 
         if ($userReportArr->channel == 'CKR' && !empty($userReportArr->checkr_reportid)) {
-            // Placeholder for CheckrApi->getReport
-            Log::info("CheckrApi: getReport for user $userid");
-            return ["status" => true, 'message' => 'Simulated report data for CKR'];
+            $checkr = new CheckrApiClient();
+            return $checkr->getReport($userReportArr->checkr_reportid);
         }
 
         if ($userReportArr->channel == 'DIG') {

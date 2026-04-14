@@ -5,4 +5,21 @@ namespace App\Models\Legacy;
 class MileOverdue extends LegacyModel
 {
     protected $table = 'mile_overdues';
+
+    protected $fillable = [
+        'order_id',
+        'type',
+        'start_odometer',
+        'end_odometer',
+        'renter_id',
+        'allowed_miles',
+        'battery',
+        'last_percentage',
+        'created',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
+    ];
+
 }

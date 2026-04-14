@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="row">
-        @include('common.flash-messages')
+        @include('layouts.flash-messages')
     </div>
 
     <form action="{{ url('admin/users/add' . ($user?->id ? '/' . base64_encode($user?->id) : '')) }}" method="POST"

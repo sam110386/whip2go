@@ -44,4 +44,15 @@ return [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY', ''),
     ],
 
+    'checkr' => [
+        'url' => env('CHECKR_URL', 'https://api.checkr.com/v1/'),
+        'key' => env('CHECKR_KEY', ''),
+    ],
+
+    'stripe' => [
+        'key' => env('STRIPE_KEY', ''),
+        'secret' => env('STRIPE_SECRET', ''),
+        'mode' => env('STRIPE_MODE', 'test'),
+    ],
+
 ];

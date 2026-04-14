@@ -56,7 +56,7 @@ class WalletController extends LegacyAppController
         if ($row) {
             return $row;
         }
-        DB::table('cs_wallets')->insert(['user_id' => $userId, 'balance' => 0]);
+        DB::table('cs_wallets')->insert(['user_id' => $userId, 'balance' => 0, 'created' => now()]);
 
         return DB::table('cs_wallets')->where('user_id', $userId)->first();
     }
@@ -81,6 +81,7 @@ class WalletController extends LegacyAppController
             $walletId = (int)DB::table('cs_wallets')->insertGetId([
                 'user_id' => $userId,
                 'balance' => $currentBal,
+                'created' => now(),
             ]);
         }
 
@@ -116,6 +117,7 @@ class WalletController extends LegacyAppController
             $walletId = (int)DB::table('cs_wallets')->insertGetId([
                 'user_id' => $userId,
                 'balance' => $balance,
+                'created' => now(),
             ]);
             $newBal = $balance;
         } else {

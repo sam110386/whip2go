@@ -36,3 +36,10 @@
         </ul>
     </div>
 @endif
+
+@if (!empty($error))
+    <div class="alert alert-danger alert-block">
+        <button type="button" class="close" data-dismiss="alert">x</button>
+        <strong>{{ $error }}</strong>
+    </div>
+@endif
