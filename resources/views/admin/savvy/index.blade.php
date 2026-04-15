@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('content')
 <div class="page-header">
@@ -24,33 +24,45 @@
 <div class="panel">
     <div class="panel-body">
         <div class="row">&nbsp;</div>
-        <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-            <tr>
-                <th valign="top" width="5%">#</th>
-                <th valign="top">Name</th>
-                <th valign="top">Status</th>
-                <th valign="top" width="15%">Actions</th>
-            </tr>
-            @foreach($dealers as $dealer)
-            <tr>
-                <td valign="top">{{ $dealer->id }}</td>
-                <td valign="top">{{ $dealer->first_name }} {{ $dealer->last_name }}</td>
-                <td valign="top">
-                    @if($dealer->status == '0')
-                        <a href="{{ url('admin/savvy/dealers/status/' . base64_encode($dealer->id) . '/1') }}">Inactive</a>
-                    @else
-                        <a href="{{ url('admin/savvy/dealers/status/' . base64_encode($dealer->id) . '/0') }}">Active</a>
+        
+        <div class="table-responsive">
+            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+                <thead>
+                    <tr>
+                        @include('partials.dispacher.sortable_header', ['columns' => [
+                            ['field' => 'id', 'title' => '#', 'style' => 'width: 5%;'],
+                            ['field' => 'first_name', 'title' => 'Name'],
+                            ['field' => 'status', 'title' => 'Status'],
+                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
+                        ]])
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($dealers as $dealer)
+                    <tr>
+                        <td valign="top">{{ $dealer->id }}</td>
+                        <td valign="top">{{ $dealer->first_name }} {{ $dealer->last_name }}</td>
+                        <td valign="top">
+                            @if($dealer->status == '0')
+                                <a href="{{ url('admin/savvy/dealers/status/' . base64_encode($dealer->id) . '/1') }}">Inactive</a>
+                            @else
+                                <a href="{{ url('admin/savvy/dealers/status/' . base64_encode($dealer->id) . '/0') }}">Active</a>
+                            @endif
+                        </td>
+                        <td class="action">
+                            <a href="{{ url('admin/savvy/dealers/add/' . base64_encode($dealer->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
+                            <a href="{{ url('admin/savvy/dealers/delete/' . base64_encode($dealer->id)) }}" onclick="return confirm('Are you sure?')"><i class="glyphicon glyphicon-trash"></i></a>
+                        </td>
+                    </tr>
+                    @endforeach
+                    @if($dealers->isEmpty())
+                        <tr><td colspan="4" align="center">No record found</td></tr>
                     @endif
-                </td>
-                <td class="action">
-                    <a href="{{ url('admin/savvy/dealers/add/' . base64_encode($dealer->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
-                    <a href="{{ url('admin/savvy/dealers/delete/' . base64_encode($dealer->id)) }}"><i class="glyphicon glyphicon-trash"></i></a>
-                </td>
-            </tr>
-            @endforeach
-            <tr><td height="6" colspan="4"></td></tr>
-        </table>
-        {{ $dealers->links() }}
+                </tbody>
+            </table>
+        </div>
+
+        @include('partials.dispacher.paging_box', ['paginator' => $dealers, 'limit' => $limit ?? 25])
     </div>
 </div>
 @endsection

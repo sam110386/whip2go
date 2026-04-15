@@ -14,12 +14,9 @@
                                             {{ 'Complete Payments' }}
                                         </h5>
                                     </div>
-                                    @if (session('success'))
-                                        <div>{{ session('success') }}</div>
-                                    @endif
-                                    @if (session('error'))
-                                        <div>{{ session('error') }}</div>
-                                    @endif
+                                    <div class="row">
+                                        @include('partials.flash')
+                                    </div>
                                     <p class="text-center">
                                         {{ 'Your account is verified successfully. Continue to complete  card/connect setup.' }}
                                     </p>
@@ -40,7 +37,7 @@
 
 @push('scripts')
     <script type="text/javascript">
-        jQuery(document).ready(function() {
+        jQuery(document).ready(function () {
             jQuery("#savemyccdetails").validate();
             jQuery("#connectme").validate();
             jQuery('#ein').mask("00-000-0000", {

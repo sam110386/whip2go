@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', $title_for_layout ?? 'Marketplace Pending Dealers')
 
@@ -51,65 +51,51 @@
             @if($dealers && $dealers->total() > 0)
                 <div class="table-responsive">
                     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-                        <tr>
-                            <th valign="top">#</th>
-                            <th valign="top">Dealer Name</th>
-                            <th valign="top">Phone #</th>
-                            <th valign="top">Address</th>
-                            <th valign="top">Created</th>
-                            <th valign="top">Status</th>
-                            <th valign="top">Actions</th>
-                        </tr>
-                        @foreach ($dealers as $row)
+                        <thead>
                             <tr>
-                                <td valign="top">{{ $row->id }}</td>
-                                <td valign="top">{{ $row->name }}</td>
-                                <td valign="top">{{ $row->phone }}</td>
-                                <td valign="top">{{ $row->address }}</td>
-                                <td valign="top">{{ $row->created }}</td>
-                                <td align="center" valign="bottom">
-                                    @if((int)($row->status ?? 0) === 1)
-                                        <a href="{{ $basePath }}/status/{{ base64_encode((string)$row->id) }}/0" onclick="return confirm('Are you sure to update this record?')">
-                                            <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status" title="Status">
-                                        </a>
-                                    @else
-                                        <a href="{{ $basePath }}/status/{{ base64_encode((string)$row->id) }}/1" onclick="return confirm('Are you sure to update this record?')">
-                                            <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Status" title="Status">
-                                        </a>
-                                    @endif
-                                </td>
-                                <td align="center" valign="top">
-                                    <a href="{{ $basePath }}/delete/{{ base64_encode((string)$row->id) }}" onclick="return confirm('Delete this record?')">
-                                        <i class="glyphicon glyphicon-trash"></i>
-                                    </a>
-                                </td>
+                                @include('partials.dispacher.sortable_header', ['columns' => [
+                                    ['field' => 'id', 'title' => '#'],
+                                    ['field' => 'name', 'title' => 'Dealer Name'],
+                                    ['field' => 'phone', 'title' => 'Phone #'],
+                                    ['field' => 'address', 'title' => 'Address'],
+                                    ['field' => 'created', 'title' => 'Created'],
+                                    ['field' => 'status', 'title' => 'Status'],
+                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                                ]])
                             </tr>
-                        @endforeach
-                        <tr><td style="height:6px;" colspan="7"></td></tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($dealers as $row)
+                                <tr>
+                                    <td valign="top">{{ $row->id }}</td>
+                                    <td valign="top">{{ $row->name }}</td>
+                                    <td valign="top">{{ $row->phone }}</td>
+                                    <td valign="top">{{ $row->address }}</td>
+                                    <td valign="top">{{ $row->created }}</td>
+                                    <td align="center" valign="bottom">
+                                        @if((int)($row->status ?? 0) === 1)
+                                            <a href="{{ $basePath }}/status/{{ base64_encode((string)$row->id) }}/0" onclick="return confirm('Are you sure to update this record?')">
+                                                <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status" title="Status">
+                                            </a>
+                                        @else
+                                            <a href="{{ $basePath }}/status/{{ base64_encode((string)$row->id) }}/1" onclick="return confirm('Are you sure to update this record?')">
+                                                <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Status" title="Status">
+                                            </a>
+                                        @endif
+                                    </td>
+                                    <td align="center" valign="top">
+                                        <a href="{{ $basePath }}/delete/{{ base64_encode((string)$row->id) }}" onclick="return confirm('Delete this record?')">
+                                            <i class="glyphicon glyphicon-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                            <tr><td style="height:6px;" colspan="7"></td></tr>
+                        </tbody>
                     </table>
                 </div>
-                <section class="pagging" style="margin-top:12px; overflow:hidden;">
-                    <div style="width:40%; float:left;">
-                        <form name="frmRecordsPages" action="{{ $basePath }}/index" method="get">
-                            @if($keyword !== '')
-                                <input type="hidden" name="Search[keyword]" value="{{ $keyword }}">
-                            @endif
-                            @if($show !== '')
-                                <input type="hidden" name="Search[show]" value="{{ $show }}">
-                            @endif
-                            <label class="text-semibold">Show</label>
-                            <select name="Record[limit]" class="textbox pagingcls form-control" style="display:inline-block; width:auto; min-width:70px;" onchange="this.form.submit()">
-                                @foreach ([25,50,100,200] as $opt)
-                                    <option value="{{ $opt }}" @selected((int)($limit ?? 50) === $opt)>{{ $opt }}</option>
-                                @endforeach
-                            </select>
-                            <span>&nbsp;Records per page</span>
-                        </form>
-                    </div>
-                    <div class="pull-right" style="margin-top:4px;">
-                        {{ $dealers->links() }}
-                    </div>
-                </section>
+                
+                @include('partials.dispacher.paging_box', ['paginator' => $dealers, 'limit' => $limit ?? 50])
             @else
                 <table width="100%" cellpadding="2" cellspacing="1" border="0" class="borderTable">
                     <tr>

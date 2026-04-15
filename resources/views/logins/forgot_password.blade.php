@@ -8,12 +8,11 @@
                     <form action="{{ url('/logins/forgotPassword') }}" method="POST" id="frmAdminuser" name="frmLogin">
                         @csrf
                         <div class="panel panel-body login-form">
-                            @if (session('success'))
-                                <div>{{ session('success') }}</div>
-                            @endif
-                            @if (session('error'))
-                                <div>{{ session('error') }}</div>
-                            @endif
+
+                            <div class="row">
+                                @include('partials.flash')
+                            </div>
+
                             <div class="text-center">
                                 <div class="icon-object border-warning text-warning">
                                     <i class="icon-spinner11"></i>
@@ -44,7 +43,7 @@
 
 @push('scripts')
     <script>
-        jQuery(document).ready(function() {
+        jQuery(document).ready(function () {
             jQuery("#frmAdminuser").validate({
                 errorClass: 'validation-error-label'
             });

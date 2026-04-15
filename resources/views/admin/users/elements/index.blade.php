@@ -2,7 +2,7 @@
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                @include('legacy.elements.dispacher.sortable_header', ['columns' => [
+                @include('partials.dispacher.sortable_header', ['columns' => [
                             ['field' => 'id', 'title' => '#'],
                             ['field' => 'first_name', 'title' => 'First Name'],
                             ['field' => 'last_name', 'title' => 'Last Name'],
@@ -278,4 +278,4 @@
     </table>
 </div>
 
-@include('legacy.elements.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit])
+@include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit])

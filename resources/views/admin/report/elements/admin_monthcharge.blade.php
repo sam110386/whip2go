@@ -1,17 +1,19 @@
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <div class="panel-flat">
-    <table width="100%" cellpadding="2" cellspacing="1"  border="0"  class="table fixed_header table-responsive">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">#</th>
-                <th style="text-align:center;">Start</th>
-                <th style="text-align:center;">End</th>
-                <th style="text-align:center;">Amount</th>
-                <th style="text-align:center;">Type</th>
-                <th style="text-align:center;">Transaction #</th>
-                <th style="text-align:center;">Created (UTC)</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'increment_id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'start_datetime', 'title' => 'Start', 'style' => 'text-align:center;'],
+                    ['field' => 'end_datetime', 'title' => 'End', 'style' => 'text-align:center;'],
+                    ['field' => 'amount', 'title' => 'Amount', 'style' => 'text-align:center;'],
+                    ['field' => 'type', 'title' => 'Type', 'style' => 'text-align:center;'],
+                    ['field' => 'transaction_id', 'title' => 'Transaction #', 'style' => 'text-align:center;'],
+                    ['field' => 'created', 'title' => 'Created (UTC)', 'style' => 'text-align:center;'],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -60,5 +62,5 @@
     </table>
 </div>
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif

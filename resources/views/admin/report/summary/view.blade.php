@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Dealer - Reports')
 @section('content')
 <script src="{{ asset('js/assets/js/plugins/visualization/echarts/echarts.js') }}"></script>

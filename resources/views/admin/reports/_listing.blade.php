@@ -1,13 +1,18 @@
-<table style="width:100%; border-collapse:collapse; font-size:13px;">
+@if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
+@endif
+<table class="table table-responsive" style="width:100%;">
     <thead>
-        <tr style="border-bottom:2px solid #ccc; text-align:left;">
-            <th style="padding:6px;">Order</th>
-            <th style="padding:6px;">Dealer</th>
-            <th style="padding:6px;">Renter</th>
-            <th style="padding:6px;">Start</th>
-            <th style="padding:6px;">End</th>
-            <th style="padding:6px;">Status</th>
-            <th style="padding:6px;">Actions</th>
+        <tr>
+            @include('partials.dispacher.sortable_header', ['columns' => [
+                ['field' => 'increment_id', 'title' => 'Order'],
+                ['field' => 'owner_first_name', 'title' => 'Dealer', 'sortable' => false],
+                ['field' => 'renter_first_name', 'title' => 'Renter', 'sortable' => false],
+                ['field' => 'start_datetime', 'title' => 'Start'],
+                ['field' => 'end_datetime', 'title' => 'End'],
+                ['field' => 'status', 'title' => 'Status'],
+                ['field' => 'actions', 'title' => 'Actions', 'sortable' => false],
+            ]])
         </tr>
     </thead>
     <tbody>
@@ -27,5 +32,7 @@
     </tbody>
 </table>
 
-{{ $reportlists->links() }}
+@if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
+@endif
 

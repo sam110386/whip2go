@@ -10,12 +10,9 @@
                         @csrf
                         <div class="col-lg-6 col-lg-offset-3">
                             <div class="panel registration-form">
-                                @if (session('success'))
-                                    <div>{{ session('success') }}</div>
-                                @endif
-                                @if (session('error'))
-                                    <div>{{ session('error') }}</div>
-                                @endif
+                                <div class="row">
+                                    @include('partials.flash')
+                                </div>
                                 <div class="panel-body">
                                     <div class="text-center">
                                         <div class="icon-object border-success text-success"><i class="icon-plus3"></i>
@@ -63,13 +60,13 @@
 
 @push('scripts')
     <script type="text/javascript">
-        jQuery(document).ready(function() {
-            jQuery("#password").bind("keypress", function(e) {
+        jQuery(document).ready(function () {
+            jQuery("#password").bind("keypress", function (e) {
                 if (e.which == 32) {
                     return false;
                 }
             });
-            jQuery("#UserConpwd").bind("keypress", function(e) {
+            jQuery("#UserConpwd").bind("keypress", function (e) {
                 if (e.which == 32) {
                     return false;
                 }

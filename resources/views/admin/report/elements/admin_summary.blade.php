@@ -1,5 +1,5 @@
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <style type="text/css">
     .fixed_header tbody{
@@ -12,50 +12,52 @@
     .fixed_header thead tr th,.fixed_header tbody tr td{width: 100%;padding: 5px;min-width: 100px;max-width: 100px;}
 </style>
 <div class="panel-flat">
-    <table width="100%" cellpadding="2" cellspacing="1"  border="0"  class="table fixed_header table-responsive">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">#</th>
-                <th style="text-align:center;">Start</th>
-                <th style="text-align:center;">End</th>
-                <th style="text-align:center;">Rent</th>
-                <th style="text-align:center;">EMF</th>
-                <th style="text-align:center;">DIA FEE</th>
-                <th style="text-align:center;">Tax</th>
-                <th style="text-align:center;">Lateness</th>
-                <th style="text-align:center;">Total Rent</th>
-                <th style="text-align:center;">Rental Revenue This Month</th>
-                <th style="text-align:center;">Past Revenue</th>
-                <th style="text-align:center;">Deferred Revenue</th>
-                <th style="text-align:center;">Total Revenue</th>
-                <th style="text-align:center;">Total Collected This Month</th>
-                <th style="text-align:center;">Rent Wallet Refund</th>
-                <th style="text-align:center;">Net Collected This Month</th>
-                <th style="text-align:center;">Already Collected</th>
-                <th style="text-align:center;">Subsequently Collected</th>
-                <th style="text-align:center;">Total Collected</th>
-                <th style="text-align:center;">Uncollected</th>
-                <th style="text-align:center;">Insu. This Month</th>
-                <th style="text-align:center;">Insu. Collected This Month</th>
-                <th style="text-align:center;">Insu. Wallet Refund</th>
-                <th style="text-align:center;">Net Insu. Collected This Month</th>
-                <th style="text-align:center;">Past Insu.</th>
-                <th style="text-align:center;">Collected Past Insu.</th>
-                <th style="text-align:center;">Deferred Insu.</th>
-                <th style="text-align:center;">Collected Deferred Insu.</th>
-                <th style="text-align:center;">Total Insu.</th>
-                <th style="text-align:center;">Total Insu. Collected</th>
-                <th style="text-align:center;">Insu. Uncollected</th>
-                <th style="text-align:center;">Current Payout Owed</th>
-                <th style="text-align:center;">Past Payout Owed</th>
-                <th style="text-align:center;">Differ Payout Owed</th>
-                <th style="text-align:center;">Total Payout Owed</th>
-                <th style="text-align:center;">Paid out in Month</th>
-                <th style="text-align:center;">Strip Fee</th>
-                <th style="text-align:center;">Net Paid out in Month</th>
-                <th style="text-align:center;">Paid out in Differ Month</th>
-                <th style="text-align:center;">Total Paid out</th>
-                <th style="text-align:center;">Dealer Owed</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'increment_id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'start_datetime', 'title' => 'Start', 'style' => 'text-align:center;'],
+                    ['field' => 'end_datetime', 'title' => 'End', 'style' => 'text-align:center;'],
+                    ['field' => 'rent', 'title' => 'Rent', 'style' => 'text-align:center;'],
+                    ['field' => 'extra_mileage_fee', 'title' => 'EMF', 'style' => 'text-align:center;'],
+                    ['field' => 'dia_fee', 'title' => 'DIA FEE', 'style' => 'text-align:center;'],
+                    ['field' => 'tax', 'title' => 'Tax', 'style' => 'text-align:center;'],
+                    ['field' => 'lateness_fee', 'title' => 'Lateness', 'style' => 'text-align:center;'],
+                    ['field' => 'total_rent', 'title' => 'Total Rent', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'rental_rev_current', 'title' => 'Rental Rev. (Mon)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'past_rev', 'title' => 'Past Revenue', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'deferred_rev', 'title' => 'Deferred Rev.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_rev', 'title' => 'Total Revenue', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_collected_current', 'title' => 'Collected (Mon)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'rent_wallet_refund', 'title' => 'Rent Wallet Refund', 'style' => 'text-align:center;'],
+                    ['field' => 'net_collected_current', 'title' => 'Net Collected (Mon)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'already_collected', 'title' => 'Already Collected', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'subsequent_collected', 'title' => 'Subsequent Coll.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_collected', 'title' => 'Total Collected', 'style' => 'text-align:center;'],
+                    ['field' => 'uncollected', 'title' => 'Uncollected', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'insu_current', 'title' => 'Insu. (Mon)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'insu_collected_current', 'title' => 'Insu. Coll. (Mon)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'insu_wallet_refund', 'title' => 'Insu. Wallet Ref.', 'style' => 'text-align:center;'],
+                    ['field' => 'net_insu_collected_current', 'title' => 'Net Insu. Coll.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'past_insu', 'title' => 'Past Insu.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'past_insu_collected', 'title' => 'Coll. Past Insu.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'deferred_insu', 'title' => 'Deferred Insu.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'deferred_insu_collected', 'title' => 'Coll. Def. Insu.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_insu', 'title' => 'Total Insu.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_insu_collected', 'title' => 'Total Insu. Coll.', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'insu_uncollected', 'title' => 'Insu. Uncollected', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'dealer_payout', 'title' => 'Current Payout Owed', 'style' => 'text-align:center;'],
+                    ['field' => 'past_m_payout', 'title' => 'Past Payout Owed', 'style' => 'text-align:center;'],
+                    ['field' => 'differ_m_dealer_payout', 'title' => 'Differ Payout Owed', 'style' => 'text-align:center;'],
+                    ['field' => 'total_payout', 'title' => 'Total Payout Owed', 'style' => 'text-align:center;'],
+                    ['field' => 'paid_payout', 'title' => 'Paid out in Month', 'style' => 'text-align:center;'],
+                    ['field' => 'stripe_fee', 'title' => 'Strip Fee', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'net_paid_payout', 'title' => 'Net Paid out (Mon)', 'style' => 'text-align:center;'],
+                    ['field' => 'differ_paid_payout', 'title' => 'Paid out (Differ)', 'style' => 'text-align:center;'],
+                    ['field' => 'total_paid_payout', 'title' => 'Total Paid out', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'dealer_owed', 'title' => 'Dealer Owed', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -149,5 +151,5 @@
     </table>
 </div>
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif

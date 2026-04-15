@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Pick Ups')
 @section('content')
 <script src="{{ asset('assets/js/plugins/forms/editable/editable.min.js') }}"></script>

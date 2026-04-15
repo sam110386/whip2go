@@ -131,7 +131,7 @@ class LoginsController extends LegacyAppController
             return redirect('/users/dashboard');
         }
 
-        return view('legacy.logins.index', [
+        return view('logins.index', [
             'title_for_layout' => 'User Login',
             'cookie_username' => Cookie::get('cookie_username'),
             'cookie_password' => Cookie::get('cookie_password'),
@@ -174,7 +174,7 @@ class LoginsController extends LegacyAppController
             return back()->with('success', 'We have sent reset password link to email address. Please follow the instruction.');
         }
 
-        return view('legacy.logins.forgot_password', ['title_for_layout' => 'Forgot Password']);
+        return view('logins.forgot_password', ['title_for_layout' => 'Forgot Password']);
     }
 
     // ─── Reset Password ───────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ class LoginsController extends LegacyAppController
             return redirect('/logins/index')->with('success', 'Your password is updated successfully. Please login again');
         }
 
-        return view('legacy.logins.resetpassword', [
+        return view('logins.resetpassword', [
             'title_for_layout' => 'Reset Password',
             'token' => $token,
         ]);
@@ -229,7 +229,7 @@ class LoginsController extends LegacyAppController
             return back()->with('error', 'Sorry, you are already registered. Please login.');
         }
 
-        return view('legacy.logins.pre_register', ['title_for_layout' => 'User Registration']);
+        return view('logins.pre_register', ['title_for_layout' => 'User Registration']);
     }
 
     // ─── Register ─────────────────────────────────────────────────────────────
@@ -284,7 +284,7 @@ class LoginsController extends LegacyAppController
             }
         }
 
-        return view('legacy.logins.register', [
+        return view('logins.register', [
             'title_for_layout' => 'User Registration',
             'contact_number' => base64_encode($contactNumber),
         ]);
@@ -325,7 +325,7 @@ class LoginsController extends LegacyAppController
             return back()->with('error', 'Sorry, your activation code is wrong or your account is already activated.');
         }
 
-        return view('legacy.logins.verify_account', ['title_for_layout' => 'Verify Account']);
+        return view('logins.verify_account', ['title_for_layout' => 'Verify Account']);
     }
 
     // ─── Resend Activation ────────────────────────────────────────────────────
@@ -353,7 +353,7 @@ class LoginsController extends LegacyAppController
                 ->with('error', 'Sorry, we could not find your email id or your account is already activated.');
         }
 
-        return view('legacy.logins.resend_activation', ['title_for_layout' => 'Resend Activation Code']);
+        return view('logins.resend_activation', ['title_for_layout' => 'Resend Activation Code']);
     }
 
     // ─── Verify Success ───────────────────────────────────────────────────────
@@ -364,7 +364,7 @@ class LoginsController extends LegacyAppController
             return redirect('/logins/index');
         }
 
-        return view('legacy.logins.verify_success', [
+        return view('logins.verify_success', [
             'title_for_layout' => 'Verify Success',
             'UNCOMPLETEUSERID' => base64_encode($incompleteUserId),
         ]);

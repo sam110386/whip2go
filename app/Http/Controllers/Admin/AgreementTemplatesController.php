@@ -13,26 +13,13 @@ class AgreementTemplatesController extends LegacyAppController
         return public_path('files/agreement_templates/');
     }
 
-    private function decodeUserId(?string $b64): ?int
-    {
-        if ($b64 === null || $b64 === '') {
-            return null;
-        }
-        $raw = base64_decode($b64, true);
-        if ($raw === false || !ctype_digit((string)$raw)) {
-            return null;
-        }
-
-        return (int)$raw;
-    }
-
     public function index(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
@@ -50,7 +37,7 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
@@ -84,7 +71,7 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
@@ -118,7 +105,7 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
@@ -152,7 +139,7 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeUserId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }

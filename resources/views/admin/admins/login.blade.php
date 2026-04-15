@@ -4,6 +4,11 @@
 
 @section('content')
     <div class="panel panel-body login-form">
+
+        <div class="row">
+            @include('partials.flash')
+        </div>
+
         <div class="text-center">
             <div class="icon-object border-slate-300 text-slate-300">
                 <i class="icon-reading"></i>
@@ -17,8 +22,7 @@
             @csrf
             <div class="form-group">
                 <div class="col-lg-12">
-                    <input type="text" name="username" class="form-control" id="username" placeholder="Username"
-                        required>
+                    <input type="text" name="username" class="form-control" id="username" placeholder="Username" required>
                 </div>
             </div>
             <div class="form-group">

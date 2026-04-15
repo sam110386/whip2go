@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', $title_for_layout ?? 'Manage User CC Details')
 
@@ -21,29 +21,28 @@
     </div>
 
     <div class="row">
-        @include('layouts.flash-messages')
+        @include('partials.flash')
     </div>
 <div class="panel">
     <div class="panel-body">
         <div id="listing">
-            @if($UserCcTokens->isEmpty())
-                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="borderTable">
+        <div class="table-responsive">
+            <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
+                <thead>
                     <tr>
-                        <td colspan="4" align="center">No record found</td>
+                        @include('partials.dispacher.sortable_header', ['columns' => [
+                            ['field' => 'card_type', 'title' => 'Card Type'],
+                            ['field' => 'card_holder_name', 'title' => 'Card Holder Name'],
+                            ['field' => 'credit_card_number', 'title' => 'Credit Card #'],
+                            ['field' => 'created', 'title' => 'Created'],
+                            ['field' => 'status', 'title' => 'Status'],
+                            ['field' => 'default', 'title' => 'Default', 'sortable' => false],
+                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                        ]])
                     </tr>
-                </table>
-            @else
-                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-                    <tr>
-                        <th class="text-center">Card Type</th>
-                        <th class="text-center">Card Holder Name</th>
-                        <th class="text-center">Credit Card #</th>
-                        <th class="text-center">Created</th>
-                        <th class="text-center">Status</th>
-                        <th class="text-center">Default</th>
-                        <th class="text-center">Actions</th>
-                    </tr>
-                    @foreach($UserCcTokens as $user)
+                </thead>
+                <tbody>
+                    @forelse($UserCcTokens as $user)
                         @php
                             $idB64 = base64_encode((string) (int) $user->id);
                         @endphp
@@ -61,25 +60,27 @@
                             </td>
                             <td class="text-center" valign="bottom">
                                 @if((int) $user->id === (int) ($defaultcctoken ?? 0))
-                                    <a href="#" class="label label-success">Default</a>
+                                    <span class="label label-success">Default</span>
                                 @else
                                     <a href="/admin/user_ccs/makeccdefault/{{ $idB64 }}/{{ $useridB64 }}"
                                        class="label label-warning"
                                        onclick="return confirm('Are you sure to update this record?')">Make Default</a>
                                 @endif
                             </td>
-                            <td class="text-center action">
+                            <td class="text-center">
                                 <a href="/admin/user_ccs/delete/{{ $idB64 }}/{{ $useridB64 }}"
                                    title="Delete"
                                    onclick="return confirm('Are you sure you want to delete this record?');">
-                                    <img src="{{ legacy_asset('img/b_drop.png') }}" alt="Delete" style="border:0;">
+                                    <i class="icon-trash"></i>
                                 </a>
                             </td>
                         </tr>
-                    @endforeach
-                    <tr><td colspan="7" style="height:6px;"></td></tr>
-                </table>
-            @endif
+                    @empty
+                        <tr><td colspan="7" align="center">No record found</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
         </div>
     </div>
 </div>

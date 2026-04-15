@@ -8,12 +8,11 @@
                     <form action="{{ url('/logins/index') }}" method="POST" id="userlogin" name="userlogin">
                         @csrf
                         <div class="panel panel-body login-form">
-                            @if (session('success'))
-                                <div>{{ session('success') }}</div>
-                            @endif
-                            @if (session('error'))
-                                <div>{{ session('error') }}</div>
-                            @endif
+
+                            <div class="row">
+                                @include('partials.flash')
+                            </div>
+
                             <div class="text-center">
                                 <div class="icon-object border-slate-300 text-slate-300"><i class="icon-reading"></i></div>
                                 <h5 class="content-group">
@@ -24,8 +23,7 @@
                                 </h5>
                             </div>
                             <div class="form-group has-feedback has-feedback-left">
-                                <input name="User[email]" type="text" class="form-control required"
-                                    placeholder="Username">
+                                <input name="User[email]" type="text" class="form-control required" placeholder="Username">
                                 <div class="form-control-feedback">
                                     <i class="icon-user-check text-muted"></i>
                                 </div>
@@ -73,7 +71,7 @@
 
 @push('scripts')
     <script type="text/javascript">
-        jQuery(document).ready(function() {
+        jQuery(document).ready(function () {
             jQuery("#userlogin").validate({
                 errorClass: 'validation-error-label'
             });

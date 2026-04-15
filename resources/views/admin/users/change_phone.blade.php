@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('content')
 <div class="panel">
@@ -14,7 +14,7 @@
     </section>
 
     <div class="row">
-        @includeif('layouts.flash-messages')
+        @includeif('partials.flash')
     </div>
 
     <div class="row">
