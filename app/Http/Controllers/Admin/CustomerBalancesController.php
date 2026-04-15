@@ -71,22 +71,6 @@ class CustomerBalancesController extends LegacyAppController
         }
     }
 
-    protected function decodeUserId($value): ?int
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        $tmp = base64_decode((string)$value, true);
-        if ($tmp !== false && ctype_digit((string)$tmp)) {
-            return (int)$tmp;
-        }
-        if (ctype_digit((string)$value)) {
-            return (int)$value;
-        }
-
-        return null;
-    }
-
     /**
      * Cake CustomerBalancesController::admin_index
      */
@@ -183,7 +167,7 @@ class CustomerBalancesController extends LegacyAppController
             return $redirect;
         }
 
-        $pk = $this->decodeUserId($id);
+        $pk = $this->decodeId($id);
         if ($pk !== null) {
             $newStatus = ((int)$status === 1) ? 1 : 0;
             CsUserBalance::where('id', (int)$pk)->update(['status' => $newStatus]);
@@ -201,7 +185,7 @@ class CustomerBalancesController extends LegacyAppController
             return $redirect;
         }
 
-        $pk = $this->decodeUserId($id);
+        $pk = $this->decodeId($id);
         if ($pk === null) {
             return redirect('/admin/customer_balances/index')->with('error', 'Sorry, wrong attempt');
         }
@@ -247,7 +231,7 @@ class CustomerBalancesController extends LegacyAppController
             return $redirect;
         }
 
-        $userId = $this->decodeUserId($userid);
+        $userId = $this->decodeId($userid);
         if ($userId === null) {
             return redirect('/admin/customer_balances/index')->with('error', 'Invalid user.');
         }
@@ -319,12 +303,12 @@ class CustomerBalancesController extends LegacyAppController
             return $redirect;
         }
 
-        $userId = $this->decodeUserId($userid);
+        $userId = $this->decodeId($userid);
         if ($userId === null) {
             return redirect('/admin/users/index')->with('error', 'Sorry, please choose customer again');
         }
 
-        $balancePk = $this->decodeUserId($id);
+        $balancePk = $this->decodeId($id);
 
         $balanceTypes = self::subscriptionBalanceTypes();
         $weekdays = self::weekdays();
@@ -440,7 +424,7 @@ class CustomerBalancesController extends LegacyAppController
         $balanceTypes = self::balanceTypes();
         $weekdays = self::weekdays();
 
-        $balancePk = $this->decodeUserId($id);
+        $balancePk = $this->decodeId($id);
 
         if ($request->isMethod('POST')) {
             return $this->processAdminAddPost($request, $balanceTypes);
@@ -501,10 +485,9 @@ class CustomerBalancesController extends LegacyAppController
                     $credit = $credit + $bal;
                 }
 
-                $oldBalance = (float)($model->balance ?: 0);
                 $model->note = $note;
                 $model->credit = $credit;
-                $model->balance = (($oldBalance - $bal) > 0 ? 0 : $bal);
+                $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
                 $model->debit = $debit;
                 $model->type = (int)$type;
                 $model->chargetype = isset($row['chargetype']) ? (string)$row['chargetype'] : 'lumpsum';
@@ -560,9 +543,8 @@ class CustomerBalancesController extends LegacyAppController
                     $debit = $debit + $bal;
                 }
 
-                $oldBalance = (float)($model->balance ?: 0);
                 $model->debit = $debit;
-                $model->balance = (($oldBalance - $bal) > 0 ? 0 : $bal);
+                $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
                 $model->credit = $credit;
 
                 $uidForLog = (int)($model->user_id ?: ($row['user_id'] ?? 0));

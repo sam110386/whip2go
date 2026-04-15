@@ -1,20 +1,21 @@
-{{-- Pagination --}}
-@if($vehiclealrets->hasPages())
-<div class="text-center">{{ $vehiclealrets->appends(['vehicle_id' => $vehicleid])->links() }}</div>
+@if(isset($vehiclealrets) && is_object($vehiclealrets) && method_exists($vehiclealrets, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $vehiclealrets, 'limit' => $limit ?? 50])
 @endif
 
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">#</th>
-                <th style="text-align:center;">Vehicle</th>
-                <th style="text-align:center;">Type</th>
-                <th style="text-align:center;">Geo</th>
-                <th style="text-align:center;">MPH</th>
-                <th style="text-align:center;">Recorded At</th>
-                <th style="text-align:center;">Note</th>
-                <th style="text-align:center;">Action</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
+                    ['field' => 'type', 'title' => 'Type', 'style' => 'text-align:center;'],
+                    ['field' => 'geo', 'title' => 'Geo', 'style' => 'text-align:center;'],
+                    ['field' => 'speed', 'title' => 'MPH', 'style' => 'text-align:center;'],
+                    ['field' => 'created', 'title' => 'Recorded At', 'style' => 'text-align:center;'],
+                    ['field' => 'note', 'title' => 'Note', 'style' => 'text-align:center;'],
+                    ['field' => 'action', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -44,6 +45,6 @@
     </table>
 </div>
 
-@if($vehiclealrets->hasPages())
-<div class="text-center">{{ $vehiclealrets->appends(['vehicle_id' => $vehicleid])->links() }}</div>
+@if(isset($vehiclealrets) && is_object($vehiclealrets) && method_exists($vehiclealrets, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $vehiclealrets, 'limit' => $limit ?? 50])
 @endif

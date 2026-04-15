@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('content')
 @php
 $status_opt = ['active' => 'Active', 'inactive' => 'Inactive'];

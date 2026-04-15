@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Issue Virtual Credit Card')
 @section('content')
 <div class="page-header">

@@ -1,22 +1,20 @@
-@if($records->hasPages())
-<section class="pagging">
-    <ul class="pagination pagination-rounded pull-right">
-        {{ $records->links() }}
-    </ul>
-</section>
+@if(isset($records) && is_object($records) && method_exists($records, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $records, 'limit' => $limit ?? 50])
 @endif
 
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">#</th>
-                <th style="text-align:center;">Driver</th>
-                <th style="text-align:center;">Address</th>
-                <th style="text-align:center;">Vehicle</th>
-                <th style="text-align:center;">Status</th>
-                <th style="text-align:center;">Date</th>
-                <th style="text-align:center;">Action</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'first_name', 'title' => 'Driver', 'style' => 'text-align:center;'],
+                    ['field' => 'address', 'title' => 'Address', 'style' => 'text-align:center;'],
+                    ['field' => 'vehicle_id', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
+                    ['field' => 'status', 'title' => 'Status', 'style' => 'text-align:center;'],
+                    ['field' => 'created', 'title' => 'Date', 'style' => 'text-align:center;'],
+                    ['field' => 'action', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -55,10 +53,6 @@
     </table>
 </div>
 
-@if($records->hasPages())
-<section class="pagging">
-    <ul class="pagination pagination-rounded pull-right">
-        {{ $records->links() }}
-    </ul>
-</section>
+@if(isset($records) && is_object($records) && method_exists($records, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $records, 'limit' => $limit ?? 50])
 @endif

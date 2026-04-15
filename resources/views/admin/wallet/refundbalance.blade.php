@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Refund Wallet Balance')
 
@@ -15,7 +15,7 @@
     </div>
 
     <div class="row">
-        @include('layouts.flash-messages')
+        @include('partials.flash')
     </div>
 
     <div class="panel">

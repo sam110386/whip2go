@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Credits Logs')
 @section('content')
 <script type="text/javascript">

@@ -19,7 +19,7 @@ class Security
 
     public static function inactiveMins()
     {
-        return match (config('legacy.core.security.level', 'medium')) {
+        return match (config('legacy.security.level', 'medium')) {
             'high' => 10,
             'medium' => 100,
             'low' => 200,
@@ -50,7 +50,7 @@ class Security
 
         if ($salt) {
             if (!is_string($salt)) {
-                $salt = config('legacy.core.security.salt', '');
+                $salt = config('legacy.security.salt', '');
             }
             $string = "{$salt}{$string}";
         }
@@ -116,7 +116,7 @@ class Security
             return '';
         }
 
-        srand((int) (float) config('legacy.core.security.cipherSeed'));
+        srand((int) (float) config('legacy.security.cipherSeed'));
         $out = '';
         $keyLength = strlen($key);
 
@@ -194,7 +194,7 @@ class Security
         $salt = str_replace(
             ['+', '='],
             '.',
-            base64_encode(sha1(uniqid(config('legacy.core.security.salt', ''), true), true))
+            base64_encode(sha1(uniqid(config('legacy.security.salt', ''), true), true))
         );
         return substr($salt, 0, $length);
     }
@@ -228,17 +228,17 @@ class Security
             return "";
         }
         if ($key === null) {
-            $key = config('legacy.core.security.encryptKey', '');
+            $key = config('legacy.security.encryptKey', '');
         }
         self::_checkKey($key, 'encrypt()');
 
         if ($hmacSalt === null) {
-            $hmacSalt = config('legacy.core.security.salt', '');
+            $hmacSalt = config('legacy.security.salt', '');
         }
 
         $key = substr(hash('sha256', "{$key}{$hmacSalt}"), 0, 32);
 
-        if (config('legacy.core.security.useOpenSsl', true) && function_exists('openssl_encrypt')) {
+        if (config('legacy.security.useOpenSsl', true) && function_exists('openssl_encrypt')) {
             $method = 'AES-256-CBC';
             $ivSize = openssl_cipher_iv_length($method);
             $iv = openssl_random_pseudo_bytes($ivSize);
@@ -277,13 +277,13 @@ class Security
         }
 
         if ($key === null) {
-            $key = config('legacy.core.security.encryptKey', '');
+            $key = config('legacy.security.encryptKey', '');
         }
 
         self::_checkKey($key, 'decrypt()');
 
         if ($hmacSalt === null) {
-            $hmacSalt = config('legacy.core.security.salt', '');
+            $hmacSalt = config('legacy.security.salt', '');
         }
 
         $key = substr(hash('sha256', $key . $hmacSalt), 0, 32);
@@ -296,7 +296,7 @@ class Security
             return false;
         }
 
-        if (config('legacy.core.security.useOpenSsl', true) && function_exists('openssl_decrypt')) {
+        if (config('legacy.security.useOpenSsl', true) && function_exists('openssl_decrypt')) {
             $method = 'AES-256-CBC';
             $ivSize = openssl_cipher_iv_length($method);
             $iv = substr($cipher, 0, $ivSize);

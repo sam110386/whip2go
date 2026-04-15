@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('content')
 <style type="text/css">
     .dropdown-menu > .dropdown-submenu > .dropdown-menu{margin-left: -295px;}

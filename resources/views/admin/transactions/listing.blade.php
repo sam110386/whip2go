@@ -11,23 +11,30 @@
         return 'Incomplete';
     };
 @endphp
-<table style="width:100%; border-collapse:collapse; font-size:12px;">
+
+@if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
+@endif
+
+<table class="table table-responsive" style="width:100%;">
     <thead>
-        <tr style="border-bottom:2px solid #ccc; text-align:left;">
-            <th style="padding:6px;">Booking#</th>
-            <th style="padding:6px;">Status</th>
-            <th style="padding:6px;">Customer</th>
-            <th style="padding:6px;">Total</th>
-            <th style="padding:6px;">Rent</th>
-            <th style="padding:6px;">Tax</th>
-            <th style="padding:6px;">EMF</th>
-            <th style="padding:6px;">EMF tax</th>
-            <th style="padding:6px;">EMF ins.</th>
-            <th style="padding:6px;">Insurance</th>
-            <th style="padding:6px;">Initial</th>
-            <th style="padding:6px;">Init. tax</th>
-            <th style="padding:6px;">Cancel fee</th>
-            <th style="padding:6px;">Action</th>
+        <tr>
+            @include('partials.dispacher.sortable_header', ['columns' => [
+                ['field' => 'increment_id', 'title' => 'Booking#'],
+                ['field' => 'status', 'title' => 'Status'],
+                ['field' => 'renter_first_name', 'title' => 'Customer', 'sortable' => false],
+                ['field' => 'paid_amount', 'title' => 'Total'],
+                ['field' => 'rent', 'title' => 'Rent'],
+                ['field' => 'tax', 'title' => 'Tax'],
+                ['field' => 'extra_mileage_fee', 'title' => 'EMF'],
+                ['field' => 'emf_tax', 'title' => 'EMF tax'],
+                ['field' => 'dia_insu', 'title' => 'EMF ins.'],
+                ['field' => 'insurance_amt', 'title' => 'Insurance'],
+                ['field' => 'initial_fee', 'title' => 'Initial'],
+                ['field' => 'initial_fee_tax', 'title' => 'Init. tax'],
+                ['field' => 'cancellation_fee', 'title' => 'Cancel fee'],
+                ['field' => 'action', 'title' => 'Action', 'sortable' => false],
+            ]])
         </tr>
     </thead>
     <tbody>
@@ -55,14 +62,6 @@
     </tbody>
 </table>
 
-@if ($reportlists->hasPages())
-    <div style="margin-top:12px;">
-        Page {{ $reportlists->currentPage() }} of {{ $reportlists->lastPage() }} ({{ $reportlists->total() }} total)
-        @if (!$reportlists->onFirstPage())
-            <a href="{{ $reportlists->previousPageUrl() }}">Previous</a>
-        @endif
-        @if ($reportlists->hasMorePages())
-            <a href="{{ $reportlists->nextPageUrl() }}">Next</a>
-        @endif
-    </div>
+@if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
 @endif

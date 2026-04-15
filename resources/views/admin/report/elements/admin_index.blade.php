@@ -1,5 +1,5 @@
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <style type="text/css">
     .fixed_header tbody{
@@ -12,35 +12,37 @@
     .fixed_header thead tr th,.fixed_header tbody tr td{width: 100%;padding: 5px;min-width: 100px;max-width: 100px;}
 </style>
 <div class="panel-flat">
-    <table width="100%" cellpadding="2" cellspacing="1"  border="0"  class="table fixed_header table-responsive">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">#</th>
-                <th style="text-align:center;">Status</th>
-                <th style="text-align:center;">Start Date</th>
-                <th style="text-align:center;">End Date</th>
-                <th style="text-align:center;">Driver</th>
-                <th style="text-align:center;">Vehicle</th>
-                <th style="text-align:center;"># of Days</th>
-                <th style="text-align:center;">Base Usage</th>
-                <th style="text-align:center;">Extra Usage</th>
-                <th style="text-align:center;">Tax</th>
-                <th style="text-align:center;">DIA</th>
-                <th style="text-align:center;">Total Usage</th>
-                <th style="text-align:center;">Insurance (Driver Paid)</th>
-                <th style="text-align:center;">Total Billed</th>
-                <th style="text-align:center;">Un-collected</th>
-                <th style="text-align:center;">Total Collected</th>
-                <th style="text-align:center;">Rev Share</th>
-                <th style="text-align:center;">Gross Revenue</th>
-                <th style="text-align:center;">Insurance (Dealer Paid)</th>
-                <th style="text-align:center;">Driver Credits/Cash Paid</th>
-                <th style="text-align:center;">Net Dealer Pay</th>
-                <th style="text-align:center;">Transferable</th>
-                <th style="text-align:center;">Misc Fee</th>
-                <th style="text-align:center;">Net Transferred</th>
-                <th style="text-align:center;">Pending</th>
-                <th style="text-align:center;">Action</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'increment_id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'status', 'title' => 'Status', 'style' => 'text-align:center;'],
+                    ['field' => 'start_datetime', 'title' => 'Start Date', 'style' => 'text-align:center;'],
+                    ['field' => 'end_datetime', 'title' => 'End Date', 'style' => 'text-align:center;'],
+                    ['field' => 'user_name', 'title' => 'Driver', 'style' => 'text-align:center;'],
+                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
+                    ['field' => 'days', 'title' => '# of Days', 'style' => 'text-align:center;'],
+                    ['field' => 'base_usage', 'title' => 'Base Usage', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'extra_mile_fee', 'title' => 'Extra Usage', 'style' => 'text-align:center;'],
+                    ['field' => 'tax', 'title' => 'Tax', 'style' => 'text-align:center;'],
+                    ['field' => 'dia_fee', 'title' => 'DIA', 'style' => 'text-align:center;'],
+                    ['field' => 'total_rent', 'title' => 'Total Usage', 'style' => 'text-align:center;'],
+                    ['field' => 'insurance_driver', 'title' => 'Insurance (Driver Paid)', 'style' => 'text-align:center;'],
+                    ['field' => 'total_billed', 'title' => 'Total Billed', 'style' => 'text-align:center;'],
+                    ['field' => 'uncollected', 'title' => 'Un-collected', 'style' => 'text-align:center;'],
+                    ['field' => 'total_collected', 'title' => 'Total Collected', 'style' => 'text-align:center;'],
+                    ['field' => 'revpart', 'title' => 'Rev Share', 'style' => 'text-align:center;'],
+                    ['field' => 'gross_revenue', 'title' => 'Gross Revenue', 'style' => 'text-align:center;'],
+                    ['field' => 'insurance', 'title' => 'Insurance (Dealer Paid)', 'style' => 'text-align:center;'],
+                    ['field' => 'driver_credit', 'title' => 'Driver Credits/Cash Paid', 'style' => 'text-align:center;'],
+                    ['field' => 'total_net_pay', 'title' => 'Net Dealer Pay', 'style' => 'text-align:center;'],
+                    ['field' => 'transferred', 'title' => 'Transferable', 'style' => 'text-align:center;'],
+                    ['field' => 'misc_fee', 'title' => 'Misc Fee', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'net_transferred', 'title' => 'Net Transferred', 'style' => 'text-align:center;'],
+                    ['field' => 'pending', 'title' => 'Pending', 'style' => 'text-align:center;'],
+                    ['field' => 'actions', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -145,7 +147,7 @@
     </table>
 </div>
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <script type="text/javascript">
     $('[data-popup="popover"]').popover({

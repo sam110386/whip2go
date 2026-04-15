@@ -1,247 +1,745 @@
 @verbatim
-<div class="main-container">
-    <div class="container">
-        <div class="row">
-            <div class="col-xs-12">
-                <p class="p1"><strong>Terms of Service:</strong></p>
-                <p class="p2"><strong>DriveItAway Terms of Service</strong></p>
-                <p class="p3">Policy Effective: 05/01/2019</p>
-                <p class="p3">Welcome to DriveItAway! These Terms of Service (this &ldquo;Agreement&rdquo;), and all of the policies included on our sites (both mobile and web), plus those designed to authorize certain relationships (such as the Vehicle Rental Agreement), collectively create the terms and conditions on which DriveItAway offers you access to and use of its services, which include the use of the DriveItAway site (both mobile and web), products and marketplace (collectively, the &ldquo;Services&rdquo;). If you decide to access and use the Services, you agree to be bound by this Agreement. If you do not wish to be bound by this Agreement, do not access or use the Services.</p>
-                <p class="p3">This Agreement includes DriveItAway&rsquo;s Privacy Policy, which is available at https://www.driveitaway.com/app-privacy-policy and which is incorporated by this reference. Also included in this Agreement is the Vehicle Rental Agreement, all of which are also incorporated by this reference. Please review all of the terms and conditions carefully. BY USING OUR SERVICES, YOU ARE ACCEPTING AND CONSENTING TO THESE TERMS AND CONDITIONS, AS UPDATED AND AMENDED FROM TIME TO TIME. IF, FOR ANY REASON, YOU DO NOT AGREE TO THESE TERMS AND CONDITIONS, PLEASE STOP USING THE SERVICES IMMEDIATELY.</p>
-                <p class="p3">Both you and DriveItAway agree, with the limited exceptions noted below, to resolve all disputes between you and us through BINDING INDIVIDUAL ARBITRATION as further provided below. BINDING INDIVIDUAL ARBITRATION MEANS THAT YOU AND DRIVEITAWAY ARE EACH WAIVING THE RIGHT TO A JURY TRIAL OR TO PARTICIPATE IN A CLASS ACTION.</p>
-                <p class="p3">We do not represent our Services are governed by or operated in accordance with the laws of other nations, or that the Services or any portion of them are appropriate or available for use in any particular location. If you choose to access the Services, you do so at your own risk, and you are responsible for complying with all local laws, rules, and regulations.</p>
-                <p class="p3">You consent to entering these terms electronically, and to the storage of records related to these terms in electronic form.</p>
-                <p class="p3">If a conflict arises between any of the provisions in this Agreement and any other document published in conjunction with our Services, this Agreement governs, unless the conflict is with any provision in our Privacy Policy, in which case, our Privacy Policy governs.</p>
-                <p class="p3">This Agreement is also for the express benefit of DriveItAway&rsquo;s representatives, trustees, directors, officers, shareholders, subsidiaries, employees, attorneys, and agents. If, and to the extent, an action of any kind is brought against any such person or entity on account of our Services or any communications and interactions with DriveItAway through our Services, such persons or entities shall have all of the protections afforded by this Agreement, including any dispute resolution procedure.</p>
-                <p class="p3">You represent that: (1) you are at least 21 years of age; (2) you are of legal capacity to form a binding contract; and (3) you are not a person barred from receiving services under the laws of the United States or other applicable jurisdictions.</p>
-                <p class="p3">1. Your Use of Our Services.</p>
-                <p class="p3">You may access portions of our website and mobile application (&ldquo;our Portals&rdquo;) without registering. However, you will be required to register with and sign into the Services to access all of our features. You are responsible for</p>
-                <p class="p3">maintaining the confidentiality of your username, password, and other information used to register and sign into our Portals, and you are fully responsible for all activities that occur under this username and password. Please immediately notify us of any unauthorized use of your account or any other breach of security by contacting us at&nbsp;<a href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>. If you interact with us or with third-party service providers, you agree that all information that you provide will be accurate, complete, and current.</p>
-                <p class="p3">Our Portals may link to other websites. You acknowledge and agree that DriveItAway is not responsible for the availability of such other websites/applications, and does not endorse and is not responsible or liable for any content, advertising, products and/or other materials on or available from such websites/applications. DriveItAway makes no warranties or representations of any kind as to the accuracy, currency, or completeness of any information contained in such websites/applications and shall have no liability for any damages or injuries of any kind arising from such content or information. You further acknowledge and agree that DriveItAway shall not be responsible or liable, directly or indirectly, for any damage or loss caused or alleged to be caused by or in connection with use of or reliance on any such content, goods or services available on or through any such other website(s)/application(s). Inclusion of any third-party link does not imply an endorsement or recommendation by DriveItAway.</p>
-                <p class="p3">We reserve the right at any time to modify or discontinue, temporarily or permanently, our Services or any part thereof with or without notice. You agree that we shall not be liable to you or to any third party for any modification, suspension or discontinuance of our Services or any part thereof.</p>
-                <p class="p3">We think it is important to talk about our arrangement/Services. DriveItAway is a marketplace, which means we are a technology platform that helps owners of vehicles (&ldquo;Owners&rdquo;) find drivers who temporarily need a vehicle (&ldquo;Drivers&rdquo;) for use with transportation network companies (&ldquo;TNC&rdquo;) and/or delivery service companies. DriveItAway does not itself rent vehicles. Accordingly, any and all Vehicle Rental Agreements entered into are directly between an Owner and a Driver.</p>
-                <p class="p3">DriveItAway&rsquo;s goal is to create and maintain a marketplace of trustworthy Owners and Drivers. Although DriveItAway can help to facilitate the transaction between Owners and Drivers, we do not guarantee the quality or safety of the vehicles listed on our site, nor can we guarantee the truth or accuracy of any listings, or whether Owners and Drivers will actually consummate a transaction, including the completion of any payment obligations.</p>
-                <p class="p3">2. Using DriveItAway.</p>
-                <p class="p3">To use the Services, you must create an account with DriveItAway by providing certain complete and accurate information and documentation, including (but not limited to) your name, date of birth, other identifying information, and have a valid email address and password (collectively, a &ldquo;User Account&rdquo;). You must be at least 21 years of age and hold a valid drivers&rsquo; license to create a User Account with us. Each Driver and Owner may open and maintain only one User Account with DriveItAway.</p>
-                <p class="p3">When you set up a User Account, you agree to allow DriveItAway to obtain and review your personal credit reports and to conduct a background check, which may include a motor vehicle report and criminal background check. This Agreement is consistent with the Fair Credit Reporting Act, and any other consumer protection or other laws that may apply. You also give your permission for DriveItAway to re-pull, refresh or otherwise conduct a subsequent motor vehicle or background check at any time during which your User Account is active, although DriveItAway will have no obligation to do so and when it does so, it does so at its own and sole discretion.</p>
-                <p class="p3">Here at DriveItAway we take pride in the uniqueness of our community. We are committed to the unity of different cultures and principles while providing a platform for mobility. It is important to DriveItAway, that we maintain a</p>
-                <p class="p3">community in which discrimination of any kind does not exist. It is through the respect of one another that we hope to bridge the gap of understanding while promoting the differences in our community.</p>
-                <p class="p3">DriveItAway reserves the right to decline, restrict or otherwise take action against you and your User Account based on any information included in any such motor vehicle, background or credit check, including for any breach of this Agreement and/or our Services. DriveItAway may terminate or restrict your User Account for any or no reason at any time.</p>
-                <p class="p4">3. Owners and Drivers.<br />In connection with using and accessing the Services, you agree that you:</p>
-                <ul class="ul1">
-                    <li class="li3">Will abide by DriveItAway&rsquo;s rules and policies;</li>
-                    <li class="li3">Will abide by all local, state and federal laws and regulations;</li>
-                    <li class="li3">Will honor the agreements you make with other users, including timely payment for the Services and delivering and returning Owners&rsquo; vehicles as promised;</li>
-                    <li class="li3">Will honestly represent yourself and your vehicle in your listing(s) and communications with DriveItAway and other users;</li>
-                    <li class="li3">Will honestly represent any claims or allegations of damage;</li>
-                    <li class="li3">Have the full right, capacity and authority to enter into a legally binding agreement regarding the Services;</li>
-                    <li class="li3">Will be responsible for your User Account with DriveItAway;</li>
-                    <li class="li3">Will work in good faith to resolve any disagreement with DriveItAway and other DriveItAway users;</li>
-                    <li class="li3">Consent to the use of an electronic tracking device in the rented Owner vehicle. Specifically, Owner agrees to install a GPS tracking device in all Owner&rsquo;s vehicles listed on DriveItAway&rsquo;s sites and Driver agrees not to tamper with, disable or remove such GPS tracking device for any reason. Any failure to install, activate or actively maintain such GPS tracking device in good working order is a violation of this Agreement and a basis for denying any claims against DriveItAway or its insurer; such action is also a basis for immediate termination of your User Account. Some Owners of the vehicles may opt to use a starter interrupt device that will disable the vehicle in the event the car is stolen, lost or the driver is not responsive to communications by the owner and DriveItAway. The use of the starter interrupt feature of the telematics device will be subject to state laws on the use of telematics devices. DriveItAway will be using 3rd party vehicle data providers to include information on the vehicle history, odometer, maintenance and other analytics associated with a particular VIN (Vehicle Identification Number). DriveItAway is not responsible for any actions the owner in reference to the use of the starter interrupt device. The use of this specific feature is based on the owner&rsquo;s discretion. And the owner consents to reasonable use of the starter interrupt device. And the Owner must abide to all state and federal obligations and regulations surrounding telematics use and the data it gathers.</li>
-                    <li class="li3">Consent to receiving information on periodically programs from DriveItAway and third-party partners. DriveItAway will abide to all rules under the Can-Spam Act during its communication with either drivers or owners on the DriveItAway Platform.</li>
-                </ul>
-                <p class="p3">In connection with using and accessing the Services, you agree that you will not:</p>
-                <ul class="ul1">
-                    <li class="li3">List, publish or communicate inappropriate or false content, including content that is inaccurate, offensive, defamatory, or otherwise inappropriate;</li>
-                    <li class="li3">Assign or transfer your User Account to any other entity or person;</li>
-                    <li class="li3">Continue to use the Services if your User Account has been suspended or otherwise restricted by DriveItAway;</li>
-                    <li class="li3">Interfere with the listings of any other Owner or the Services provided by DriveItAway.</li>
-                    <li class="li3">Take any action to circumvent the Services, including completing, initiating, arranging or executing any transactions between an Owner and a Driver outside the DriveItAway platform;</li>
-                    <li class="li3">Harvest or use the information you receive from other DriveItAway users or otherwise use any robots, spiders or other data collection or scraping tools to collect information about DriveItAway or its users;</li>
-                    <li class="li3">Distribute spam or other unsolicited marketing communications to users of DriveItAway or anyone else using the technology or Services of DriveItAway;</li>
-                    <li class="li3">Distribute any viruses or similar code that may harm DriveItAway or the users of DriveItAway or otherwise interfere with the Services of DriveItAway;</li>
-                    <li class="li3">Infringe any intellectual property rights including trademark, copyright, patent, publicity and moral that belong to or are licensed by DriveItAway. This includes reproducing, copying, reverse engineering or otherwise preparing derivative works from content belonging to, or licensed by DriveItAway;</li>
-                    <li class="li3">Harass, threaten or harm or aid or encourage others seeking to harass, threaten or harm DriveItAway or any user or DriveItAway business partner;</li>
-                    <li class="li3">Contact any other user through the DriveItAway platform for any purpose other than those related to the DriveItAway Services; and/or</li>
-                    <li class="li3">Avoid or otherwise circumvent measures created or used by DriveItAway to provide its Services.</li>
-                </ul>
-                <p class="p3">Owners and Drivers must adhere to these commitments. Failure to meet these commitments may result in User Account suspension or termination, additional fees, content removal or demotion in search, or other actions, including legal action, against you. DriveItAway may, in its sole discretion and without limitation, limit your access to its Services (through account suspension, closure or other methods). DriveItAway may further terminate or refuse to offer all or part of its Services to anyone for any reason, in its sole discretion.</p>
-                <p class="p4">4. Fees.<br />There is no fee for Owners to list their vehicle(s) or for Drivers to search for vehicles on the DriveItAway platform.</p>
-                <p class="p3">Drivers and Owners will enter into a Vehicle Rental Agreement that will specify the terms of the rental including the duration, costs, fees and other relevant information. DriveItAway will charge a fee, payable by the Driver and Owner, equal to a specified percentage of the aggregate Vehicle Rental Agreement price. Drivers and Owners will be notified of the amount owed to DriveItAway before completing the booking and Vehicle Rental Agreement process. After Driver and Owner agree between them to a price for Driver&rsquo;s rental of Owner&rsquo;s vehicle, and sign the Vehicle Rental Agreement, the Driver will make a payment to the Owner using the DriveItAway platform payment portal.</p>
-                <p class="p3">You agree that you will have a valid payment method on file in your User Account at all times, and you agree to pay all fees and applicable taxes associated with the Services by the payment due date.</p>
-                <p class="p3">Rental term and fee will automatically renew upon expiration, unless cancelled by the renter with the return of the vehicle.<span class="Apple-converted-space">&nbsp; </span>Note: renter will be notified of renewal by text communication and have the opportunity to cancel and return the vehicle, if the renewal is not canceled, DriveItAway will automatically charge the renewal rental amount due as defined in the initial term.</p>
-                <p class="p3">In addition to any amount due, delinquent accounts and/or chargebacks will be assessed additional fees and/or charges that are incidental to the collection of delinquent accounts and/or chargebacks including, but not limited to, collection fees and/or convenience fees and/or other third parties charges. Further, if your payment method fails or your account is past due, we may collect fees owed by charging other payment methods on file with us, retain collection agencies and legal counsel. You are responsible to reimburse us for all costs of collection, including actual attorneys&rsquo; fees and costs. You may also be subject to late fees and collection agencies may report information about your account to credit bureaus. As a result, late payments, missed payments, and other defaults on your account may be reflected in your credit report.</p>
-                <p class="p4">5. Listing Requirements/Platform Standards.<br />Owners, when you list a vehicle that you own on the DriveItAway platform, you hereby agree to comply with all of the</p>
-                <p class="p3">following:</p>
-                <ul class="ul1">
-                    <li class="li3">To be accurate and truthful in all descriptions of your vehicle;</li>
-                    <li class="li3">To use current photographs of the actual vehicle that will be listed in each and every image;</li>
-                    <li class="li3">To adhere to DriveItAway&rsquo;s policies, including policies related to offensive or defamatory language;</li>
-                    <li class="li3">To maintain only one active listing, per vehicle, at a time.</li>
-                </ul>
-                <p class="p3">Owners and Drivers are not permitted to use DriveItAway to contact each other to make offers to rent vehicles outside of DriveItAway. You cannot use information obtained from DriveItAway or any DriveItAway system to contact each other about renting outside of DriveItAway.</p>
-                <p class="p3">Owners are liable for fees arising out of all sales made using some or all DriveItAway&rsquo;s Services, even if sales terms are finalized or payment is made outside of DriveItAway.</p>
-                <p class="p3">Owners are also liable for final value fees if they offer or reference their contact information, or ask for a Driver&rsquo;s contact information, in the context of renting outside of DriveItAway, even if the car is not rented.</p>
-                <p class="p3">If you receive an offer to rent a vehicle outside DriveItAway, please report it immediately. If you fail to follow these requirements, you may be subject to a range of actions, including limits on your access to our Services, restrictions on listings, suspension of your account, application of fees, and recovery of our expenses in policy monitoring and enforcement.</p>
-                <p class="p3">Owners and Drivers further agree that each will enter into, and adhere to, a Vehicle Rental Agreement when transacting with each other as part of using the DriveItAway Services. This Vehicle Rental Agreement will cover terms including pricing, fees, liability for any traffic and/or parking violations, issues related to the use of the vehicles and any damage related to that use.</p>
-                <p class="p3">Owners and Drivers are expected to resolve any disputes, including alleged damage or other issues, directly with one another.</p>
-                <p class="p3">In exchange for your compliance with this Agreement, DriveItAway grants a limited, non-exclusive, non-sublicensable, revocable, non-transferable license to you to access and use the Services. Any and all rights not expressly granted are hereby reserved by DriveItAway.</p>
-                <p class="p3">6. Our Intellectual Property</p>
-                <p class="p3">The name &ldquo;DriveItAway&rdquo; and all other DriveItAway marks, logos, designs, and phrasing, including <span class="s3">&nbsp;Path to Ownership&trade;,</span> used in connection with our Services are trademarks, service marks, or trade dress of DriveItAway in the United States may not be used without the prior and express written permission of DriveItAway.</p>
-                <p class="p3">DriveItAway and our associated logos and names, if any, are our trademarks and/or service marks. Other trademarks, service marks, names, and logos used in conjunction with our Services, such as trademarks, service marks, names, or logos associated with third-party organizations, are the intellectual property of their respective owners. You are granted no right or license with respect to any of the foregoing trademarks, service marks, or logos.</p>
-                <p class="p3">Certain materials available on or through our Portals are our Works (i.e., content we own, authored, created, purchased, or licensed). Our Works may be protected by copyright, trademark, patent, trade secret and/or other laws, and we reserve and retain all rights in our Works and our Portals. We hereby grant you a royalty-free, limited, revocable, non-sublicensable, and non-exclusive license to access our Works solely for a use authorized by this Agreement. You may not otherwise reproduce, distribute, communicate to the public, make available, adapt, publicly perform, link to, or publicly display the Works or any adaptations thereof unless expressly set forth herein.</p>
-                <p class="p3">7. Content You Submit</p>
-                <p class="p3">You and other users may be able to upload, post, create, make available, send, share, communicate, transmit, or submit (&ldquo;Submit&rdquo; or &ldquo;Submitted&rdquo;) data, information, comments, ideas, or other types of content (collectively, &ldquo;Web Content&rdquo;) to or through our Portals and other websites/applications linked to our Portals. You understand that all content Submitted by users of our Portals (&ldquo;User Web Content&rdquo;) is the sole responsibility of the person</p>
-                <p class="p3">with whom such content originated. We do not make any guarantee whatsoever related to User Web Content. Under no circumstances will we be liable or responsible in any way for any claim related to User Web Content.</p>
-                <p class="p3">You retain ownership of any intellectual property contained in your User Web Content. However, you grant us a royalty-free, irrevocable, transferable, sublicensable and non-exclusive perpetual license throughout the universe for use in any and all media whether now known or hereafter devised to use and exploit (including without limitation by reproduction, distribution, public display, adaptation, communication to the public and/or public performance) any and all User Web Content that you Submit to or through our Portals. You also waive to the fullest extent permitted by law any and all claims against us related to moral rights in the User Web Content. In no circumstances will we be liable to you for any exploitation of any User Web Content that you Submit. You affirm, represent and warrant that you own or have the necessary licenses, rights, consents, and permissions to publish and exploit User Web Content that you Submit.</p>
-                <p class="p3">You also grant other users of our Portals and Services a non-exclusive, royalty free license to access your User Web Content consistent with the terms herein and to engage in any reproductions, public performances, communications to the public, distributions, or public displays necessary to do so.</p>
-                <p class="p3">By submitting to us any comment or testimonial, you grant to us and our designees, successors, assigns and licensees the irrevocable, royalty-free right to publish, disseminate, and use your name and likeness, as well as your comment or testimonial, without further notice or consideration, in perpetuity, throughout the world, in all media and media now known or hereafter invented.</p>
-                <p class="p3">DriveItAway has no obligation of confidentiality, express or implied, with respect to any User Web Content that you Submit to us through our Portals or through the Internet by email or otherwise, such as any questions, comments, suggestions, or the like. DriveItAway shall be entitled to use, exploit, or disclose (or choose not to use, exploit, or disclose) such User Web Content at our sole and absolute discretion without any obligation to you whatsoever (i.e., you will not be entitled to any compensation or reimbursement of any kind from us under any circumstances whatsoever). We shall be free to use any ideas, concepts, know-how or techniques contained in any communication from you to us for any purpose whatsoever, including but not limited to, developing, manufacturing and marketing products, without further authorization from you and without any compensation to you.</p>
-                <p class="p3">8. Procedure for Making Claims of Copyright Infringement for User Content and Links</p>
-                <p class="p3">We have adopted a policy, in compliance with the Digital Millennium Copyright Act (&ldquo;DMCA&rdquo;), to enable, at our sole discretion, the expeditious removal of infringing material and the termination of repeat infringers&rsquo; User Accounts. If you have a good faith belief that your copyright is being infringed by any content accessible on or through our Portals, please send a notice of claimed infringement, including the information listed below, to our Designated Copyright Agent at:</p>
-                <p class="p4">By mail: 14 Kings Hwy, Suite 112, Haddonfield, NJ 08033<br />By email:&nbsp;<a href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a><br />To be effective, the notice of claimed infringement must include the following required contents:</p>
-                <ul class="ul1">
-                    <li class="li3">A physical or electronic signature of a person authorized to act on behalf of the owner of an exclusive right that is allegedly infringed;</li>
-                    <li class="li3">Identification of the copyrighted work claimed to have been infringed, or if multiple copyrighted works are covered by a single notification, a representative list of such works;</li>
-                    <li class="li3">Identification of the material that is claimed to be infringing or to be the subject of infringing activity that is to be removed, or access to which is to be disabled, and information reasonably sufficient to permit us to locate the material (providing specific URLs is the best way to help us locate the content quickly);</li>
-                    <li class="li3">Information reasonably sufficient to permit us to contact the complaining party, such as the address, telephone, fax, and/or an email address at which the complaining party may be contacted;</li>
-                    <li class="li3">A statement the complaining party has a good faith belief that use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law;</li>
-                    <li class="li3">A statement that the information in the notice is accurate, and under penalty of perjury, that the complaining party is authorized to act on behalf of the owner of an exclusive right that is allegedly infringed.</li>
-                </ul>
-                <p class="p5">Please note that information provided in this legal notice may be forwarded to the person who provided the allegedly infringing Content.</p>
-                <p class="p6">To leave a message for the Company&rsquo;s Designated Agent by phone please call 203-491-4283.</p>
-                <p class="p3">9. Procedure for Making Other Complaints</p>
-                <p class="p3">If you believe that your rights, or the rights of a third party, are being violated in any way by any content accessible on or through our Portals and/or Services, please contact us at&nbsp;<a href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>&nbsp;Where appropriate, we will work to prevent unlawful activity from taking place on or through our Portals.</p>
-                <p class="p3">10. Protection Plan Policy</p>
-                <ul class="ul1">
-                    <li class="li7">Driver Coverage:</li>
+    <div class="main-container">
+        <div class="container">
+            <div class="row">
+                <div class="col-xs-12">
+                    <p class="p1"><strong>Terms of Service:</strong></p>
+                    <p class="p2"><strong>DriveItAway Terms of Service</strong></p>
+                    <p class="p3">Policy Effective: 05/01/2019</p>
+                    <p class="p3">Welcome to DriveItAway! These Terms of Service (this &ldquo;Agreement&rdquo;), and all of
+                        the policies included on our sites (both mobile and web), plus those designed to authorize certain
+                        relationships (such as the Vehicle Rental Agreement), collectively create the terms and conditions
+                        on which DriveItAway offers you access to and use of its services, which include the use of the
+                        DriveItAway site (both mobile and web), products and marketplace (collectively, the
+                        &ldquo;Services&rdquo;). If you decide to access and use the Services, you agree to be bound by this
+                        Agreement. If you do not wish to be bound by this Agreement, do not access or use the Services.</p>
+                    <p class="p3">This Agreement includes DriveItAway&rsquo;s Privacy Policy, which is available at
+                        https://www.driveitaway.com/app-privacy-policy and which is incorporated by this reference. Also
+                        included in this Agreement is the Vehicle Rental Agreement, all of which are also incorporated by
+                        this reference. Please review all of the terms and conditions carefully. BY USING OUR SERVICES, YOU
+                        ARE ACCEPTING AND CONSENTING TO THESE TERMS AND CONDITIONS, AS UPDATED AND AMENDED FROM TIME TO
+                        TIME. IF, FOR ANY REASON, YOU DO NOT AGREE TO THESE TERMS AND CONDITIONS, PLEASE STOP USING THE
+                        SERVICES IMMEDIATELY.</p>
+                    <p class="p3">Both you and DriveItAway agree, with the limited exceptions noted below, to resolve all
+                        disputes between you and us through BINDING INDIVIDUAL ARBITRATION as further provided below.
+                        BINDING INDIVIDUAL ARBITRATION MEANS THAT YOU AND DRIVEITAWAY ARE EACH WAIVING THE RIGHT TO A JURY
+                        TRIAL OR TO PARTICIPATE IN A CLASS ACTION.</p>
+                    <p class="p3">We do not represent our Services are governed by or operated in accordance with the laws
+                        of other nations, or that the Services or any portion of them are appropriate or available for use
+                        in any particular location. If you choose to access the Services, you do so at your own risk, and
+                        you are responsible for complying with all local laws, rules, and regulations.</p>
+                    <p class="p3">You consent to entering these terms electronically, and to the storage of records related
+                        to these terms in electronic form.</p>
+                    <p class="p3">If a conflict arises between any of the provisions in this Agreement and any other
+                        document published in conjunction with our Services, this Agreement governs, unless the conflict is
+                        with any provision in our Privacy Policy, in which case, our Privacy Policy governs.</p>
+                    <p class="p3">This Agreement is also for the express benefit of DriveItAway&rsquo;s representatives,
+                        trustees, directors, officers, shareholders, subsidiaries, employees, attorneys, and agents. If, and
+                        to the extent, an action of any kind is brought against any such person or entity on account of our
+                        Services or any communications and interactions with DriveItAway through our Services, such persons
+                        or entities shall have all of the protections afforded by this Agreement, including any dispute
+                        resolution procedure.</p>
+                    <p class="p3">You represent that: (1) you are at least 21 years of age; (2) you are of legal capacity to
+                        form a binding contract; and (3) you are not a person barred from receiving services under the laws
+                        of the United States or other applicable jurisdictions.</p>
+                    <p class="p3">1. Your Use of Our Services.</p>
+                    <p class="p3">You may access portions of our website and mobile application (&ldquo;our Portals&rdquo;)
+                        without registering. However, you will be required to register with and sign into the Services to
+                        access all of our features. You are responsible for</p>
+                    <p class="p3">maintaining the confidentiality of your username, password, and other information used to
+                        register and sign into our Portals, and you are fully responsible for all activities that occur
+                        under this username and password. Please immediately notify us of any unauthorized use of your
+                        account or any other breach of security by contacting us at&nbsp;<a
+                            href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>. If you interact
+                        with us or with third-party service providers, you agree that all information that you provide will
+                        be accurate, complete, and current.</p>
+                    <p class="p3">Our Portals may link to other websites. You acknowledge and agree that DriveItAway is not
+                        responsible for the availability of such other websites/applications, and does not endorse and is
+                        not responsible or liable for any content, advertising, products and/or other materials on or
+                        available from such websites/applications. DriveItAway makes no warranties or representations of any
+                        kind as to the accuracy, currency, or completeness of any information contained in such
+                        websites/applications and shall have no liability for any damages or injuries of any kind arising
+                        from such content or information. You further acknowledge and agree that DriveItAway shall not be
+                        responsible or liable, directly or indirectly, for any damage or loss caused or alleged to be caused
+                        by or in connection with use of or reliance on any such content, goods or services available on or
+                        through any such other website(s)/application(s). Inclusion of any third-party link does not imply
+                        an endorsement or recommendation by DriveItAway.</p>
+                    <p class="p3">We reserve the right at any time to modify or discontinue, temporarily or permanently, our
+                        Services or any part thereof with or without notice. You agree that we shall not be liable to you or
+                        to any third party for any modification, suspension or discontinuance of our Services or any part
+                        thereof.</p>
+                    <p class="p3">We think it is important to talk about our arrangement/Services. DriveItAway is a
+                        marketplace, which means we are a technology platform that helps owners of vehicles
+                        (&ldquo;Owners&rdquo;) find drivers who temporarily need a vehicle (&ldquo;Drivers&rdquo;) for use
+                        with transportation network companies (&ldquo;TNC&rdquo;) and/or delivery service companies.
+                        DriveItAway does not itself rent vehicles. Accordingly, any and all Vehicle Rental Agreements
+                        entered into are directly between an Owner and a Driver.</p>
+                    <p class="p3">DriveItAway&rsquo;s goal is to create and maintain a marketplace of trustworthy Owners and
+                        Drivers. Although DriveItAway can help to facilitate the transaction between Owners and Drivers, we
+                        do not guarantee the quality or safety of the vehicles listed on our site, nor can we guarantee the
+                        truth or accuracy of any listings, or whether Owners and Drivers will actually consummate a
+                        transaction, including the completion of any payment obligations.</p>
+                    <p class="p3">2. Using DriveItAway.</p>
+                    <p class="p3">To use the Services, you must create an account with DriveItAway by providing certain
+                        complete and accurate information and documentation, including (but not limited to) your name, date
+                        of birth, other identifying information, and have a valid email address and password (collectively,
+                        a &ldquo;User Account&rdquo;). You must be at least 21 years of age and hold a valid drivers&rsquo;
+                        license to create a User Account with us. Each Driver and Owner may open and maintain only one User
+                        Account with DriveItAway.</p>
+                    <p class="p3">When you set up a User Account, you agree to allow DriveItAway to obtain and review your
+                        personal credit reports and to conduct a background check, which may include a motor vehicle report
+                        and criminal background check. This Agreement is consistent with the Fair Credit Reporting Act, and
+                        any other consumer protection or other laws that may apply. You also give your permission for
+                        DriveItAway to re-pull, refresh or otherwise conduct a subsequent motor vehicle or background check
+                        at any time during which your User Account is active, although DriveItAway will have no obligation
+                        to do so and when it does so, it does so at its own and sole discretion.</p>
+                    <p class="p3">Here at DriveItAway we take pride in the uniqueness of our community. We are committed to
+                        the unity of different cultures and principles while providing a platform for mobility. It is
+                        important to DriveItAway, that we maintain a</p>
+                    <p class="p3">community in which discrimination of any kind does not exist. It is through the respect of
+                        one another that we hope to bridge the gap of understanding while promoting the differences in our
+                        community.</p>
+                    <p class="p3">DriveItAway reserves the right to decline, restrict or otherwise take action against you
+                        and your User Account based on any information included in any such motor vehicle, background or
+                        credit check, including for any breach of this Agreement and/or our Services. DriveItAway may
+                        terminate or restrict your User Account for any or no reason at any time.</p>
+                    <p class="p4">3. Owners and Drivers.<br />In connection with using and accessing the Services, you agree
+                        that you:</p>
                     <ul class="ul1">
-                        <li class="li4">DriveItAway offers one coverage plan to Driver&rsquo;s through Voyager Indemnity Insurance Company (Voyager). While a Driver is renting a vehicle through DriveItAway&rsquo;s platform, they are insured under DriveItAway&rsquo;s Policy with Voyager. Subject to terms, conditions, and exclusions, DriveItAway&rsquo;s Policy provided by Voyager provides Driver&rsquo;s with the following coverage during their rental:</li>
-                        <ul class="ul2">
-                            <li class="li3">Liability to third-parties for bodily injury and property damage resulting from the use of the rented vehicle, up to the minimum liability coverage required by state law.</li>
-                            <li class="li3">Personal Injury Protection (&ldquo;PIP&rdquo;) in those few states where PIP coverage is required by law and cannot be waived.</li>
-                            <li class="li3">Uninsured or Underinsured Motorist (&ldquo;UM/UIM") up to the statutory minimum amount in those few states where UM/UIM coverage is required by law and cannot be waived.</li>
+                        <li class="li3">Will abide by DriveItAway&rsquo;s rules and policies;</li>
+                        <li class="li3">Will abide by all local, state and federal laws and regulations;</li>
+                        <li class="li3">Will honor the agreements you make with other users, including timely payment for
+                            the Services and delivering and returning Owners&rsquo; vehicles as promised;</li>
+                        <li class="li3">Will honestly represent yourself and your vehicle in your listing(s) and
+                            communications with DriveItAway and other users;</li>
+                        <li class="li3">Will honestly represent any claims or allegations of damage;</li>
+                        <li class="li3">Have the full right, capacity and authority to enter into a legally binding
+                            agreement regarding the Services;</li>
+                        <li class="li3">Will be responsible for your User Account with DriveItAway;</li>
+                        <li class="li3">Will work in good faith to resolve any disagreement with DriveItAway and other
+                            DriveItAway users;</li>
+                        <li class="li3">Consent to the use of an electronic tracking device in the rented Owner vehicle.
+                            Specifically, Owner agrees to install a GPS tracking device in all Owner&rsquo;s vehicles listed
+                            on DriveItAway&rsquo;s sites and Driver agrees not to tamper with, disable or remove such GPS
+                            tracking device for any reason. Any failure to install, activate or actively maintain such GPS
+                            tracking device in good working order is a violation of this Agreement and a basis for denying
+                            any claims against DriveItAway or its insurer; such action is also a basis for immediate
+                            termination of your User Account. Some Owners of the vehicles may opt to use a starter interrupt
+                            device that will disable the vehicle in the event the car is stolen, lost or the driver is not
+                            responsive to communications by the owner and DriveItAway. The use of the starter interrupt
+                            feature of the telematics device will be subject to state laws on the use of telematics devices.
+                            DriveItAway will be using 3rd party vehicle data providers to include information on the vehicle
+                            history, odometer, maintenance and other analytics associated with a particular VIN (Vehicle
+                            Identification Number). DriveItAway is not responsible for any actions the owner in reference to
+                            the use of the starter interrupt device. The use of this specific feature is based on the
+                            owner&rsquo;s discretion. And the owner consents to reasonable use of the starter interrupt
+                            device. And the Owner must abide to all state and federal obligations and regulations
+                            surrounding telematics use and the data it gathers.</li>
+                        <li class="li3">Consent to receiving information on periodically programs from DriveItAway and
+                            third-party partners. DriveItAway will abide to all rules under the Can-Spam Act during its
+                            communication with either drivers or owners on the DriveItAway Platform.</li>
+                    </ul>
+                    <p class="p3">In connection with using and accessing the Services, you agree that you will not:</p>
+                    <ul class="ul1">
+                        <li class="li3">List, publish or communicate inappropriate or false content, including content that
+                            is inaccurate, offensive, defamatory, or otherwise inappropriate;</li>
+                        <li class="li3">Assign or transfer your User Account to any other entity or person;</li>
+                        <li class="li3">Continue to use the Services if your User Account has been suspended or otherwise
+                            restricted by DriveItAway;</li>
+                        <li class="li3">Interfere with the listings of any other Owner or the Services provided by
+                            DriveItAway.</li>
+                        <li class="li3">Take any action to circumvent the Services, including completing, initiating,
+                            arranging or executing any transactions between an Owner and a Driver outside the DriveItAway
+                            platform;</li>
+                        <li class="li3">Harvest or use the information you receive from other DriveItAway users or otherwise
+                            use any robots, spiders or other data collection or scraping tools to collect information about
+                            DriveItAway or its users;</li>
+                        <li class="li3">Distribute spam or other unsolicited marketing communications to users of
+                            DriveItAway or anyone else using the technology or Services of DriveItAway;</li>
+                        <li class="li3">Distribute any viruses or similar code that may harm DriveItAway or the users of
+                            DriveItAway or otherwise interfere with the Services of DriveItAway;</li>
+                        <li class="li3">Infringe any intellectual property rights including trademark, copyright, patent,
+                            publicity and moral that belong to or are licensed by DriveItAway. This includes reproducing,
+                            copying, reverse engineering or otherwise preparing derivative works from content belonging to,
+                            or licensed by DriveItAway;</li>
+                        <li class="li3">Harass, threaten or harm or aid or encourage others seeking to harass, threaten or
+                            harm DriveItAway or any user or DriveItAway business partner;</li>
+                        <li class="li3">Contact any other user through the DriveItAway platform for any purpose other than
+                            those related to the DriveItAway Services; and/or</li>
+                        <li class="li3">Avoid or otherwise circumvent measures created or used by DriveItAway to provide its
+                            Services.</li>
+                    </ul>
+                    <p class="p3">Owners and Drivers must adhere to these commitments. Failure to meet these commitments may
+                        result in User Account suspension or termination, additional fees, content removal or demotion in
+                        search, or other actions, including legal action, against you. DriveItAway may, in its sole
+                        discretion and without limitation, limit your access to its Services (through account suspension,
+                        closure or other methods). DriveItAway may further terminate or refuse to offer all or part of its
+                        Services to anyone for any reason, in its sole discretion.</p>
+                    <p class="p4">4. Fees.<br />There is no fee for Owners to list their vehicle(s) or for Drivers to search
+                        for vehicles on the DriveItAway platform.</p>
+                    <p class="p3">Drivers and Owners will enter into a Vehicle Rental Agreement that will specify the terms
+                        of the rental including the duration, costs, fees and other relevant information. DriveItAway will
+                        charge a fee, payable by the Driver and Owner, equal to a specified percentage of the aggregate
+                        Vehicle Rental Agreement price. Drivers and Owners will be notified of the amount owed to
+                        DriveItAway before completing the booking and Vehicle Rental Agreement process. After Driver and
+                        Owner agree between them to a price for Driver&rsquo;s rental of Owner&rsquo;s vehicle, and sign the
+                        Vehicle Rental Agreement, the Driver will make a payment to the Owner using the DriveItAway platform
+                        payment portal.</p>
+                    <p class="p3">You agree that you will have a valid payment method on file in your User Account at all
+                        times, and you agree to pay all fees and applicable taxes associated with the Services by the
+                        payment due date.</p>
+                    <p class="p3">Rental term and fee will automatically renew upon expiration, unless cancelled by the
+                        renter with the return of the vehicle.<span class="Apple-converted-space">&nbsp; </span>Note: renter
+                        will be notified of renewal by text communication and have the opportunity to cancel and return the
+                        vehicle, if the renewal is not canceled, DriveItAway will automatically charge the renewal rental
+                        amount due as defined in the initial term.</p>
+                    <p class="p3">In addition to any amount due, delinquent accounts and/or chargebacks will be assessed
+                        additional fees and/or charges that are incidental to the collection of delinquent accounts and/or
+                        chargebacks including, but not limited to, collection fees and/or convenience fees and/or other
+                        third parties charges. Further, if your payment method fails or your account is past due, we may
+                        collect fees owed by charging other payment methods on file with us, retain collection agencies and
+                        legal counsel. You are responsible to reimburse us for all costs of collection, including actual
+                        attorneys&rsquo; fees and costs. You may also be subject to late fees and collection agencies may
+                        report information about your account to credit bureaus. As a result, late payments, missed
+                        payments, and other defaults on your account may be reflected in your credit report.</p>
+                    <p class="p4">5. Listing Requirements/Platform Standards.<br />Owners, when you list a vehicle that you
+                        own on the DriveItAway platform, you hereby agree to comply with all of the</p>
+                    <p class="p3">following:</p>
+                    <ul class="ul1">
+                        <li class="li3">To be accurate and truthful in all descriptions of your vehicle;</li>
+                        <li class="li3">To use current photographs of the actual vehicle that will be listed in each and
+                            every image;</li>
+                        <li class="li3">To adhere to DriveItAway&rsquo;s policies, including policies related to offensive
+                            or defamatory language;</li>
+                        <li class="li3">To maintain only one active listing, per vehicle, at a time.</li>
+                    </ul>
+                    <p class="p3">Owners and Drivers are not permitted to use DriveItAway to contact each other to make
+                        offers to rent vehicles outside of DriveItAway. You cannot use information obtained from DriveItAway
+                        or any DriveItAway system to contact each other about renting outside of DriveItAway.</p>
+                    <p class="p3">Owners are liable for fees arising out of all sales made using some or all
+                        DriveItAway&rsquo;s Services, even if sales terms are finalized or payment is made outside of
+                        DriveItAway.</p>
+                    <p class="p3">Owners are also liable for final value fees if they offer or reference their contact
+                        information, or ask for a Driver&rsquo;s contact information, in the context of renting outside of
+                        DriveItAway, even if the car is not rented.</p>
+                    <p class="p3">If you receive an offer to rent a vehicle outside DriveItAway, please report it
+                        immediately. If you fail to follow these requirements, you may be subject to a range of actions,
+                        including limits on your access to our Services, restrictions on listings, suspension of your
+                        account, application of fees, and recovery of our expenses in policy monitoring and enforcement.</p>
+                    <p class="p3">Owners and Drivers further agree that each will enter into, and adhere to, a Vehicle
+                        Rental Agreement when transacting with each other as part of using the DriveItAway Services. This
+                        Vehicle Rental Agreement will cover terms including pricing, fees, liability for any traffic and/or
+                        parking violations, issues related to the use of the vehicles and any damage related to that use.
+                    </p>
+                    <p class="p3">Owners and Drivers are expected to resolve any disputes, including alleged damage or other
+                        issues, directly with one another.</p>
+                    <p class="p3">In exchange for your compliance with this Agreement, DriveItAway grants a limited,
+                        non-exclusive, non-sublicensable, revocable, non-transferable license to you to access and use the
+                        Services. Any and all rights not expressly granted are hereby reserved by DriveItAway.</p>
+                    <p class="p3">6. Our Intellectual Property</p>
+                    <p class="p3">The name &ldquo;DriveItAway&rdquo; and all other DriveItAway marks, logos, designs, and
+                        phrasing, including <span class="s3">&nbsp;Path to Ownership&trade;,</span> used in connection with
+                        our Services are trademarks, service marks, or trade dress of DriveItAway in the United States may
+                        not be used without the prior and express written permission of DriveItAway.</p>
+                    <p class="p3">DriveItAway and our associated logos and names, if any, are our trademarks and/or service
+                        marks. Other trademarks, service marks, names, and logos used in conjunction with our Services, such
+                        as trademarks, service marks, names, or logos associated with third-party organizations, are the
+                        intellectual property of their respective owners. You are granted no right or license with respect
+                        to any of the foregoing trademarks, service marks, or logos.</p>
+                    <p class="p3">Certain materials available on or through our Portals are our Works (i.e., content we own,
+                        authored, created, purchased, or licensed). Our Works may be protected by copyright, trademark,
+                        patent, trade secret and/or other laws, and we reserve and retain all rights in our Works and our
+                        Portals. We hereby grant you a royalty-free, limited, revocable, non-sublicensable, and
+                        non-exclusive license to access our Works solely for a use authorized by this Agreement. You may not
+                        otherwise reproduce, distribute, communicate to the public, make available, adapt, publicly perform,
+                        link to, or publicly display the Works or any adaptations thereof unless expressly set forth herein.
+                    </p>
+                    <p class="p3">7. Content You Submit</p>
+                    <p class="p3">You and other users may be able to upload, post, create, make available, send, share,
+                        communicate, transmit, or submit (&ldquo;Submit&rdquo; or &ldquo;Submitted&rdquo;) data,
+                        information, comments, ideas, or other types of content (collectively, &ldquo;Web Content&rdquo;) to
+                        or through our Portals and other websites/applications linked to our Portals. You understand that
+                        all content Submitted by users of our Portals (&ldquo;User Web Content&rdquo;) is the sole
+                        responsibility of the person</p>
+                    <p class="p3">with whom such content originated. We do not make any guarantee whatsoever related to User
+                        Web Content. Under no circumstances will we be liable or responsible in any way for any claim
+                        related to User Web Content.</p>
+                    <p class="p3">You retain ownership of any intellectual property contained in your User Web Content.
+                        However, you grant us a royalty-free, irrevocable, transferable, sublicensable and non-exclusive
+                        perpetual license throughout the universe for use in any and all media whether now known or
+                        hereafter devised to use and exploit (including without limitation by reproduction, distribution,
+                        public display, adaptation, communication to the public and/or public performance) any and all User
+                        Web Content that you Submit to or through our Portals. You also waive to the fullest extent
+                        permitted by law any and all claims against us related to moral rights in the User Web Content. In
+                        no circumstances will we be liable to you for any exploitation of any User Web Content that you
+                        Submit. You affirm, represent and warrant that you own or have the necessary licenses, rights,
+                        consents, and permissions to publish and exploit User Web Content that you Submit.</p>
+                    <p class="p3">You also grant other users of our Portals and Services a non-exclusive, royalty free
+                        license to access your User Web Content consistent with the terms herein and to engage in any
+                        reproductions, public performances, communications to the public, distributions, or public displays
+                        necessary to do so.</p>
+                    <p class="p3">By submitting to us any comment or testimonial, you grant to us and our designees,
+                        successors, assigns and licensees the irrevocable, royalty-free right to publish, disseminate, and
+                        use your name and likeness, as well as your comment or testimonial, without further notice or
+                        consideration, in perpetuity, throughout the world, in all media and media now known or hereafter
+                        invented.</p>
+                    <p class="p3">DriveItAway has no obligation of confidentiality, express or implied, with respect to any
+                        User Web Content that you Submit to us through our Portals or through the Internet by email or
+                        otherwise, such as any questions, comments, suggestions, or the like. DriveItAway shall be entitled
+                        to use, exploit, or disclose (or choose not to use, exploit, or disclose) such User Web Content at
+                        our sole and absolute discretion without any obligation to you whatsoever (i.e., you will not be
+                        entitled to any compensation or reimbursement of any kind from us under any circumstances
+                        whatsoever). We shall be free to use any ideas, concepts, know-how or techniques contained in any
+                        communication from you to us for any purpose whatsoever, including but not limited to, developing,
+                        manufacturing and marketing products, without further authorization from you and without any
+                        compensation to you.</p>
+                    <p class="p3">8. Procedure for Making Claims of Copyright Infringement for User Content and Links</p>
+                    <p class="p3">We have adopted a policy, in compliance with the Digital Millennium Copyright Act
+                        (&ldquo;DMCA&rdquo;), to enable, at our sole discretion, the expeditious removal of infringing
+                        material and the termination of repeat infringers&rsquo; User Accounts. If you have a good faith
+                        belief that your copyright is being infringed by any content accessible on or through our Portals,
+                        please send a notice of claimed infringement, including the information listed below, to our
+                        Designated Copyright Agent at:</p>
+                    <p class="p4">By mail: 14 Kings Hwy, Suite 112, Haddonfield, NJ 08033<br />By email:&nbsp;<a
+                            href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a><br />To be
+                        effective, the notice of claimed infringement must include the following required contents:</p>
+                    <ul class="ul1">
+                        <li class="li3">A physical or electronic signature of a person authorized to act on behalf of the
+                            owner of an exclusive right that is allegedly infringed;</li>
+                        <li class="li3">Identification of the copyrighted work claimed to have been infringed, or if
+                            multiple copyrighted works are covered by a single notification, a representative list of such
+                            works;</li>
+                        <li class="li3">Identification of the material that is claimed to be infringing or to be the subject
+                            of infringing activity that is to be removed, or access to which is to be disabled, and
+                            information reasonably sufficient to permit us to locate the material (providing specific URLs
+                            is the best way to help us locate the content quickly);</li>
+                        <li class="li3">Information reasonably sufficient to permit us to contact the complaining party,
+                            such as the address, telephone, fax, and/or an email address at which the complaining party may
+                            be contacted;</li>
+                        <li class="li3">A statement the complaining party has a good faith belief that use of the material
+                            in the manner complained of is not authorized by the copyright owner, its agent, or the law;
+                        </li>
+                        <li class="li3">A statement that the information in the notice is accurate, and under penalty of
+                            perjury, that the complaining party is authorized to act on behalf of the owner of an exclusive
+                            right that is allegedly infringed.</li>
+                    </ul>
+                    <p class="p5">Please note that information provided in this legal notice may be forwarded to the person
+                        who provided the allegedly infringing Content.</p>
+                    <p class="p6">To leave a message for the Company&rsquo;s Designated Agent by phone please call
+                        203-491-4283.</p>
+                    <p class="p3">9. Procedure for Making Other Complaints</p>
+                    <p class="p3">If you believe that your rights, or the rights of a third party, are being violated in any
+                        way by any content accessible on or through our Portals and/or Services, please contact us
+                        at&nbsp;<a href="mailto:info@hyrecar.com"><span
+                                class="s1">info@DriveItAway.com</span></a>&nbsp;Where appropriate, we will work to prevent
+                        unlawful activity from taking place on or through our Portals.</p>
+                    <p class="p3">10. Protection Plan Policy</p>
+                    <ul class="ul1">
+                        <li class="li7">Driver Coverage:</li>
+                        <ul class="ul1">
+                            <li class="li4">DriveItAway offers one coverage plan to Driver&rsquo;s through Voyager Indemnity
+                                Insurance Company (Voyager). While a Driver is renting a vehicle through DriveItAway&rsquo;s
+                                platform, they are insured under DriveItAway&rsquo;s Policy with Voyager. Subject to terms,
+                                conditions, and exclusions, DriveItAway&rsquo;s Policy provided by Voyager provides
+                                Driver&rsquo;s with the following coverage during their rental:</li>
+                            <ul class="ul2">
+                                <li class="li3">Liability to third-parties for bodily injury and property damage resulting
+                                    from the use of the rented vehicle, up to the minimum liability coverage required by
+                                    state law.</li>
+                                <li class="li3">Personal Injury Protection (&ldquo;PIP&rdquo;) in those few states where PIP
+                                    coverage is required by law and cannot be waived.</li>
+                                <li class="li3">Uninsured or Underinsured Motorist (&ldquo;UM/UIM") up to the statutory
+                                    minimum amount in those few states where UM/UIM coverage is required by law and cannot
+                                    be waived.</li>
+                            </ul>
+                            <li class="li3">The Driver is responsible for returning the vehicle in the same condition it was
+                                picked up in. They are&nbsp;financially responsible for all Physical Damage to the rental,
+                                as well as any&nbsp;incidental costs such as tickets and tolls. Refer to our
+                                &lt;policies&gt; for more details.</li>
+                            <li class="li3">DriveItAway&rsquo;s Insurance Coverage is only provided for the Driver while
+                                renting a vehicle through DriveItAway. By renting a car through our platform, Driver&rsquo;s
+                                agree to use the vehicle to drive for personal use or a TNC and/or delivery service. The
+                                amount that the Driver is liable to pay out of their own pocket for Physical Damage (other
+                                than interior damage) for the rented car is contractually limited to $2,500. This amount
+                                excludes any additional fines, fees, administrative and incidental costs that may be added
+                                after additional investigation.</li>
+                            <li class="li3">No other permissive drivers or operators will be covered under the
+                                DriveItAway&rsquo;s Insurance policy.&nbsp;Engaging in any prohibited uses with a vehicle
+                                rented through DriveItAway will potentially lead to fines, suspension, and/or account
+                                termination. It may also eliminate physical damage coverage for the Driver and lead to
+                                litigation based on the breach of contract.</li>
                         </ul>
-                        <li class="li3">The Driver is responsible for returning the vehicle in the same condition it was picked up in. They are&nbsp;financially responsible for all Physical Damage to the rental, as well as any&nbsp;incidental costs such as tickets and tolls. Refer to our &lt;policies&gt; for more details.</li>
-                        <li class="li3">DriveItAway&rsquo;s Insurance Coverage is only provided for the Driver while renting a vehicle through DriveItAway. By renting a car through our platform, Driver&rsquo;s agree to use the vehicle to drive for personal use or a TNC and/or delivery service. The amount that the Driver is liable to pay out of their own pocket for Physical Damage (other than interior damage) for the rented car is contractually limited to $2,500. This amount excludes any additional fines, fees, administrative and incidental costs that may be added after additional investigation.</li>
-                        <li class="li3">No other permissive drivers or operators will be covered under the DriveItAway&rsquo;s Insurance policy.&nbsp;Engaging in any prohibited uses with a vehicle rented through DriveItAway will potentially lead to fines, suspension, and/or account termination. It may also eliminate physical damage coverage for the Driver and lead to litigation based on the breach of contract.</li>
+                        <li class="li3">Owner and Vehicle Coverage:</li>
+                        <ul class="ul1">
+                            <li class="li3">All vehicles on the DriveItAway platform are covered under the DriveItAway
+                                Voyager Insurance Policy, which includes up to $1,000,000 in excess liability protection.
+                                Basic Protection provides liability coverage up to state minimums. Please refer to each
+                                state for the required minimums for liability protection. If an owner chooses to decline a
+                                DriveItAway protection plan then they will not be able to release a vehicle on the platform
+                                to any drivers.</li>
+                            <li class="li3">For owners to qualify for physical damage coverage for any event that qualifies
+                                as a covered peril during the reservation period, and for the driver to be held responsible
+                                for the damage, DriveItAway must have the following documentation: (1) clear photo
+                                documentation from the Owner of the areas the Owner is seeking coverage for taken within 24
+                                hours of the start and end of the trip that demonstrates that the damage occurred during the
+                                trip; or (2) other evidence (e.g. a police report, third-party report) that demonstrates the
+                                damage took place during the trip; or (3) Time and location of the damage if available from
+                                the driver or telematics data.</li>
+                        </ul>
+                        <li class="li4">Detailed Terms:<br />So long as an Owner is in compliance with the Terms of Service,
+                            the following protections are available:</li>
                     </ul>
-                    <li class="li3">Owner and Vehicle Coverage:</li>
                     <ul class="ul1">
-                        <li class="li3">All vehicles on the DriveItAway platform are covered under the DriveItAway Voyager Insurance Policy, which includes up to $1,000,000 in excess liability protection. Basic Protection provides liability coverage up to state minimums. Please refer to each state for the required minimums for liability protection. If an owner chooses to decline a DriveItAway protection plan then they will not be able to release a vehicle on the platform to any drivers.</li>
-                        <li class="li3">For owners to qualify for physical damage coverage for any event that qualifies as a covered peril during the reservation period, and for the driver to be held responsible for the damage, DriveItAway must have the following documentation: (1) clear photo documentation from the Owner of the areas the Owner is seeking coverage for taken within 24 hours of the start and end of the trip that demonstrates that the damage occurred during the trip; or (2) other evidence (e.g. a police report, third-party report) that demonstrates the damage took place during the trip; or (3) Time and location of the damage if available from the driver or telematics data.</li>
+                        <ol class="ol1">
+                            <li class="li3">Subject to terms, conditions, and exclusions, DriveItAway&rsquo;s Policy
+                                provided by Voyager provides Excess Liability coverage in the event the Owner is legally
+                                liable for an accident based on the rental in good standing during the rental period.
+                                Additionally, DriveItAway&rsquo;s insurance partner(s) provide physical damage coverage to
+                                the vehicle up to $50,000 less the deductible or the actual cash value of the vehicle,
+                                whichever is lower for any event that qualifies as covered peril during the rental period.
+                                Normal &lt;wear and tear&gt; is not covered under any of the Protection Plans.</li>
+                            <li class="li3">The collection of funds from the driver does not impact the reimbursement of the
+                                Owner's claim.</li>
+                            <li class="li3">Deductible for vehicles is $2,500 from the renter. The Owner would be
+                                responsible for the deductible in all DriveItAway Insurance Policy.</li>
+                            <li class="li3">Note that this deductible applies to all types of physical damage claims
+                                excluding, but not limited to, exterior damages less than six inches in length, interior
+                                damage, flat tires, damaged tires, glass, and mechanical damage. DriveItAway has the right
+                                to examine each request on a case by case basis.</li>
+                            <li class="li3">Exterior wear and tear. DriveItAway does not cover any instance for wear and
+                                tear.</li>
+                            <li class="li3">Loss of Owner income. DriveItAway reserves the right to examine any request for
+                                loss of income on a case by case basis. DriveItAway has the right to refuse any losses of
+                                income after an owner vehicle has been returned and is under no obligation to pay owner for
+                                loss of income unless specifically agreed to otherwise.</li>
+                        </ol>
                     </ul>
-                    <li class="li4">Detailed Terms:<br />So long as an Owner is in compliance with the Terms of Service, the following protections are available:</li>
-                </ul>
-                <ul class="ul1">
+                    <p class="p3">&nbsp;</p>
+                    <p class="p3">11. Insurance</p>
+                    <p class="p3">As part of the Services, DriveItAway provides limited insurance to Drivers and Owners
+                        through DriveItAway&rsquo;s insurance partner(s). DriveItAway&rsquo;s insurance is only valid in
+                        partnership with the insurance provided by the TNC &amp; other DriveItAway approved rideshare
+                        companies which may include delivery services, rideshare and transportation companies. Therefore, if
+                        driver does not hold an account with a TNC that is both active and in good standing, driver may be
+                        denied coverage by DriveItAway&rsquo;s insurance partner(s) and could be held fully liable for any
+                        and all damages.</p>
+                    <p class="p3">&nbsp;</p>
                     <ol class="ol1">
-                        <li class="li3">Subject to terms, conditions, and exclusions, DriveItAway&rsquo;s Policy provided by Voyager provides Excess Liability coverage in the event the Owner is legally liable for an accident based on the rental in good standing during the rental period. Additionally, DriveItAway&rsquo;s insurance partner(s) provide physical damage coverage to the vehicle up to $50,000 less the deductible or the actual cash value of the vehicle, whichever is lower for any event that qualifies as covered peril during the rental period. Normal &lt;wear and tear&gt; is not covered under any of the Protection Plans.</li>
-                        <li class="li3">The collection of funds from the driver does not impact the reimbursement of the Owner's claim.</li>
-                        <li class="li3">Deductible for vehicles is $2,500 from the renter. The Owner would be responsible for the deductible in all DriveItAway Insurance Policy.</li>
-                        <li class="li3">Note that this deductible applies to all types of physical damage claims excluding, but not limited to, exterior damages less than six inches in length, interior damage, flat tires, damaged tires, glass, and mechanical damage. DriveItAway has the right to examine each request on a case by case basis.</li>
-                        <li class="li3">Exterior wear and tear. DriveItAway does not cover any instance for wear and tear.</li>
-                        <li class="li3">Loss of Owner income. DriveItAway reserves the right to examine any request for loss of income on a case by case basis. DriveItAway has the right to refuse any losses of income after an owner vehicle has been returned and is under no obligation to pay owner for loss of income unless specifically agreed to otherwise.</li>
+                        <li class="li3">The insurance policy serves as primary insurance when a Driver has picked up a
+                            vehicle from an Owner but the Transportation Network Company&rsquo;s (TNC) application is not
+                            turned on. TNC&rsquo;s, such as Uber or Lyft, have their own insurance policies. When a Driver
+                            is driving for a TNC, the TNC&rsquo;s policy is in effect and all claims will be filed with
+                            their insurance carriers. TNC&rsquo;s typically have a period tracking system to define their
+                            coverage listed in the diagram above.</li>
+                        <li class="li3">DriveItAway&rsquo;s insurance partner(s) provide secondary coverage for physical
+                            damage during Period One. This is when the driver has turned on the TNC application but has not
+                            yet accepted a fare. No additional coverage is provided by DriveItAway&rsquo;s insurance
+                            partner(s) while the TNC&rsquo;s application is on. This, for example, occurs when a driver is
+                            enroute (Period Two) or when the Driver is in on an active trip (Period Three). Rideshare
+                            services within the gig economy may have varying coverage plans.</li>
                     </ol>
-                </ul>
-                <p class="p3">&nbsp;</p>
-                <p class="p3">11. Insurance</p>
-                <p class="p3">As part of the Services, DriveItAway provides limited insurance to Drivers and Owners through DriveItAway&rsquo;s insurance partner(s). DriveItAway&rsquo;s insurance is only valid in partnership with the insurance provided by the TNC &amp; other DriveItAway approved rideshare companies which may include delivery services, rideshare and transportation companies. Therefore, if driver does not hold an account with a TNC that is both active and in good standing, driver may be denied coverage by DriveItAway&rsquo;s insurance partner(s) and could be held fully liable for any and all damages.</p>
-                <p class="p3">&nbsp;</p>
-                <ol class="ol1">
-                    <li class="li3">The insurance policy serves as primary insurance when a Driver has picked up a vehicle from an Owner but the Transportation Network Company&rsquo;s (TNC) application is not turned on. TNC&rsquo;s, such as Uber or Lyft, have their own insurance policies. When a Driver is driving for a TNC, the TNC&rsquo;s policy is in effect and all claims will be filed with their insurance carriers. TNC&rsquo;s typically have a period tracking system to define their coverage listed in the diagram above.</li>
-                    <li class="li3">DriveItAway&rsquo;s insurance partner(s) provide secondary coverage for physical damage during Period One. This is when the driver has turned on the TNC application but has not yet accepted a fare. No additional coverage is provided by DriveItAway&rsquo;s insurance partner(s) while the TNC&rsquo;s application is on. This, for example, occurs when a driver is enroute (Period Two) or when the Driver is in on an active trip (Period Three). Rideshare services within the gig economy may have varying coverage plans.</li>
-                </ol>
-                <p class="p3">In order to qualify for the insurance provided by a TNC, the following condition must be met: for any covered &ldquo;auto&rdquo;, coverage shall only apply if the &ldquo;auto&rdquo; driven by the Driver at the time of &ldquo;loss&rdquo; was insured for Collision and/or Comprehensive Coverage under any</p>
-                <ul class="ul1">
-                    <li class="li3">Personal auto insurance policy that includes the Driver as an &ldquo;insured&rdquo;; or</li>
-                    <li class="li3">Personal auto insurance policy that includes the &ldquo;auto&rdquo; driven by the Driver as a covered &ldquo;auto.&rdquo;</li>
-                </ul>
-                <p class="p3">12. Authorization to Contact You.</p>
-                <p class="p3">You agree that DriveItAway and its service providers and affiliates may contact you using autodialed or prerecorded calls and text messages, at any telephone number that you have provided to DriveItAway. You agree that we may contact you to (1) discuss your account, including any transactions related to your account; (2) address or resolve any issues or problems with your account; (3) resolve a dispute; (4) collect any amounts due or past due; (5) inquire about your experience using our Services; (6) as necessary to provide the Services to you; and/or (7) for marketing purposes, including any offers or promotions related to the Services.</p>
-                <p class="p3">You agree that DriveItAway may send text messages to you as part of the Services. If you opt out of receiving messages, you understand and acknowledge that you may not receive the full value of DriveItAway&rsquo;s Services.</p>
-                <p class="p3">DriveItAway may collect other telephone numbers for you and make calls to any of those numbers, including autodialed numbers. You acknowledge and understand that standard telephone and data charges may apply, including overage fees or charges, depending on your phone or data plan, and that you will be responsible for these fees and charges. If you do not wish to receive these communications, you may change your preferences on your profile page and by emailing&nbsp;<a href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>.</p>
-                <p class="p3">You agree DriveItAway may share your telephone numbers with its service providers and these service providers may contact you using autodialed, prerecorded and/or other methods, and may contact you using text or other messaging. DriveItAway may monitor or record telephone conversations for quality control, training purposes or for its own protection.</p>
-                <p class="p4">13. Prohibited Conduct/Representations and Warranties<br />You represent and warrant that you will not use our Portals and/or our Services to:</p>
-                <ul class="ul1">
-                    <li class="li3">Violate any law (including without limitation laws related to torts, contracts, patents, trademarks, trade secrets, copyrights, defamation, obscenity, rights of publicity, or other rights) or encourage or provide instructions to another to do so;</li>
-                    <li class="li3">Act in a manner that negatively affects other users&rsquo; ability to use the Site, including without limitation by engaging in conduct that is harmful, threatening, abusive, inflammatory, intimidating, violent or encouraging of violence, harassing, stalking, invasive of another&rsquo;s privacy, or racially, ethnically, or otherwise objectionable;</li>
-                    <li class="li3">Submit any User Web Content containing unsolicited or unauthorized advertising, promotional materials, spam, junk mail, chain letters, pyramid schemes, or any other form of unauthorized solicitation;</li>
-                    <li class="li3">Submit any User Web Content containing sweepstakes, contests, or lotteries, or otherwise related to gambling;</li>
-                    <li class="li3">Submit any User Web Content containing copyrighted materials, or materials protected by other intellectual property laws, that you do not own;</li>
-                    <li class="li3">Submit any User Web Content for which you have not obtained all necessary written permissions and releases;</li>
-                    <li class="li3">Misrepresent any fact (including without limitation your identity);</li>
-                    <li class="li3">Submit any User Web Content that contains software viruses or any other computer code, files or programs designed to interrupt, destroy or limit the functionality of any computer software or hardware or</li>
-                </ul>
-                <p class="p5">telecommunications equipment, including by engaging in any denial of service attack or similar conduct;</p>
-                <ul class="ul1">
-                    <li class="li3">Exceed your authorized access to any portion of our Portals and/or Services;</li>
-                    <li class="li3">Collect or store personal data about anyone which was derived from DriveItAway&rsquo;s records;</li>
-                    <li class="li3">Modify without permission any part of platform, our Portals or Services;</li>
-                    <li class="li3">Obtain or attempt to access or otherwise obtain any content or information through any means not intentionally made available or provided for through our Portals and/or Services;</li>
-                    <li class="li3">Exploit errors in design, features which are not documented and/or bugs to gain access that would otherwise not be available;</li>
-                    <li class="li3">Use any robot, spider, scraper, or other automated means to access our Portals and/or Services for any purpose;</li>
-                    <li class="li3">Take any action that imposes, or may impose an unreasonable or disproportionately large load on our infrastructure; and/or</li>
-                    <li class="li3">Interfere or attempt to interfere with the proper working of our Portals and/or Services or any activities conducted on our Portals or as part of our Services or bypass any measures we may use to prevent or restrict access to our Portals and/or Services.</li>
-                </ul>
-                <p class="p3">14. Pricing and Product Descriptions</p>
-                <p class="p3">Although we make reasonable efforts to provide accurate pricing information and services descriptions, pricing mistakes, typographical errors or mistakes regarding vehicle availability may occur. We reserve the right to correct such mistakes and errors. In the event that a service is listed at an incorrect price or a vehicle availability description is inaccurate, we shall have the right, in our sole discretion, to reject any order or to cancel any orders placed for that vehicle or service.</p>
-                <p class="p3">15. Tickets and Tolls</p>
-                <p class="p3">TIKD will monitor DriveItAway&rsquo;s fleet vehicles (&ldquo;Monitored Vehicles&rdquo;) with the vehicle and registration information provided by DriveItAway to TIKD. In the event that a Monitored Vehicle receives a parking ticket (&ldquo;Parking Ticket&rdquo;), toll violation, (&ldquo;Toll Violation&rdquo;), or camera violation (&ldquo;Camera Ticket&rdquo;) in any of the areas listed in Appendix A (&ldquo;Territory&rdquo;), TIKD will pay such ticket promptly. Any additional fees associated with tickets, tolls or violations, DriveItAway reserves the right to obtain the funds from the driver during that rental period.</p>
-                <p class="p3">DriveItAway will provide an updated vehicle list to TIKD on an ongoing basis including, but not limited to, Vehicle Identification Number (&ldquo;VIN&rdquo;), Vehicle License Plate Number, Vehicle Physical Location, and State of Registration for monitoring of tickets, tolls and violations.</p>
-                <p class="p3">16. Indemnity</p>
-                <p class="p3">You agree to indemnify and hold DriveItAway and its representatives, officers, shareholders, subsidiaries, affiliates, employees, and agents harmless from any and all third party claims, demands, actions, suits, losses, obligations, liabilities, judgments, proceedings, damages, expenses and costs (including actual attorneys&rsquo; fees and expenses), arising out of or in connection with (1) your use of the Services; (2) your breach or violation of any of the terms on which the Services are offered to you; (3) your breach or violation of any of the terms on which you agree with other users, which can include loss or damage to any vehicle and any loss or damage rising from the use of any vehicle.</p>
-                <p class="p3">You hereby agree that we shall have the sole right and obligation to control the legal defense against any such claims, demands, or litigation, including the right to select counsel of our choice and to compromise or settle any such claims, demands, or litigation with or without your consent.</p>
-                <p class="p3">17. Disclaimer of Warranties and Limitation of Liability.</p>
-                <p class="p3">TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, DRIVEITAWAY DISCLAIMS ALL WARRANTIES OF ANY KIND RELATED TO ITS PORTALS AND/OR SERVICES AND ANY CONTENT OBTAINED THROUGH THE PORTALS AND/OR SERVICES, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.</p>
-                <p class="p3">DRIVEITAWAY MAKES NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED: (1) THAT ITS PORTALS AND/OR SERVICES WILL MEET YOUR REQUIREMENTS; (2) THAT THE QUALITY OF ANY CONTENT OBTAINED BY YOU THROUGH ITS PORTALS AND/OR SERVICES WILL MEET YOUR EXPECTATIONS; (3) THAT THE OPERATION OF THE PORTALS AND/OR SERVICES WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE, OR THAT ANY DEFECTS WILL BE CORRECTED; OR (4) THAT THE PORTALS, OUR SERVERS, OR COMMUNICATIONS SENT FROM DRIVEITAWAY WILL BE FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS.</p>
-                <p class="p3">YOU WILL BE SOLELY RESPONSIBLE FOR ANY DAMAGE TO YOUR COMPUTER SYSTEM AND/OR MOBILE DEVICE(S) AND/OR FOR LOSS OF DATA THAT RESULTS FROM YOUR USE OF OUR PORTALS AND/OR SERVICES.</p>
-                <p class="p3">NO AGENT, EMPLOYEE, OR REPRESENTATIVE OF OURS HAS ANY AUTHORITY TO BIND US TO ANY AFFIRMATION, REPRESENTATION, OR WARRANTY RELATING TO OUR PRODUCTS AND/OR SERVICES OTHER THAN AS SPECIFICALLY PROVIDED HEREIN.</p>
-                <p class="p3">DRIVEITAWAY IS A MARKETPLACE, WHICH MEANS IT IS A TECHNOLOGY PLATFORM THAT HELPS MATCH VEHICLE OWNERS AND DRIVERS WHO TEMPORARILY NEED THE USE OF A VEHICLE AND VICE VERSA. DRIVEITAWAY DOES NOT ITSELF RENT VEHICLES AND DRIVEITAWAY IS NEITHER RESPONSIBLE NOR LIABLE FOR THE ACTS OR OMISSIONS DRIVEITAWAYOF ITS USERS, THE VEHICLE MANUFACTURERS OR ANY THIRD-PARTY PRODUCT OR SERVICE PROVIDERS THAT MAY AFFECT THE USE OF ANY VEHICLES MADE AVAILABLE BY USERS ON ITS TECHNOLOGY PLATFORM.</p>
-                <p class="p3">DRIVEITAWAY&rsquo;S SERVICES ARE PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS AVAILABLE.&rdquo; DRIVEITAWAY DISCLAIMS ALL REPRESENTATIONS AND WARRANTIES, EXPRESS, IMPLIED OR STATUTORY, NOT EXPRESSLY SET OUT IN THESE TERMS AND CONDITIONS. THIS INCLUDES ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. DRIVEITAWAY MAKES NO REPRESENTATION AND DOES NOT GUARANTEE SUCH THINGS AS QUALITY, SUITABILITY OR RELIABILITY OF THE SERVICES, WHICH INCLUDES SUCH THINGS AS THE QUALITY, FUNCTIONALITY OR AVAILABILITY OF ANY VEHICLE. DRIVEITAWAY DOES NOT REPRESENT OR GUARANTEE THAT THE SERVICES WILL BE ERROR FREE, NOR DOES IT REPRESENT OR WARRANTY A PARTICULAR QUALITY, SUITABILITY OR SAFETY. YOU AGREE THAT ANY AND ALL RISK ARISING OUT OF USING THE SERVICES REMAINS SOLELY WITH YOU, TO THE EXTENT ALLOWED UNDER ALL APPLICABLE LAW.</p>
-                <p class="p3">18. Limitation of Liability</p>
-                <p class="p3">DRIVEITAWAY WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, PUNITIVE, CONSEQUENTIAL OR EXEMPLARY DAMAGES WHICH WOULD INCLUDE, BUT IS NOT LIMITED TO, LOST PROFITS OR DATA, GOODWILL, DAMAGE TO REPUTATION, INJURY OR INTERRUPTIONS OF SERVICE. THESE LIMITS EXTEND TO ANY AND ALL POSSIBLE LEGAL CLAIMS AND THEORIES AND WHETHER THE CLAIMED DAMAGES ARE FINANCIAL OR NON- FINANCIAL IN NATURE. DRIVEITAWAY SHALL NOT BE LIABLE FOR ANY LIABILITY OR DAMAGE RELATED TO OR ARISING OUT OF YOUR USE OF (OR INABILITY TO USE) THE SERVICES, OUR PORTALS OR ANY TRANSACTION OR INTERACTION WITH ANY OTHER USER OF THE SERVICES. YOU UNDERSTAND THAT DRIVEITAWAY PROVIDES THE TECHNOLOGY AND PLATFORM FOR YOU TO INTERACT WITH OTHER USERS, AND, AS SUCH, DRIVEITAWAY CANNOT AND DOES NOT GUARANTEE ANY PARTICULAR PERFORMANCE. IN ANY AND ALL EVENTS, DRIVEITAWAY&rsquo;S TOTAL LIABILITY TO YOU WILL NOT EXCEED $2,500.</p>
-                <p class="p3">IF YOU ARE DISSATISFIED WITH ANY PORTION OF OUR PORTALS AND/OR SERVICES, OR WITH OUR PLATFORM, PORTALS AND/OR SERVICES, YOUR SOLE AND EXCLUSIVE REMEDY IS TO DISCONTINUE USE OF OUR PORTALS AND SERVICES.</p>
-                <p class="p3">SOME JURISDICTIONS MAY NOT PERMIT CERTAIN LIMITATIONS OF LIABILITY OR DAMAGES. IF ANY COURT DETERMINES THE LAW OF SUCH A JURISDICTION APPLIES, OUR LIABILITY SHALL BE LIMITED TO THE GREATEST EXTENT PERMITTED BY LAW.</p>
-                <p class="p3">19. Release</p>
-                <p class="p3">To the fullest extent permitted by law, you release DriveItAway and its affiliates and subsidiaries, and any of their trustees, members, directors, officers, shareholders, employees, representatives, consultants, attorneys, agents, suppliers, distributors, licensees and/or licensors from any and all responsibility, liability, claims, demands, and/or damages (actual and consequential) of every kind and nature, known and unknown, arising out of or in any way</p>
-                <p class="p3">connected with the following: (i) disputes between users, including those between you and other users; (ii) third party sites and services, including content and/or services found on such sites and services; (iii) disputes concerning any use of or action taken using your User Account by you or a third party; and/or (iv) claims relating to the unauthorized access to any data communications or content stored under or relating to your User Account, including unauthorized use or alteration of such communications or your content.</p>
-                <p class="p3">If you have a dispute with one or more of our users, or with any party who provides advertising or third-party services, on, or through our Portals or in conjunction with our Services, or with any party who provides any website/application linked to our Portals or Services, you release DriveItAway from all claims, demands, and damages (direct, incidental, indirect, punitive, statutory, exemplary, expectation, special or consequential) of every kind and nature, known and unknown, arising out of or in any way connected with such dispute. If you have a dispute with any third party in any way pertaining to our Portals and/or Services, you release DriveItAway from all claims, demands, and damages (direct, incidental, indirect, punitive, statutory, exemplary, expectation, special or consequential) of every kind and nature, known and unknown, arising out of or in any way connected with such dispute.</p>
-                <p class="p3">IF YOU ARE A CALIFORNIA RESIDENT, YOU HEREBY WAIVE CALIFORNIA CIVIL CODE &sect;1542 WHICH STATES THAT &ldquo;A GENERAL RELEASE DOES NOT EXTEND TO CLAIMS WHICH THE CREDITOR DOES NOT KNOW OR SUSPECT TO EXIST IN HIS OR HER FAVOR AT THE TIME OF EXECUTING THIS RELEASE, WHICH IF KNOWN BY HIM OR HER MUST HAVE MATERIALLY AFFECTED HIS OR HER SETTLEMENT WITH THE DEBTOR.&rdquo; THE LIMITATIONS IN THIS SECTION NEITHER LIMIT NOR ALTER ANY RIGHTS YOU MAY HAVE AS A CONSUMER THAT CANNOT BE EXCLUDED UNDER APPLICABLE LAW.</p>
-                <p class="p3">You also waive any and all benefits and rights that would otherwise accrue to you by reason of the provisions of any federal or state statute or principle of common law of any state of the United States, or any political entity or nation, province or local law or regulation that may govern this release, which statute, regulation, law or principle provides in substance something similar to California Civil Code &sect; 1542.</p>
-                <p class="p3">You agree not to file any action or lawsuit inconsistent with the foregoing release. 18. Dispute Resolution.</p>
-                <p class="p3">BINDING ARBITRATION AGREEMENT AND CLASS WAIVER DISCLOSURE</p>
-                <p class="p3">Both you and DriveItAway agree, with the limited exceptions noted below, to resolve all disputes between you and DriveItAway through BINDING INDIVIDUAL ARBITRATION as further provided below. BINDING INDIVIDUAL ARBITRATION MEANS THAT YOU AND DRIVEITAWAY ARE EACH WAIVING THE RIGHT TO A JURY TRIAL OR TO PARTICIPATE IN A CLASS ACTION.</p>
-                <p class="p3">Both you and DriveItAway waive the right to bring any controversy, claim or dispute arising out of or relating in any way to your use of our Portals and Services as a class, consolidated, representative, collective, or private attorney general action, or to participate in a class, consolidated, representative, collective, or private attorney general action regarding any such claim brought by anyone else.</p>
-                <p class="p3">AGREEMENT TO PRE-ARBITRATION NOTIFICATION</p>
-                <p class="p3">This Dispute Resolution Clause provides for final, binding arbitration of all disputed claims (discussed immediately below).</p>
-                <p class="p3">Pre-Dispute Resolution. DriveItAway and you agree, however, that it would be advantageous to discuss and hopefully resolve any disputes before arbitration proceedings or any other proceedings authorized herein are initiated.</p>
-                <p class="p4">If DriveItAway is the claimant, the claim letter or notice of dispute shall be sent to the latest address we have on file for you. If you are the claimant, the letter shall be sent to DriveItAway at&nbsp;<a href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>&nbsp;or by certified mail or overnight courier (where signature is required for delivery) to 14 Kings Hwy, Suite 112, Haddonfield, NJ 08033. The notice of dispute is the opportunity for both parties to better understand the facts underlying the dispute and to try and reach resolution quickly.</p>
-                <p class="p3">Any such notice must include the user&rsquo;s full name, user identification number or name, valid email address and phone number(s), the best times to contact the user and a description of the nature of the dispute, including important facts and key documents, and the outcome the user is seeking.</p>
-                <p class="p3">Unless the FairClaims option is selected below, in which case the waiting period is 14 days from the date the notice is served, if, after 30 days from the delivery of the notice of dispute, the parties have not reached resolution, and the parties have not agreed to additional time to resolve the issues, either party may initiate arbitration proceedings, as specified by the then current procedures of either AAA or FairClaims.</p>
-                <p class="p3">Federal Arbitration Act. Notwithstanding any choice of law or other provision in these Terms, the parties agree and acknowledge that this arbitration clause evidences a transaction involving interstate commerce and that the Federal Arbitration Act (&ldquo;FAA&rdquo;), will govern its interpretation and enforcement, and proceedings pursuant thereto.</p>
-                <p class="p3">Choice of Law. It is the intent of the parties that the FAA and rules of the arbitration provider (AAA or FairClaims) shall preempt all state laws to the fullest extent permitted by law. If the FAA and rules of the arbitration provider are found not to apply to any issues that arise under this Dispute Resolution Clause or the enforcement thereof, then that issue shall be resolved under the laws of the State of California.</p>
-                <p class="p3">Confidentiality. The Parties also agree that all communications and evidence related to the dispute will remain confidential, and neither party shall take any action that will harm the reputation of the other, or which would reasonably be expected to lead to unwanted or unfavorable publicity to either of the claimants.</p>
-                <p class="p3">Electronic Service. The Parties consent to electronic service of process, with service to be made to the following email addresses&nbsp;<a href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>&nbsp;and to user at the last email address then on file with DriveItAway. The Parties agree that, in the event of confirmation and enforcement, the delinquent party will be responsible for all actual attorney, court or other fees associated with such action.</p>
-                <p class="p3">Arbitration Provisions:</p>
-                <p class="p3">Unless the parties agree otherwise, the arbitration will be held in Los Angeles, CA. The arbitrator will issue a decision in the applicable timeframe and include the findings and conclusions relevant to the judgment. Such decision will be consistent with this Agreement, including any Limits of Liability that may be applicable. Any injunctive relief shall be limited to the particular claimant, and be awarded only to provide the necessary relief.</p>
-                <p class="p3">Any settlement offer made by you or DriveItAway shall not be disclosed to the arbitrator. The arbitrator may require the parties to share necessary information, but all rules of privilege will be recognized.</p>
-                <p class="p3">The arbitrator will decide the substance of all claims in accordance with applicable law, including recognized principles of equity. The arbitrator&rsquo;s award shall be final and binding and judgment on the award rendered may be entered in any court having jurisdiction thereof.</p>
-                <p class="p3">The Parties agree that, in the event of confirmation and enforcement, the delinquent party will be responsible for all actual attorney, court or other fees associated with such action.</p>
-                <p class="p3">The Parties agree that all communications and evidence related to the dispute will remain confidential, and neither party shall take any action that will harm the reputation of the other, or which would reasonably be expected to lead to unwanted or unfavorable publicity to either of the claimants.</p>
-                <ol class="ol1">
-                    <li class="li3">Disputes between You and DriveItAway.</li>
-                    <li class="li3">i. Arbitration. You agree that you will resolve any disputes with DriveItAway, including those related to the Portals</li>
-                </ol>
-                <p class="p5">and Services (including termination and enforcement of the terms of this Agreement), and any and all agreements you have with DriveItAway (including issues related to interpretation of any agreements) through binding arbitration between you and DriveItAway.</p>
-                <ol class="ol1">
-                    <li class="li4">Arbitration Rules and Process. Any arbitration will be administered by the American Arbitration Association (&ldquo;AAA&rdquo;) and will be governed by the Consumer Arbitration Rules available at&nbsp;<a href="http://www.adr.org/"><span class="s1">www.adr.org</span></a>, except as modified by this Agreement. You may also access the arbitration rules by contacting AAA directly at&nbsp;<a href="tel:1-800-778-7879"><span class="s1">1-800-778-7879</span></a>.</li>
-                    <li class="li3">Disputes Between You and DriveItAway Involving Claims For $25,000 Or Less.</li>
-                    <li class="li3">Where the damages sought are $25,000 or less, at your option, the arbitration may be conducted by Fair</li>
-                </ol>
-                <p class="p5">Claims (<a href="http://www.fairclaims.com/"><span class="s1">www.FairClaims.com</span></a>), and not in a court of law, in accordance FairClaims&rsquo; Arbitration Rules and</p>
-                <p class="p5">Procedures in effect at the time a claim is made.</p>
-                <ol class="ol1">
-                    <li class="li3">Disputes between You and another User.</li>
-                    <li class="li3">i. Arbitration. You agree that you will resolve any disputes between you and other users (Owners or Drivers),</li>
-                </ol>
-                <p class="p5">including those related to (A) the Portals and Services (including termination and enforcement of the terms), and (B) any and all agreements you have with DriveItAway (including issues related to interpretation of any agreements), through binding arbitration administered by Fair Claims (<a href="http://www.fairclaims.com/"><span class="s1">www.FairClaims.com</span></a>), and not in a court of law, in accordance with FairClaims Arbitration Rules and Procedures effective at the time a claim is made.</p>
-                <ol class="ol1">
-                    <li class="li3">The Driver&rsquo;s $200 deposit will be used to pay the Fair Claims case initiation fee.</li>
-                    <li class="li3">Updates To Dispute Resolution Clause.</li>
-                </ol>
-                <p class="p3">If DriveItAway changes its Dispute Resolution Clause after the date upon which you first accepted this Agreement, you may reject any such change within 30</p>
+                    <p class="p3">In order to qualify for the insurance provided by a TNC, the following condition must be
+                        met: for any covered &ldquo;auto&rdquo;, coverage shall only apply if the &ldquo;auto&rdquo; driven
+                        by the Driver at the time of &ldquo;loss&rdquo; was insured for Collision and/or Comprehensive
+                        Coverage under any</p>
+                    <ul class="ul1">
+                        <li class="li3">Personal auto insurance policy that includes the Driver as an &ldquo;insured&rdquo;;
+                            or</li>
+                        <li class="li3">Personal auto insurance policy that includes the &ldquo;auto&rdquo; driven by the
+                            Driver as a covered &ldquo;auto.&rdquo;</li>
+                    </ul>
+                    <p class="p3">12. Authorization to Contact You.</p>
+                    <p class="p3">You agree that DriveItAway and its service providers and affiliates may contact you using
+                        autodialed or prerecorded calls and text messages, at any telephone number that you have provided to
+                        DriveItAway. You agree that we may contact you to (1) discuss your account, including any
+                        transactions related to your account; (2) address or resolve any issues or problems with your
+                        account; (3) resolve a dispute; (4) collect any amounts due or past due; (5) inquire about your
+                        experience using our Services; (6) as necessary to provide the Services to you; and/or (7) for
+                        marketing purposes, including any offers or promotions related to the Services.</p>
+                    <p class="p3">You agree that DriveItAway may send text messages to you as part of the Services. If you
+                        opt out of receiving messages, you understand and acknowledge that you may not receive the full
+                        value of DriveItAway&rsquo;s Services.</p>
+                    <p class="p3">DriveItAway may collect other telephone numbers for you and make calls to any of those
+                        numbers, including autodialed numbers. You acknowledge and understand that standard telephone and
+                        data charges may apply, including overage fees or charges, depending on your phone or data plan, and
+                        that you will be responsible for these fees and charges. If you do not wish to receive these
+                        communications, you may change your preferences on your profile page and by emailing&nbsp;<a
+                            href="mailto:info@hyrecar.com"><span class="s1">info@DriveItAway.com</span></a>.</p>
+                    <p class="p3">You agree DriveItAway may share your telephone numbers with its service providers and
+                        these service providers may contact you using autodialed, prerecorded and/or other methods, and may
+                        contact you using text or other messaging. DriveItAway may monitor or record telephone conversations
+                        for quality control, training purposes or for its own protection.</p>
+                    <p class="p4">13. Prohibited Conduct/Representations and Warranties<br />You represent and warrant that
+                        you will not use our Portals and/or our Services to:</p>
+                    <ul class="ul1">
+                        <li class="li3">Violate any law (including without limitation laws related to torts, contracts,
+                            patents, trademarks, trade secrets, copyrights, defamation, obscenity, rights of publicity, or
+                            other rights) or encourage or provide instructions to another to do so;</li>
+                        <li class="li3">Act in a manner that negatively affects other users&rsquo; ability to use the Site,
+                            including without limitation by engaging in conduct that is harmful, threatening, abusive,
+                            inflammatory, intimidating, violent or encouraging of violence, harassing, stalking, invasive of
+                            another&rsquo;s privacy, or racially, ethnically, or otherwise objectionable;</li>
+                        <li class="li3">Submit any User Web Content containing unsolicited or unauthorized advertising,
+                            promotional materials, spam, junk mail, chain letters, pyramid schemes, or any other form of
+                            unauthorized solicitation;</li>
+                        <li class="li3">Submit any User Web Content containing sweepstakes, contests, or lotteries, or
+                            otherwise related to gambling;</li>
+                        <li class="li3">Submit any User Web Content containing copyrighted materials, or materials protected
+                            by other intellectual property laws, that you do not own;</li>
+                        <li class="li3">Submit any User Web Content for which you have not obtained all necessary written
+                            permissions and releases;</li>
+                        <li class="li3">Misrepresent any fact (including without limitation your identity);</li>
+                        <li class="li3">Submit any User Web Content that contains software viruses or any other computer
+                            code, files or programs designed to interrupt, destroy or limit the functionality of any
+                            computer software or hardware or</li>
+                    </ul>
+                    <p class="p5">telecommunications equipment, including by engaging in any denial of service attack or
+                        similar conduct;</p>
+                    <ul class="ul1">
+                        <li class="li3">Exceed your authorized access to any portion of our Portals and/or Services;</li>
+                        <li class="li3">Collect or store personal data about anyone which was derived from
+                            DriveItAway&rsquo;s records;</li>
+                        <li class="li3">Modify without permission any part of platform, our Portals or Services;</li>
+                        <li class="li3">Obtain or attempt to access or otherwise obtain any content or information through
+                            any means not intentionally made available or provided for through our Portals and/or Services;
+                        </li>
+                        <li class="li3">Exploit errors in design, features which are not documented and/or bugs to gain
+                            access that would otherwise not be available;</li>
+                        <li class="li3">Use any robot, spider, scraper, or other automated means to access our Portals
+                            and/or Services for any purpose;</li>
+                        <li class="li3">Take any action that imposes, or may impose an unreasonable or disproportionately
+                            large load on our infrastructure; and/or</li>
+                        <li class="li3">Interfere or attempt to interfere with the proper working of our Portals and/or
+                            Services or any activities conducted on our Portals or as part of our Services or bypass any
+                            measures we may use to prevent or restrict access to our Portals and/or Services.</li>
+                    </ul>
+                    <p class="p3">14. Pricing and Product Descriptions</p>
+                    <p class="p3">Although we make reasonable efforts to provide accurate pricing information and services
+                        descriptions, pricing mistakes, typographical errors or mistakes regarding vehicle availability may
+                        occur. We reserve the right to correct such mistakes and errors. In the event that a service is
+                        listed at an incorrect price or a vehicle availability description is inaccurate, we shall have the
+                        right, in our sole discretion, to reject any order or to cancel any orders placed for that vehicle
+                        or service.</p>
+                    <p class="p3">15. Tickets and Tolls</p>
+                    <p class="p3">TIKD will monitor DriveItAway&rsquo;s fleet vehicles (&ldquo;Monitored Vehicles&rdquo;)
+                        with the vehicle and registration information provided by DriveItAway to TIKD. In the event that a
+                        Monitored Vehicle receives a parking ticket (&ldquo;Parking Ticket&rdquo;), toll violation,
+                        (&ldquo;Toll Violation&rdquo;), or camera violation (&ldquo;Camera Ticket&rdquo;) in any of the
+                        areas listed in Appendix A (&ldquo;Territory&rdquo;), TIKD will pay such ticket promptly. Any
+                        additional fees associated with tickets, tolls or violations, DriveItAway reserves the right to
+                        obtain the funds from the driver during that rental period.</p>
+                    <p class="p3">DriveItAway will provide an updated vehicle list to TIKD on an ongoing basis including,
+                        but not limited to, Vehicle Identification Number (&ldquo;VIN&rdquo;), Vehicle License Plate Number,
+                        Vehicle Physical Location, and State of Registration for monitoring of tickets, tolls and
+                        violations.</p>
+                    <p class="p3">16. Indemnity</p>
+                    <p class="p3">You agree to indemnify and hold DriveItAway and its representatives, officers,
+                        shareholders, subsidiaries, affiliates, employees, and agents harmless from any and all third party
+                        claims, demands, actions, suits, losses, obligations, liabilities, judgments, proceedings, damages,
+                        expenses and costs (including actual attorneys&rsquo; fees and expenses), arising out of or in
+                        connection with (1) your use of the Services; (2) your breach or violation of any of the terms on
+                        which the Services are offered to you; (3) your breach or violation of any of the terms on which you
+                        agree with other users, which can include loss or damage to any vehicle and any loss or damage
+                        rising from the use of any vehicle.</p>
+                    <p class="p3">You hereby agree that we shall have the sole right and obligation to control the legal
+                        defense against any such claims, demands, or litigation, including the right to select counsel of
+                        our choice and to compromise or settle any such claims, demands, or litigation with or without your
+                        consent.</p>
+                    <p class="p3">17. Disclaimer of Warranties and Limitation of Liability.</p>
+                    <p class="p3">TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, DRIVEITAWAY DISCLAIMS ALL WARRANTIES OF
+                        ANY KIND RELATED TO ITS PORTALS AND/OR SERVICES AND ANY CONTENT OBTAINED THROUGH THE PORTALS AND/OR
+                        SERVICES, WHETHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO, IMPLIED WARRANTIES OF
+                        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.</p>
+                    <p class="p3">DRIVEITAWAY MAKES NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED: (1)
+                        THAT ITS PORTALS AND/OR SERVICES WILL MEET YOUR REQUIREMENTS; (2) THAT THE QUALITY OF ANY CONTENT
+                        OBTAINED BY YOU THROUGH ITS PORTALS AND/OR SERVICES WILL MEET YOUR EXPECTATIONS; (3) THAT THE
+                        OPERATION OF THE PORTALS AND/OR SERVICES WILL BE UNINTERRUPTED, TIMELY, SECURE, OR ERROR-FREE, OR
+                        THAT ANY DEFECTS WILL BE CORRECTED; OR (4) THAT THE PORTALS, OUR SERVERS, OR COMMUNICATIONS SENT
+                        FROM DRIVEITAWAY WILL BE FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS.</p>
+                    <p class="p3">YOU WILL BE SOLELY RESPONSIBLE FOR ANY DAMAGE TO YOUR COMPUTER SYSTEM AND/OR MOBILE
+                        DEVICE(S) AND/OR FOR LOSS OF DATA THAT RESULTS FROM YOUR USE OF OUR PORTALS AND/OR SERVICES.</p>
+                    <p class="p3">NO AGENT, EMPLOYEE, OR REPRESENTATIVE OF OURS HAS ANY AUTHORITY TO BIND US TO ANY
+                        AFFIRMATION, REPRESENTATION, OR WARRANTY RELATING TO OUR PRODUCTS AND/OR SERVICES OTHER THAN AS
+                        SPECIFICALLY PROVIDED HEREIN.</p>
+                    <p class="p3">DRIVEITAWAY IS A MARKETPLACE, WHICH MEANS IT IS A TECHNOLOGY PLATFORM THAT HELPS MATCH
+                        VEHICLE OWNERS AND DRIVERS WHO TEMPORARILY NEED THE USE OF A VEHICLE AND VICE VERSA. DRIVEITAWAY
+                        DOES NOT ITSELF RENT VEHICLES AND DRIVEITAWAY IS NEITHER RESPONSIBLE NOR LIABLE FOR THE ACTS OR
+                        OMISSIONS DRIVEITAWAYOF ITS USERS, THE VEHICLE MANUFACTURERS OR ANY THIRD-PARTY PRODUCT OR SERVICE
+                        PROVIDERS THAT MAY AFFECT THE USE OF ANY VEHICLES MADE AVAILABLE BY USERS ON ITS TECHNOLOGY
+                        PLATFORM.</p>
+                    <p class="p3">DRIVEITAWAY&rsquo;S SERVICES ARE PROVIDED &ldquo;AS IS&rdquo; AND &ldquo;AS
+                        AVAILABLE.&rdquo; DRIVEITAWAY DISCLAIMS ALL REPRESENTATIONS AND WARRANTIES, EXPRESS, IMPLIED OR
+                        STATUTORY, NOT EXPRESSLY SET OUT IN THESE TERMS AND CONDITIONS. THIS INCLUDES ALL IMPLIED WARRANTIES
+                        OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. DRIVEITAWAY MAKES NO REPRESENTATION AND
+                        DOES NOT GUARANTEE SUCH THINGS AS QUALITY, SUITABILITY OR RELIABILITY OF THE SERVICES, WHICH
+                        INCLUDES SUCH THINGS AS THE QUALITY, FUNCTIONALITY OR AVAILABILITY OF ANY VEHICLE. DRIVEITAWAY DOES
+                        NOT REPRESENT OR GUARANTEE THAT THE SERVICES WILL BE ERROR FREE, NOR DOES IT REPRESENT OR WARRANTY A
+                        PARTICULAR QUALITY, SUITABILITY OR SAFETY. YOU AGREE THAT ANY AND ALL RISK ARISING OUT OF USING THE
+                        SERVICES REMAINS SOLELY WITH YOU, TO THE EXTENT ALLOWED UNDER ALL APPLICABLE LAW.</p>
+                    <p class="p3">18. Limitation of Liability</p>
+                    <p class="p3">DRIVEITAWAY WILL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, PUNITIVE,
+                        CONSEQUENTIAL OR EXEMPLARY DAMAGES WHICH WOULD INCLUDE, BUT IS NOT LIMITED TO, LOST PROFITS OR DATA,
+                        GOODWILL, DAMAGE TO REPUTATION, INJURY OR INTERRUPTIONS OF SERVICE. THESE LIMITS EXTEND TO ANY AND
+                        ALL POSSIBLE LEGAL CLAIMS AND THEORIES AND WHETHER THE CLAIMED DAMAGES ARE FINANCIAL OR NON-
+                        FINANCIAL IN NATURE. DRIVEITAWAY SHALL NOT BE LIABLE FOR ANY LIABILITY OR DAMAGE RELATED TO OR
+                        ARISING OUT OF YOUR USE OF (OR INABILITY TO USE) THE SERVICES, OUR PORTALS OR ANY TRANSACTION OR
+                        INTERACTION WITH ANY OTHER USER OF THE SERVICES. YOU UNDERSTAND THAT DRIVEITAWAY PROVIDES THE
+                        TECHNOLOGY AND PLATFORM FOR YOU TO INTERACT WITH OTHER USERS, AND, AS SUCH, DRIVEITAWAY CANNOT AND
+                        DOES NOT GUARANTEE ANY PARTICULAR PERFORMANCE. IN ANY AND ALL EVENTS, DRIVEITAWAY&rsquo;S TOTAL
+                        LIABILITY TO YOU WILL NOT EXCEED $2,500.</p>
+                    <p class="p3">IF YOU ARE DISSATISFIED WITH ANY PORTION OF OUR PORTALS AND/OR SERVICES, OR WITH OUR
+                        PLATFORM, PORTALS AND/OR SERVICES, YOUR SOLE AND EXCLUSIVE REMEDY IS TO DISCONTINUE USE OF OUR
+                        PORTALS AND SERVICES.</p>
+                    <p class="p3">SOME JURISDICTIONS MAY NOT PERMIT CERTAIN LIMITATIONS OF LIABILITY OR DAMAGES. IF ANY
+                        COURT DETERMINES THE LAW OF SUCH A JURISDICTION APPLIES, OUR LIABILITY SHALL BE LIMITED TO THE
+                        GREATEST EXTENT PERMITTED BY LAW.</p>
+                    <p class="p3">19. Release</p>
+                    <p class="p3">To the fullest extent permitted by law, you release DriveItAway and its affiliates and
+                        subsidiaries, and any of their trustees, members, directors, officers, shareholders, employees,
+                        representatives, consultants, attorneys, agents, suppliers, distributors, licensees and/or licensors
+                        from any and all responsibility, liability, claims, demands, and/or damages (actual and
+                        consequential) of every kind and nature, known and unknown, arising out of or in any way</p>
+                    <p class="p3">connected with the following: (i) disputes between users, including those between you and
+                        other users; (ii) third party sites and services, including content and/or services found on such
+                        sites and services; (iii) disputes concerning any use of or action taken using your User Account by
+                        you or a third party; and/or (iv) claims relating to the unauthorized access to any data
+                        communications or content stored under or relating to your User Account, including unauthorized use
+                        or alteration of such communications or your content.</p>
+                    <p class="p3">If you have a dispute with one or more of our users, or with any party who provides
+                        advertising or third-party services, on, or through our Portals or in conjunction with our Services,
+                        or with any party who provides any website/application linked to our Portals or Services, you
+                        release DriveItAway from all claims, demands, and damages (direct, incidental, indirect, punitive,
+                        statutory, exemplary, expectation, special or consequential) of every kind and nature, known and
+                        unknown, arising out of or in any way connected with such dispute. If you have a dispute with any
+                        third party in any way pertaining to our Portals and/or Services, you release DriveItAway from all
+                        claims, demands, and damages (direct, incidental, indirect, punitive, statutory, exemplary,
+                        expectation, special or consequential) of every kind and nature, known and unknown, arising out of
+                        or in any way connected with such dispute.</p>
+                    <p class="p3">IF YOU ARE A CALIFORNIA RESIDENT, YOU HEREBY WAIVE CALIFORNIA CIVIL CODE &sect;1542 WHICH
+                        STATES THAT &ldquo;A GENERAL RELEASE DOES NOT EXTEND TO CLAIMS WHICH THE CREDITOR DOES NOT KNOW OR
+                        SUSPECT TO EXIST IN HIS OR HER FAVOR AT THE TIME OF EXECUTING THIS RELEASE, WHICH IF KNOWN BY HIM OR
+                        HER MUST HAVE MATERIALLY AFFECTED HIS OR HER SETTLEMENT WITH THE DEBTOR.&rdquo; THE LIMITATIONS IN
+                        THIS SECTION NEITHER LIMIT NOR ALTER ANY RIGHTS YOU MAY HAVE AS A CONSUMER THAT CANNOT BE EXCLUDED
+                        UNDER APPLICABLE LAW.</p>
+                    <p class="p3">You also waive any and all benefits and rights that would otherwise accrue to you by
+                        reason of the provisions of any federal or state statute or principle of common law of any state of
+                        the United States, or any political entity or nation, province or local law or regulation that may
+                        govern this release, which statute, regulation, law or principle provides in substance something
+                        similar to California Civil Code &sect; 1542.</p>
+                    <p class="p3">You agree not to file any action or lawsuit inconsistent with the foregoing release. 18.
+                        Dispute Resolution.</p>
+                    <p class="p3">BINDING ARBITRATION AGREEMENT AND CLASS WAIVER DISCLOSURE</p>
+                    <p class="p3">Both you and DriveItAway agree, with the limited exceptions noted below, to resolve all
+                        disputes between you and DriveItAway through BINDING INDIVIDUAL ARBITRATION as further provided
+                        below. BINDING INDIVIDUAL ARBITRATION MEANS THAT YOU AND DRIVEITAWAY ARE EACH WAIVING THE RIGHT TO A
+                        JURY TRIAL OR TO PARTICIPATE IN A CLASS ACTION.</p>
+                    <p class="p3">Both you and DriveItAway waive the right to bring any controversy, claim or dispute
+                        arising out of or relating in any way to your use of our Portals and Services as a class,
+                        consolidated, representative, collective, or private attorney general action, or to participate in a
+                        class, consolidated, representative, collective, or private attorney general action regarding any
+                        such claim brought by anyone else.</p>
+                    <p class="p3">AGREEMENT TO PRE-ARBITRATION NOTIFICATION</p>
+                    <p class="p3">This Dispute Resolution Clause provides for final, binding arbitration of all disputed
+                        claims (discussed immediately below).</p>
+                    <p class="p3">Pre-Dispute Resolution. DriveItAway and you agree, however, that it would be advantageous
+                        to discuss and hopefully resolve any disputes before arbitration proceedings or any other
+                        proceedings authorized herein are initiated.</p>
+                    <p class="p4">If DriveItAway is the claimant, the claim letter or notice of dispute shall be sent to the
+                        latest address we have on file for you. If you are the claimant, the letter shall be sent to
+                        DriveItAway at&nbsp;<a href="mailto:info@hyrecar.com"><span
+                                class="s1">info@DriveItAway.com</span></a>&nbsp;or by certified mail or overnight courier
+                        (where signature is required for delivery) to 14 Kings Hwy, Suite 112, Haddonfield, NJ 08033. The
+                        notice of dispute is the opportunity for both parties to better understand the facts underlying the
+                        dispute and to try and reach resolution quickly.</p>
+                    <p class="p3">Any such notice must include the user&rsquo;s full name, user identification number or
+                        name, valid email address and phone number(s), the best times to contact the user and a description
+                        of the nature of the dispute, including important facts and key documents, and the outcome the user
+                        is seeking.</p>
+                    <p class="p3">Unless the FairClaims option is selected below, in which case the waiting period is 14
+                        days from the date the notice is served, if, after 30 days from the delivery of the notice of
+                        dispute, the parties have not reached resolution, and the parties have not agreed to additional time
+                        to resolve the issues, either party may initiate arbitration proceedings, as specified by the then
+                        current procedures of either AAA or FairClaims.</p>
+                    <p class="p3">Federal Arbitration Act. Notwithstanding any choice of law or other provision in these
+                        Terms, the parties agree and acknowledge that this arbitration clause evidences a transaction
+                        involving interstate commerce and that the Federal Arbitration Act (&ldquo;FAA&rdquo;), will govern
+                        its interpretation and enforcement, and proceedings pursuant thereto.</p>
+                    <p class="p3">Choice of Law. It is the intent of the parties that the FAA and rules of the arbitration
+                        provider (AAA or FairClaims) shall preempt all state laws to the fullest extent permitted by law. If
+                        the FAA and rules of the arbitration provider are found not to apply to any issues that arise under
+                        this Dispute Resolution Clause or the enforcement thereof, then that issue shall be resolved under
+                        the laws of the State of California.</p>
+                    <p class="p3">Confidentiality. The Parties also agree that all communications and evidence related to
+                        the dispute will remain confidential, and neither party shall take any action that will harm the
+                        reputation of the other, or which would reasonably be expected to lead to unwanted or unfavorable
+                        publicity to either of the claimants.</p>
+                    <p class="p3">Electronic Service. The Parties consent to electronic service of process, with service to
+                        be made to the following email addresses&nbsp;<a href="mailto:info@hyrecar.com"><span
+                                class="s1">info@DriveItAway.com</span></a>&nbsp;and to user at the last email address then
+                        on file with DriveItAway. The Parties agree that, in the event of confirmation and enforcement, the
+                        delinquent party will be responsible for all actual attorney, court or other fees associated with
+                        such action.</p>
+                    <p class="p3">Arbitration Provisions:</p>
+                    <p class="p3">Unless the parties agree otherwise, the arbitration will be held in Los Angeles, CA. The
+                        arbitrator will issue a decision in the applicable timeframe and include the findings and
+                        conclusions relevant to the judgment. Such decision will be consistent with this Agreement,
+                        including any Limits of Liability that may be applicable. Any injunctive relief shall be limited to
+                        the particular claimant, and be awarded only to provide the necessary relief.</p>
+                    <p class="p3">Any settlement offer made by you or DriveItAway shall not be disclosed to the arbitrator.
+                        The arbitrator may require the parties to share necessary information, but all rules of privilege
+                        will be recognized.</p>
+                    <p class="p3">The arbitrator will decide the substance of all claims in accordance with applicable law,
+                        including recognized principles of equity. The arbitrator&rsquo;s award shall be final and binding
+                        and judgment on the award rendered may be entered in any court having jurisdiction thereof.</p>
+                    <p class="p3">The Parties agree that, in the event of confirmation and enforcement, the delinquent party
+                        will be responsible for all actual attorney, court or other fees associated with such action.</p>
+                    <p class="p3">The Parties agree that all communications and evidence related to the dispute will remain
+                        confidential, and neither party shall take any action that will harm the reputation of the other, or
+                        which would reasonably be expected to lead to unwanted or unfavorable publicity to either of the
+                        claimants.</p>
+                    <ol class="ol1">
+                        <li class="li3">Disputes between You and DriveItAway.</li>
+                        <li class="li3">i. Arbitration. You agree that you will resolve any disputes with DriveItAway,
+                            including those related to the Portals</li>
+                    </ol>
+                    <p class="p5">and Services (including termination and enforcement of the terms of this Agreement), and
+                        any and all agreements you have with DriveItAway (including issues related to interpretation of any
+                        agreements) through binding arbitration between you and DriveItAway.</p>
+                    <ol class="ol1">
+                        <li class="li4">Arbitration Rules and Process. Any arbitration will be administered by the American
+                            Arbitration Association (&ldquo;AAA&rdquo;) and will be governed by the Consumer Arbitration
+                            Rules available at&nbsp;<a href="http://www.adr.org/"><span class="s1">www.adr.org</span></a>,
+                            except as modified by this Agreement. You may also access the arbitration rules by contacting
+                            AAA directly at&nbsp;<a href="tel:1-800-778-7879"><span class="s1">1-800-778-7879</span></a>.
+                        </li>
+                        <li class="li3">Disputes Between You and DriveItAway Involving Claims For $25,000 Or Less.</li>
+                        <li class="li3">Where the damages sought are $25,000 or less, at your option, the arbitration may be
+                            conducted by Fair</li>
+                    </ol>
+                    <p class="p5">Claims (<a href="http://www.fairclaims.com/"><span
+                                class="s1">www.FairClaims.com</span></a>), and not in a court of law, in accordance
+                        FairClaims&rsquo; Arbitration Rules and</p>
+                    <p class="p5">Procedures in effect at the time a claim is made.</p>
+                    <ol class="ol1">
+                        <li class="li3">Disputes between You and another User.</li>
+                        <li class="li3">i. Arbitration. You agree that you will resolve any disputes between you and other
+                            users (Owners or Drivers),</li>
+                    </ol>
+                    <p class="p5">including those related to (A) the Portals and Services (including termination and
+                        enforcement of the terms), and (B) any and all agreements you have with DriveItAway (including
+                        issues related to interpretation of any agreements), through binding arbitration administered by
+                        Fair Claims (<a href="http://www.fairclaims.com/"><span class="s1">www.FairClaims.com</span></a>),
+                        and not in a court of law, in accordance with FairClaims Arbitration Rules and Procedures effective
+                        at the time a claim is made.</p>
+                    <ol class="ol1">
+                        <li class="li3">The Driver&rsquo;s $200 deposit will be used to pay the Fair Claims case initiation
+                            fee.</li>
+                        <li class="li3">Updates To Dispute Resolution Clause.</li>
+                    </ol>
+                    <p class="p3">If DriveItAway changes its Dispute Resolution Clause after the date upon which you first
+                        accepted this Agreement, you may reject any such change within 30</p>
+                </div>
             </div>
         </div>
     </div>
-</div>
 @endverbatim

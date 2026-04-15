@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Vehicle - Reports')
 @section('content')
 <script src="{{ asset('js/select2.js') }}"></script>

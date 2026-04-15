@@ -2,61 +2,57 @@
     use App\Support\VehicleListing;
 @endphp
 
-<table style="width:100%; border-collapse:collapse; font-size:13px; margin-top:12px;">
-    <thead>
-        <tr style="border-bottom:2px solid #ccc; text-align:left;">
-            <th style="padding:6px;">ID</th>
-            <th style="padding:6px;">Car #</th>
-            <th style="padding:6px;">Owner</th>
-            <th style="padding:6px;">Veh #</th>
-            <th style="padding:6px;">VIN</th>
-            <th style="padding:6px;">Plate</th>
-            <th style="padding:6px;">Status</th>
-            <th style="padding:6px;">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        @forelse ($vehicleDetails as $v)
-            <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:6px;">{{ $v->id }}</td>
-                <td style="padding:6px;">{{ $v->vehicle_name }}</td>
-                <td style="padding:6px;">{{ trim((data_get($v, 'owner.first_name', '') . ' ' . data_get($v, 'owner.last_name', ''))) }}</td>
-                <td style="padding:6px;">{{ $v->vehicle_unique_id }}</td>
-                <td style="padding:6px;">{{ $v->vin_no }}</td>
-                <td style="padding:6px;">{{ $v->plate_number }}</td>
-                <td style="padding:6px;">
-                    @if ($listContext === 'admin')
-                        {{ VehicleListing::humanizeAdminRow($v) }}
-                    @else
-                        {{ (int)$v->status === 1 ? 'Active' : 'Inactive' }}
-                    @endif
-                </td>
-                <td style="padding:6px; white-space:nowrap;">
-                    @if ($listContext === 'admin')
-                        <a href="/admin/vehicles/add/{{ base64_encode((string)$v->id) }}">Edit</a>
-                        ·
-                        <a href="/admin/vehicles/rental_setting/{{ base64_encode((string)$v->id) }}">Rental</a>
-                        ·
-                        <a href="/admin/vehicles/duplicate/{{ base64_encode((string)$v->id) }}">Dup</a>
-                    @else
-                        <a href="{{ $linkedBasePath ?? '/admin/linked_vehicles' }}/add/{{ base64_encode((string)$v->id) }}">Edit</a>
-                    @endif
-                </td>
-            </tr>
-        @empty
-            <tr><td colspan="8" style="padding:12px;">No records.</td></tr>
-        @endforelse
-    </tbody>
-</table>
-
-@if ($vehicleDetails instanceof \Illuminate\Contracts\Pagination\Paginator && $vehicleDetails->hasPages())
-    <div style="margin-top:12px;">
-        Page {{ $vehicleDetails->currentPage() }} of {{ $vehicleDetails->lastPage() }} ({{ $vehicleDetails->total() }} total)
-        @if (!$vehicleDetails->onFirstPage())
-            <a href="{{ $vehicleDetails->previousPageUrl() }}">Previous</a>
-        @endif
-        @if ($vehicleDetails->hasMorePages())
-            <a href="{{ $vehicleDetails->nextPageUrl() }}">Next</a>
-        @endif
+<div class="panel panel-flat">
+    <div class="table-responsive">
+        <table width="100%" border="0" class="table table-responsive">
+            <thead>
+                <tr>
+                    @include('partials.dispacher.sortable_header', ['columns' => [
+                        ['field' => 'id', 'title' => 'ID'],
+                        ['field' => 'vehicle_name', 'title' => 'Car #'],
+                        ['field' => 'owner_first_name', 'title' => 'Owner'],
+                        ['field' => 'vehicle_unique_id', 'title' => 'Veh #'],
+                        ['field' => 'vin_no', 'title' => 'VIN'],
+                        ['field' => 'plate_number', 'title' => 'Plate'],
+                        ['field' => 'status', 'title' => 'Status'],
+                        ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                    ]])
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($vehicleDetails as $v)
+                    <tr>
+                        <td>{{ $v->id }}</td>
+                        <td>{{ $v->vehicle_name }}</td>
+                        <td>{{ trim((data_get($v, 'owner.first_name', '') . ' ' . data_get($v, 'owner.last_name', ''))) }}</td>
+                        <td>{{ $v->vehicle_unique_id }}</td>
+                        <td>{{ $v->vin_no }}</td>
+                        <td>{{ $v->plate_number }}</td>
+                        <td>
+                            @if ($listContext === 'admin')
+                                {{ VehicleListing::humanizeAdminRow($v) }}
+                            @else
+                                {{ (int)$v->status === 1 ? 'Active' : 'Inactive' }}
+                            @endif
+                        </td>
+                        <td>
+                            @if ($listContext === 'admin')
+                                <a href="/admin/vehicles/add/{{ base64_encode((string)$v->id) }}" class="btn btn-default btn-xs" title="Edit"><i class="icon-pencil"></i></a>
+                                <a href="/admin/vehicles/rental_setting/{{ base64_encode((string)$v->id) }}" class="btn btn-default btn-xs" title="Rental"><i class="icon-gear"></i></a>
+                                <a href="/admin/vehicles/duplicate/{{ base64_encode((string)$v->id) }}" class="btn btn-default btn-xs" title="Dup"><i class="icon-copy3"></i></a>
+                            @else
+                                <a href="{{ $linkedBasePath ?? '/admin/linked_vehicles' }}/add/{{ base64_encode((string)$v->id) }}" class="btn btn-default btn-xs">Edit</a>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="8" align="center">No records found.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
+</div>
+
+@if ($vehicleDetails instanceof \Illuminate\Contracts\Pagination\Paginator)
+    @include('partials.dispacher.paging_box', ['paginator' => $vehicleDetails, 'limit' => $limit ?? 25])
 @endif

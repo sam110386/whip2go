@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Insurance Templates')
 
@@ -44,7 +44,7 @@
 </div>
 
 <div class="row">
-    @include('layouts.flash-messages')
+    @include('partials.flash')
 </div>
 
 <form method="POST"
