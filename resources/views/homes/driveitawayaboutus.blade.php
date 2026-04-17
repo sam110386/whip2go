@@ -3,5 +3,5 @@
 @section('title', $title_for_layout ?? 'Company')
 
 @section('content')
-@include('homes.partials.driveitaway._driveitawayaboutus')
+    @include('homes.partials.driveitaway._driveitawayaboutus')
 @endsection

@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', !empty($user) ? 'Update User' : 'Add User')
 

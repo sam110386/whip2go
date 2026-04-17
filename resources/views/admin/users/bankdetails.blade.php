@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Bank & Stripe Connection')
 
@@ -23,7 +23,7 @@
 </div>
 
 <div class="content">
-    @include('layouts.flash-messages')
+    @include('partials.flash')
 
     <div class="panel panel-flat">
         <div class="panel-heading">

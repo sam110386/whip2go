@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Manage Lead Dealers')
 
@@ -34,43 +34,50 @@
         <button type="submit">Search</button>
     </form>
 
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <thead>
-            <tr style="border-bottom:2px solid #ccc; text-align:left;">
-                <th style="padding:6px;">ID</th>
-                <th style="padding:6px;">Name</th>
-                <th style="padding:6px;">Email</th>
-                <th style="padding:6px;">Phone</th>
-                <th style="padding:6px;">Type</th>
-                <th style="padding:6px;">Status</th>
-                <th style="padding:6px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($users as $u)
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px;">{{ $u->id }}</td>
-                    <td style="padding:6px;">{{ trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) }}</td>
-                    <td style="padding:6px;">{{ $u->email }}</td>
-                    <td style="padding:6px;">{{ $u->contact_number }}</td>
-                    <td style="padding:6px;">{{ !empty($u->is_dealer) ? 'Dealer' : (!empty($u->is_driver) ? 'Driver' : 'User') }}</td>
-                    <td style="padding:6px;">{{ (int)$u->status }}</td>
-                    <td style="padding:6px;">
-                        <form method="post" action="/cloud/linked_users/view" style="display:inline;">
-                            @csrf
-                            <input type="hidden" name="userid" value="{{ base64_encode((string)$u->id) }}">
-                            <button type="submit">View</button>
-                        </form>
-                        · <a href="/cloud/linked_users/edit/{{ base64_encode((string)$u->id) }}">Edit</a>
-                        · <a href="/cloud/linked_users/ccindex/{{ base64_encode((string)$u->id) }}">Cards</a>
-                        · <a href="/cloud/linked_users/dynamicfares/{{ base64_encode((string)$u->id) }}">Dynamic fares</a>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="7" style="padding:10px;">No users found.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-    {{ $users->links() }}
+    <div class="panel panel-flat">
+        <div class="table-responsive">
+            <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
+                <thead>
+                    <tr>
+                        @include('partials.dispacher.sortable_header', ['columns' => [
+                            ['field' => 'id', 'title' => 'ID'],
+                            ['field' => 'first_name', 'title' => 'Name'],
+                            ['field' => 'email', 'title' => 'Email'],
+                            ['field' => 'contact_number', 'title' => 'Phone'],
+                            ['field' => 'is_dealer', 'title' => 'Type', 'sortable' => false],
+                            ['field' => 'status', 'title' => 'Status'],
+                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                        ]])
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($users as $u)
+                        <tr>
+                            <td>{{ $u->id }}</td>
+                            <td>{{ trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? '')) }}</td>
+                            <td>{{ $u->email }}</td>
+                            <td>{{ $u->contact_number }}</td>
+                            <td>{{ !empty($u->is_dealer) ? 'Dealer' : (!empty($u->is_driver) ? 'Driver' : 'User') }}</td>
+                            <td>{{ (int)$u->status }}</td>
+                            <td>
+                                <form method="post" action="/cloud/linked_users/view" style="display:inline;">
+                                    @csrf
+                                    <input type="hidden" name="userid" value="{{ base64_encode((string)$u->id) }}">
+                                    <button type="submit" class="btn btn-default btn-xs">View</button>
+                                </form>
+                                · <a href="/cloud/linked_users/edit/{{ base64_encode((string)$u->id) }}">Edit</a>
+                                · <a href="/cloud/linked_users/ccindex/{{ base64_encode((string)$u->id) }}">Cards</a>
+                                · <a href="/cloud/linked_users/dynamicfares/{{ base64_encode((string)$u->id) }}">Dynamic fares</a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" align="center">No users found.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit ?? 50])
 @endsection
 

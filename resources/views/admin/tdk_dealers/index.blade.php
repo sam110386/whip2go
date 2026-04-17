@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', $title_for_layout ?? 'TDK Dealers')
 
@@ -48,18 +48,22 @@
 
             <div class="row">&nbsp;</div>
 
-            @if($users->total() > 0)
-                <div class="table-responsive">
-                    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+            <div class="table-responsive">
+                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+                    <thead>
                         <tr>
-                            <th valign="top">#</th>
-                            <th valign="top">Name</th>
-                            <th valign="top">Metro City</th>
-                            <th valign="top">Metro State</th>
-                            <th valign="top">Status</th>
-                            <th valign="top">Actions</th>
+                            @include('partials.dispacher.sortable_header', ['columns' => [
+                                ['field' => 'id', 'title' => '#'],
+                                ['field' => 'first_name', 'title' => 'Name'],
+                                ['field' => 'metro_city', 'title' => 'Metro City'],
+                                ['field' => 'metro_state', 'title' => 'Metro State'],
+                                ['field' => 'status', 'title' => 'Status'],
+                                ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                            ]])
                         </tr>
-                        @foreach($users as $user)
+                    </thead>
+                    <tbody>
+                        @forelse($users as $user)
                             <tr>
                                 <td valign="top">{{ $user->id }}</td>
                                 <td valign="top">{{ trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) }}</td>
@@ -67,9 +71,9 @@
                                 <td valign="top">{{ $user->metro_state }}</td>
                                 <td align="center" valign="bottom">
                                     @if((int)($user->status ?? 0) === 1)
-                                        <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status" title="Status">
+                                        <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Active" title="Active">
                                     @else
-                                        <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Status" title="Status">
+                                        <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Inactive" title="Inactive">
                                     @endif
                                 </td>
                                 <td align="center">
@@ -95,40 +99,14 @@
                                     </ul>
                                 </td>
                             </tr>
-                        @endforeach
-                        <tr><td style="height:6px;" colspan="7"></td></tr>
-                    </table>
-                </div>
-
-                <section class="pagging" style="margin-top:12px; overflow:hidden;">
-                    <div style="width:40%; float:left;">
-                        <form name="frmRecordsPages" action="{{ $basePath }}/index" method="get">
-                            @if($keyword !== '')
-                                <input type="hidden" name="Search[keyword]" value="{{ $keyword }}">
-                            @endif
-                            @if($show !== '')
-                                <input type="hidden" name="Search[show]" value="{{ $show }}">
-                            @endif
-                            <label class="text-semibold">Show</label>
-                            <select name="Record[limit]" class="textbox pagingcls form-control" style="display:inline-block; width:auto; min-width:70px;" onchange="this.form.submit()">
-                                @foreach ([25,50,100,200] as $opt)
-                                    <option value="{{ $opt }}" @selected((int)($limit ?? 25) === $opt)>{{ $opt }}</option>
-                                @endforeach
-                            </select>
-                            <span>&nbsp;Records per page</span>
-                        </form>
-                    </div>
-                    <div class="pull-right" style="margin-top:4px;">
-                        {{ $users->links() }}
-                    </div>
-                </section>
-            @else
-                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="borderTable">
-                    <tr>
-                        <td colspan="4" align="center">No record found</td>
-                    </tr>
+                        @empty
+                            <tr><td colspan="6" align="center">No record found</td></tr>
+                        @endforelse
+                    </tbody>
                 </table>
-            @endif
+            </div>
+
+            @include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit ?? 25])
         </div>
     </div>
 @endsection

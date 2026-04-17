@@ -79,7 +79,7 @@ class User extends LegacyModel
         'company_country',
     ];
     protected $hidden = [
-        'password',
+        // 'password',
         'ss_no',
         'ein_no',
         'verify_token',

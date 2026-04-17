@@ -1,15 +1,17 @@
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">Charged Transaction #</th>
-                <th style="text-align:center;">Charged Time (UTC)</th>
-                <th style="text-align:center;">Charged Amount</th>
-                <th style="text-align:center;">Used Amount</th>
-                <th style="text-align:center;">Used Transaction #</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'cpl_transaction_id', 'title' => 'Charged Transaction #', 'style' => 'text-align:center;'],
+                    ['field' => 'charged_at', 'title' => 'Charged Time (UTC)', 'style' => 'text-align:center;'],
+                    ['field' => 'cpl_amount', 'title' => 'Charged Amount', 'style' => 'text-align:center;'],
+                    ['field' => 'c_amount', 'title' => 'Used Amount', 'style' => 'text-align:center;'],
+                    ['field' => 'c_transaction_id', 'title' => 'Used Transaction #', 'style' => 'text-align:center;'],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -36,5 +38,5 @@
     </table>
 </div>
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif

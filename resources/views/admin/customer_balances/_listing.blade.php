@@ -3,25 +3,33 @@
         $k = (string)$t;
         return $balanceTypes[$k] ?? '';
     };
+
+    $columns = [
+        ['field' => 'id', 'title' => '#'],
+    ];
+
+    if (!$subscriptionMode) {
+        $columns[] = ['field' => 'first_name', 'title' => 'Name'];
+    }
+
+    $columns = array_merge($columns, [
+        ['field' => 'type', 'title' => 'Type'],
+        ['field' => 'credit', 'title' => 'Credit'],
+        ['field' => 'debit', 'title' => 'Debit'],
+        ['field' => 'balance', 'title' => 'Balance'],
+        ['field' => 'chargetype', 'title' => 'Schedule Details', 'sortable' => false],
+        ['field' => 'last_processed', 'title' => 'Last Processed'],
+        ['field' => 'note', 'title' => 'Note', 'sortable' => false],
+        ['field' => 'created', 'title' => 'Created'],
+        ['field' => 'action', 'title' => 'Action', 'sortable' => false, 'class' => 'text-center'],
+    ]);
 @endphp
 
 <div class="table-responsive">
     <table class="table table-hover table-bordered">
         <thead>
             <tr class="bg-slate-300">
-                <th>#</th>
-                @if (!$subscriptionMode)
-                    <th>Name</th>
-                @endif
-                <th>Type</th>
-                <th>Credit</th>
-                <th>Debit</th>
-                <th>Balance</th>
-                <th>Schedule Details</th>
-                <th>Last Processed</th>
-                <th>Note</th>
-                <th>Created</th>
-                <th class="text-center">Action</th>
+                @include('partials.dispacher.sortable_header', ['columns' => $columns])
             </tr>
         </thead>
         <tbody>
@@ -106,6 +114,4 @@
     </table>
 </div>
 
-<div class="panel-body text-center">
-    {!! $records->links() !!}
-</div>
+@include('partials.dispacher.paging_box', ['paginator' => $records, 'limit' => $limit ?? 50])

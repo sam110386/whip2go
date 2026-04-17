@@ -2,17 +2,19 @@
     $portfolioSvc = app(\App\Services\Legacy\Report\PortfolioService::class);
 @endphp
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <div class="panel-flat">
-    <table width="100%" cellpadding="2" cellspacing="1"  border="0"  class="table fixed_header table-responsive">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">#</th>
-                <th style="text-align:center;">Extended Date</th>
-                <th style="text-align:center;">Note</th>
-                <th style="text-align:center;">Cycle Ext(s)</th>
-                <th style="text-align:center;">Total Ext(s)</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'increment_id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'ext_date', 'title' => 'Extended Date', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'note', 'title' => 'Note', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'cycle_exts', 'title' => 'Cycle Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_exts', 'title' => 'Total Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -44,5 +46,5 @@
     </table>
 </div>
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif

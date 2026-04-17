@@ -8,12 +8,9 @@
                     <form action="{{ url('/logins/pre_register') }}" method="POST" id="CustomerRegister" name="frmadmin">
                         @csrf
                         <div class="panel panel-body login-form">
-                            @if (session('success'))
-                                <div>{{ session('success') }}</div>
-                            @endif
-                            @if (session('error'))
-                                <div>{{ session('error') }}</div>
-                            @endif
+                            <div class="row">
+                                @include('partials.flash')
+                            </div>
                             <div class="panel-body">
                                 <div class="text-center">
                                     <div class="icon-object border-success text-success">
@@ -79,7 +76,7 @@
 
 @push('scripts')
     <script type="text/javascript">
-        jQuery(document).ready(function() {
+        jQuery(document).ready(function () {
             jQuery("#CustomerRegister").validate();
         });
     </script>

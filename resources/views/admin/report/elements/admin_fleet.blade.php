@@ -1,23 +1,23 @@
 @php
     $portfolioSvc = app(\App\Services\Legacy\Report\PortfolioService::class);
 @endphp
-@if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
-@endif
+
 <div class="panel-flat">
-    <table width="100%" cellpadding="2" cellspacing="1"  border="0"  class="table  table-responsive">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">Vehicle</th>
-                <th style="text-align:center;"># of Days</th>
-                <th style="text-align:center;">Total Distance</th>
-                <th style="text-align:center;">Distance/Day</th>
-                <th style="text-align:center;">Total Revenue ($)</th>
-                <th style="text-align:center;">Write Down Allocation</th>
-                <th style="text-align:center;">Est. Depreciation ($)</th>
-                <th style="text-align:center;">Starting Cost ($)</th>
-                <th style="text-align:center;">Expenses ($)</th>
-                <th style="text-align:center;">Ending Cost ($)</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
+                    ['field' => 'days', 'title' => '# of Days', 'style' => 'text-align:center;'],
+                    ['field' => 'miles', 'title' => 'Total Distance', 'style' => 'text-align:center;'],
+                    ['field' => 'avg_miles', 'title' => 'Distance/Day', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'total_collected', 'title' => 'Total Revenue ($)', 'style' => 'text-align:center;'],
+                    ['field' => 'write_down_allocation', 'title' => 'Write Down Allocation', 'style' => 'text-align:center;'],
+                    ['field' => 'depreciation', 'title' => 'Est. Depreciation ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'starting_cost', 'title' => 'Starting Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'expenses', 'title' => 'Expenses ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['field' => 'ending_cost', 'title' => 'Ending Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -61,6 +61,5 @@
         </tbody>
     </table>
 </div>
-@if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
-@endif
+
+@include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])

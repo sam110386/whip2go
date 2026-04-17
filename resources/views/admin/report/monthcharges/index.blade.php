@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Monthly Charges - Report')
 @section('content')
 <script type="text/javascript">

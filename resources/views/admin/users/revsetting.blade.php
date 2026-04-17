@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Revenue Setting')
 
@@ -23,7 +23,7 @@
 </div>
 
 <div class="content">
-    @include('layouts.flash-messages')
+    @include('partials.flash')
 
     <div class="row">
         <div class="col-md-8 col-md-offset-2">

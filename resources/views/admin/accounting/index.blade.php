@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Accounting Reports')
 
@@ -15,7 +15,7 @@
     </div>
 
     <div class="row">
-        @include('layouts.flash-messages')
+        @include('partials.flash')
     </div>
 
     <div class="panel panel-flat">
@@ -55,24 +55,30 @@
 <div class="panel">
     <div class="panel-body">
         <div style="width:100%; overflow: visible;">
-            @if($reportlists->count())
-                <div class="text-center">{{ $reportlists->appends(request()->query())->links() }}</div>
+        <div class="panel panel-flat">
+            <div class="table-responsive">
                 <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive table-bordered">
                     <thead>
                         <tr>
-                            <th>Time</th>
-                            <th>Debit</th>
-                            <th>Credit</th>
-                            <th>Running Bal.</th>
-                            <th>Type</th>
-                            <th>Source</th>
-                            <th>Action</th>
-                            <th>Booking#</th>
-                            <th>Transaction</th>
-                            <th style="width:160px;">Note</th>
+                            @include('partials.dispacher.sortable_header', ['columns' => [
+                                ['field' => 'created', 'title' => 'Time'],
+                                ['field' => 'amt', 'title' => 'Debit'],
+                                ['field' => 'amt', 'title' => 'Credit'],
+                                ['field' => 'running_bal', 'title' => 'Running Bal.', 'sortable' => false],
+                                ['field' => 'type', 'title' => 'Type'],
+                                ['field' => 'source', 'title' => 'Source'],
+                                ['field' => 'action', 'title' => 'Action', 'sortable' => false],
+                                ['field' => 'increment_id', 'title' => 'Booking#'],
+                                ['field' => 'transaction_id', 'title' => 'Transaction'],
+                                ['field' => 'note', 'title' => 'Note', 'style' => 'width:160px;']
+                            ]])
                         </tr>
                     </thead>
                     <tbody>
+                        @forelse($reportlists as $trip) {{-- Wait, the legacy code has a complex reversed calculation. I'll keep the loop but standardize the surrounding structure --}}
+                        @empty
+                        @endforelse
+
                         @php
                             $runningBal = 0;
                             $totalDebit = $totalCredit = 0;
@@ -125,14 +131,10 @@
                         <tr><td height="6" colspan="17"></td></tr>
                     </tbody>
                 </table>
-                <div class="text-center">{{ $reportlists->appends(request()->query())->links() }}</div>
-            @else
-                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
-                    <tr>
-                        <td colspan="6" align="center">No record found</td>
-                    </tr>
-                </table>
-            @endif
+            </div>
+        </div>
+
+        @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
         </div>
 <script>
     function bookingDetail(orderid) {
