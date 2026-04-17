@@ -1,5 +1,7 @@
 <?php
 
+$legacyOwnerPart = (int) env('LEGACY_OWNER_PART', 85);
+
 /**
  * Settings for Blade ports of CakePHP `app/View/Layouts/*` and static assets
  * that still live under the Cake `app/webroot` tree.
@@ -76,5 +78,24 @@ return [
     | Used when `rev_settings.rental_rev` is missing for booking report math.
     |
     */
-    'owner_part' => (int) env('LEGACY_OWNER_PART', 85),
+    'owner_part' => $legacyOwnerPart,
+
+    /** Cake `Configure::read('OWNER_PART')` alias for ported services */
+    'OWNER_PART' => $legacyOwnerPart,
+
+    /*
+    |--------------------------------------------------------------------------
+    | DIAWEB URL (Cake `Configure::read('DIAWEB.url')`)
+    |--------------------------------------------------------------------------
+    */
+    'diaweb_url' => env('LEGACY_DIAWEB_URL', 'https://cars.driveitaway.com'),
+
+
+    'security' => [
+        'salt' => env('LEGACY_SECURITY_SALT', ''),
+        'encryptKey' => env('LEGACY_SECURITY_ENCRYPT_KEY', ''),
+        'cipherSeed' => env('LEGACY_SECURITY_CIPHER_SEED', ''),
+        'level' => env('LEGACY_SECURITY_LEVEL', 'medium'),
+        'useOpenSsl' => env('LEGACY_SECURITY_USE_OPENSSL', true),
+    ],
 ];

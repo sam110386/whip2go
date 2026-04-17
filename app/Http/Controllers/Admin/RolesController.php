@@ -8,8 +8,11 @@ use App\Models\Legacy\AdminRole as LegacyAdminRole;
 use App\Models\Legacy\AdminRoleMenu as LegacyAdminRoleMenu;
 use App\Models\Legacy\AdminRolePermission as LegacyAdminRolePermission;
 use App\Models\Legacy\AdminUserRole as LegacyAdminUserRole;
+use App\Models\Legacy\AdminModule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use App\Helpers\Legacy\NestedTree;
 
 class RolesController extends LegacyAppController
 {
@@ -17,13 +20,30 @@ class RolesController extends LegacyAppController
 
     // CakePHP: app/Controller/RolesController.php::admin_index()
     // URL: /admin/roles/index
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
-        $keyword = trim((string)($request->query('keyword') ?? ''));
+        $keyword = trim((string) ($request->query('keyword') ?? ''));
+
+        // Handle pagination limit
+        $limit = (int) $request->input('Record.limit', $request->input('limit', 50));
+        if (!in_array($limit, [25, 50, 100, 200, 500])) {
+            $limit = 50;
+        }
+
+        // Handle sorting
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+        $allowedSort = ['id', 'slug', 'name', 'created_at', 'updated_at'];
+        if (!in_array($sort, $allowedSort)) {
+            $sort = 'id';
+            $direction = 'desc';
+        }
 
         $q = LegacyAdminRole::query()
             ->with('permissions')
-            ->orderBy('id', 'asc');
+            ->orderBy($sort, $direction);
 
         if ($keyword !== '') {
             $like = '%' . $keyword . '%';
@@ -33,18 +53,20 @@ class RolesController extends LegacyAppController
             });
         }
 
-        $roles = $q->get()->map(function (LegacyAdminRole $role) {
-            $row = $role->toArray();
-            $row['permission_names'] = $role->permissions
-                ->pluck('name')
-                ->sort()
-                ->implode(', ');
-            return (object) $row;
-        });
+        $roles = $q->paginate($limit);
+
+        if ($request->ajax()) {
+            return view('admin.roles.elements.index', [
+                'roles' => $roles,
+                'keyword' => $keyword,
+                'limit' => $limit,
+            ]);
+        }
 
         return view('admin.roles.index', [
             'roles' => $roles,
             'keyword' => $keyword,
+            'limit' => $limit,
         ]);
     }
 
@@ -52,12 +74,13 @@ class RolesController extends LegacyAppController
     // URL:
     // - /admin/roles/add
     // - /admin/roles/admin_add/{id}
-    public function admin_add(Request $request, $id = null)
+
+    public function add(Request $request, $id = null)
     {
         $isEditing = !empty($id);
         $roleId = null;
         if ($isEditing && is_numeric($id)) {
-            $roleId = (int)$id;
+            $roleId = (int) $id;
         }
 
         if (!$request->isMethod('POST')) {
@@ -77,28 +100,31 @@ class RolesController extends LegacyAppController
                 ->where('parent_id', 0)
                 ->orderBy('name')
                 ->get()
-                ->mapWithKeys(fn ($r) => [(string) $r->id => $r->name])
+                ->mapWithKeys(fn($r) => [(string) $r->id => $r->name])
                 ->toArray();
 
             $permissions = LegacyAdminPermission::query()
                 ->orderBy('name')
                 ->get(['id', 'name'])
-                ->mapWithKeys(fn ($p) => [(string) $p->id => $p->name])
+                ->mapWithKeys(fn($p) => [(string) $p->id => $p->name])
                 ->toArray();
 
             // Minimal menu picker (flat). Cake has nested/tree UI.
-            $menus = DB::table('admin_modules')
-                ->where('status', 1)
+            // Using getMenuNameTree to generate the exact array needed for Fancytree
+            $allMenus = AdminModule::query()
                 ->orderBy('parent_id')
                 ->orderBy('order')
                 ->get();
+
+            $mainList = [];
+            $fancytreeData = NestedTree::getMenuNameTree(0, $allMenus, $mainList, $selectedMenuIds);
 
             return view('admin.roles.add', [
                 'listTitle' => $isEditing ? 'Update Role' : 'Add Role',
                 'role' => $role,
                 'parentRoles' => $parentRoles,
                 'permissions' => $permissions,
-                'menus' => $menus,
+                'fancytreeData' => $fancytreeData,
                 'selectedPermissionIds' => $selectedPermissionIds,
                 'selectedMenuIds' => $selectedMenuIds,
             ]);
@@ -106,10 +132,10 @@ class RolesController extends LegacyAppController
 
         $payload = $request->input('AdminRole', []);
 
-        $slug = trim((string)($payload['slug'] ?? ''));
-        $name = trim((string)($payload['name'] ?? ''));
+        $slug = trim((string) ($payload['slug'] ?? ''));
+        $name = trim((string) ($payload['name'] ?? ''));
         $parentId = $payload['parent_id'] ?? 0;
-        $parentId = ($parentId === '' || $parentId === null) ? 0 : (int)$parentId;
+        $parentId = ($parentId === '' || $parentId === null) ? 0 : (int) $parentId;
 
         if ($slug === '' || $name === '') {
             return back()->withInput()->with('error', 'Please enter role name and slug.');
@@ -123,14 +149,14 @@ class RolesController extends LegacyAppController
 
         $selectedMenuIds = $payload['menu_id'] ?? [];
         if (!is_array($selectedMenuIds)) {
-            // Support comma-separated input.
+            // Support comma-separated input from fancytree mapping.
             if (is_string($selectedMenuIds)) {
                 $selectedMenuIds = array_filter(array_map('trim', explode(',', $selectedMenuIds)));
             } else {
                 $selectedMenuIds = [];
             }
         }
-        $selectedMenuIds = array_values(array_filter(array_map('intval', $selectedMenuIds)));
+        $selectedMenuIds = array_values(array_filter(array_unique(array_map('intval', $selectedMenuIds))));
 
         $candidateRole = [
             'name' => $name,
@@ -176,13 +202,13 @@ class RolesController extends LegacyAppController
     }
 
     // CakePHP: app/Controller/RolesController.php::admin_delete($id=null)
-    public function admin_delete(Request $request, $id = null)
+    public function delete(Request $request, $id = null)
     {
         if (empty($id) || !is_numeric($id)) {
             return redirect('/admin/roles/index');
         }
 
-        $roleId = (int)$id;
+        $roleId = (int) $id;
 
         LegacyAdminRolePermission::query()->where('role_id', $roleId)->delete();
         LegacyAdminRoleMenu::query()->where('role_id', $roleId)->delete();
@@ -193,7 +219,7 @@ class RolesController extends LegacyAppController
 
     // CakePHP: app/Controller/RolesController.php::admin_getsubrole()
     // URL: /admin/roles/getsubrole (jQuery posts roleid + userid)
-    public function admin_getsubrole(Request $request)
+    public function getsubrole(Request $request)
     {
         $role_d = $request->input('roleid');
         $user_d = $request->input('userid');
@@ -215,7 +241,7 @@ class RolesController extends LegacyAppController
 
         $return = '';
         foreach ($childRoles as $r) {
-            $selected = in_array((string)$r->id, array_map('strval', $related), true);
+            $selected = in_array((string) $r->id, array_map('strval', $related), true);
             if ($selected) {
                 $return .= "<option value='{$r->id}' selected='selected'>{$r->name}</option>";
             } else {

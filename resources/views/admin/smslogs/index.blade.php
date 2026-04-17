@@ -41,21 +41,22 @@
             </fieldset>
         </form>
 
-        <div style="width:100%; overflow: visible;">
-            @if($smslogs && $smslogs->count())
-                <div style="margin:10px 0;">{{ $smslogs->links() }}</div>
+        <div class="panel panel-flat">
+            <div class="table-responsive">
                 <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
                     <thead>
                         <tr>
-                            <th style="width:105px;">#</th>
-                            <th>Type</th>
-                            <th>Phone#</th>
-                            <th>TimeStamp</th>
-                            <th style="width:80px;">Action</th>
+                            @include('partials.dispacher.sortable_header', ['columns' => [
+                                ['field' => 'id', 'title' => '#', 'style' => 'width:105px;'],
+                                ['field' => 'type', 'title' => 'Type'],
+                                ['field' => 'renter_phone', 'title' => 'Phone#'],
+                                ['field' => 'created', 'title' => 'TimeStamp'],
+                                ['field' => 'actions', 'title' => 'Action', 'sortable' => false, 'style' => 'width:80px;']
+                            ]])
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($smslogs as $smslog)
+                        @forelse($smslogs as $smslog)
                             @php $b64 = base64_encode((string)$smslog->id); @endphp
                             <tr id="tr_{{ (int)$smslog->id }}">
                                 <td>{{ (int)$smslog->id }}</td>
@@ -71,26 +72,15 @@
                                     <a href="javascript:void(0)" title="Delete" onclick="deleteMessage('{{ $b64 }}'); return false;"><i class="icon-trash"></i></a>
                                 </td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="5" align="center">No record found</td></tr>
+                        @endforelse
                     </tbody>
                 </table>
-                <div style="margin:10px 0;">{{ $smslogs->links() }}</div>
-            @else
-                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
-                    <tr><td colspan="6" align="center">No record found</td></tr>
-                </table>
-            @endif
+            </div>
         </div>
 
-        <form method="post" action="/admin/smslogs/index" class="form-inline" style="margin-top:12px;">
-            @csrf
-            <label>Per page</label>
-            <select name="Record[limit]" class="form-control" onchange="this.form.submit()">
-                @foreach([25, 50, 100, 200] as $lim)
-                    <option value="{{ $lim }}" @if((int)($limit ?? 25) === $lim) selected @endif>{{ $lim }}</option>
-                @endforeach
-            </select>
-        </form>
+        @include('partials.dispacher.paging_box', ['paginator' => $smslogs, 'limit' => $limit ?? 25])
     </section>
 </div>
 @endsection

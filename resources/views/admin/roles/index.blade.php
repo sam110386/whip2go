@@ -3,53 +3,44 @@
 @section('title', 'Manage Roles')
 
 @section('content')
-    <h1>Manage Roles</h1>
 
-    <div style="margin: 10px 0;">
-        <a href="/admin/roles/add">Add New</a>
+    @php
+        $url = ['keyword' => $keyword];
+        $optionspaging = ['url' => $url, 'update' => 'listing'];
+    @endphp
+
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage</span> - Roles</h4>
+            </div>
+            <div class="heading-elements">
+                <a href="/admin/roles/add" class="btn btn-danger btn-lg" style="float:right;">Add New</a>
+            </div>
+        </div>
+    </div>
+    <div class="row ">
+        @include('partials.flash')
     </div>
 
-    <form method="GET" action="/admin/roles/index" style="display:flex; gap:10px; align-items:center; margin-bottom: 14px;">
-        <label>
-            Keyword
-            <input type="text" name="keyword" value="{{ $keyword ?? '' }}">
-        </label>
-        <button type="submit">Search</button>
-    </form>
+    <div class="panel panel-flat">
+        <div class="panel-heading">
+            <h5 class="panel-title">Search</h5>
+        </div>
+        <div class="panel-body">
+            <form action="{{ url('/admin/roles/index') }}" method="get" class="form-inline">
+                <div class="form-group mb-2">
+                    <input type="text" name="keyword" class="form-control" placeholder="Search by name or slug" value="{{ $keyword ?? '' }}">
+                </div>
+                <button type="submit" class="btn btn-primary mb-2">Search</button>
+                <a href="{{ url('/admin/roles/index') }}" class="btn btn-default mb-2">Reset</a>
+            </form>
+        </div>
+    </div>
 
-    <table border="1" cellpadding="6" cellspacing="0" width="100%">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Slug</th>
-                <th>Name</th>
-                <th>Permissions</th>
-                <th>Parent</th>
-                <th>Created</th>
-                <th>Updated</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse(($roles ?? []) as $r)
-                <tr>
-                    <td>{{ $r->id }}</td>
-                    <td>{{ $r->slug }}</td>
-                    <td>{{ $r->name }}</td>
-                    <td>{{ $r->permission_names ?? '-' }}</td>
-                    <td>{{ (int)($r->parent_id ?? 0) }}</td>
-                    <td>{{ $r->created_at ?? '' }}</td>
-                    <td>{{ $r->updated_at ?? '' }}</td>
-                    <td>
-                        <a href="/admin/roles/admin_add/{{ $r->id }}">Edit</a>
-                        &nbsp;|&nbsp;
-                        <a href="/admin/roles/admin_delete/{{ $r->id }}" onclick="return confirm('Are you sure?')">Delete</a>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="8" align="center">No roles found</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+    <div class="panel">
+        <div class="panel-body" id="listing">
+            @include('admin.roles.elements.index')
+        </div>
+    </div>
 @endsection
-

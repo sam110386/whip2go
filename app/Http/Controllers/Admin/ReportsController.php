@@ -12,7 +12,7 @@ class ReportsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $limit = $this->resolveLimit($request, 'admin_reports_limit');
         $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
@@ -48,7 +48,7 @@ class ReportsController extends LegacyAppController
         return view('admin.reports.index', compact('reportlists', 'dateFrom', 'dateTo', 'status', 'limit'));
     }
 
-    public function admin_details($id)
+    public function details($id)
     {
         $orderId = $this->decodeId((string)$id);
         if (!$orderId) {
@@ -67,7 +67,7 @@ class ReportsController extends LegacyAppController
         return view('admin.reports.details', $payload);
     }
 
-    public function admin_loadsubbooking($orderid)
+    public function loadsubbooking($orderid)
     {
         $id = $this->decodeId((string)$orderid);
         if (!$id) {
@@ -78,7 +78,7 @@ class ReportsController extends LegacyAppController
         return response()->view('admin.reports._subbookings', compact('subs', 'id'));
     }
 
-    public function admin_autorenewddetails($id)
+    public function autorenewddetails($id)
     {
         $orderId = $this->decodeId((string) $id);
         if (!$orderId) {
@@ -97,7 +97,7 @@ class ReportsController extends LegacyAppController
         return view('admin.reports.details', $payload);
     }
 
-    public function admin_productivity(Request $request)
+    public function productivity(Request $request)
     {
         $from = trim((string)$this->searchInput($request, 'date_from'));
         $to = trim((string)$this->searchInput($request, 'date_to'));
@@ -116,7 +116,7 @@ class ReportsController extends LegacyAppController
         return view('admin.reports.productivity', ['rows' => $rows, 'dateFrom' => $from, 'dateTo' => $to]);
     }
 
-    public function admin_paymentspopup(Request $request)
+    public function paymentspopup(Request $request)
     {
         $id = $this->decodeId((string)$request->input('orderid', ''));
         if (!$id) {
@@ -148,21 +148,6 @@ class ReportsController extends LegacyAppController
         $limit = (int)session($sessionKey, 50);
 
         return $limit > 0 ? $limit : 50;
-    }
-
-    private function decodeId(string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if ($id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 }
 

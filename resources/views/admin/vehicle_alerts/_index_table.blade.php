@@ -1,0 +1,50 @@
+@if(isset($vehiclealrets) && is_object($vehiclealrets) && method_exists($vehiclealrets, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $vehiclealrets, 'limit' => $limit ?? 50])
+@endif
+
+<div class="panel-flat">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+        <thead>
+            <tr>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'id', 'title' => '#', 'style' => 'text-align:center;'],
+                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
+                    ['field' => 'type', 'title' => 'Type', 'style' => 'text-align:center;'],
+                    ['field' => 'geo', 'title' => 'Geo', 'style' => 'text-align:center;'],
+                    ['field' => 'speed', 'title' => 'MPH', 'style' => 'text-align:center;'],
+                    ['field' => 'created', 'title' => 'Recorded At', 'style' => 'text-align:center;'],
+                    ['field' => 'note', 'title' => 'Note', 'style' => 'text-align:center;'],
+                    ['field' => 'action', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                ]])
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($vehiclealrets as $alert)
+                <tr id="row_{{ $alert->id }}">
+                    <td style="text-align:center;">{{ $alert->id }}</td>
+                    <td style="text-align:center;">{{ $alert->vehicle_name }}</td>
+                    <td style="text-align:center;">{{ $alert->type }}</td>
+                    <td style="text-align:center;">
+                        <a target="_blank" href="http://www.google.com/maps/place/{{ $alert->geo }}/@{{ $alert->geo }},17z">{{ $alert->geo }}</a>
+                    </td>
+                    <td style="text-align:center;">{{ $alert->speed }} MPH</td>
+                    <td style="text-align:center;">
+                        @if($alert->created && $alert->created !== '0000-00-00 00:00:00')
+                            {{ \Carbon\Carbon::parse($alert->created)->timezone(session('default_timezone', 'UTC'))->format('Y-m-d h:i A') }}
+                        @else
+                            --
+                        @endif
+                    </td>
+                    <td style="text-align:center;">{{ $alert->note }}</td>
+                    <td style="text-align:center;">
+                        <a href="javascript:;" title="Delete Record" onclick="DeleteVehicleAlert('{{ $alert->id }}')"><i class="icon-trash"></i></a>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+
+@if(isset($vehiclealrets) && is_object($vehiclealrets) && method_exists($vehiclealrets, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $vehiclealrets, 'limit' => $limit ?? 50])
+@endif

@@ -20,7 +20,7 @@
         $isEdit = $u && !empty($u->id);
     @endphp
 
-    <form method="post" action="{{ $formAction ?? ($basePath . '/admin_add') }}" class="form-horizontal">
+    <form method="post" action="{{ $formAction ?? ($basePath . '/add') }}" class="form-horizontal">
         <div style="display:flex; flex-wrap:wrap; gap:24px;">
             <div style="flex:1; min-width:280px;">
                 <p>

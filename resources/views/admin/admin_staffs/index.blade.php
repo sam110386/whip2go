@@ -38,7 +38,7 @@
         </div>
     </form>
 
-    <form method="post" action="{{ $basePath }}/admin_multiplAction" onsubmit="return confirm('Apply bulk action to selected staff?');">
+    <form method="post" action="{{ $basePath }}/multiplAction" onsubmit="return confirm('Apply bulk action to selected staff?');">
         <input type="hidden" name="Search[keyword]" value="{{ $keyword ?? '' }}">
         <input type="hidden" name="Search[searchin]" value="{{ $fieldname ?? '' }}">
         <input type="hidden" name="Search[show]" value="{{ $show ?? '' }}">
@@ -61,53 +61,55 @@
         </label>
         <button type="submit">Go</button>
 
-        <table style="width:100%; border-collapse:collapse; margin-top:12px; font-size:13px;" border="1" cellpadding="6">
-            <thead>
-                <tr>
-                    <th></th>
-                    <th>#</th>
-                    <th>Username</th>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Email</th>
-                    <th>Contact#</th>
-                    <th>Created</th>
-                    <th>Status</th>
-                    <th>Role</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse(($users ?? []) as $u)
+        <div class="table-responsive">
+            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+                <thead>
                     <tr>
-                        <td><input type="checkbox" name="select[]" value="{{ $u->id }}"></td>
-                        <td>{{ $u->id }}</td>
-                        <td>{{ $u->username }}</td>
-                        <td>{{ $u->first_name }}</td>
-                        <td>{{ $u->last_name }}</td>
-                        <td>{{ $u->email }}</td>
-                        <td>{{ $u->contact_number }}</td>
-                        <td>{{ $u->created }}</td>
-                        <td align="center">
-                            @if((int)$u->status === 1)
-                                <a href="{{ $basePath }}/admin_status/{{ base64_encode((string)$u->id) }}/0" onclick="return confirm('Deactivate this user?');">Active</a>
-                            @else
-                                <a href="{{ $basePath }}/admin_status/{{ base64_encode((string)$u->id) }}/1" onclick="return confirm('Activate this user?');">Inactive</a>
-                            @endif
-                        </td>
-                        <td>{{ $u->role_name ?? '--' }}</td>
-                        <td>
-                            <a href="{{ $basePath }}/admin_add/{{ base64_encode((string)$u->id) }}">Edit</a>
-                        </td>
+                        @include('partials.dispacher.sortable_header', ['columns' => [
+                            ['field' => 'checkbox', 'title' => '', 'sortable' => false],
+                            ['field' => 'id', 'title' => '#'],
+                            ['field' => 'username', 'title' => 'Username'],
+                            ['field' => 'first_name', 'title' => 'First Name'],
+                            ['field' => 'last_name', 'title' => 'Last Name'],
+                            ['field' => 'email', 'title' => 'Email'],
+                            ['field' => 'contact_number', 'title' => 'Contact#'],
+                            ['field' => 'created', 'title' => 'Created'],
+                            ['field' => 'status', 'title' => 'Status'],
+                            ['field' => 'role_id', 'title' => 'Role', 'sortable' => false],
+                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                        ]])
                     </tr>
-                @empty
-                    <tr><td colspan="11" align="center">No record found</td></tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @forelse(($users ?? []) as $u)
+                        <tr>
+                            <td><input type="checkbox" name="select[]" value="{{ $u->id }}"></td>
+                            <td>{{ $u->id }}</td>
+                            <td>{{ $u->username }}</td>
+                            <td>{{ $u->first_name }}</td>
+                            <td>{{ $u->last_name }}</td>
+                            <td>{{ $u->email }}</td>
+                            <td>{{ $u->contact_number }}</td>
+                            <td>{{ $u->created }}</td>
+                            <td align="center">
+                                @if((int)$u->status === 1)
+                                    <a href="{{ $basePath }}/status/{{ base64_encode((string)$u->id) }}/0" onclick="return confirm('Deactivate this user?');">Active</a>
+                                @else
+                                    <a href="{{ $basePath }}/status/{{ base64_encode((string)$u->id) }}/1" onclick="return confirm('Activate this user?');">Inactive</a>
+                                @endif
+                            </td>
+                            <td>{{ $u->role_name ?? '--' }}</td>
+                            <td>
+                                <a href="{{ $basePath }}/add/{{ base64_encode((string)$u->id) }}">Edit</a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="11" align="center">No record found</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </form>
 
-    @if(!empty($users))
-        {{ $users->links() }}
-    @endif
+    @include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit ?? 50])
 @endsection

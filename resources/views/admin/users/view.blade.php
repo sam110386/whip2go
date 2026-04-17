@@ -1,31 +1,157 @@
 @extends('admin.layouts.app')
 
-@section('title', $listTitle ?? 'View User')
+@section('title', $listTitle)
 
 @section('content')
-    <h1>{{ $listTitle ?? 'View User' }}</h1>
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">
+                        {{ $listTitle }}
+                    </span>
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <button type="button" class="btn left-margin btn-danger" onClick="goBack('/admin/users/index')">
+                    {{ 'Return' }}
+                </button>
+            </div>
+        </div>
+    </div>
 
-    @if(empty($user))
-        <p>No user found.</p>
-    @else
-        <table border="1" cellpadding="6" cellspacing="0" width="100%">
-            <tbody>
-                <tr><th align="left">ID</th><td>{{ $user->id }}</td></tr>
-                <tr><th align="left">First Name</th><td>{{ $user->first_name }}</td></tr>
-                <tr><th align="left">Last Name</th><td>{{ $user->last_name }}</td></tr>
-                <tr><th align="left">Email</th><td>{{ $user->email }}</td></tr>
-                <tr><th align="left">Username</th><td>{{ $user->username }}</td></tr>
-                <tr><th align="left">Contact</th><td>{{ $user->contact_number }}</td></tr>
-                <tr><th align="left">Status</th><td>{{ (int)($user->status ?? 0) === 1 ? 'Active' : 'Inactive' }}</td></tr>
-                <tr><th align="left">Verified</th><td>{{ (int)($user->is_verified ?? 0) === 1 ? 'Yes' : 'No' }}</td></tr>
-                <tr><th align="left">Driver</th><td>{{ (int)($user->is_driver ?? 0) === 1 ? 'Yes' : 'No' }}</td></tr>
-                <tr><th align="left">Dealer</th><td>{{ (int)($user->is_dealer ?? 0) }}</td></tr>
-            </tbody>
-        </table>
-    @endif
+    <div class="row">
+        @include('partials.flash')
+    </div>
 
-    <div style="margin-top:12px;">
-        <a href="/admin/users/index">Back</a>
+    <div class="panel">
+        <div class="panel-body">
+            <div class="form-horizontal">
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'First Name :' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->first_name }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'Last Name :' }}
+                    </label>
+                    <div class="col-lg-4">{{ $user->last_name }}</div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'Email :' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->email }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'Notification Email :' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->notify_email }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'Phone # :' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->contact_number }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'DOB:' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->dob }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'Social S. # :' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ !empty($user->ss_no) ? \App\Helpers\Legacy\Security::decrypt($user->ss_no) : '' }}
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{ 'License # :' }}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ !empty($user->licence_number) ? \App\Helpers\Legacy\Security::decrypt($user->licence_number) : '' }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{'License Type :'}}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->licence_type }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">
+                        {{'License Exp Date :'}}
+                    </label>
+                    <div class="col-lg-4">
+                        {{ $user->licence_exp_date }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">&nbsp;</label>
+                    <div class="inputs">
+                        <div>
+                            <div id="old_pic">
+                                <img width='150' height='150'
+                                    src="{{ asset('files/userdocs/' . ($user->license_doc_1 ?: 'no_image.gif')) }}">
+                            </div>
+                        </div>
+                        <div style="clear:both;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">&nbsp;</label>
+                    <div class="inputs">
+                        <div style="float:left;width:150px;height:150px;">
+                            <div id="old_pic">
+                                <img width='150' height='150'
+                                    src="{{ asset('files/userdocs/' . ($user->license_doc_2 ?: 'no_image.gif')) }}">
+                            </div>
+                        </div>
+                        <div style="clear:both;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">&nbsp;</label>
+                    <div class="inputs">
+                        <div style="float:left;width:150px;height:150px;">
+                            <div id="old_pic">
+                                <img width='150' height='150'
+                                    src="{{ asset('img/user_pic/' . ($user->photo ?: 'no_image.gif')) }}">
+                            </div>
+                        </div>
+                        <div style="clear:both;"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="col-lg-2 control-label">&nbsp;</label>
+                    <div class="col-lg-6">
+                        <button type="button" class="btn left-margin btn-cancel" onClick="goBack('/admin/users/index')">
+                            {{'Return'}}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection
-

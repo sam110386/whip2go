@@ -10,7 +10,7 @@ class PagesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         $searchIn = trim((string)($request->input('Search.searchin', $request->query('searchin', ''))));
         $keyword = trim((string)($request->input('Search.keyword', $request->query('keyword', ''))));
@@ -39,7 +39,7 @@ class PagesController extends LegacyAppController
         ]);
     }
 
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         $page = (is_numeric($id) && (int)$id > 0) ? LegacyPage::query()->find((int)$id) : null;
 
@@ -78,7 +78,7 @@ class PagesController extends LegacyAppController
         return redirect('/admin/pages/index');
     }
 
-    public function admin_view(Request $request, $id = null)
+    public function view(Request $request, $id = null)
     {
         if (empty($id) || !is_numeric($id)) {
             return redirect('/admin/pages/index');
@@ -94,7 +94,7 @@ class PagesController extends LegacyAppController
         ]);
     }
 
-    public function admin_status(Request $request, $id = null, $status = 0)
+    public function status(Request $request, $id = null, $status = 0)
     {
         if (!empty($id) && is_numeric($id)) {
             LegacyPage::query()->whereKey((int)$id)->update(['status' => ((string)$status === '1') ? 0 : 1]);
@@ -102,7 +102,7 @@ class PagesController extends LegacyAppController
         return redirect('/admin/pages/index');
     }
 
-    public function admin_delete(Request $request, $id = null)
+    public function delete(Request $request, $id = null)
     {
         if (!empty($id) && is_numeric($id)) {
             LegacyPage::query()->whereKey((int)$id)->delete();
@@ -110,7 +110,7 @@ class PagesController extends LegacyAppController
         return redirect('/admin/pages/index');
     }
 
-    public function admin_multiplAction(Request $request)
+    public function multiplAction(Request $request)
     {
         $action = (string)$request->input('Pages.submit', '');
         $selected = $request->input('select', []);

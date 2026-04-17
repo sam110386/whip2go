@@ -11,7 +11,7 @@
         </div>
     @endif
 
-    <form method="POST" action="/admin/admins/admin_change_password" style="display:flex; flex-direction:column; gap:12px; max-width: 420px;">
+    <form method="POST" action="/admin/admins/change_password" style="display:flex; flex-direction:column; gap:12px; max-width: 420px;">
         @csrf
         <label>
             Old Password

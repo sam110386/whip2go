@@ -74,7 +74,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_index
      */
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -161,16 +161,14 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_status
      */
-    public function admin_status($id = null, $status = null): RedirectResponse
+    public function status($id = null, $status = null): RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $raw = (string)$id;
-        $decoded = base64_decode($raw, true);
-        $pk = ($decoded !== false && $decoded !== '') ? $decoded : $raw;
-        if ($pk !== '' && ctype_digit((string)$pk)) {
+        $pk = $this->decodeId($id);
+        if ($pk !== null) {
             $newStatus = ((int)$status === 1) ? 1 : 0;
             CsUserBalance::where('id', (int)$pk)->update(['status' => $newStatus]);
         }
@@ -181,16 +179,14 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_relatedpayments
      */
-    public function admin_relatedpayments($id = null)
+    public function relatedpayments($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $raw = (string)$id;
-        $decoded = base64_decode($raw, true);
-        $pk = ($decoded !== false && $decoded !== '') ? $decoded : $raw;
-        if ($pk === '' || !ctype_digit((string)$pk)) {
+        $pk = $this->decodeId($id);
+        if ($pk === null) {
             return redirect('/admin/customer_balances/index')->with('error', 'Sorry, wrong attempt');
         }
 
@@ -229,19 +225,16 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_subscription
      */
-    public function admin_subscription(Request $request, $userid = null)
+    public function subscription(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $raw = (string)$userid;
-        $decoded = base64_decode($raw, true);
-        $uid = ($decoded !== false && $decoded !== '') ? $decoded : $raw;
-        if ($uid === '' || !ctype_digit((string)$uid)) {
+        $userId = $this->decodeId($userid);
+        if ($userId === null) {
             return redirect('/admin/customer_balances/index')->with('error', 'Invalid user.');
         }
-        $userId = (int)$uid;
 
         if ($request->has('Record.limit')) {
             $lim = (int)$request->input('Record.limit');
@@ -304,29 +297,18 @@ class CustomerBalancesController extends LegacyAppController
      *
      * @return \Illuminate\Http\RedirectResponse|\Illuminate\Contracts\View\View
      */
-    public function admin_addsubscription(Request $request, $userid = null, $id = '')
+    public function addsubscription(Request $request, $userid = null, $id = '')
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $rawUser = (string)$userid;
-        $decodedUser = base64_decode($rawUser, true);
-        $userKey = ($decodedUser !== false && $decodedUser !== '') ? $decodedUser : $rawUser;
-        if ($userKey === '' || !ctype_digit((string)$userKey)) {
+        $userId = $this->decodeId($userid);
+        if ($userId === null) {
             return redirect('/admin/users/index')->with('error', 'Sorry, please choose customer again');
         }
-        $userId = (int)$userKey;
 
-        $rawBal = (string)$id;
-        $balancePk = null;
-        if ($rawBal !== '') {
-            $decodedBal = base64_decode($rawBal, true);
-            $bid = ($decodedBal !== false && $decodedBal !== '') ? $decodedBal : $rawBal;
-            if ($bid !== '' && ctype_digit((string)$bid)) {
-                $balancePk = (int)$bid;
-            }
-        }
+        $balancePk = $this->decodeId($id);
 
         $balanceTypes = self::subscriptionBalanceTypes();
         $weekdays = self::weekdays();
@@ -433,7 +415,7 @@ class CustomerBalancesController extends LegacyAppController
     /**
      * Cake CustomerBalancesController::admin_add
      */
-    public function admin_add(Request $request, $id = null)
+    public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -442,11 +424,7 @@ class CustomerBalancesController extends LegacyAppController
         $balanceTypes = self::balanceTypes();
         $weekdays = self::weekdays();
 
-        $rawPath = $id !== null ? (string)$id : '';
-        $decodedId = $rawPath !== '' ? base64_decode($rawPath, true) : false;
-        $balancePk = ($decodedId !== false && $decodedId !== '' && ctype_digit((string)$decodedId))
-            ? (int)$decodedId
-            : null;
+        $balancePk = $this->decodeId($id);
 
         if ($request->isMethod('POST')) {
             return $this->processAdminAddPost($request, $balanceTypes);
@@ -507,10 +485,9 @@ class CustomerBalancesController extends LegacyAppController
                     $credit = $credit + $bal;
                 }
 
-                $oldBalance = (float)($model->balance ?: 0);
                 $model->note = $note;
                 $model->credit = $credit;
-                $model->balance = (($oldBalance - $bal) > 0 ? 0 : $bal);
+                $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
                 $model->debit = $debit;
                 $model->type = (int)$type;
                 $model->chargetype = isset($row['chargetype']) ? (string)$row['chargetype'] : 'lumpsum';
@@ -566,9 +543,8 @@ class CustomerBalancesController extends LegacyAppController
                     $debit = $debit + $bal;
                 }
 
-                $oldBalance = (float)($model->balance ?: 0);
                 $model->debit = $debit;
-                $model->balance = (($oldBalance - $bal) > 0 ? 0 : $bal);
+                $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
                 $model->credit = $credit;
 
                 $uidForLog = (int)($model->user_id ?: ($row['user_id'] ?? 0));
