@@ -1,4 +1,3 @@
-{{-- Port of Cake `app/View/Layouts/admin.ctp` — admin / cloud back-office shell. --}}
 <!DOCTYPE html>
 <html>
 <head>
