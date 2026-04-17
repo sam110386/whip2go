@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Vehicle Offers')
 
@@ -14,40 +14,46 @@
             </select>
         </label>
     </form>
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <thead>
-            <tr style="border-bottom:2px solid #ccc; text-align:left;">
-                <th style="padding:6px;">ID</th>
-                <th style="padding:6px;">Vehicle</th>
-                <th style="padding:6px;">Dealer</th>
-                <th style="padding:6px;">Renter</th>
-                <th style="padding:6px;">Price</th>
-                <th style="padding:6px;">Status</th>
-                <th style="padding:6px;">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($offers as $o)
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px;">{{ $o->id }}</td>
-                    <td style="padding:6px;">{{ $o->vehicle_unique_id }} - {{ $o->vehicle_name }}</td>
-                    <td style="padding:6px;">{{ trim(($o->owner_first_name ?? '') . ' ' . ($o->owner_last_name ?? '')) }}</td>
-                    <td style="padding:6px;">{{ trim(($o->renter_first_name ?? '') . ' ' . ($o->renter_last_name ?? '')) }}</td>
-                    <td style="padding:6px;">{{ number_format((float)($o->offer_price ?? 0), 2) }}</td>
-                    <td style="padding:6px;">{{ $o->status }}</td>
-                    <td style="padding:6px;">
-                        <a href="{{ $basePath }}/view/{{ base64_encode((string)$o->id) }}">View</a> ·
-                        <a href="{{ $basePath }}/add/{{ base64_encode((string)$o->id) }}">Edit</a> ·
-                        <a href="{{ $basePath }}/duplicate/{{ base64_encode((string)$o->id) }}">Duplicate</a> ·
-                        <a href="{{ $basePath }}/cancel/{{ base64_encode((string)$o->id) }}">Cancel</a> ·
-                        <a href="{{ $basePath }}/delete/{{ base64_encode((string)$o->id) }}" onclick="return confirm('Delete this offer?')">Delete</a>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="7" style="padding:10px;">No offers found.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-    {{ $offers->links() }}
+    <div class="panel panel-flat">
+        <div class="table-responsive">
+            <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
+                <thead>
+                    <tr>
+                        @include('partials.dispacher.sortable_header', ['columns' => [
+                            ['field' => 'id', 'title' => 'ID'],
+                            ['field' => 'vehicle_name', 'title' => 'Vehicle'],
+                            ['field' => 'owner_first_name', 'title' => 'Dealer'],
+                            ['field' => 'renter_first_name', 'title' => 'Renter'],
+                            ['field' => 'offer_price', 'title' => 'Price'],
+                            ['field' => 'status', 'title' => 'Status'],
+                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                        ]])
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($offers as $o)
+                        <tr>
+                            <td>{{ $o->id }}</td>
+                            <td>{{ $o->vehicle_unique_id }} - {{ $o->vehicle_name }}</td>
+                            <td>{{ trim(($o->owner_first_name ?? '') . ' ' . ($o->owner_last_name ?? '')) }}</td>
+                            <td>{{ trim(($o->renter_first_name ?? '') . ' ' . ($o->renter_last_name ?? '')) }}</td>
+                            <td>{{ number_format((float)($o->offer_price ?? 0), 2) }}</td>
+                            <td>{{ $o->status }}</td>
+                            <td>
+                                <a href="{{ $basePath }}/view/{{ base64_encode((string)$o->id) }}" title="View"><i class="icon-clipboard3"></i></a>
+                                <a href="{{ $basePath }}/add/{{ base64_encode((string)$o->id) }}" title="Edit"><i class="icon-pencil"></i></a>
+                                <a href="{{ $basePath }}/duplicate/{{ base64_encode((string)$o->id) }}" title="Duplicate"><i class="icon-copy3"></i></a>
+                                <a href="{{ $basePath }}/cancel/{{ base64_encode((string)$o->id) }}" title="Cancel"><i class="icon-cross2"></i></a>
+                                <a href="{{ $basePath }}/delete/{{ base64_encode((string)$o->id) }}" onclick="return confirm('Delete this offer?')" title="Delete"><i class="icon-trash"></i></a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" align="center">No offers found.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+    @include('partials.dispacher.paging_box', ['paginator' => $offers, 'limit' => $limit ?? 50])
 @endsection
 

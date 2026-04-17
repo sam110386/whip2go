@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', $title_for_layout ?? 'Metro Export')
 
@@ -37,67 +37,59 @@
                 </div>
             </form>
             <div class="row">&nbsp;</div>
-            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-                <tr>
-                    <th valign="top" width="5%">#</th>
-                    <th valign="top">File</th>
-                    <th valign="top">Status</th>
-                    <th valign="top" width="15%">Actions</th>
-                </tr>
-                @if($exports !== null && $exports->count() > 0)
-                    @foreach($exports as $export)
+            <div class="table-responsive">
+                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+                    <thead>
                         <tr>
-                            <td valign="top">{{ $export->id }}</td>
-                            <td valign="top">{{ $export->filename }}</td>
-                            <td valign="top">
-                                @if(property_exists($export, 'status') && $export->status !== null && $export->status !== '')
-                                    @if((string) $export->status === '0' || (int) $export->status === 0)
-                                        Queued
-                                    @elseif((string) $export->status === '1' || (int) $export->status === 1)
-                                        Processing
-                                    @elseif((string) $export->status === '2' || (int) $export->status === 2)
-                                        <a href="{{ $basePath }}/download/{{ rawurlencode($export->filename) }}">Download</a>
-                                    @else
-                                        —
-                                    @endif
-                                @else
-                                    <a href="{{ $basePath }}/download/{{ rawurlencode($export->filename) }}">Download</a>
-                                @endif
-                            </td>
-                            <td class="action"></td>
+                            @include('partials.dispacher.sortable_header', ['columns' => [
+                                ['field' => 'id', 'title' => '#', 'style' => 'width: 5%;'],
+                                ['field' => 'filename', 'title' => 'File'],
+                                ['field' => 'status', 'title' => 'Status'],
+                                ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
+                            ]])
                         </tr>
-                    @endforeach
-                    <tr><td height="6" colspan="4"></td></tr>
-                @else
-                    <tr>
-                        <td colspan="4" align="center">
-                            @if($exports === null)
-                                Metro exports table is not available.
-                            @else
-                                No record found
-                            @endif
-                        </td>
-                    </tr>
-                @endif
-            </table>
-            @if($exports !== null && $exports->total() > 0)
-                <section class="pagging" style="margin-top:12px; overflow:hidden;">
-                    <div style="width:40%; float:left;">
-                        <form name="frmRecordsPages" action="{{ $basePath }}/index" method="get">
-                            <label class="text-semibold">Show</label>
-                            <select name="Record[limit]" class="textbox pagingcls form-control" style="display:inline-block; width:auto; min-width:70px;" onchange="this.form.submit()">
-                                @foreach ([25,50,100,200] as $opt)
-                                    <option value="{{ $opt }}" @selected((int)($limit ?? 25) === $opt)>{{ $opt }}</option>
-                                @endforeach
-                            </select>
-                            <span>&nbsp;Records per page</span>
-                        </form>
-                    </div>
-                    <div class="pull-right" style="margin-top:4px;">
-                        {{ $exports->links() }}
-                    </div>
-                </section>
-            @endif
+                    </thead>
+                    <tbody>
+                        @if($exports !== null && $exports->count() > 0)
+                            @foreach($exports as $export)
+                                <tr>
+                                    <td valign="top">{{ $export->id }}</td>
+                                    <td valign="top">{{ $export->filename }}</td>
+                                    <td valign="top">
+                                        @if(property_exists($export, 'status') && $export->status !== null && $export->status !== '')
+                                            @if((string) $export->status === '0' || (int) $export->status === 0)
+                                                Queued
+                                            @elseif((string) $export->status === '1' || (int) $export->status === 1)
+                                                Processing
+                                            @elseif((string) $export->status === '2' || (int) $export->status === 2)
+                                                <a href="{{ $basePath }}/download/{{ rawurlencode($export->filename) }}">Download</a>
+                                            @else
+                                                —
+                                            @endif
+                                        @else
+                                            <a href="{{ $basePath }}/download/{{ rawurlencode($export->filename) }}">Download</a>
+                                        @endif
+                                    </td>
+                                    <td class="action"></td>
+                                </tr>
+                            @endforeach
+                            <tr><td height="6" colspan="4"></td></tr>
+                        @else
+                            <tr>
+                                <td colspan="4" align="center">
+                                    @if($exports === null)
+                                        Metro exports table is not available.
+                                    @else
+                                        No record found
+                                    @endif
+                                </td>
+                            </tr>
+                        @endif
+                    </tbody>
+                </table>
+            </div>
+            
+            @include('partials.dispacher.paging_box', ['paginator' => $exports, 'limit' => $limit ?? 25])
         </div>
     </div>
 @endsection

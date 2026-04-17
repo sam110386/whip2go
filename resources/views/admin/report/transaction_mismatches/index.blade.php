@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Transaction Mismatch - Report')
 @section('content')
 <script type="text/javascript">

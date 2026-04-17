@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Manage Users')
 
@@ -29,7 +29,7 @@
     </div>
 
     <div class="row">
-        @includeif('layouts.flash-messages')
+        @includeif('partials.flash')
     </div>
 
     <div class="panel">
@@ -104,7 +104,7 @@
             <div class="row">&nbsp;</div>
 
             <div id="listing">
-                @includeif('admin.elements.users.index')
+                @include('admin.users.elements.index')
             </div>
 
         </div>

@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('content')
 <script type="text/javascript">
     jQuery(document).ready(function() { jQuery("#frmadmin").validate(); });

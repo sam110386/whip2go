@@ -1,15 +1,17 @@
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif
 <div class="panel-flat">
-    <table width="100%" cellpadding="2" cellspacing="1"  border="0"  class="table  table-responsive">
+    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                <th style="text-align:center;">Vehicle</th>
-                <th style="text-align:center;">VIN</th>
-                <th style="text-align:center;">Last Rcorded Mile</th>
-                <th style="text-align:center;">Last Checked</th>
-                <th style="text-align:center;">Booking</th>
+                @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
+                    ['field' => 'vin_no', 'title' => 'VIN', 'style' => 'text-align:center;'],
+                    ['field' => 'last_mile', 'title' => 'Last Recorded Mile', 'style' => 'text-align:center;'],
+                    ['field' => 'modified', 'title' => 'Last Checked', 'style' => 'text-align:center;'],
+                    ['field' => 'increment_id', 'title' => 'Booking', 'style' => 'text-align:center;'],
+                ]])
             </tr>
         </thead>
         <tbody>
@@ -36,5 +38,5 @@
     </table>
 </div>
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-<div class="text-center">{{ $lists->withQueryString()->links() }}</div>
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
 @endif

@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', 'Checkr Status')
 
@@ -15,7 +15,7 @@
             </div>
         </div>
         <div class="panel-body">
-            @include('layouts.flash-messages')
+            @include('partials.flash')
             <dl class="dl-horizontal">
                 <dt>Name</dt>
                 <dd>{{ e($user->first_name ?? '') }} {{ e($user->last_name ?? '') }}</dd>

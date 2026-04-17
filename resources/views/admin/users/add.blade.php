@@ -1,10 +1,10 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 
 @section('title', $listTitle)
 
 @section('content')
     <div class="row">
-        @include('layouts.flash-messages')
+        @include('partials.flash')
     </div>
 
     <form action="{{ url('admin/users/add' . ($user?->id ? '/' . base64_encode($user?->id) : '')) }}" method="POST"

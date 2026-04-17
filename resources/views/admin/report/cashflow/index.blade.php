@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Report - Cash Flow')
 @section('content')
 <script src="{{ asset('js/report/papaparser.js') }}"></script>

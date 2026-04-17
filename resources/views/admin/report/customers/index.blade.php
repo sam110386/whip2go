@@ -1,4 +1,4 @@
-@extends('layouts.admin')
+@extends('admin.layouts.app')
 @section('title', 'Customer - Cash Flow')
 @section('content')
 <script src="{{ asset('js/select2.js') }}"></script>
