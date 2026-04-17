@@ -26,61 +26,69 @@
         <button type="submit" name="search" value="EXPORT">Export</button>
     </form>
 
-    @if (empty($listtype))
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead>
-                <tr style="border-bottom:2px solid #ccc; text-align:left;">
-                    <th style="padding:6px;">Payout#</th>
-                    <th style="padding:6px;">Dealer</th>
-                    <th style="padding:6px;">Processed on</th>
-                    <th style="padding:6px;">Amount</th>
-                    <th style="padding:6px;">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($payoutlists as $p)
-                    <tr style="border-bottom:1px solid #eee;">
-                        <td style="padding:6px;">{{ $p->id }}</td>
-                        <td style="padding:6px;">{{ $p->user_id }}</td>
-                        <td style="padding:6px;">{{ $p->processed_on }}</td>
-                        <td style="padding:6px;">{{ number_format((float)($p->amount ?? 0), 2) }}</td>
-                        <td style="padding:6px;"><button type="button" onclick="loadTransactions({{ (int)$p->id }})">Transactions</button></td>
-                    </tr>
-                @empty
-                    <tr><td colspan="5" style="padding:10px;">No payouts.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    @else
-        <table style="width:100%; border-collapse:collapse; font-size:13px;">
-            <thead>
-                <tr style="border-bottom:2px solid #ccc; text-align:left;">
-                    <th style="padding:6px;">Payout#</th>
-                    <th style="padding:6px;">Booking</th>
-                    <th style="padding:6px;">Vehicle</th>
-                    <th style="padding:6px;">Driver</th>
-                    <th style="padding:6px;">Type</th>
-                    <th style="padding:6px;">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse($payoutlists as $p)
-                    <tr style="border-bottom:1px solid #eee;">
-                        <td style="padding:6px;">{{ $p->cs_payout_id }}</td>
-                        <td style="padding:6px;">{{ $p->increment_id }}</td>
-                        <td style="padding:6px;">{{ $p->vehicle_name }}</td>
-                        <td style="padding:6px;">{{ trim(($p->renter_first_name ?? '') . ' ' . ($p->renter_last_name ?? '')) }}</td>
-                        <td style="padding:6px;">{{ $p->type }}</td>
-                        <td style="padding:6px;">{{ number_format((float)$p->amount, 2) }}</td>
-                    </tr>
-                @empty
-                    <tr><td colspan="6" style="padding:10px;">No transactions.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    @endif
+    <div class="panel panel-flat">
+        <div class="table-responsive">
+            @if (empty($listtype))
+                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
+                    <thead>
+                        <tr>
+                            @include('partials.dispacher.sortable_header', ['columns' => [
+                                ['field' => 'id', 'title' => 'Payout#'],
+                                ['field' => 'user_id', 'title' => 'Dealer'],
+                                ['field' => 'processed_on', 'title' => 'Processed on'],
+                                ['field' => 'amount', 'title' => 'Amount'],
+                                ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                            ]])
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($payoutlists as $p)
+                            <tr>
+                                <td>{{ $p->id }}</td>
+                                <td>{{ $p->user_id }}</td>
+                                <td>{{ $p->processed_on }}</td>
+                                <td>{{ number_format((float)($p->amount ?? 0), 2) }}</td>
+                                <td><button type="button" class="btn btn-default btn-xs" onclick="loadTransactions({{ (int)$p->id }})">Transactions</button></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" align="center">No payouts.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            @else
+                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
+                    <thead>
+                        <tr>
+                            @include('partials.dispacher.sortable_header', ['columns' => [
+                                ['field' => 'cs_payout_id', 'title' => 'Payout#'],
+                                ['field' => 'increment_id', 'title' => 'Booking'],
+                                ['field' => 'vehicle_name', 'title' => 'Vehicle'],
+                                ['field' => 'renter_first_name', 'title' => 'Driver'],
+                                ['field' => 'type', 'title' => 'Type'],
+                                ['field' => 'amount', 'title' => 'Amount']
+                            ]])
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($payoutlists as $p)
+                            <tr>
+                                <td>{{ $p->cs_payout_id }}</td>
+                                <td>{{ $p->increment_id }}</td>
+                                <td>{{ $p->vehicle_name }}</td>
+                                <td>{{ trim(($p->renter_first_name ?? '') . ' ' . ($p->renter_last_name ?? '')) }}</td>
+                                <td>{{ $p->type }}</td>
+                                <td>{{ number_format((float)$p->amount, 2) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" align="center">No transactions.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            @endif
+        </div>
+    </div>
 
-    {{ $payoutlists->links() }}
+    @include('partials.dispacher.paging_box', ['paginator' => $payoutlists, 'limit' => $limit ?? 50])
 
     <div id="payout-transactions-modal" style="display:none; margin-top:14px; border:1px solid #ddd; padding:10px;"></div>
     <script>

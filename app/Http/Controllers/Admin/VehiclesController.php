@@ -24,7 +24,7 @@ class VehiclesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function admin_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
@@ -110,7 +110,7 @@ class VehiclesController extends LegacyAppController
         }, 200, $headers);
     }
 
-    public function admin_add(Request $request, $vehicle_id = null)
+    public function add(Request $request, $vehicle_id = null)
     {
         if ($redirect = $this->ensureVehicleAddSession()) {
             return $redirect;
@@ -251,7 +251,7 @@ class VehiclesController extends LegacyAppController
             ->with('success', 'Vehicle data saved successfully.');
     }
 
-    public function admin_ownerautocomplete(Request $request)
+    public function ownerautocomplete(Request $request)
     {
         $term = trim((string)$request->query('term', ''));
         $userId = trim((string)$request->query('user_id', ''));
@@ -283,14 +283,14 @@ class VehiclesController extends LegacyAppController
         ])->values()->all());
     }
 
-    public function admin_loadVehicleStatus(Request $request)
+    public function loadVehicleStatus(Request $request)
     {
         $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
         $vehicle = $vehicleId ? LegacyVehicle::query()->find($vehicleId, ['id', 'status']) : null;
         return response()->json(['vehicle' => $vehicle]);
     }
 
-    public function admin_changeVehicleStatus(Request $request)
+    public function changeVehicleStatus(Request $request)
     {
         $payload = $request->input('Vehicle', []);
         $id = isset($payload['id']) ? (int)$payload['id'] : 0;
@@ -308,14 +308,14 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Vehicle has been updated successfully', 'vehicleid' => $id]);
     }
 
-    public function admin_loadSingleRow(Request $request)
+    public function loadSingleRow(Request $request)
     {
         $vehicleId = (int)$request->input('vehicleid', 0);
         $vehicle = LegacyVehicle::query()->with('owner')->whereKey($vehicleId)->first();
         return response()->json(['vehicle' => $vehicle]);
     }
 
-    public function admin_multiplAction(Request $request)
+    public function multiplAction(Request $request)
     {
         $statusAction = (string)$request->input('Vehicle.status', '');
         $selected = $request->input('select', []);
@@ -333,7 +333,7 @@ class VehiclesController extends LegacyAppController
         return redirect()->to($request->headers->get('referer') ?: '/admin/vehicles/index');
     }
 
-    public function admin_saveImage(Request $request): JsonResponse
+    public function saveImage(Request $request): JsonResponse
     {
         $vehicleId = (int)$request->input('id', 0);
         $file = $request->file('vehicleimage');
@@ -364,7 +364,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['success' => true, 'key' => (int)$img->id, 'file' => $this->vehiclePhotoUrl($name)]);
     }
 
-    public function admin_deleteImage(Request $request): JsonResponse
+    public function deleteImage(Request $request): JsonResponse
     {
         $key = (int)$request->input('key', 0);
         $img = $key > 0 ? LegacyVehicleImage::query()->find($key) : null;
@@ -383,7 +383,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['success' => true, 'key' => '']);
     }
 
-    public function admin_reorderImage(Request $request): JsonResponse
+    public function reorderImage(Request $request): JsonResponse
     {
         $stack = $request->input('stack', []);
         if (!is_array($stack)) {
@@ -399,7 +399,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['success' => true]);
     }
 
-    public function admin_getVehicleRegistration(Request $request): JsonResponse
+    public function getVehicleRegistration(Request $request): JsonResponse
     {
         $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
         if (!$vehicleId) {
@@ -420,7 +420,7 @@ class VehiclesController extends LegacyAppController
         ]);
     }
 
-    public function admin_getVehicleInspectionDoc(Request $request): JsonResponse
+    public function getVehicleInspectionDoc(Request $request): JsonResponse
     {
         $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
         if (!$vehicleId) {
@@ -441,7 +441,7 @@ class VehiclesController extends LegacyAppController
         ]);
     }
 
-    public function admin_rental_setting(Request $request, $id = null)
+    public function rental_setting(Request $request, $id = null)
     {
         $vehicleId = $this->decodeId((string)$id);
         if (!$vehicleId) {
@@ -521,7 +521,7 @@ class VehiclesController extends LegacyAppController
         ]);
     }
 
-    public function admin_duplicate(Request $request, $vehicleid = '')
+    public function duplicate(Request $request, $vehicleid = '')
     {
         $sourceId = $this->decodeId((string)$vehicleid);
         if (!$sourceId) {
@@ -594,7 +594,7 @@ class VehiclesController extends LegacyAppController
         return redirect($this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])));
     }
 
-    public function admin_checkVinDetails(Request $request): JsonResponse
+    public function checkVinDetails(Request $request): JsonResponse
     {
         $vin = strtoupper(trim((string)$request->input('vin', '')));
         if ($vin === '') {
@@ -608,7 +608,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => 'success', 'message' => 'record found', 'result' => $result]);
     }
 
-    public function admin_lastlocation(Request $request, $vehicle_id = null)
+    public function lastlocation(Request $request, $vehicle_id = null)
     {
         $vehicleId = $this->decodeId((string)$vehicle_id);
         $vehicle = $vehicleId ? LegacyVehicle::query()->find($vehicleId) : null;
@@ -619,7 +619,7 @@ class VehiclesController extends LegacyAppController
         ]);
     }
 
-    public function admin_getVehicleDynamicFare(Request $request): JsonResponse
+    public function getVehicleDynamicFare(Request $request): JsonResponse
     {
         $vehicleId = (int)$request->input('vehicleid', 0);
         $tag = (string)$request->input('tag', 'D');
@@ -631,7 +631,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => 'success', 'data' => ['estimated_fare' => $estimate], 'msg' => '']);
     }
 
-    public function admin_getvehicledetails(Request $request): JsonResponse
+    public function getvehicledetails(Request $request): JsonResponse
     {
         $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
         if (!$vehicleId) {
@@ -644,7 +644,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'vehicle' => $vehicle, 'orderid' => $this->decodeId((string)$request->input('orderid', ''))]);
     }
 
-    public function admin_updateVehicleDetails(Request $request): JsonResponse
+    public function updateVehicleDetails(Request $request): JsonResponse
     {
         if ($request->ajax() && $request->filled('pk')) {
             $pk = (int)$request->input('pk');
@@ -682,7 +682,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'message' => '']);
     }
 
-    public function admin_getVehicleGps(Request $request): JsonResponse
+    public function getVehicleGps(Request $request): JsonResponse
     {
         $vehicleId = (int)$request->input('vehicleid', 0);
         $type = (string)$request->input('type', 'gps_provider');
@@ -694,7 +694,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'message' => '', 'gps_serialno' => $serial]);
     }
 
-    public function admin_gps_setting(Request $request): JsonResponse
+    public function gps_setting(Request $request): JsonResponse
     {
         $vehicleId = $this->decodeId((string)$request->input('vehicle_id', ''));
         if (!$request->ajax() || !$vehicleId) {
@@ -713,7 +713,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'message' => '', 'html' => $html]);
     }
 
-    public function admin_save_gpssetting(Request $request): JsonResponse
+    public function save_gpssetting(Request $request): JsonResponse
     {
         if (!$request->ajax()) {
             return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
@@ -745,7 +745,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Setting saved successfully']);
     }
 
-    public function admin_delete_gpssetting(Request $request): JsonResponse
+    public function delete_gpssetting(Request $request): JsonResponse
     {
         if (!$request->ajax()) {
             return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
@@ -765,7 +765,7 @@ class VehiclesController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Setting deleted successfully']);
     }
 
-    public function admin_changePasstimeVehicleStatus(Request $request): JsonResponse
+    public function changePasstimeVehicleStatus(Request $request): JsonResponse
     {
         $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
         $status = trim((string)$request->input('status', ''));
@@ -918,20 +918,6 @@ class VehiclesController extends LegacyAppController
         $model = isset($data['model']) && $data['model'] !== '' ? str_replace(' ', '_', (string)$data['model']) : '';
         $vinTail = isset($data['vin_no']) && $data['vin_no'] !== '' ? '-' . substr((string)$data['vin_no'], -6) : '';
         return $year . $make . $model . $vinTail;
-    }
-
-    private function decodeId(?string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if (is_string($id) && $id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-        return null;
     }
 
     private function normalizeAmountOptions($input): array

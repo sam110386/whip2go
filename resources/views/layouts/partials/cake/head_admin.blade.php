@@ -1,9 +1,11 @@
 {{-- Port of Cake `app/View/Layouts/admin.ctp` head. --}}
 <script type="text/javascript">
-    var SITE_URL = @json(rtrim(legacy_site_url(), '/').'/');
+    var SITE_URL = @json(rtrim(legacy_site_url(), '/') . '/');
 </script>
+
 <meta charset="utf-8">
 <title>@yield('title', $title_for_layout ?? 'Admin')</title>
+
 <link href="https://fonts.googleapis.com/css?family=Roboto:400,300,100,500,700,900" rel="stylesheet" type="text/css">
 <script src="{{ legacy_asset('js/assets/js/plugins/loaders/pace.min.js') }}"></script>
 <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>

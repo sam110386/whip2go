@@ -8,7 +8,7 @@ class HomesController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    public function cloud_dashboard()
+    public function dashboard()
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;

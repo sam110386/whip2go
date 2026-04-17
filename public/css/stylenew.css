@@ -1,0 +1,217 @@
+@font-face{
+	font-family: Montserrat-Regular;
+	src: url('../fonts/Montserrat-Regular_0.ttf')  format('truetype');
+}
+@font-face{
+	font-family: Montserrat-Light;
+	src: url('../fonts/Montserrat-Light.ttf')  format('truetype');
+}
+@font-face{
+	font-family: Montserrat-Bold;
+	src: url('../fonts/Montserrat-Bold_0.ttf')  format('truetype');
+}
+@font-face{
+	font-family: Montserrat-SemiBold;
+	src: url('../fonts/Montserrat-SemiBold.ttf')  format('truetype');
+}
+@font-face{
+	font-family: Montserrat-ExtraBold;
+	src: url('../fonts/Montserrat-ExtraBold.ttf')  format('truetype');
+}
+@font-face{
+	font-family: OpenSans-Regular;
+	src: url('../fonts/OpenSans-Regular.ttf')  format('truetype');
+}
+/*Global*/
+html,body{font-family: "Montserrat-Light"; font-size: 1em;}
+
+
+/*Text Colors Start*/
+.text-caribbean-green{color: #07BBAA;}
+.text-white{color: #FFF;}
+/*Text Colors End*/
+
+/* Background Colors Start */
+.bg-white{background: #FFF;}
+/* Background Colors End */
+
+/* Common Classes */
+.no-pad{padding: 0;}
+.no-pad-left{padding-left: 0;}
+.no-pad-right{padding-right: 0;}
+/* Common Classes End*/
+
+
+nav.navbar{border: none;}
+.navbar-brand{padding-top: 0;padding-bottom: 0;height: auto;}
+.navbar-default .navbar-nav > li > a {font-size: 11px;font-family: "Montserrat-Light";color: #fff;}
+
+.home-banner{background: url("../img/home-banner.jpg") rgba(0,0,0,0.8) no-repeat;background-position: center top;background-size: 100% auto;}
+.main-container{min-height: 400px;}
+.navbar-brand > img{height: auto;margin-top: unset;}
+@media(min-width: 769px){
+	nav.navbar{
+		background: transparent;;
+	}
+	nav.navbar.nav-dark{background: rgba(0,0,0,0.8);}
+	.navbar-default .navbar-nav > li > a {
+		padding-top: 40px;
+		padding-bottom: 40px;
+	}
+	.navbar-default .nav > li > a:hover, .navbar-default .nav > li > a:focus{background: transparent; color:#07BBAA; }
+}
+@media(min-width: 320px){
+	.banner-content{padding: 15% 5% 30%; color: #FFF; text-align: center;}
+	.banner-content > h1{font-family: "Montserrat-ExtraBold"; font-size: 45px;}
+	.banner-content > h1 > span{color: #07BBAA;}
+	.banner-content > p{font-family: "Montserrat-Light"; font-size: 14px;}
+	.home-banner form {margin-bottom: 150px;}
+	.home-banner form .form-group{margin-bottom: 10px;}
+	.home-banner form label.control-label {
+		color: #0da193;
+		font-size: 10px;
+		text-transform: uppercase;
+		width: 100%;
+		font-family: "Montserrat-Bold";
+		margin-bottom: 0;
+	}
+	.home-banner form .form-control{width: 100%;width: 100%;padding: 0;border: none;box-shadow: none; font-size: 10px; font-family: "OpenSans-Regular"; color: #000; height: auto;}
+	.home-banner .form-group .bootstrap-select.btn-group{float: left;}
+	.home-banner .bootstrap-select > button.dropdown-toggle{padding: 0;border: none;box-shadow: none;background: none;margin: 0;font-size: 10px;font-family: OpenSans-Regular;}
+	.home-banner .bootstrap-select > button.dropdown-toggle:focus,.home-banner .bootstrap-select > button.dropdown-toggle:active{outline: none !important;}
+	.home-banner form .form-control:focus{box-shadow: none;}
+	.home-banner form input::placeholder{color:#000;}
+	.home-banner form button[type=submit]{background: #07bbaa; color:#fff; font-family: "Montserrat-Bold"; font-size: 12px; width: 100%; border-radius: 0; border:none; text-transform: uppercase;padding: 16px;}
+
+	#how-it-works,#download,#get-start{padding-top: 75px; padding-bottom: 75px;background: #f9f9f9;}
+
+	.section-title{margin-bottom: 75px;}
+	.section-title > h2{font-size: 25px;color: #133f61;font-family: "Montserrat-Light";}
+	.section-title > h2 > strong{font-family: "Montserrat-Bold";font-weight: normal;}
+	.section-title > p{ font-size: 14px; font-family: "Montserrat-Regular"; color: #07BBAA; }
+
+	.how-it-works-list-item {
+		padding: 30px;
+		border-radius: 50%;
+		border: 1px solid #e9e9e9;
+		min-height: 250px;
+		min-width: 250px;
+	}
+	.how-it-works-list-item > img {
+		max-height: 60px;
+	}
+	.how-it-works-list-item > h3{font-family: Montserrat-Bold;
+		font-size: 12px;
+		color: #000;
+	}
+	.how-it-works-list-item > p{
+		font-size: 12px;
+		color: #999999;
+		font-family: OpenSans-Regular;
+	}
+	.download-link{margin-top:50px;}
+	.download-link a {margin: 20px ;display: inline-block;}
+	#get-start{background: #07BBAA; color: #FFFFFF;}
+	#get-start p{font-size: 13px; font-family: "OpenSans-Regular"; padding-right: 50px;}
+	#get-start p > small{font-size: 11px; font-family: "Montserrat-Bold";}
+	#get-start h3{font-size: 35px; font-family: "Montserrat-SemiBold";}
+	#get-start a.btn,#get-start a.btn:hover{background: transparent;border-color: #FFF;margin-top: 50px;}
+	#footer{background: #133f61;color: #708294; font-size: 9px; font-family: "OpenSans-Regular"; padding: 30px 0 60px;}
+	.social-links {
+		padding: 0 15%;
+		width: 100%;
+		float: left;
+		margin-top: 20px;
+		margin-bottom: 50px;
+		text-align: center;
+	}
+	#footer ul.social-links li {width: 25%;display: inline-block; float: left;}
+	#footer .social-links a{color: #FFFFFF; font-family: "Montserrat-Regular"; font-size: 10px; text-transform: uppercase;}
+}
+@media(max-width: 768px){
+	.home-banner{margin-top: 100px; padding-bottom: 50px;}
+	.home-banner .banner-content{padding:10px; }
+	nav.navbar-fixed-top{background: #000;}
+	.navbar-collapse{border: none;box-shadow: none;}
+	.navbar-brand{padding-bottom: 10px;}
+	.navbar-default .navbar-toggle{border-color: #07BBAA; margin-top: 25px;}
+	.navbar-default .navbar-toggle .icon-bar {background-color: #07BBAA;}
+	.navbar-default .navbar-toggle:active,.navbar-default .navbar-toggle:hover, .navbar-default .navbar-toggle:focus{background-color: #07BBAA;border-color: #FFF;}
+	.navbar-default .navbar-toggle:active .icon-bar,.navbar-default .navbar-toggle:hover .icon-bar, .navbar-default .navbar-toggle:focus .icon-bar{background-color: #fff;}
+	.navbar-default .navbar-nav > li > a:hover, .navbar-default .navbar-nav > li > a:focus{background: #07BBAA; color: #fff;}
+	#how-it-works, #download, #get-start {padding-top: 30px;padding-bottom: 30px;}
+	.section-title{margin-bottom: 50px;}
+	.how-it-works-list-item{max-width: 250px;margin: 15px auto;}
+	#get-start .get-start-content {max-width: 80%;margin: 0 auto;}
+	.social-links{padding: 0 5%;}
+	#get-start h3 {margin: 0;}
+	#get-start a.btn{margin-top: 10px; margin-bottom: 30px;}
+}
+@media(min-width: 769px) and (max-width: 1024px){
+	.home-banner{padding-bottom: 50px;}
+}
+
+
+/* Vehicle Subscription Start */
+#vehicle-subscription{padding-top: 75px; padding-bottom: 75px;background: #FFFFFF;}
+.vehicle-subscription-box{border: 1px solid #e9e9e9;padding: 20px; position: relative;font-family: "Montserrat-Bold";min-height: 600px; margin-bottom: 30px}
+.vehicle-subscription-box span.count{position: absolute;
+color: #FFFFFF;
+background: #07bbaa;
+top: -20px;
+left: 39%;
+text-align: center;
+padding: 5px 0;
+width: 45px;
+border-radius: 50%;
+font-size: 22px;}
+.vehicle-subscription-box h3{font-size: 12px;color: #133f61;}
+
+  
+/* CSS for Credit Card Payment form */
+.credit-card-box .panel-title {
+    display: inline;
+    font-weight: bold;
+}
+.credit-card-box .form-control.error {
+    border-color: red;
+    outline: 0;
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.075),0 0 8px rgba(255,0,0,0.6);
+}
+.credit-card-box label.error {
+  font-weight: bold;
+  color: red;
+  padding: 2px 8px;
+  margin-top: 2px;
+}
+.credit-card-box .payment-errors {
+  font-weight: bold;
+  color: red;
+  padding: 2px 8px;
+  margin-top: 2px;
+}
+.credit-card-box label {
+    display: block;
+}
+/* The old "center div vertically" hack */
+.credit-card-box .display-table {
+    display: table;
+}
+.credit-card-box .display-tr {
+    display: table-row;
+}
+.credit-card-box .display-td {
+    display: table-cell;
+    vertical-align: middle;
+    width: 50%;
+}
+/* Just looks nicer */
+.credit-card-box .panel-heading img {
+    min-width: 180px;
+}
+
+.nav-tabs {
+    border-bottom: 1px solid #07BBAA;
+}
+.nav-tabs > li > a{text-transform: uppercase;font-weight: bold;}
+.nav-tabs > li.active > a, .nav-tabs > li.active > a:hover, .nav-tabs > li.active > a:focus{background-color: #07BBAA;border: 1px solid #07BBAA;color: #fff;}

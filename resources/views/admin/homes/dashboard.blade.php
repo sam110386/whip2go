@@ -3,32 +3,25 @@
 @section('title', 'Admin Dashboard')
 
 @section('content')
-    <h1>Admin Dashboard</h1>
-
-    @php
-        $admin = session('SESSION_ADMIN');
-        $name = is_array($admin) ? ($admin['first_name'] ?? '') . ' ' . ($admin['last_name'] ?? '') : '';
-        $adminModules = $adminModules ?? [];
-    @endphp
-
-    <div style="margin: 10px 0;">
-        <strong>Signed in:</strong> {{ trim($name) ?: 'unknown' }}
-    </div>
-
-    <h2>Menu Modules (debug)</h2>
-    @if(is_array($adminModules) && count($adminModules))
-        <ul>
-            @foreach($adminModules as $m)
-                <li>
-                    {{ $m['module'] ?? '' }}
-                    @if(!empty($m['module_url']))
-                        - <code>{{ $m['module_url'] }}</code>
-                    @endif
-                </li>
-            @endforeach
-        </ul>
-    @else
-        <div>No admin modules loaded (yet).</div>
-    @endif
+    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0">
+        <tr class="adminBoxHeading reportListingHeading">
+            <td class="adminGridHeading heading">
+                {{ 'Dashboard' }}
+            </td>
+        </tr>
+        <tr>
+            <td align="left">
+                <table>
+                    <tr>
+                        <td valign="bottom">
+                            <img src="{{ asset('img/arrow.gif') }}" border="0" />
+                        </td>
+                        <td valign="top" class="heading-text" style="padding-top:10px;">
+                            {{ 'Welcome to Admin Panel' }}
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 @endsection
-

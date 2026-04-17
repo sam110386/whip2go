@@ -12,7 +12,7 @@ class AdminsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = false;
 
-    public function cloud_logout(Request $request)
+    public function logout(Request $request)
     {
         return $this->performSessionLogout('/admin/admins/login');
     }

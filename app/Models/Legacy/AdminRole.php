@@ -10,9 +10,16 @@ class AdminRole extends LegacyModel
 {
     protected $table = 'admin_roles';
 
-    protected $casts = [
-        'id' => 'integer',
-        'parent_id' => 'integer',
+    protected $fillable = [
+        'name',
+        'parent_id',
+        'slug',
+        'created_at',
+        'updated_at',
+    ];
+    protected $hidden = [];
+    protected $guarded = [
+        'id',
     ];
 
     public function parent(): BelongsTo

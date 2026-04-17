@@ -36,83 +36,83 @@ class VehiclesController extends AdminVehiclesController
         return '/cloud/linked_vehicles/index';
     }
 
-    public function cloud_add(Request $request, $vehicle_id = null)
+    public function add(Request $request, $vehicle_id = null)
     {
-        return $this->admin_add($request, $vehicle_id);
+        return parent::add($request, $vehicle_id);
     }
 
-    public function cloud_rental_setting(Request $request, $id = null)
+    public function rental_setting(Request $request, $id = null)
     {
-        return $this->admin_rental_setting($request, $id);
+        return parent::rental_setting($request, $id);
     }
 
-    public function cloud_duplicate(Request $request, $vehicleid = '')
+    public function duplicate(Request $request, $vehicleid = '')
     {
-        return $this->admin_duplicate($request, $vehicleid);
+        return parent::duplicate($request, $vehicleid);
     }
 
-    public function cloud_lastlocation(Request $request, $vehicle_id = null)
+    public function lastlocation(Request $request, $vehicle_id = null)
     {
-        return $this->admin_lastlocation($request, $vehicle_id);
+        return parent::lastlocation($request, $vehicle_id);
     }
 
-    public function cloud_saveImage(Request $request)
+    public function saveImage(Request $request)
     {
-        return $this->admin_saveImage($request);
+        return parent::saveImage($request);
     }
 
-    public function cloud_deleteImage(Request $request)
+    public function deleteImage(Request $request)
     {
-        return $this->admin_deleteImage($request);
+        return parent::deleteImage($request);
     }
 
-    public function cloud_reorderImage(Request $request)
+    public function reorderImage(Request $request)
     {
-        return $this->admin_reorderImage($request);
+        return parent::reorderImage($request);
     }
 
-    public function cloud_getVehicleRegistration(Request $request)
+    public function getVehicleRegistration(Request $request)
     {
-        return $this->admin_getVehicleRegistration($request);
+        return parent::getVehicleRegistration($request);
     }
 
-    public function cloud_getVehicleInspectionDoc(Request $request)
+    public function getVehicleInspectionDoc(Request $request)
     {
-        return $this->admin_getVehicleInspectionDoc($request);
+        return parent::getVehicleInspectionDoc($request);
     }
 
-    public function cloud_getvehicledetails(Request $request)
+    public function getvehicledetails(Request $request)
     {
-        return $this->admin_getvehicledetails($request);
+        return parent::getvehicledetails($request);
     }
 
-    public function cloud_updateVehicleDetails(Request $request)
+    public function updateVehicleDetails(Request $request)
     {
-        return $this->admin_updateVehicleDetails($request);
+        return parent::updateVehicleDetails($request);
     }
 
-    public function cloud_getVehicleGps(Request $request)
+    public function getVehicleGps(Request $request)
     {
-        return $this->admin_getVehicleGps($request);
+        return parent::getVehicleGps($request);
     }
 
-    public function cloud_gps_setting(Request $request)
+    public function gps_setting(Request $request)
     {
-        return $this->admin_gps_setting($request);
+        return parent::gps_setting($request);
     }
 
-    public function cloud_save_gpssetting(Request $request)
+    public function save_gpssetting(Request $request)
     {
-        return $this->admin_save_gpssetting($request);
+        return parent::save_gpssetting($request);
     }
 
-    public function cloud_delete_gpssetting(Request $request)
+    public function delete_gpssetting(Request $request)
     {
-        return $this->admin_delete_gpssetting($request);
+        return parent::delete_gpssetting($request);
     }
 
-    public function cloud_changePasstimeVehicleStatus(Request $request)
+    public function changePasstimeVehicleStatus(Request $request)
     {
-        return $this->admin_changePasstimeVehicleStatus($request);
+        return parent::changePasstimeVehicleStatus($request);
     }
 }

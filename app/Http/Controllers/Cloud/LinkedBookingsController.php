@@ -16,7 +16,7 @@ class LinkedBookingsController extends LegacyAppController
 
     protected bool $shouldLoadLegacyModules = true;
 
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -34,13 +34,13 @@ class LinkedBookingsController extends LegacyAppController
             ->withQueryString();
 
         if ($request->ajax()) {
-            return response()->view('admin.linked_bookings.booking_table', ['trips' => $trips]);
+            return response()->view('cloud.linked_bookings.booking_table', ['trips' => $trips]);
         }
 
-        return view('admin.linked_bookings.index', ['trips' => $trips]);
+        return view('cloud.linked_bookings.index', ['trips' => $trips]);
     }
 
-    public function cloud_load_single_row(Request $request)
+    public function load_single_row(Request $request)
     {
         $id = $this->decodeId((string)$request->input('orderid', ''));
         if (!$id) {
@@ -55,10 +55,10 @@ class LinkedBookingsController extends LegacyAppController
             return response('Order not found', 404);
         }
 
-        return response()->view('admin.linked_bookings._single_row', ['trip' => $trip]);
+        return response()->view('cloud.linked_bookings._single_row', ['trip' => $trip]);
     }
 
-    public function cloud_getVehicle(Request $request): JsonResponse
+    public function getVehicle(Request $request): JsonResponse
     {
         $q = LegacyVehicle::query()
             ->where('status', 1)
@@ -103,45 +103,45 @@ class LinkedBookingsController extends LegacyAppController
         return response()->json($out);
     }
 
-    public function cloud_customerautocomplete(Request $request): JsonResponse
+    public function customerautocomplete(Request $request): JsonResponse
     {
         return $this->respondCustomerAutocomplete($request, 'cloud');
     }
 
-    public function cloud_startBooking(Request $request): JsonResponse
+    public function startBooking(Request $request): JsonResponse
     {
         return $this->changeOrderStatus($request, 1, 'Your request processed successfully.');
     }
 
-    public function cloud_loadcancelBooking(Request $request)
+    public function loadcancelBooking(Request $request)
     {
-        return response()->view('admin.bookings._cancel_popup', ['orderid' => (string)$request->input('orderid', ''), 'cancellation_fee' => 0]);
+        return response()->view('cloud.bookings._cancel_popup', ['orderid' => (string)$request->input('orderid', ''), 'cancellation_fee' => 0]);
     }
 
-    public function cloud_cancelBooking(Request $request): JsonResponse
+    public function cancelBooking(Request $request): JsonResponse
     {
         return $this->changeOrderStatus($request, 2, 'Your booking canceled successfully.', true);
     }
 
-    public function cloud_loadcompleteBooking(Request $request)
+    public function loadcompleteBooking(Request $request)
     {
-        return response()->view('admin.bookings._complete_popup', ['trip' => (object)['id' => $request->input('orderid'), 'status' => 1, 'vehicle_name' => '']]);
+        return response()->view('cloud.bookings._complete_popup', ['trip' => (object)['id' => $request->input('orderid'), 'status' => 1, 'vehicle_name' => '']]);
     }
 
-    public function cloud_completeBooking(Request $request): JsonResponse
+    public function completeBooking(Request $request): JsonResponse
     {
         return $this->changeOrderStatus($request, 3, 'Booking completed successfully.', true);
     }
 
-    public function cloud_getinsurancetoken(Request $request): JsonResponse { return response()->json(['status' => true, 'token' => sha1((string)microtime(true))]); }
-    public function cloud_retryinsurancefee(Request $request): JsonResponse { return $this->simpleOk('Insurance fee retry queued'); }
-    public function cloud_retryinitialfee(Request $request): JsonResponse { return $this->simpleOk('Initial fee retry queued'); }
-    public function cloud_retrydepositfee(Request $request): JsonResponse { return $this->simpleOk('Deposit retry queued'); }
-    public function cloud_retryrentalfee(Request $request): JsonResponse { return $this->simpleOk('Rental retry queued'); }
-    public function cloud_retryemf(Request $request): JsonResponse { return $this->simpleOk('EMF retry queued'); }
-    public function cloud_retrytollfee(Request $request): JsonResponse { return $this->simpleOk('Toll retry queued'); }
+    public function getinsurancetoken(Request $request): JsonResponse { return response()->json(['status' => true, 'token' => sha1((string)microtime(true))]); }
+    public function retryinsurancefee(Request $request): JsonResponse { return $this->simpleOk('Insurance fee retry queued'); }
+    public function retryinitialfee(Request $request): JsonResponse { return $this->simpleOk('Initial fee retry queued'); }
+    public function retrydepositfee(Request $request): JsonResponse { return $this->simpleOk('Deposit retry queued'); }
+    public function retryrentalfee(Request $request): JsonResponse { return $this->simpleOk('Rental retry queued'); }
+    public function retryemf(Request $request): JsonResponse { return $this->simpleOk('EMF retry queued'); }
+    public function retrytollfee(Request $request): JsonResponse { return $this->simpleOk('Toll retry queued'); }
 
-    public function cloud_edit($id)
+    public function edit($id)
     {
         $orderId = $this->decodeId((string)$id);
         if (!$orderId) {
@@ -152,10 +152,10 @@ class LinkedBookingsController extends LegacyAppController
             return redirect('/cloud/linked_bookings/index');
         }
 
-        return view('admin.bookings.edit', ['order' => $order]);
+        return view('cloud.bookings.edit', ['order' => $order]);
     }
 
-    public function cloud_editsave(Request $request)
+    public function editsave(Request $request)
     {
         $id = (int)$request->input('CsOrder.id', 0);
         if ($id > 0) {
@@ -173,15 +173,15 @@ class LinkedBookingsController extends LegacyAppController
         return redirect('/cloud/linked_bookings/index')->with('success', 'Booking updated');
     }
 
-    public function cloud_getagreement(Request $request): JsonResponse { return response()->json(['status' => true, 'file' => null]); }
-    public function cloud_loadvehicleexpiretime(Request $request) { return response()->view('admin.bookings._vehicle_expiretime', ['orderid' => (string)$request->input('orderid', '')]); }
-    public function cloud_processvehicleexpiretime(Request $request): JsonResponse { return $this->simpleOk('Vehicle expiry updated successfully'); }
-    public function cloud_getinsurancepopup(Request $request) { return response()->view('admin.bookings._insurance_popup', ['orderid' => (string)$request->input('orderid', '')]); }
-    public function cloud_loadvehiclegps(Request $request) { return response()->view('admin.bookings._vehicle_gps', ['orderid' => (string)$request->input('orderid', '')]); }
-    public function cloud_updatevehiclegps(Request $request): JsonResponse { return $this->simpleOk('GPS updated'); }
-    public function cloud_updatestartodometer(Request $request): JsonResponse { return $this->simpleOk('Start odometer updated'); }
+    public function getagreement(Request $request): JsonResponse { return response()->json(['status' => true, 'file' => null]); }
+    public function loadvehicleexpiretime(Request $request) { return response()->view('cloud.bookings._vehicle_expiretime', ['orderid' => (string)$request->input('orderid', '')]); }
+    public function processvehicleexpiretime(Request $request): JsonResponse { return $this->simpleOk('Vehicle expiry updated successfully'); }
+    public function getinsurancepopup(Request $request) { return response()->view('cloud.bookings._insurance_popup', ['orderid' => (string)$request->input('orderid', '')]); }
+    public function loadvehiclegps(Request $request) { return response()->view('cloud.bookings._vehicle_gps', ['orderid' => (string)$request->input('orderid', '')]); }
+    public function updatevehiclegps(Request $request): JsonResponse { return $this->simpleOk('GPS updated'); }
+    public function updatestartodometer(Request $request): JsonResponse { return $this->simpleOk('Start odometer updated'); }
 
-    public function cloud_overdue(Request $request)
+    public function overdue(Request $request)
     {
         $admin = $this->getAdminUserid();
         $dealerIds = $this->dealerIdsFromAdmin((int)($admin['parent_id'] ?? 0));
@@ -192,7 +192,7 @@ class LinkedBookingsController extends LegacyAppController
             ->paginate(100)
             ->withQueryString();
 
-        return view('admin.linked_bookings.index', ['trips' => $trips]);
+        return view('cloud.linked_bookings.index', ['trips' => $trips]);
     }
 
     private function queryTrips(array $dealerIds, array $statuses)
@@ -225,21 +225,6 @@ class LinkedBookingsController extends LegacyAppController
             ->filter(static fn ($id) => $id > 0)
             ->values()
             ->all();
-    }
-
-    private function decodeId(string $id): ?int
-    {
-        if (is_numeric($id)) {
-            return (int)$id;
-        }
-        if ($id !== '') {
-            $decoded = base64_decode($id, true);
-            if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
-            }
-        }
-
-        return null;
     }
 
     private function changeOrderStatus(Request $request, int $status, string $message, bool $releaseVehicle = false): JsonResponse

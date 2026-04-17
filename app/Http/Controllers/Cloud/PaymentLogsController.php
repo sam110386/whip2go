@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class PaymentLogsController extends AdminPaymentLogsController
 {
-    public function cloud_index(Request $request)
+    public function index(Request $request)
     {
         if ($redirect = $this->ensureCloudAdminSession()) {
             return $redirect;
@@ -52,7 +52,7 @@ class PaymentLogsController extends AdminPaymentLogsController
         }
         $rows = $q->paginate($limit)->withQueryString();
 
-        return view('admin.payment_logs.index', compact('rows', 'dateFrom', 'dateTo', 'keyword', 'limit'));
+        return view('cloud.payment_logs.index', compact('rows', 'dateFrom', 'dateTo', 'keyword', 'limit'));
     }
 }
 

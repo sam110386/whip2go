@@ -1,31 +1,43 @@
-@extends('admin.layouts.app')
+@extends('layouts.layout_admin')
 
 @section('title', 'Admin Login')
 
 @section('content')
-    <h1>Admin Login</h1>
+    <div class="panel panel-body login-form">
 
-    @if(!empty($error))
-        <div style="color: #b00020; margin: 8px 0;">
-            {{ $error }}
+        <div class="row">
+            @include('partials.flash')
         </div>
-    @endif
 
-    <form method="POST" action="/admin/admins/login" style="display:flex; flex-direction:column; gap:10px; max-width: 320px;">
-        @csrf
-        <input type="hidden" name="referred_url" value="{{ $referred_url ?? '' }}">
-
-        <label>
-            Username
-            <input type="text" name="username" value="{{ $username ?? '' }}" required>
-        </label>
-
-        <label>
-            Password
-            <input type="password" name="password" required>
-        </label>
-
-        <button type="submit">Login</button>
-    </form>
+        <div class="text-center">
+            <div class="icon-object border-slate-300 text-slate-300">
+                <i class="icon-reading"></i>
+            </div>
+            <h5 class="content-group">
+                {{ 'Administrator Login' }}
+            </h5>
+        </div>
+        <form action="{{ url('/admin/admins/login') }}" method="post" name="myForm"
+            class="form-horizontal form-without-legend">
+            @csrf
+            <div class="form-group">
+                <div class="col-lg-12">
+                    <input type="text" name="username" class="form-control" id="username" placeholder="Username" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="col-lg-12">
+                    <input type="password" name="password" class="form-control" id="password" placeholder="Password"
+                        required />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-lg-8 col-md-offset-4 padding-left-0 padding-top-20">
+                    <button type="submit" class="btn btn-primary">
+                        {{ 'Login as Administrator' }}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
 @endsection
-
