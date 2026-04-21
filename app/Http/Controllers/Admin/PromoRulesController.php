@@ -63,7 +63,7 @@ class PromoRulesController extends LegacyAppController
         $id = $this->decodeId($id);
         DB::table('promotion_rules')->where('id', $id)->update(['status' => $status]);
 
-        return redirect('/admin/promo/rules/index')
+        return redirect('/admin/promo_rules/index')
             ->with('success', 'Status has been changed for selected record');
     }
 
@@ -77,13 +77,13 @@ class PromoRulesController extends LegacyAppController
         $allowed = DB::table('promotion_rules')->where('id', $id)->first();
 
         if (empty($allowed)) {
-            return redirect('/admin/promo/rules/index')
+            return redirect('/admin/promo_rules/index')
                 ->with('error', 'Sorry, you are not allowed to delete this promo record.');
         }
 
         DB::table('promotion_rules')->where('id', $id)->delete();
 
-        return redirect('/admin/promo/rules/index')
+        return redirect('/admin/promo_rules/index')
             ->with('success', 'Selected record deleted successfully');
     }
 
@@ -146,7 +146,7 @@ class PromoRulesController extends LegacyAppController
                 }
             }
 
-            return redirect('/admin/promo/rules/index')
+            return redirect('/admin/promo_rules/index')
                 ->with('success', 'Promotion Rule saved successfully.');
         }
 

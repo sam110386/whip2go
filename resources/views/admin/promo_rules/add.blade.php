@@ -33,7 +33,7 @@
     <div class="panel-body">
         <legend class="text-danger">Discount will be aplplied on per day rental</legend>
         <div class="row">
-            <form action="{{ url('/admin/promo/rules/add') }}" method="POST" class="form-horizontal" id="PromoAddForm" enctype="multipart/form-data">
+            <form action="{{ url('/admin/promo_rules/add') }}" method="POST" class="form-horizontal" id="PromoAddForm" enctype="multipart/form-data">
                 @csrf
                 <div class="col-lg-12">
                     <div class="row form-group">
@@ -156,7 +156,7 @@
                             @else
                                 <button type="submit" class="btn btn-primary">Save</button>
                             @endif
-                            <button type="button" class="btn btn-primary" onclick="goBack('/admin/promo/rules/index')">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="goBack('/admin/promo_rules/index')">Cancel</button>
                         </div>
                     </div>
                 </div>
