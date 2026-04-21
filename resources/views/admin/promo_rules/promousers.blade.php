@@ -6,7 +6,7 @@
             <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage</span> - Promo Rule Users</h4>
         </div>
         <div class="heading-elements">
-            <a href="{{ url('/admin/promo/rules/index') }}" class="btn btn-primary" style="float:right;">Back</a>
+            <a href="{{ url('/admin/promo_rules/index') }}" class="btn btn-primary" style="float:right;">Back</a>
         </div>
     </div>
 </div>
@@ -20,7 +20,7 @@
 </div>
 <div class="panel">
     <div class="panel-body">
-        <form action="{{ url('/admin/promo/rules/promousers/' . $promo) }}" method="POST" id="frmSearchadmin" name="frmSearchadmin">
+        <form action="{{ url('/admin/promo_rules/promousers/' . $promo) }}" method="POST" id="frmSearchadmin" name="frmSearchadmin">
             @csrf
             <div class="row">
                 <div class="col-md-12">
@@ -49,7 +49,7 @@
             message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> loading...</h1>',
             css:{'z-index':'9999'}
         });
-        $.post(SITE_URL+"admin/promo/rules/deletePromoterm", {'promoid':promoid, '_token': '{{ csrf_token() }}'},function (data) {
+        $.post(SITE_URL+"admin/promo_rules/deletePromoterm", {'promoid':promoid, '_token': '{{ csrf_token() }}'},function (data) {
             jQuery.unblockUI();
             if(!data.status){
                 alert(data.message);

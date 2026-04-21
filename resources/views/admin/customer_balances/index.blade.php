@@ -1,114 +1,151 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Credits & Debits')
+@section('title', 'Credits and Debits')
 
 @section('content')
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
-            <h4>
-                <i class="icon-arrow-left52 position-left"></i>
-                <span class="text-semibold">Customer Balances</span> - Manage Credits & Debits
-            </h4>
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Credits </span> and Debits</h4>
         </div>
-
         <div class="heading-elements">
-            <div class="heading-btn-group">
-                <a href="{{ url('admin/customer_balances/add') }}" class="btn btn-link btn-float has-text text-size-small">
-                    <i class="icon-plus22 text-primary"></i><span>Create New</span>
-                </a>
-            </div>
+            <a href="{{ url('admin/customer_balances/add') }}" class="btn btn-success">Create New</a>
         </div>
-    </div>
-
-    <div class="breadcrumb-line">
-        <ul class="breadcrumb">
-            <li><a href="{{ url('admin/dashboard') }}"><i class="icon-home2 position-left"></i> Home</a></li>
-            <li class="active">Customer Balances</li>
-        </ul>
     </div>
 </div>
 
-<div class="content">
+<div class="row">
     @include('partials.flash')
+</div>
 
-    <div class="panel panel-flat">
-        <div class="panel-heading">
-            <h5 class="panel-title">Filters</h5>
-        </div>
-
-        <div class="panel-body">
-            <form method="GET" action="{{ url('admin/customer_balances/index') }}" class="form-vertical" id="search-form">
-                <div class="row">
+<div class="panel">
+    <div class="panel-body">
+        <form method="POST" action="{{ url('admin/customer_balances/index') }}" id="frmSearchadmin" name="frmSearchadmin">
+            @csrf
+            <div class="row">
+                <div class="col-md-10">
                     <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Keyword (first name):</label>
-                            <input type="text" name="Search[keyword]" class="form-control" placeholder="Search..." value="{{ $keyword }}" maxlength="20">
-                        </div>
+                        Keyword :
+                        <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}" maxlength="20">
                     </div>
-
                     <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Driver / Dealer:</label>
-                            <select name="Search[type]" class="form-control">
-                                <option value="">Global Search...</option>
-                                <option value="1" @selected($type === '1')>Driver</option>
-                                <option value="2" @selected($type === '2')>Dealer</option>
-                            </select>
-                        </div>
+                        Driver/Dealer :
+                        <select name="Search[type]" class="form-control">
+                            <option value="">Select..</option>
+                            <option value="1" @selected($type === '1')>Driver</option>
+                            <option value="2" @selected($type === '2')>Dealer</option>
+                        </select>
                     </div>
-
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>Status:</label>
-                            <select name="Search[status]" class="form-control">
-                                <option value="">Global Search...</option>
-                                <option value="1" @selected($status === '1')>Active</option>
-                                <option value="0" @selected($status === '0')>Inactive</option>
-                                <option value="2" @selected($status === '2')>Completed</option>
-                            </select>
-                        </div>
+                    <div class="col-md-3">
+                        Status :
+                        <select name="Search[status]" class="form-control">
+                            <option value="">Select..</option>
+                            <option value="1" @selected($status === '1')>Active</option>
+                            <option value="0" @selected($status === '0')>Inactive</option>
+                            <option value="2" @selected($status === '2')>Completed</option>
+                        </select>
                     </div>
-
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>Rows / Page:</label>
-                            <select name="Record[limit]" class="form-control" onchange="this.form.submit()">
-                                @foreach ([25, 50, 100, 200] as $opt)
-                                    <option value="{{ $opt }}" @selected((int)$limit === $opt)>{{ $opt }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                    <div class="col-md-1">
+                        <label style="margin-bottom: 0px;">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary">APPLY</button>
                     </div>
-
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>&nbsp;</label>
-                            <button type="submit" class="btn btn-primary btn-block">Search <i class="icon-search4 position-right"></i></button>
-                        </div>
+                    <div class="col-md-1">
+                        <label style="margin-bottom: 0px;">&nbsp;</label>
+                        <button type="submit" name="ClearFilter" value="1" class="btn btn-warning">Clear Filter</button>
                     </div>
                 </div>
-            </form>
-        </div>
-
-        <div id="listing">
-            @include('admin.customer_balances._listing', [
-                'records' => $records,
-                'balanceTypes' => $balanceTypes,
-                'formatDt' => $formatDt,
-                'subscriptionMode' => false,
-                'subscriptionUserId' => null,
-            ])
-        </div>
+            </div>
+        </form>
     </div>
 </div>
 
-<script>
-$(document).ready(function() {
-    // Basic search interactivity
-    $('#search-form button[type="submit"]').on('click', function(e) {
-        // You could add AJAX loading indicator here if needed
-    });
-});
-</script>
+<div class="panel">
+    <div class="panel-body" id="listing">
+        @include('admin.customer_balances._listing', [
+            'records'           => $records,
+            'balanceTypes'      => $balanceTypes,
+            'formatDt'          => $formatDt,
+            'subscriptionMode'  => false,
+            'subscriptionUserId'=> null,
+        ])
+    </div>
+</div>
 @endsection
+
+@push('scripts')
+<script type="text/javascript">
+    $(document).ready(function () {
+        // AJAX Pagination and Sorting
+        $(document).on('click', '.page-link, .sort-link', function (e) {
+            e.preventDefault();
+            var url = $(this).attr('href');
+            if (url && url !== '#' && url !== 'javascript:;') {
+                loadListing(url);
+            }
+        });
+
+        // AJAX Search and Clear Filter
+        $(document).on('submit', '#frmSearchadmin', function (e) {
+            e.preventDefault();
+            var form = $(this);
+            var isClearFilter = false;
+
+            if (e.originalEvent && e.originalEvent.submitter) {
+                var btn = $(e.originalEvent.submitter);
+                if (btn.attr('name') === 'ClearFilter') {
+                    isClearFilter = true;
+                }
+            }
+
+            if (isClearFilter) {
+                form[0].reset();
+                var baseUrl = form.attr('action');
+                loadListing(baseUrl + '?ClearFilter=1', baseUrl);
+            } else {
+                var formData = form.serialize();
+                // POST search then load index via AJAX
+                $.ajax({
+                    url: form.attr('action'),
+                    type: "POST",
+                    data: formData,
+                    success: function () {
+                        loadListing(form.attr('action'));
+                    }
+                });
+            }
+        });
+
+        $(document).on('change', '.ajax-limit', function (e) {
+            e.preventDefault();
+            var form = $(this).closest('form');
+            var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+            loadListing(url);
+        });
+
+        function loadListing(url, historyUrl) {
+            if (typeof historyUrl === 'undefined') {
+                historyUrl = url;
+            }
+            $('#listing').css('opacity', '0.5');
+
+            $.ajax({
+                url: url,
+                type: "GET",
+                success: function (data) {
+                    $('#listing').html(data);
+                    $('#listing').css('opacity', '1');
+                    window.history.pushState(null, null, historyUrl);
+                },
+                error: function (xhr) {
+                    $('#listing').css('opacity', '1');
+                    console.error('AJAX Load Error:', xhr);
+                }
+            });
+        }
+
+        window.onpopstate = function () {
+            loadListing(window.location.href);
+        };
+    });
+</script>
+@endpush

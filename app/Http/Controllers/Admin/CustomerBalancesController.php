@@ -80,6 +80,20 @@ class CustomerBalancesController extends LegacyAppController
             return $redirect;
         }
 
+        if ($request->has('ClearFilter')) {
+            $request->session()->forget('customer_balances_search');
+            return redirect('/admin/customer_balances/index');
+        }
+
+        // Handle POST search (Cake admin_list pattern)
+        if ($request->isMethod('post')) {
+            if ($request->has('Search')) {
+                $search = $request->input('Search');
+                $request->session()->put('customer_balances_search', $search);
+            }
+            return redirect('/admin/customer_balances/index');
+        }
+
         if ($request->has('Record.limit')) {
             $lim = (int)$request->input('Record.limit');
             if ($lim > 0 && $lim <= 500) {
@@ -92,10 +106,17 @@ class CustomerBalancesController extends LegacyAppController
             $limit = 50;
         }
 
-        $keyword = trim((string)$request->input('Search.keyword', ''));
-        $type = trim((string)$request->input('Search.type', ''));
-        $status = $request->input('Search.status');
-        $statusStr = $status === null || $status === '' ? '' : (string)$status;
+        // Load from session or request
+        $search = $request->session()->get('customer_balances_search', []);
+        $keyword = trim((string)($search['keyword'] ?? ''));
+        $type = trim((string)($search['type'] ?? ''));
+        $statusStr = (string)($search['status'] ?? '');
+
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        if (!in_array(strtolower($direction), ['asc', 'desc'])) {
+            $direction = 'desc';
+        }
 
         $query = DB::table('cs_user_balances as cub')
             ->leftJoin('users as u', 'u.id', '=', 'cub.user_id')
@@ -115,12 +136,26 @@ class CustomerBalancesController extends LegacyAppController
                 'cub.status',
                 'u.first_name',
                 'u.last_name',
+                'u.business_name',
                 'u.id as linked_user_id',
-            ])
-            ->orderByDesc('cub.id');
+            ]);
+
+        // Dynamic sorting
+        if ($sort === 'first_name') {
+            $query->orderBy('u.first_name', $direction)->orderBy('u.last_name', $direction);
+        } elseif (in_array($sort, ['id', 'credit', 'debit', 'balance', 'created', 'status'])) {
+            $query->orderBy('cub.' . $sort, $direction);
+        } else {
+            $query->orderByDesc('cub.id');
+        }
 
         if ($keyword !== '') {
-            $query->where('u.first_name', 'LIKE', '%' . $keyword . '%');
+            $like = '%' . $keyword . '%';
+            $query->where(function($qq) use ($like) {
+                $qq->where('u.first_name', 'LIKE', $like)
+                   ->orWhere('u.last_name', 'LIKE', $like)
+                   ->orWhere('u.business_name', 'LIKE', $like);
+            });
         }
         if ($statusStr !== '') {
             $query->where('cub.status', (int)$statusStr);
@@ -132,7 +167,10 @@ class CustomerBalancesController extends LegacyAppController
             $query->where('u.is_dealer', 1);
         }
 
-        $records = $query->paginate($limit)->withQueryString();
+        $records = $query->paginate($limit)->appends([
+            'sort' => $sort,
+            'direction' => $direction
+        ]);
 
         $balanceTypes = self::balanceTypes();
         $formatDt = fn ($v) => $this->formatAdminDateTime($v !== null ? (string)$v : null);
@@ -248,6 +286,12 @@ class CustomerBalancesController extends LegacyAppController
             $limit = 50;
         }
 
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        if (!in_array(strtolower($direction), ['asc', 'desc'])) {
+            $direction = 'desc';
+        }
+
         $query = DB::table('cs_user_balances as cub')
             ->where('cub.user_id', $userId)
             ->select([
@@ -264,10 +308,19 @@ class CustomerBalancesController extends LegacyAppController
                 'cub.note',
                 'cub.created',
                 'cub.status',
-            ])
-            ->orderByDesc('cub.id');
+            ]);
 
-        $records = $query->paginate($limit)->withQueryString();
+        // Dynamic sorting
+        if (in_array($sort, ['id', 'credit', 'debit', 'balance', 'created', 'status'])) {
+            $query->orderBy('cub.' . $sort, $direction);
+        } else {
+            $query->orderByDesc('cub.id');
+        }
+
+        $records = $query->paginate($limit)->appends([
+            'sort' => $sort,
+            'direction' => $direction
+        ]);
 
         $balanceTypes = self::balanceTypes();
         $formatDt = fn ($v) => $this->formatAdminDateTime($v !== null ? (string)$v : null);
@@ -433,6 +486,15 @@ class CustomerBalancesController extends LegacyAppController
         $balance = $balancePk !== null
             ? CsUserBalance::find($balancePk)
             : null;
+
+        if ($balance === null && $request->has('user_id')) {
+            $balance = CsUserBalance::where('user_id', $request->query('user_id'))->first();
+            if ($balance && $id === null) {
+                // If we found an existing balance and we are in "Add" mode (no ID), 
+                // we should probably redirect to the proper edit URL or at least use it as base.
+                // For now, just letting it fall through so the view populates.
+            }
+        }
 
         if ($balancePk !== null && $balance === null) {
             return redirect('/admin/customer_balances/index')->with('error', 'Balance record not found.');
