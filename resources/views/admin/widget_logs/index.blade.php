@@ -4,7 +4,7 @@
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
-            <h4><a href="{{ url('/admin/widget_logs') }}"><i class="icon-arrow-left52 position-left"></i></a> <span class="text-semibold">Widget</span> - Logs</h4>
+            <h4><a href="{{ url('/admin/widget_logs/index') }}"><i class="icon-arrow-left52 position-left"></i></a> <span class="text-semibold">Widget</span> - Logs</h4>
         </div>
     </div>
 </div>

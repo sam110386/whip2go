@@ -33,7 +33,7 @@
 </div>
 <div class="panel">
     <div class="row">
-        <form action="{{ url('/admin/insuprovider/providers/add') }}" method="POST" enctype="multipart/form-data" id="frmadmin" class="form-horizontal">
+        <form action="{{ url('/admin/insurance_providers/add') }}" method="POST" enctype="multipart/form-data" id="frmadmin" class="form-horizontal">
             @csrf
             <div class="panel-body">
                 <div class="col-lg-6">
@@ -118,7 +118,7 @@
                             @else
                                 <button type="submit" class="btn btn-primary">Update</button>  
                             @endif    
-                            <button type="button" class="btn left-margin btn-cancel ml-5" onClick="goBack('/admin/insuprovider/providers/index')">Return</button>
+                            <button type="button" class="btn left-margin btn-cancel ml-5" onClick="goBack('/admin/insurance_providers/index')">Return</button>
                         </div>
                     </div>
                 </div>
