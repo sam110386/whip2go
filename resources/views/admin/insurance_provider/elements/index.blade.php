@@ -25,7 +25,7 @@
                     </td>
                     <td>
                         @if(!empty($record->logo))
-                            <img src="{{ config('app.url') }}/img/insurance_providers/{{ $record->logo }}" width="80"
+                            <img src="{{ legacy_asset('img/insurance_providers/' . $record->logo) }}"width="80"
                                 height="80" />
                         @endif
                     </td>

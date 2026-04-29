@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Services\Legacy\Common;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\InsuranceProvider;
 
 class InsuranceProvidersController extends LegacyAppController
 {
@@ -15,14 +16,13 @@ class InsuranceProvidersController extends LegacyAppController
         }
 
         $keyword = '';
-        $query = DB::table('insurance_providers as InsuranceProvider')
-            ->select('InsuranceProvider.*');
+        $query = InsuranceProvider::query();
 
         if ($request->has('Search') || $request->route('keyword')) {
             $keyword = $request->input('Search.keyword', $request->route('keyword', ''));
             $value = trim($keyword);
             if ($value !== '') {
-                $query->where('InsuranceProvider.name', 'LIKE', "%{$value}%");
+                $query->where('name', 'LIKE', "%{$value}%");
             }
         }
 
@@ -30,24 +30,16 @@ class InsuranceProvidersController extends LegacyAppController
         $limit = $request->input('Record.limit', session($sessKey, 20));
         session([$sessKey => $limit]);
 
-        // Handle sorting
         $sort = $request->input('sort', 'id');
         $direction = $request->input('direction', 'desc');
         $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
-
-        // Allowed sortable columns
-        $allowedSort = ['id', 'name', 'address', 'city', 'state', 'country', 'status'];
-        if (!in_array($sort, $allowedSort)) {
-            $sort = 'id';
-        }
-
-        $records = $query->orderBy("InsuranceProvider.{$sort}", $direction)->paginate($limit);
+        $records = $query->orderBy($sort, $direction)->paginate($limit);
 
         $data = compact('keyword', 'records', 'limit', 'sort', 'direction');
         $data['title_for_layout'] = 'Insurance Providers';
 
         if ($request->ajax()) {
-            return view('admin.insurance_provider.elements.admin_index', $data);
+            return view('admin.insurance_provider.elements.index', $data);
         }
 
         return view('admin.insurance_provider.insurance_providers.index', $data);
@@ -62,8 +54,22 @@ class InsuranceProvidersController extends LegacyAppController
         $id = $this->decodeId($id);
         $listTitle = !empty($id) ? 'Update Insurance Provider' : 'Add Insurance Provider';
 
+        $common = app(Common::class);
+        $usStates = $common->getStates();
+        $caStates = $common->getCanadaStates();
+
         if ($request->isMethod('post')) {
             $data = $request->input('InsuranceProvider', []);
+
+            $rules = [
+                'InsuranceProvider.name' => 'required|unique:insurance_providers,name' . (!empty($data['id']) ? ',' . $data['id'] : ''),
+            ];
+            $messages = [
+                'InsuranceProvider.name.required' => 'Please enter lender name',
+                'InsuranceProvider.name.unique' => 'Lender name already exists',
+            ];
+            $request->validate($rules, $messages);
+
             unset($data['logo']);
 
             if ($request->hasFile('InsuranceProvider.logo')) {
@@ -80,15 +86,21 @@ class InsuranceProvidersController extends LegacyAppController
                 }
             }
 
+            if (isset($data['country']) && $data['country'] === 'CA' && isset($data['castate'])) {
+                $data['state'] = $data['castate'];
+            }
+            unset($data['castate']);
+
             try {
                 if (!empty($data['id'])) {
-                    DB::table('insurance_providers')->where('id', $data['id'])->update($data);
-                    return redirect('/admin/insurance_providers')
+                    InsuranceProvider::where('id', $data['id'])->update($data);
+
+                    return redirect('/admin/insurance_providers/index')
                         ->with('success', 'Insurance Provider is updated successfully.');
                 } else {
                     unset($data['id']);
-                    DB::table('insurance_providers')->insert($data);
-                    return redirect('/admin/insurance_providers')
+                    InsuranceProvider::create($data);
+                    return redirect('/admin/insurance_providers/index')
                         ->with('success', 'Insurance Provider is added successfully.');
                 }
             } catch (\Exception $e) {
@@ -98,17 +110,19 @@ class InsuranceProvidersController extends LegacyAppController
 
         $record = [];
         if (!empty($id)) {
-            $record = DB::table('insurance_providers')->where('id', $id)->first();
+            $record = InsuranceProvider::where('id', $id)->first();
             if (empty($record)) {
-                return redirect('/admin/insurance_providers')
+                return redirect('/admin/insurance_providers/index')
                     ->with('error', 'Sorry, you are not authorized user for this action');
             }
-            $record = (array) $record;
+            // $record = $record->toArray();
         }
 
         return view('admin.insurance_provider.insurance_providers.add', [
             'listTitle' => $listTitle,
-            'record'    => $record,
+            'record' => $record,
+            'usStates' => $usStates,
+            'caStates' => $caStates
         ]);
     }
 
@@ -120,7 +134,7 @@ class InsuranceProvidersController extends LegacyAppController
 
         $id = $this->decodeId($id);
         if (!empty($id)) {
-            DB::table('insurance_providers')->where('id', $id)->update([
+            InsuranceProvider::where('id', $id)->update([
                 'status' => ($status == 1) ? 1 : 0,
             ]);
         }

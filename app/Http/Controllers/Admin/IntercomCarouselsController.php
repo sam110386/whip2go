@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\IntercomCarousel;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class IntercomCarouselsController extends LegacyAppController
 {
@@ -15,13 +15,13 @@ class IntercomCarouselsController extends LegacyAppController
         }
 
         if ($request->isMethod('post') && !empty($request->input('Carousel'))) {
-            DB::statement('TRUNCATE intercom_carousels');
+            IntercomCarousel::truncate();
 
             foreach ($request->input('Carousel') as $data) {
                 if (empty($data['screen'])) {
                     continue;
                 }
-                DB::table('intercom_carousels')->insert([
+                IntercomCarousel::create([
                     'screen' => $data['screen'],
                     'intercom' => $data['intercom'] ?? '',
                 ]);
@@ -30,9 +30,7 @@ class IntercomCarouselsController extends LegacyAppController
             return redirect()->back()->with('success', 'Records updated successfully.');
         }
 
-        $obj = DB::table('intercom_carousels')
-            ->pluck('intercom', 'screen')
-            ->toArray();
+        $obj = IntercomCarousel::pluck('intercom', 'screen')->toArray();
 
         return view('admin.intercom_carousels.index', compact('obj'));
     }

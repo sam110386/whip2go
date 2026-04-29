@@ -1,7 +1,3 @@
-@if(isset($records) && is_object($records) && method_exists($records, 'links'))
-    @include('partials.dispacher.paging_box', ['paginator' => $records, 'limit' => $limit ?? 50])
-@endif
-
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>

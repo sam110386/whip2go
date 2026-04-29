@@ -24,7 +24,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form action="{{ url('/admin/intercom/carousels/index') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
+            <form action="{{ url('/admin/intercom_carousels/index') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
                 @csrf
                 <legend class="text-size-large text-bold">Details</legend>
 

@@ -16,7 +16,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="{{ url('admin/savvy/dealers/add') }}" class="btn btn-success left-margin">New Dealer</a>
+                <a href="{{ url('admin/savvy_dealers/add') }}" class="btn btn-success left-margin">New Dealer</a>
             </div>
         </div>
     </div>
@@ -49,14 +49,14 @@
                                     <td valign="top">{{ $dealer->first_name }} {{ $dealer->last_name }}</td>
                                     <td valign="top">
                                         @if ($dealer->status == '0')
-                                            <a href="{{ url('admin/savvy/dealers/status/' . base64_encode($dealer->id) . '/1') }}">Inactive</a>
+                                            <a href="{{ url('admin/savvy_dealers/status/' . base64_encode($dealer->id) . '/1') }}">Inactive</a>
                                         @else
-                                            <a href="{{ url('admin/savvy/dealers/status/' . base64_encode($dealer->id) . '/0') }}">Active</a>
+                                            <a href="{{ url('admin/savvy_dealers/status/' . base64_encode($dealer->id) . '/0') }}">Active</a>
                                         @endif
                                     </td>
                                     <td class="action">
-                                        <a href="{{ url('admin/savvy/dealers/add/' . base64_encode($dealer->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
-                                        <a href="{{ url('admin/savvy/dealers/delete/' . base64_encode($dealer->id)) }}" onclick="return confirm('Are you sure?')"><i class="glyphicon glyphicon-trash"></i></a>
+                                        <a href="{{ url('admin/savvy_dealers/add/' . base64_encode($dealer->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
+                                        <a href="{{ url('admin/savvy_dealers/delete/' . base64_encode($dealer->id)) }}" onclick="return confirm('Are you sure?')"><i class="glyphicon glyphicon-trash"></i></a>
                                     </td>
                                 </tr>
                             @endforeach

@@ -31,7 +31,7 @@
 <div class="panel">
     <div class="row">
         <fieldset class="col-lg-12">
-            <form action="{{ url('admin/savvy/dealers/add') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
+            <form action="{{ url('admin/savvy_dealers/add') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
                 @csrf
                 <div class="panel-body">
 
@@ -127,7 +127,7 @@
                                 @else
                                     <button type="submit" class="btn">Update</button>
                                 @endif
-                                <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/savvy/dealers/index')">Return</button>
+                                <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/savvy_dealers/index')">Return</button>
                             </div>
                         </div>
                     </div>

@@ -98,4 +98,9 @@ return [
         'level' => env('LEGACY_SECURITY_LEVEL', 'medium'),
         'useOpenSsl' => env('LEGACY_SECURITY_USE_OPENSSL', true),
     ],
+
+
+    'GOOGLE_MAPS_EMBED_URL' => env('GOOGLE_MAPS_EMBED_URL', 'https://www.google.com/maps/embed/v1/place'),
+    'GOOGLE_MAPS_API_KEY' => env('GOOGLE_MAPS_API_KEY', '')
+
 ];

@@ -38,8 +38,8 @@
         <div class="panel-body">
             @if ($lat && $lng)
                 <iframe width="100%" height="650" frameborder="0" class="border-0"
-                        src="https://www.google.com/maps/embed/v1/place?key=***REMOVED***&q={{ $lat }},{{ $lng }}"
-                        allowfullscreen></iframe>
+                    src="{{ sprintf('%s?key=%s&q=%s,%s', config('legacy.GOOGLE_MAPS_EMBED_URL'), config('legacy.GOOGLE_MAPS_API_KEY'), $lat, $lng) }}"
+                    allowfullscreen></iframe>
             @else
                 <p class="text-muted">{{ data_get($vehicleLocation, 'message', 'Location service pending migration') }}</p>
             @endif
