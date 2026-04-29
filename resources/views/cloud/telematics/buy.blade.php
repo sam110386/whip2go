@@ -179,7 +179,7 @@
         </form>
     </div>
 </div>
-<script src="/assets/js/plugins/forms/inputs/formatter.min.js"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
 <script type="text/javascript">
     jQuery(document).ready(function() {
         jQuery('#UserCcTokenCreditCardNumber').formatter({ pattern: '{{9999}} - {{9999}} - {{9999}} - {{9999}}' });

@@ -3,81 +3,134 @@
 @section('title', 'Update Profile')
 
 @section('content')
-    <h1>Update Profile</h1>
+    @php
+        $returnUrl = '/admin/admins/index';
+    @endphp
 
-    @if(!empty($error))
-        <div style="color:#b00020; margin: 8px 0;">
-            {{ $error }}
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Manage Profile</span>
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <div class="heading-btn-group">
+                    <button type="submit" form="frmadmin" class="btn btn-primary">Update</button>
+                    <a href="{{ $returnUrl }}" class="btn btn-default">Return</a>
+                </div>
+            </div>
         </div>
-    @endif
+    </div>
 
-    <form method="POST" action="/admin/admins/profile" style="display:flex; flex-direction:column; gap:12px; max-width: 520px;">
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <form method="POST" action="/admin/admins/profile" id="frmadmin" name="frmadmin" class="form-horizontal">
         @csrf
-
         <input type="hidden" name="User[id]" value="{{ $user->id ?? '' }}">
 
-        <label>
-            Username
-            <input type="text" value="{{ $user->username ?? '' }}" disabled>
-        </label>
+        <div class="panel panel-flat">
+            <div class="panel-heading">
+                <h5 class="panel-title">Account</h5>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Username :</label>
+                    <div class="col-lg-9">
+                        <input type="text" class="form-control" value="{{ $user->username ?? '' }}" disabled>
+                    </div>
+                </div>
 
-        <label>
-            First Name
-            <input type="text" name="User[first_name]" value="{{ $user->first_name ?? '' }}" required>
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">First Name :<span class="text-danger">*</span></label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[first_name]" class="form-control" value="{{ $user->first_name ?? '' }}" required>
+                    </div>
+                </div>
 
-        <label>
-            Last Name
-            <input type="text" name="User[last_name]" value="{{ $user->last_name ?? '' }}" required>
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Last Name :<span class="text-danger">*</span></label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[last_name]" class="form-control" value="{{ $user->last_name ?? '' }}" required>
+                    </div>
+                </div>
 
-        <label>
-            Email
-            <input type="email" name="User[email]" value="{{ $user->email ?? '' }}" required>
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Email :<span class="text-danger">*</span></label>
+                    <div class="col-lg-9">
+                        <input type="email" name="User[email]" class="form-control" value="{{ $user->email ?? '' }}" required>
+                    </div>
+                </div>
 
-        <label>
-            Contact #
-            <input type="text" name="User[contact_number]" value="{{ $user->contact_number ?? '' }}">
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Contact # :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[contact_number]" class="form-control" value="{{ $user->contact_number ?? '' }}">
+                    </div>
+                </div>
 
-        <label>
-            Status
-            <select name="User[status]">
-                <option value="1" @if(!empty($user) && (int)($user->status ?? 0) === 1) selected @endif>Active</option>
-                <option value="0" @if(!empty($user) && (int)($user->status ?? 0) === 0) selected @endif>Inactive</option>
-            </select>
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Status :</label>
+                    <div class="col-lg-9">
+                        <select name="User[status]" class="form-control">
+                            <option value="1" @if(!empty($user) && (int)($user->status ?? 0) === 1) selected @endif>Active</option>
+                            <option value="0" @if(!empty($user) && (int)($user->status ?? 0) === 0) selected @endif>Inactive</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <label>
-            Address 1
-            <input type="text" name="User[address1]" value="{{ $user->address1 ?? '' }}">
-        </label>
+        <div class="panel panel-flat">
+            <div class="panel-heading">
+                <h5 class="panel-title">Address</h5>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Address 1 :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[address1]" class="form-control" value="{{ $user->address1 ?? '' }}">
+                    </div>
+                </div>
 
-        <label>
-            Address 2
-            <input type="text" name="User[address2]" value="{{ $user->address2 ?? '' }}">
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Address 2 :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[address2]" class="form-control" value="{{ $user->address2 ?? '' }}">
+                    </div>
+                </div>
 
-        <label>
-            City
-            <input type="text" name="User[city]" value="{{ $user->city ?? '' }}">
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">City :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[city]" class="form-control" value="{{ $user->city ?? '' }}">
+                    </div>
+                </div>
 
-        <label>
-            State ID
-            <input type="text" name="User[state_id]" value="{{ $user->state_id ?? '' }}">
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">State ID :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[state_id]" class="form-control" value="{{ $user->state_id ?? '' }}">
+                    </div>
+                </div>
 
-        <label>
-            Timezone
-            <input type="text" name="User[timezone]" value="{{ $user->timezone ?? '' }}">
-        </label>
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Timezone :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="User[timezone]" class="form-control" value="{{ $user->timezone ?? '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
 
-        <div style="display:flex; gap:10px;">
-            <button type="submit">Update</button>
-            <a href="/admin/admins/index" style="align-self:center;">Cancel</a>
+        <div class="form-group">
+            <div class="col-lg-12">
+                <button type="submit" class="btn btn-primary">Update</button>
+                <a href="{{ $returnUrl }}" class="btn btn-default">Return</a>
+            </div>
         </div>
     </form>
 @endsection
-

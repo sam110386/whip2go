@@ -1,22 +1,282 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Reports')
+@section('title', 'Manage Reports')
+
+@php
+    $keyword ??= '';
+    $dealerid ??= '';
+    $renterid ??= '';
+    $fieldname ??= '';
+    $status_type ??= '';
+    $dateFrom ??= '';
+    $dateTo ??= '';
+    $status ??= '';
+    $limit ??= 50;
+    $search_in ??= [
+        1 => 'Pickup Address',
+        2 => 'Vehicle#',
+        3 => 'Order#',
+    ];
+    $status_opt ??= [
+        'complete' => 'Complete',
+        'cancel' => 'Cancel',
+        'incomplete' => 'InComplete',
+    ];
+@endphp
 
 @section('content')
-    <h1>Reports</h1>
-    <form method="get" action="/admin/reports/index" style="margin-bottom:10px;">
-        <label>From <input type="date" name="Search[date_from]" value="{{ $dateFrom ?? '' }}"></label>
-        <label>To <input type="date" name="Search[date_to]" value="{{ $dateTo ?? '' }}"></label>
-        <label>Status <input type="number" name="Search[status]" value="{{ $status ?? '' }}" style="width:90px;"></label>
-        <label>Rows
-            <select name="Record[limit]" onchange="this.form.submit()">
-                @foreach ([25,50,100,200] as $opt)
-                    <option value="{{ $opt }}" @selected((int)($limit ?? 50) === $opt)>{{ $opt }}</option>
-                @endforeach
-            </select>
-        </label>
-        <button type="submit">Search</button>
-    </form>
-    @include('admin.reports._listing', ['reportlists' => $reportlists])
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Reports</span>
+                </h4>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <div class="panel">
+        <div class="panel-body">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/reports/index') }}">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="col-md-2">
+                            Dealer :
+                            <input type="text" id="SearchDealerId" name="Search[dealer_id]" class="form-control" style="width:100%;" value="{{ $dealerid }}" placeholder="Dealers">
+                        </div>
+                        <div class="col-md-2">
+                            Keyword :
+                            <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}" maxlength="50" placeholder="Keyword">
+                        </div>
+                        <div class="col-md-2">
+                            Search By :
+                            <select name="Search[searchin]" class="form-control">
+                                <option value="">Search By</option>
+                                @foreach ($search_in as $k => $label)
+                                    <option value="{{ $k }}" @selected((string) $fieldname === (string) $k)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            Status :
+                            <select name="Search[status_type]" class="form-control">
+                                <option value="">Status</option>
+                                @foreach ($status_opt as $k => $label)
+                                    <option value="{{ $k }}" @selected((string) $status_type === (string) $k)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            Date From :
+                            <input type="text" name="Search[date_from]" class="form-control" value="{{ $dateFrom }}" placeholder="Date Range From">
+                        </div>
+                        <div class="col-md-2">
+                            Date To :
+                            <input type="text" name="Search[date_to]" class="form-control" value="{{ $dateTo }}" placeholder="Date Range To">
+                        </div>
+                    </div>
+                </div>
+                <div class="row pb-10">
+                    <div class="col-md-12">
+                        <div class="col-md-2">
+                            Customer :
+                            <input type="text" id="SearchRenterId" name="Search[renter_id]" class="form-control" style="width:100%;" value="{{ $renterid }}" placeholder="Customer..">
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom:0;">&nbsp;</label>
+                            <button type="submit" value="SEARCH" name="search" class="btn btn-primary" alt="SEARCH">SEARCH</button>
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom:0;">&nbsp;</label>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom:0;">&nbsp;</label>
+                            <button type="submit" name="search" value="EXPORT" class="btn btn-primary" alt="EXPORT"><i class="icon-file-excel"></i> EXPORT</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="row">&nbsp;</div>
+
+            <div id="listing">
+                @include('admin.reports._listing', ['reportlists' => $reportlists ?? []])
+            </div>
+        </div>
+    </div>
+
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
 @endsection
 
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+    <style type="text/css">
+        tbody tr { cursor: pointer; }
+        .table > thead > tr > th,
+        .table > tbody > tr > th,
+        .table > tfoot > tr > th,
+        .table > thead > tr > td,
+        .table > tbody > tr > td,
+        .table > tfoot > tr > td {
+            padding: 5px;
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script src="{{ legacy_asset('js/select2.js') }}"></script>
+    <script type="text/javascript">
+        function format(item) { return item.tag; }
+
+        jQuery(document).ready(function () {
+            jQuery('#SearchDateFrom').datepicker && jQuery('#SearchDateFrom').datepicker({ dateFormat: 'mm/dd/yy' });
+            jQuery('#SearchDateTo').datepicker && jQuery('#SearchDateTo').datepicker({ dateFormat: 'mm/dd/yy' });
+
+            jQuery("#SearchRenterId").select2({
+                data: { results: {}, text: 'tag' },
+                formatSelection: format,
+                formatResult: format,
+                placeholder: "Select Customer ",
+                minimumInputLength: 1,
+                ajax: {
+                    url: "{{ url('admin/bookings/customerautocomplete') }}",
+                    dataType: "json",
+                    type: "GET",
+                    data: function (params) {
+                        return { term: params };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: $.map(data, function (item) {
+                                return { tag: item.tag, id: item.id };
+                            })
+                        };
+                    }
+                },
+                initSelection: function (element, callback) {
+                    var renter_id = "{{ $renterid }}";
+                    if (renter_id.length > 0) {
+                        jQuery.ajax({
+                            url: "{{ url('admin/bookings/customerautocomplete') }}",
+                            dataType: "json",
+                            type: "GET",
+                            data: { "id": renter_id }
+                        }).done(function (data) {
+                            callback(data[0]);
+                        });
+                    }
+                }
+            });
+
+            jQuery("#SearchDealerId").select2({
+                data: { results: {}, text: 'tag' },
+                formatSelection: format,
+                formatResult: format,
+                placeholder: "Select Dealer ",
+                minimumInputLength: 1,
+                ajax: {
+                    url: "{{ url('admin/bookings/customerautocomplete') }}",
+                    dataType: "json",
+                    type: "GET",
+                    data: function (params) {
+                        return { term: params, "is_dealer": true };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: $.map(data, function (item) {
+                                return { tag: item.tag, id: item.id };
+                            })
+                        };
+                    }
+                },
+                initSelection: function (element, callback) {
+                    var dealer_id = "{{ $dealerid }}";
+                    if (dealer_id.length > 0) {
+                        jQuery.ajax({
+                            url: "{{ url('admin/bookings/customerautocomplete') }}",
+                            dataType: "json",
+                            type: "GET",
+                            data: { "id": dealer_id }
+                        }).done(function (data) {
+                            callback(data[0]);
+                        });
+                    }
+                }
+            });
+
+            $(document).on('click', '.page-link, .sort-link', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                if (url && url !== '#' && url !== 'javascript:;') {
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('submit', '#frmSearchadmin', function (e) {
+                e.preventDefault();
+                var form = $(this);
+                var isClearFilter = false;
+
+                if (e.originalEvent && e.originalEvent.submitter) {
+                    var btn = $(e.originalEvent.submitter);
+                    if (btn.attr('name') === 'ClearFilter') {
+                        isClearFilter = true;
+                    }
+                }
+
+                if (isClearFilter) {
+                    form[0].reset();
+                    var baseUrl = form.attr('action');
+                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
+                } else {
+                    var formData = form.serialize();
+                    var url = form.attr('action') + '?' + formData;
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('change', '.ajax-limit', function (e) {
+                e.preventDefault();
+                var form = $(this).closest('form');
+                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+                loadListing(url);
+            });
+
+            function loadListing(url, historyUrl) {
+                if (typeof historyUrl === 'undefined') {
+                    historyUrl = url;
+                }
+                $('#listing').css('opacity', '0.5');
+
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    success: function (data) {
+                        $('#listing').html(data);
+                        $('#listing').css('opacity', '1');
+                        window.history.pushState(null, null, historyUrl);
+                    },
+                    error: function (xhr) {
+                        $('#listing').css('opacity', '1');
+                        console.error('AJAX Load Error:', xhr);
+                    }
+                });
+            }
+
+            window.onpopstate = function () {
+                loadListing(window.location.href);
+            };
+        });
+    </script>
+    <script src="{{ asset('js/admin_booking.js') }}"></script>
+@endpush

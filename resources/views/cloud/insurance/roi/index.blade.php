@@ -1,14 +1,25 @@
 @extends('layouts.main')
 
-@section('content')
+@section('title', 'ROI Insurance Quote')
+
+@push('scripts')
 <script type="text/javascript">
     jQuery(document).ready(function() {
         jQuery("#frmadmin").validate();
     });
 </script>
-    <!--heading starts-->
+@endpush
 
-<div class="row ">
+@section('content')
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">ROI </span>- Insurance Quote</h4>
+        </div>
+    </div>
+</div>
+
+<div class="row">
     @if(session('flash_message'))
         <div class="alert alert-success">{{ session('flash_message') }}</div>
     @endif

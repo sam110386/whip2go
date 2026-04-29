@@ -1,115 +1,182 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Staff Users')
+@section('title', 'Manage Admin Staff')
+
+@php
+    $keyword ??= '';
+    $fieldname ??= '';
+    $show ??= null;
+    $options ??= [];
+    $limit ??= 50;
+    $basePath ??= '/admin/admin_staffs';
+@endphp
 
 @section('content')
-    <h1>Search — Admin Staff</h1>
-    <p style="float:right;"><a href="{{ $basePath }}/add">Add New</a></p>
-    <div style="clear:both;"></div>
-
-    @if(session('success'))
-        <p style="color:green;">{{ session('success') }}</p>
-    @endif
-    @if(session('error'))
-        <p style="color:red;">{{ session('error') }}</p>
-    @endif
-
-    <form method="get" action="{{ $basePath }}/index" style="margin-bottom:12px;">
-        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
-            <label>Keyword<br>
-                <input type="text" name="keyword" value="{{ $keyword ?? '' }}" maxlength="50" style="width:200px;">
-            </label>
-            <label>Search In<br>
-                <select name="searchin" class="form-control" style="min-width:140px;">
-                    <option value="">Select..</option>
-                    @foreach(($options ?? []) as $k => $label)
-                        <option value="{{ $k }}" @selected(($fieldname ?? '') === $k)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </label>
-            <label>Status<br>
-                <select name="show" style="min-width:140px;">
-                    <option value="">Select..</option>
-                    <option value="Active" @selected(($show ?? '') === 'Active')>Active</option>
-                    <option value="Deactive" @selected(($show ?? '') === 'Deactive')>Inactive</option>
-                </select>
-            </label>
-            <button type="submit" class="btn btn-primary">Apply</button>
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Manage</span>
+                    Admin Staff
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <a href="{{ url('admin/admin_staffs/add') }}" class="btn btn-success">
+                    Add New
+                </a>
+            </div>
         </div>
-    </form>
+    </div>
 
-    <form method="post" action="{{ $basePath }}/multiplAction" onsubmit="return confirm('Apply bulk action to selected staff?');">
-        <input type="hidden" name="Search[keyword]" value="{{ $keyword ?? '' }}">
-        <input type="hidden" name="Search[searchin]" value="{{ $fieldname ?? '' }}">
-        <input type="hidden" name="Search[show]" value="{{ $show ?? '' }}">
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
 
-        <label style="margin-right:10px;">Rows
-            <select name="Record[limit]" onchange="this.form.submit()">
-                @foreach ([25,50,100,200] as $opt)
-                    <option value="{{ $opt }}" @selected((int)($limit ?? 25) === $opt)>{{ $opt }}</option>
-                @endforeach
-            </select>
-        </label>
+    <div class="panel">
+        <div class="panel-body">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/admin_staffs/index') }}">
+                <div class="row">
+                    <div class="col-md-10">
+                        <div class="col-md-3">
+                            Keyword :
+                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50" size="30">
+                        </div>
 
-        <label>Bulk
-            <select name="User[status]">
-                <option value="">—</option>
-                <option value="active">Activate</option>
-                <option value="inactive">Deactivate</option>
-                <option value="del">Delete</option>
-            </select>
-        </label>
-        <button type="submit">Go</button>
+                        <div class="col-md-3">
+                            Search In :
+                            <select name="searchin" class="form-control">
+                                <option value="">Select..</option>
+                                @foreach($options as $k => $label)
+                                    <option value="{{ $k }}" @selected($fieldname === $k)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
 
-        <div class="table-responsive">
-            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-                <thead>
-                    <tr>
-                        @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'checkbox', 'title' => '', 'sortable' => false],
-                            ['field' => 'id', 'title' => '#'],
-                            ['field' => 'username', 'title' => 'Username'],
-                            ['field' => 'first_name', 'title' => 'First Name'],
-                            ['field' => 'last_name', 'title' => 'Last Name'],
-                            ['field' => 'email', 'title' => 'Email'],
-                            ['field' => 'contact_number', 'title' => 'Contact#'],
-                            ['field' => 'created', 'title' => 'Created'],
-                            ['field' => 'status', 'title' => 'Status'],
-                            ['field' => 'role_id', 'title' => 'Role', 'sortable' => false],
-                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
-                        ]])
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse(($users ?? []) as $u)
-                        <tr>
-                            <td><input type="checkbox" name="select[]" value="{{ $u->id }}"></td>
-                            <td>{{ $u->id }}</td>
-                            <td>{{ $u->username }}</td>
-                            <td>{{ $u->first_name }}</td>
-                            <td>{{ $u->last_name }}</td>
-                            <td>{{ $u->email }}</td>
-                            <td>{{ $u->contact_number }}</td>
-                            <td>{{ $u->created }}</td>
-                            <td align="center">
-                                @if((int)$u->status === 1)
-                                    <a href="{{ $basePath }}/status/{{ base64_encode((string)$u->id) }}/0" onclick="return confirm('Deactivate this user?');">Active</a>
-                                @else
-                                    <a href="{{ $basePath }}/status/{{ base64_encode((string)$u->id) }}/1" onclick="return confirm('Activate this user?');">Inactive</a>
-                                @endif
-                            </td>
-                            <td>{{ $u->role_name ?? '--' }}</td>
-                            <td>
-                                <a href="{{ $basePath }}/add/{{ base64_encode((string)$u->id) }}">Edit</a>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="11" align="center">No record found</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                        <div class="col-md-3">
+                            Status :
+                            <select name="show" class="form-control">
+                                <option value="">Select..</option>
+                                <option value="Active" @selected($show === 'Active')>Active</option>
+                                <option value="Deactive" @selected($show === 'Deactive')>Inactive</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-1">
+                            <label style="margin-bottom: 0px;">&nbsp;</label>
+                            <button type="submit" value="search" class="btn btn-primary" alt="Next">
+                                APPLY
+                            </button>
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom: 0px;">&nbsp;</label>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">
+                                Clear Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="row">&nbsp;</div>
+
+            <div id="listing">
+                @include('admin.admin_staffs._index_table', [
+                    'users' => $users ?? [],
+                    'limit' => $limit,
+                    'basePath' => $basePath,
+                ])
+            </div>
         </div>
-    </form>
+    </div>
 
-    @include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit ?? 50])
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
 @endsection
+
+@push('styles')
+    <style type="text/css">
+        .table>thead>tr>th,
+        .table>tbody>tr>th,
+        .table>tfoot>tr>th,
+        .table>thead>tr>td,
+        .table>tbody>tr>td,
+        .table>tfoot>tr>td {
+            padding: 5px;
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script type="text/javascript">
+        $(document).ready(function () {
+
+            $(document).on('click', '.page-link, .sort-link', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                if (url && url !== '#' && url !== 'javascript:;') {
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('submit', '#frmSearchadmin', function (e) {
+                e.preventDefault();
+                var form = $(this);
+                var isClearFilter = false;
+
+                if (e.originalEvent && e.originalEvent.submitter) {
+                    var btn = $(e.originalEvent.submitter);
+                    if (btn.attr('name') === 'ClearFilter') {
+                        isClearFilter = true;
+                    }
+                }
+
+                if (isClearFilter) {
+                    form[0].reset();
+                    var baseUrl = form.attr('action');
+                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
+                } else {
+                    var formData = form.serialize();
+                    var url = form.attr('action') + '?' + formData;
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('change', '.ajax-limit', function (e) {
+                e.preventDefault();
+                var form = $(this).closest('form');
+                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+                loadListing(url);
+            });
+
+            function loadListing(url, historyUrl) {
+                if (typeof historyUrl === 'undefined') {
+                    historyUrl = url;
+                }
+                $('#listing').css('opacity', '0.5');
+
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    success: function (data) {
+                        $('#listing').html(data);
+                        $('#listing').css('opacity', '1');
+                        window.history.pushState(null, null, historyUrl);
+                    },
+                    error: function (xhr) {
+                        $('#listing').css('opacity', '1');
+                        console.error('AJAX Load Error:', xhr);
+                    }
+                });
+            }
+
+            window.onpopstate = function () {
+                loadListing(window.location.href);
+            };
+        });
+    </script>
+    <script src="{{ asset('js/admin_booking.js') }}"></script>
+@endpush

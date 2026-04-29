@@ -3,16 +3,61 @@
 @section('title', $title ?? 'Adjust order')
 
 @section('content')
-    <p><a href="/admin/transactions/updatetransaction/{{ base64_encode((string)$order->id) }}">← Back to order transactions</a></p>
-    <h1>{{ $title ?? 'Adjust order' }}</h1>
-    <p>Order #{{ $order->increment_id ?? $order->id }}</p>
-    <form id="adjust-form">
-        @csrf
-        <input type="hidden" name="CsOrder[id]" value="{{ $order->id }}">
-        <label>New value for <code>{{ $field }}</code></label><br>
-        <input type="number" step="0.01" name="CsOrder[value]" value="{{ (float)($order->{$field} ?? 0) }}">
-        <button type="submit">Save</button>
-    </form>
+    @php
+        $backUrl = '/admin/transactions/updatetransaction/' . base64_encode((string) $order->id);
+    @endphp
+
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">{{ $title ?? 'Adjust order' }}</span>
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <div class="heading-btn-group">
+                    <a href="{{ $backUrl }}" class="btn btn-default">
+                        <i class="icon-arrow-left16 position-left"></i> Back to order transactions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <div class="panel panel-flat">
+        <div class="panel-heading">
+            <h5 class="panel-title">Order #{{ $order->increment_id ?? $order->id }}</h5>
+        </div>
+        <div class="panel-body">
+            <form id="adjust-form" class="form-horizontal">
+                @csrf
+                <input type="hidden" name="CsOrder[id]" value="{{ $order->id }}">
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">New value for <code>{{ $field }}</code> :</label>
+                    <div class="col-lg-9">
+                        <input type="number" step="0.01" name="CsOrder[value]" class="form-control"
+                               value="{{ (float)($order->{$field} ?? 0) }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="col-lg-offset-3 col-lg-9">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <a href="{{ $backUrl }}" class="btn btn-default">Cancel</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
     <script>
         document.getElementById('adjust-form').addEventListener('submit', function (e) {
             e.preventDefault();
@@ -29,10 +74,9 @@
                 method: 'POST',
                 headers: {'X-CSRF-TOKEN': '{{ csrf_token() }}', 'X-Requested-With': 'XMLHttpRequest'},
                 body: form
-            }).then(r => r.json()).then(function (res) {
+            }).then(function (r) { return r.json(); }).then(function (res) {
                 alert(res.message || 'Processed');
             });
         });
     </script>
-@endsection
-
+@endpush

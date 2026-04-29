@@ -5,17 +5,39 @@
 @section('header_title', 'Checkr Status')
 
 @section('content')
+    @php
+        $returnUrl = $basePath . '/index';
+        $refreshUrl = $basePath . '/checkr_status/' . base64_encode($user->id) . '?action=refresh';
+    @endphp
+
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Manage Checkr Status</span>
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <div class="heading-btn-group">
+                    <a href="{{ $refreshUrl }}" class="btn btn-primary">
+                        <i class="icon-sync position-left"></i> Update Status
+                    </a>
+                    <a href="{{ $returnUrl }}" class="btn btn-default">Return</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
     <div class="panel panel-flat">
         <div class="panel-heading">
             <h5 class="panel-title">User Information</h5>
-            <div class="heading-elements">
-                <a href="{{ $basePath }}/checkr_status/{{ base64_encode($user->id) }}?action=refresh" class="btn btn-primary btn-xs">
-                    <i class="icon-sync position-left"></i> Update Status
-                </a>
-            </div>
         </div>
         <div class="panel-body">
-            @include('partials.flash')
             <dl class="dl-horizontal">
                 <dt>Name</dt>
                 <dd>{{ e($user->first_name ?? '') }} {{ e($user->last_name ?? '') }}</dd>
@@ -31,48 +53,52 @@
         <div class="panel-heading">
             <h5 class="panel-title">Checkr Reports</h5>
         </div>
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Checkr ID</th>
-                        <th>Report ID</th>
-                        <th>MVR Report ID</th>
-                        <th>Status</th>
-                        <th>Report Data</th>
-                        <th>Created</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($reports as $report)
+        <div class="panel-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
                         <tr>
-                            <td>{{ $report->id }}</td>
-                            <td>{{ e($report->checkr_id ?? '') }}</td>
-                            <td>{{ e($report->report_id ?? '') }}</td>
-                            <td>{{ e($report->motor_vehicle_report_id ?? '') }}</td>
-                            <td>{{ e($report->status ?? '') }}</td>
-                            <td>
-                                @if(!empty($report->report))
-                                    <a href="#" class="btn btn-xs btn-info view-report-btn" data-report-id="{{ $report->id }}">View</a>
-                                @else
-                                    <span class="text-muted">N/A</span>
-                                @endif
-                            </td>
-                            <td>{{ $report->created ?? '' }}</td>
+                            <th>ID</th>
+                            <th>Checkr ID</th>
+                            <th>Report ID</th>
+                            <th>MVR Report ID</th>
+                            <th>Status</th>
+                            <th>Report Data</th>
+                            <th>Created</th>
                         </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="text-center text-muted">No reports found.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse($reports as $report)
+                            <tr>
+                                <td>{{ $report->id }}</td>
+                                <td>{{ e($report->checkr_id ?? '') }}</td>
+                                <td>{{ e($report->report_id ?? '') }}</td>
+                                <td>{{ e($report->motor_vehicle_report_id ?? '') }}</td>
+                                <td>{{ e($report->status ?? '') }}</td>
+                                <td>
+                                    @if(!empty($report->report))
+                                        <a href="#" class="btn btn-xs btn-info view-report-btn" data-report-id="{{ $report->id }}">View</a>
+                                    @else
+                                        <span class="text-muted">N/A</span>
+                                    @endif
+                                </td>
+                                <td>{{ $report->created ?? '' }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center text-muted">No reports found.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <div style="margin-top:12px;">
-        <a href="{{ $basePath }}/index" class="btn btn-default">Back to Users</a>
+    <div class="form-group">
+        <div class="col-lg-12">
+            <a href="{{ $returnUrl }}" class="btn btn-default">Back to Users</a>
+        </div>
     </div>
 
     <div id="reportModal" class="modal fade" tabindex="-1">

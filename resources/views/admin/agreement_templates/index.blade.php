@@ -1,6 +1,10 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Agreement Templates')
+@section('title', 'Manage Agreement Templates')
+
+@php
+    $useridB64 ??= '';
+@endphp
 
 @section('content')
     <div class="page-header">
@@ -8,14 +12,15 @@
             <div class="page-title">
                 <h4>
                     <a href="{{ url('admin/users/index') }}"><i class="icon-arrow-left52 position-left"></i></a>
-                    <span class="text-semibold">{{ 'User' }}</span> — {{ 'Agreement Templates' }}
+                    <span class="text-semibold">Manage</span>
+                    Agreement Templates
                 </h4>
             </div>
         </div>
     </div>
 
     <div class="row">
-        @include('partials.flash')
+        @includeif('partials.flash')
     </div>
 
     <div class="panel panel-flat">

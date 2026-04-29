@@ -1,21 +1,39 @@
 @extends('layouts.main')
 
-@section('content')
+@section('title', 'Accounting Reports')
+
+@push('scripts')
 <script type="text/javascript">
     jQuery(document).ready(function () {
         jQuery('#SearchDateFrom').datepicker({dateFormat: 'mm/dd/yy'});
         jQuery('#SearchDateTo').datepicker({dateFormat: 'mm/dd/yy'});
     });
 </script>
+@endpush
+
+@section('content')
+@php
+    $keyword ??= '';
+    $dateFrom ??= '';
+    $dateTo ??= '';
+@endphp
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage </span>- Accounting Reports</h4>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    @includeif('partials.flash')
+</div>
+
 <div class="panel">
-    <section class="right_content">
-        <section class="reportListingHeading" style="margin-bottom: 7px; float: left; width: 100%;">
-            <h3 style="width: 40%; float: left; padding: 10px;">Accounting Reports</h3>
-        </section>
-        @include('partials.flash')
+    <div class="panel-body">
         <form action="{{ url('accounting/reports/index') }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
             @csrf
-            <fieldset class="content-group" style="padding:0.35em 0.625em 0.75em">
+            <fieldset class="content-group">
                 <div class="col-md-2">
                     <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}" placeholder="Keyword">
                 </div>
@@ -26,15 +44,19 @@
                     <input type="text" name="Search[date_to]" id="SearchDateTo" class="form-control" value="{{ !empty($dateTo) ? \Carbon\Carbon::parse($dateTo)->format('m/d/Y') : '' }}" placeholder="Date Range To">
                 </div>
                 <div class="col-md-2">
-                    <input type="submit" name="search" value="APPLY" class="btn btn-primary">
+                    <button type="submit" name="search" value="APPLY" class="btn btn-primary">&nbsp;&nbsp;APPLY&nbsp;&nbsp;</button>
                 </div>
             </fieldset>
         </form>
+    </div>
+</div>
 
+<div class="panel">
+    <div class="panel-body" id="listing">
         <div style="width:100%; overflow: visible;">
             @if($reportlists->count())
                 <div class="text-center">{{ $reportlists->appends(request()->query())->links() }}</div>
-                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
+                <table class="table table-responsive">
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="selectAllChildCheckboxs" value="1"></th>
@@ -68,13 +90,21 @@
                 </table>
                 <div class="text-center">{{ $reportlists->appends(request()->query())->links() }}</div>
             @else
-                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
-                    <tr>
-                        <td colspan="6" align="center">No record found</td>
-                    </tr>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <td colspan="6" class="text-center">No record found</td>
+                        </tr>
+                    </table>
+                </div>
             @endif
         </div>
-    </section>
+    </div>
+</div>
+
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content"></div>
+    </div>
 </div>
 @endsection

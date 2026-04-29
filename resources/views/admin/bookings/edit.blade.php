@@ -3,23 +3,104 @@
 @section('title', 'Edit Booking')
 
 @section('content')
-    <h1>Edit booking #{{ $order->increment_id ?? $order->id }}</h1>
-    <form method="POST"
-        action="{{ str_contains(request()->path(), 'cloud/') ? '/cloud/linked_bookings/editsave' : '/admin/bookings/editsave' }}">
+    @php
+        $isCloud = str_contains(request()->path(), 'cloud/');
+        $action = $isCloud ? '/cloud/linked_bookings/editsave' : '/admin/bookings/editsave';
+        $returnUrl = $isCloud ? '/cloud/linked_bookings/index' : '/admin/bookings/index';
+    @endphp
+
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Edit Booking</span> #{{ $order->increment_id ?? $order->id }}
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <div class="heading-btn-group">
+                    <button type="submit" form="frmadmin" class="btn btn-primary">Save</button>
+                    <a href="{{ $returnUrl }}" class="btn btn-default">Return</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <form method="POST" action="{{ $action }}" id="frmadmin" name="frmadmin" class="form-horizontal">
         @csrf
         <input type="hidden" name="CsOrder[id]" value="{{ $order->id }}">
-        <label>Start datetime<br><input type="text" name="CsOrder[start_datetime]"
-                value="{{ $order->start_datetime ?? '' }}"></label><br><br>
-        <label>End datetime<br><input type="text" name="CsOrder[end_datetime]"
-                value="{{ $order->end_datetime ?? '' }}"></label><br><br>
-        <label>Rent<br><input type="number" step="0.01" name="CsOrder[rent]"
-                value="{{ $order->rent ?? 0 }}"></label><br><br>
-        <label>Tax<br><input type="number" step="0.01" name="CsOrder[tax]" value="{{ $order->tax ?? 0 }}"></label><br><br>
-        <label>DIA fee<br><input type="number" step="0.01" name="CsOrder[dia_fee]"
-                value="{{ $order->dia_fee ?? 0 }}"></label><br><br>
-        <label>Status<br><input type="number" name="CsOrder[status]" value="{{ $order->status ?? 0 }}"></label><br><br>
-        <label>Cancel note<br><textarea name="CsOrder[cancel_note]"
-                rows="3">{{ $order->cancel_note ?? '' }}</textarea></label><br><br>
-        <button type="submit">Save</button>
+
+        <div class="panel panel-flat">
+            <div class="panel-heading">
+                <h5 class="panel-title">Booking Details</h5>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Start datetime :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="CsOrder[start_datetime]" class="form-control"
+                               value="{{ $order->start_datetime ?? '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">End datetime :</label>
+                    <div class="col-lg-9">
+                        <input type="text" name="CsOrder[end_datetime]" class="form-control"
+                               value="{{ $order->end_datetime ?? '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Rent :</label>
+                    <div class="col-lg-9">
+                        <input type="number" step="0.01" name="CsOrder[rent]" class="form-control"
+                               value="{{ $order->rent ?? 0 }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Tax :</label>
+                    <div class="col-lg-9">
+                        <input type="number" step="0.01" name="CsOrder[tax]" class="form-control"
+                               value="{{ $order->tax ?? 0 }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">DIA fee :</label>
+                    <div class="col-lg-9">
+                        <input type="number" step="0.01" name="CsOrder[dia_fee]" class="form-control"
+                               value="{{ $order->dia_fee ?? 0 }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Status :</label>
+                    <div class="col-lg-9">
+                        <input type="number" name="CsOrder[status]" class="form-control"
+                               value="{{ $order->status ?? 0 }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">Cancel note :</label>
+                    <div class="col-lg-9">
+                        <textarea name="CsOrder[cancel_note]" rows="3" class="form-control">{{ $order->cancel_note ?? '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="col-lg-12">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{{ $returnUrl }}" class="btn btn-default">Return</a>
+            </div>
+        </div>
     </form>
 @endsection

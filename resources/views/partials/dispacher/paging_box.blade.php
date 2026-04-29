@@ -2,6 +2,9 @@
     $paginator ??= null;
     $limit ??= 50;
     $search = request('Search', []);
+    if ($paginator && !($paginator instanceof \Illuminate\Contracts\Pagination\Paginator)) {
+        $paginator = null;
+    }
     if ($paginator) {
         $paginator->appends(request()->except('page'));
     }

@@ -3,36 +3,75 @@
 @section('title', 'Duplicate Vehicle')
 
 @push('styles')
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 @endpush
 
 @section('content')
     @php
         $base = $vehicleBasePath ?? '/admin/vehicles';
+        $returnUrl = $returnListUrl ?? ($base . '/index');
     @endphp
-    <h1>Duplicate Vehicle</h1>
 
-    @if (session('error'))
-        <p style="color:#b00020;">{{ session('error') }}</p>
-    @endif
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Duplicate</span> Vehicle
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <div class="heading-btn-group">
+                    <button type="submit" form="vehicle-duplicate-form" class="btn btn-primary">
+                        Proceed <i class="icon-arrow-right14 position-right"></i>
+                    </button>
+                    <a href="{{ $returnUrl }}" class="btn btn-default">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <form method="POST" action="{{ $base }}/duplicate/{{ base64_encode((string)($vehicleid ?? 0)) }}" id="vehicle-duplicate-form">
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <form method="POST" action="{{ $base }}/duplicate/{{ base64_encode((string)($vehicleid ?? 0)) }}"
+          id="vehicle-duplicate-form" name="vehicle-duplicate-form" class="form-horizontal">
         @csrf
-        <div style="margin:8px 0;">
-            <label>VIN Number* <input type="text" name="Vehicle[vin_no]" style="text-transform:uppercase;" required maxlength="100"></label>
+
+        <div class="panel panel-flat">
+            <div class="panel-heading">
+                <h5 class="panel-title">VIN Details</h5>
+            </div>
+            <div class="panel-body">
+                <div class="form-group">
+                    <label class="col-lg-3 control-label">VIN Number :<span class="text-danger">*</span></label>
+                    <div class="col-lg-9">
+                        <input type="text" name="Vehicle[vin_no]" class="form-control text-uppercase"
+                               required maxlength="100">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="col-lg-3 control-label" for="vehicle_user_id">Owner :<span class="text-danger">*</span></label>
+                    <div class="col-lg-9">
+                        <select name="Vehicle[user_id]" id="vehicle_user_id" class="w-100" required></select>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div style="margin:8px 0; max-width: 420px;">
-            <label for="vehicle_user_id">Owner*</label>
-            <select name="Vehicle[user_id]" id="vehicle_user_id" style="width:100%;" required></select>
+
+        <div class="form-group">
+            <div class="col-lg-12">
+                <button type="submit" class="btn btn-primary">Proceed <i class="icon-arrow-right14 position-right"></i></button>
+                <a href="{{ $returnUrl }}" class="btn btn-default">Cancel</a>
+            </div>
         </div>
-        <button type="submit">Proceed</button>
-        <a href="{{ $returnListUrl ?? ($base . '/index') }}" style="margin-left:10px;">Cancel</a>
     </form>
 @endsection
 
 @push('scripts')
-    <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="{{ legacy_asset('js/select2.js') }}"></script>
     <script>
         (function () {
             var dealerId = @json($dealerid ?? null);

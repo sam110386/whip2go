@@ -81,7 +81,7 @@
         </form>
     </div>
 </div>
-<script src="/assets/js/select2.js"></script>
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
 <link rel="stylesheet" href="/css/select2.css">
 <script type="text/javascript">
     function format(item) { return item.tag; }

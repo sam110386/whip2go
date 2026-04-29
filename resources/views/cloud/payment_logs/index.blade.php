@@ -1,49 +1,94 @@
-@extends('admin.layouts.app')
+@extends('layouts.main')
 
 @section('title', 'Payment Logs')
 
+@push('scripts')
+<script type="text/javascript">
+    jQuery(document).ready(function () {
+        jQuery('#SearchDateFrom').datepicker({dateFormat: 'mm/dd/yy'});
+        jQuery('#SearchDateTo').datepicker({dateFormat: 'mm/dd/yy'});
+    });
+</script>
+@endpush
+
 @section('content')
-    <h1>Payment logs</h1>
-    <form method="get" action="/cloud/payment_logs/index" style="margin-bottom:10px;">
-        <label>From <input type="date" name="Search[date_from]" value="{{ $dateFrom ?? '' }}"></label>
-        <label>To <input type="date" name="Search[date_to]" value="{{ $dateTo ?? '' }}"></label>
-        <label>Keyword <input type="text" name="Search[keyword]" value="{{ $keyword ?? '' }}"></label>
-        <label>Rows
-            <select name="Record[limit]" onchange="this.form.submit()">
-                @foreach ([25,50,100,200] as $opt)
-                    <option value="{{ $opt }}" @selected((int)($limit ?? 50) === $opt)>{{ $opt }}</option>
-                @endforeach
-            </select>
-        </label>
-        <button type="submit">Search</button>
-    </form>
+@php
+    $dateFrom ??= '';
+    $dateTo ??= '';
+    $keyword ??= '';
+    $limit ??= 50;
+@endphp
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage </span>- Payment Logs</h4>
+        </div>
+    </div>
+</div>
 
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <thead>
-            <tr style="border-bottom:2px solid #ccc; text-align:left;">
-                <th style="padding:6px;">ID</th>
-                <th style="padding:6px;">User</th>
-                <th style="padding:6px;">Txn ID</th>
-                <th style="padding:6px;">Reference</th>
-                <th style="padding:6px;">Message</th>
-                <th style="padding:6px;">Created</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($rows as $r)
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px;">{{ $r->id }}</td>
-                    <td style="padding:6px;">{{ $r->user_id ?? '' }}</td>
-                    <td style="padding:6px;">{{ $r->transaction_id ?? '' }}</td>
-                    <td style="padding:6px;">{{ $r->reference_id ?? '' }}</td>
-                    <td style="padding:6px;">{{ $r->message ?? '' }}</td>
-                    <td style="padding:6px;">{{ $r->created ?? '' }}</td>
+<div class="row">
+    @includeif('partials.flash')
+</div>
+
+<div class="panel">
+    <div class="panel-body">
+        <form method="POST" action="{{ url('cloud/payment_logs/index') }}" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
+            @csrf
+            <fieldset class="content-group">
+                <div class="col-md-2">
+                    <input type="text" name="Search[date_from]" id="SearchDateFrom" class="form-control" value="{{ $dateFrom }}" placeholder="Date Range From">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" name="Search[date_to]" id="SearchDateTo" class="form-control" value="{{ $dateTo }}" placeholder="Date Range To">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}" placeholder="Keyword">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" name="search" value="SEARCH" class="btn btn-primary">&nbsp;&nbsp;SEARCH&nbsp;&nbsp;</button>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-body" id="listing">
+        <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Txn ID</th>
+                    <th>Reference</th>
+                    <th>Message</th>
+                    <th>Created</th>
                 </tr>
-            @empty
-                <tr><td colspan="6" style="padding:10px;">No logs found.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @forelse($rows as $r)
+                    <tr>
+                        <td>{{ $r->id }}</td>
+                        <td>{{ $r->user_id ?? '' }}</td>
+                        <td>{{ $r->transaction_id ?? '' }}</td>
+                        <td>{{ $r->reference_id ?? '' }}</td>
+                        <td>{{ $r->message ?? '' }}</td>
+                        <td>{{ $r->created ?? '' }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6">No logs found.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+        </div>
+        {{ $rows->links() }}
+    </div>
+</div>
 
-    {{ $rows->links() }}
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content"></div>
+    </div>
+</div>
 @endsection

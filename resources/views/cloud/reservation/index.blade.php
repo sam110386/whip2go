@@ -1,26 +1,9 @@
 @extends('layouts.main')
+
 @section('title', 'Pick Ups')
-@section('content')
+
+@push('scripts')
 <script src="{{ asset('assets/js/plugins/forms/editable/editable.min.js') }}"></script>
-<div id="myModal" class="modal fade" role="dialog">
-    <div class="modal-dialog"><div class="modal-content"></div></div>
-</div>
-<div class="page-header">
-    <div class="page-header-content">
-        <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Pick</span> Ups</h4>
-        </div>
-    </div>
-</div>
-@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
-@if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
-<div class="panel">
-    <div class="panel-body">
-        <div style="width:100%; overflow: visible;" id="postsPaging">
-            @include('cloud.reservation._index')
-        </div>
-    </div>
-</div>
 <script src="{{ asset('assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
 <script src="{{ asset('js/booking.js') }}"></script>
 <script src="{{ asset('js/jquery.maskedinput.js') }}"></script>
@@ -36,4 +19,32 @@ $(function(){
 });
 </script>
 <style>.datepicker .prev,.datepicker .next{background: none;}</style>
+@endpush
+
+@section('content')
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Pick </span>- Ups</h4>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    @includeif('partials.flash')
+</div>
+
+<div class="panel">
+    <div class="panel-body" id="listing">
+        <div style="width:100%; overflow: visible;" id="postsPaging">
+            @include('cloud.reservation._index')
+        </div>
+    </div>
+</div>
+
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content"></div>
+    </div>
+</div>
 @endsection

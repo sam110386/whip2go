@@ -1,41 +1,44 @@
-@extends('layouts.admin')
-@section('content')
-@php
-$status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 'Approved'];
-@endphp
+@extends('layouts.main')
+
+@section('title', 'Leads')
+
+@push('scripts')
+<script src="{{ legacy_asset('Lead/js/cloud_lead.js') }}"></script>
 <script type="text/javascript">
     jQuery(document).ready(function() {
         jQuery('#SearchDateFrom').datepicker({ dateFormat: 'mm/dd/yy' });
         jQuery('#SearchDateTo').datepicker({ dateFormat: 'mm/dd/yy' });
     });
 </script>
+@endpush
 
-<div id="myModal" class="modal fade" role="dialog">
-    <div class="modal-dialog">
-        <div class="modal-content" style="min-height: 200px;"></div>
-    </div>
-</div>
+@section('content')
+@php
+$status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 'Approved'];
+@endphp
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage</span> - Leads</h4>
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage </span>- Leads</h4>
         </div>
         <div class="heading-elements">
             <div class="input-group-btn">
-                <a href="{{ url('/cloud/lead/leads/add') }}" class="btn btn-success" style="float:right;">Add New</a>
+                <a href="{{ url('/cloud/lead/leads/add') }}" class="btn btn-success">Add New</a>
             </div>
         </div>
     </div>
 </div>
+
 <div class="row">
     @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
 </div>
+
 <div class="panel">
     <div class="panel-body">
-        <form action="{{ url('/cloud/lead/leads/index') }}" method="POST" id="frmSearchadmin" class="form-horizontal">
+        <form action="{{ url('/cloud/lead/leads/index') }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
             @csrf
-            <div class="row pb-10">
+            <fieldset class="content-group">
                 <div class="col-md-2">
                     <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}" placeholder="Keyword" />
                 </div>
@@ -61,12 +64,13 @@ $status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 
                     <input type="text" name="Search[date_to]" id="SearchDateTo" class="form-control" value="{{ !empty($dateTo) ? \Carbon\Carbon::parse($dateTo)->format('m/d/Y') : '' }}" placeholder="Date Range To" />
                 </div>
                 <div class="col-md-2">
-                    <input type="submit" value="APPLY" class="btn btn-primary" />
+                    <button type="submit" name="search" value="SEARCH" class="btn btn-primary">&nbsp;&nbsp;SEARCH&nbsp;&nbsp;</button>
                 </div>
-            </div>
+            </fieldset>
         </form>
     </div>
 </div>
+
 <div class="panel">
     <div class="panel-body" id="listing">
         <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
@@ -112,5 +116,11 @@ $status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 
         {{ $leads->links() }}
     </div>
 </div>
-<script src="{{ asset('Lead/js/cloud_lead.js') }}"></script>
+
+<!-- Modal -->
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content"></div>
+    </div>
+</div>
 @endsection

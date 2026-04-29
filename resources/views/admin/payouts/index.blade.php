@@ -1,84 +1,241 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Payouts')
+@section('title', 'Payouts Transactions')
+
+@php
+    $user_id ??= '';
+    $payout_id ??= '';
+    $date_from ??= '';
+    $date_to ??= '';
+    $limit ??= 50;
+    $listtype ??= '';
+    $batchMode ??= empty($listtype);
+    $paymentTypeValue ??= null;
+    $payoutlists ??= null;
+@endphp
 
 @section('content')
-    <h1>Payouts</h1>
-    <p style="font-size:13px;color:#555;">
-        @if ($batchMode)
-            <strong>Batch view</strong> (Stripe payout batches).
-            <a href="{{ request()->fullUrlWithQuery(['listtype' => 'all', 'page' => null]) }}">Show all line items</a>
-        @else
-            <strong>All payout transactions</strong> (successful lines only, status = 1).
-            <a href="{{ request()->fullUrlWithQuery(['listtype' => null, 'page' => null]) }}">Show batches</a>
-        @endif
-    </p>
-
-    @if (session('error'))
-        <p style="color:#b00020;">{{ session('error') }}</p>
-    @endif
-
-    <form method="POST" action="/admin/payouts/index" style="margin-bottom:16px; padding:12px; border:1px solid #eee;">
-        <input type="hidden" name="listtype" value="{{ $listtype }}">
-        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end;">
-            <div>
-                <label>Dealer user ID</label><br>
-                <input type="number" name="Search[user_id]" value="{{ $user_id }}" placeholder="User id" style="min-width:120px;">
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Payouts</span>
+                    Transactions
+                </h4>
             </div>
-            <div>
-                <label>Payout #</label><br>
-                <input type="text" name="Search[payout_id]" value="{{ $payout_id }}" placeholder="Batch id">
+            <div class="heading-elements">
+                @if ($batchMode)
+                    <a href="{{ request()->fullUrlWithQuery(['listtype' => 'all', 'page' => null]) }}" class="btn btn-success">Show All</a>
+                @else
+                    <a href="{{ request()->fullUrlWithQuery(['listtype' => null, 'page' => null]) }}" class="btn btn-success">Show Batches</a>
+                @endif
             </div>
-            <div>
-                <label>Date from</label><br>
-                <input type="text" name="Search[date_from]" value="{{ $date_from }}" placeholder="YYYY-MM-DD">
-            </div>
-            <div>
-                <label>Date to</label><br>
-                <input type="text" name="Search[date_to]" value="{{ $date_to }}" placeholder="YYYY-MM-DD">
-            </div>
-            <div>
-                <label>Rows / page</label><br>
-                <input type="number" name="Record[limit]" value="{{ $limit }}" min="1" max="500" style="width:70px;">
-            </div>
-            <div>
-                <button type="submit" name="search" value="search">Apply</button>
-            </div>
-            <div>
-                <button type="submit" name="search" value="EXPORT" formaction="/admin/payouts/index">Export</button>
-            </div>
-        </div>
-    </form>
-
-    <div id="listing">
-        @include('admin.payouts.listing', [
-            'payoutlists' => $payoutlists,
-            'batchMode' => $batchMode,
-            'paymentTypeValue' => $paymentTypeValue,
-        ])
-    </div>
-
-    <div id="payoutModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:9998; align-items:center; justify-content:center;">
-        <div style="background:#fff; max-width:900px; width:92%; max-height:85vh; overflow:auto; padding:16px; border-radius:6px; position:relative;">
-            <button type="button" onclick="document.getElementById('payoutModal').style.display='none'" style="position:absolute; right:10px; top:8px;">×</button>
-            <div id="payoutModalBody"></div>
         </div>
     </div>
 
-    <script>
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <div class="panel">
+        <div class="panel-body">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/payouts/index') }}">
+                <input type="hidden" name="listtype" value="{{ $listtype }}">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="col-md-3">
+                            Dealer :
+                            <input type="text" id="SearchUserId" name="Search[user_id]" class="form-control" style="width:100%;" value="{{ $user_id }}" placeholder="Select Dealer">
+                        </div>
+                        <div class="col-md-2">
+                            Payout # :
+                            <input type="text" name="Search[payout_id]" class="form-control" value="{{ $payout_id }}" placeholder="Payout #">
+                        </div>
+                        <div class="col-md-2">
+                            Date From :
+                            <input type="text" id="SearchDateFrom" name="Search[date_from]" class="form-control" value="{{ $date_from }}" placeholder="Date Range From">
+                        </div>
+                        <div class="col-md-2">
+                            Date To :
+                            <input type="text" id="SearchDateTo" name="Search[date_to]" class="form-control" value="{{ $date_to }}" placeholder="Date Range To">
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom: 0px;">&nbsp;</label>
+                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="Next">APPLY</button>
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom: 0px;">&nbsp;</label>
+                            <button type="submit" name="search" value="EXPORT" class="btn btn-primary pull-right" alt="Export">EXPORT</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="row">&nbsp;</div>
+
+            <div id="listing">
+                @include('admin.payouts.listing', [
+                    'payoutlists' => $payoutlists,
+                    'batchMode' => $batchMode,
+                    'paymentTypeValue' => $paymentTypeValue,
+                ])
+            </div>
+        </div>
+    </div>
+
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
+
+    <div id="plaidModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
+@endsection
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+    <style type="text/css">
+        .table>thead>tr>th,
+        .table>tbody>tr>th,
+        .table>tfoot>tr>th,
+        .table>thead>tr>td,
+        .table>tbody>tr>td,
+        .table>tfoot>tr>td {
+            padding: 5px;
+        }
+        tbody tr { cursor: pointer; }
+    </style>
+@endpush
+
+@push('scripts')
+    <script src="{{ legacy_asset('js/select2.js') }}"></script>
+    <script type="text/javascript">
+        function format(item) { return item.tag; }
+
         function getTransactions(payoutid) {
-            var modal = document.getElementById('payoutModal');
-            var body = document.getElementById('payoutModalBody');
-            if (!modal || !body) return false;
-            body.innerHTML = 'Loading…';
-            modal.style.display = 'flex';
-            var fd = new FormData();
-            fd.append('payoutid', payoutid);
-            fetch('/admin/payouts/transactions', { method: 'POST', body: fd })
-                .then(function (r) { return r.text(); })
-                .then(function (html) { body.innerHTML = html; })
-                .catch(function () { body.innerHTML = 'Request failed.'; });
+            if (typeof jQuery.blockUI === 'function') {
+                jQuery.blockUI({ message: '<h1>Just a moment...</h1>' });
+            }
+            jQuery.post("{{ url('admin/payouts/transactions') }}", { payoutid: payoutid }, function (data) {
+                $("#plaidModal .modal-content").html(data);
+                $("#plaidModal").modal('show').find('.modal-dialog').css('width', '800px');
+            }).done(function () {
+                if (typeof jQuery.unblockUI === 'function') {
+                    jQuery.unblockUI();
+                }
+            });
             return false;
         }
+
+        jQuery(document).ready(function () {
+            jQuery("#SearchUserId").select2({
+                data: { results: {}, text: 'tag' },
+                formatSelection: format,
+                formatResult: format,
+                placeholder: "Select Dealer",
+                minimumInputLength: 1,
+                ajax: {
+                    url: "{{ url('admin/bookings/customerautocomplete') }}",
+                    dataType: "json",
+                    type: "GET",
+                    data: function (params) {
+                        return { term: params, is_dealer: true };
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: jQuery.map(data, function (item) {
+                                return { tag: item.tag, id: item.id };
+                            })
+                        };
+                    }
+                },
+                initSelection: function (element, callback) {
+                    var id = $(element).val();
+                    if (id !== "") {
+                        $.ajax("{{ url('admin/bookings/customerautocomplete') }}", {
+                            dataType: "json",
+                            type: 'GET',
+                            data: { id: id }
+                        }).done(function (data) {
+                            if (data && data[0]) { callback(data[0]); }
+                        });
+                    }
+                }
+            });
+
+            if (jQuery.fn.datepicker) {
+                jQuery('#SearchDateFrom').datepicker({ dateFormat: 'mm/dd/yy' });
+                jQuery('#SearchDateTo').datepicker({ dateFormat: 'mm/dd/yy' });
+            }
+
+            $(document).on('click', '.page-link, .sort-link', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                if (url && url !== '#' && url !== 'javascript:;') {
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('submit', '#frmSearchadmin', function (e) {
+                e.preventDefault();
+                var form = $(this);
+                var isClearFilter = false;
+
+                if (e.originalEvent && e.originalEvent.submitter) {
+                    var btn = $(e.originalEvent.submitter);
+                    if (btn.attr('name') === 'ClearFilter') {
+                        isClearFilter = true;
+                    }
+                }
+
+                if (isClearFilter) {
+                    form[0].reset();
+                    var baseUrl = form.attr('action');
+                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
+                } else {
+                    var formData = form.serialize();
+                    var url = form.attr('action') + '?' + formData;
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('change', '.ajax-limit', function (e) {
+                e.preventDefault();
+                var form = $(this).closest('form');
+                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+                loadListing(url);
+            });
+
+            function loadListing(url, historyUrl) {
+                if (typeof historyUrl === 'undefined') {
+                    historyUrl = url;
+                }
+                $('#listing').css('opacity', '0.5');
+
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    success: function (data) {
+                        $('#listing').html(data);
+                        $('#listing').css('opacity', '1');
+                        window.history.pushState(null, null, historyUrl);
+                    },
+                    error: function (xhr) {
+                        $('#listing').css('opacity', '1');
+                        console.error('AJAX Load Error:', xhr);
+                    }
+                });
+            }
+
+            window.onpopstate = function () {
+                loadListing(window.location.href);
+            };
+        });
     </script>
-@endsection
+    <script src="{{ asset('js/admin_booking.js') }}"></script>
+@endpush

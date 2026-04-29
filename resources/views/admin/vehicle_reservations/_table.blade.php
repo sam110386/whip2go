@@ -1,38 +1,40 @@
-<table style="width:100%; border-collapse:collapse; font-size:13px;">
+<div class="table-responsive">
+<table class="table table-striped table-bordered">
     <thead>
-        <tr style="border-bottom:2px solid #ccc; text-align:left;">
-            <th style="padding:6px;">#</th>
-            <th style="padding:6px;">Vehicle</th>
-            <th style="padding:6px;">VIN</th>
-            <th style="padding:6px;">Dealer</th>
-            <th style="padding:6px;">Renter</th>
-            <th style="padding:6px;">Start</th>
-            <th style="padding:6px;">End</th>
-            <th style="padding:6px;">Status</th>
-            <th style="padding:6px;">Actions</th>
+        <tr>
+            <th>#</th>
+            <th>Vehicle</th>
+            <th>VIN</th>
+            <th>Dealer</th>
+            <th>Renter</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Status</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         @forelse ($bookings as $b)
-            <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:6px;">{{ $b->id }}</td>
-                <td style="padding:6px;">{{ $b->vehicle_unique_id }} - {{ $b->vehicle_name }}</td>
-                <td style="padding:6px;">{{ $b->vin_no }}</td>
-                <td style="padding:6px;">{{ trim(($b->owner_first_name ?? '') . ' ' . ($b->owner_last_name ?? '')) }}</td>
-                <td style="padding:6px;">{{ trim(($b->renter_first_name ?? '') . ' ' . ($b->renter_last_name ?? '')) }}</td>
-                <td style="padding:6px;">{{ $b->start_datetime ?? '' }}</td>
-                <td style="padding:6px;">{{ $b->end_datetime ?? '' }}</td>
-                <td style="padding:6px;">{{ (int)$b->status }}</td>
-                <td style="padding:6px; white-space:nowrap;">
-                    <button type="button" onclick="reservationStatus('{{ base64_encode((string)$b->id) }}', 2)">Cancel</button>
-                    <button type="button" onclick="reservationStatus('{{ base64_encode((string)$b->id) }}', 3)">Complete</button>
+            <tr>
+                <td>{{ $b->id }}</td>
+                <td>{{ $b->vehicle_unique_id }} - {{ $b->vehicle_name }}</td>
+                <td>{{ $b->vin_no }}</td>
+                <td>{{ trim(($b->owner_first_name ?? '') . ' ' . ($b->owner_last_name ?? '')) }}</td>
+                <td>{{ trim(($b->renter_first_name ?? '') . ' ' . ($b->renter_last_name ?? '')) }}</td>
+                <td>{{ $b->start_datetime ?? '' }}</td>
+                <td>{{ $b->end_datetime ?? '' }}</td>
+                <td>{{ (int)$b->status }}</td>
+                <td style="white-space:nowrap;">
+                    <button type="button" class="btn btn-xs btn-default" onclick="reservationStatus('{{ base64_encode((string)$b->id) }}', 2)">Cancel</button>
+                    <button type="button" class="btn btn-xs btn-default" onclick="reservationStatus('{{ base64_encode((string)$b->id) }}', 3)">Complete</button>
                 </td>
             </tr>
         @empty
-            <tr><td colspan="9" style="padding:12px;">No reservations found.</td></tr>
+            <tr><td colspan="9">No reservations found.</td></tr>
         @endforelse
     </tbody>
 </table>
+</div>
 
 @if ($bookings->hasPages())
     <div style="margin-top:14px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">

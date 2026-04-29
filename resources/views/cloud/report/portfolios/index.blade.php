@@ -57,11 +57,13 @@
                 .table.panel{border-color:unset;border: none;}
             </style>
         @else
-            <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
-                <tr>
-                    <td colspan="7" align="center">No record found</td>
-                </tr>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <tr>
+                        <td colspan="7" class="text-center">No record found</td>
+                    </tr>
+                </table>
+            </div>
         @endif
     </div>
 </div>

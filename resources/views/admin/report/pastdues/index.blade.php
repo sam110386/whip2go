@@ -1,8 +1,8 @@
 @extends('admin.layouts.app')
 @section('title', 'Past Due - Reports')
 @section('content')
-<script src="{{ asset('js/select2.js') }}"></script>
-<link rel="stylesheet" href="{{ asset('css/select2.css') }}">
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
+<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 <script type="text/javascript">
     function format(item) {
         return item.tag;
@@ -58,13 +58,8 @@
         </div>
     </div>
 </div>
-<div class="row ">
-    @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-    @endif
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
+<div class="row">
+    @includeif('partials.flash')
 </div>
 
 <div class="panel">

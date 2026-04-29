@@ -24,7 +24,7 @@
         @include('admin.widget_logs._index')
     </div>
 </div>
-<script src="/Widgets/js/ui.js"></script>
+<script src="{{ legacy_asset('Widgets/js/ui.js') }}"></script>
 {{-- Modal for log display --}}
 <div id="myModal" class="modal fade" role="dialog">
     <div class="modal-dialog">

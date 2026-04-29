@@ -1,24 +1,25 @@
 @php
     $rollups = $rollups ?? [];
 @endphp
-<table style="width:100%; border-collapse:collapse; font-size:13px;" class="table table-responsive">
+<div class="table-responsive">
+<table class="table table-striped table-bordered">
     <thead>
-        <tr style="border-bottom:2px solid #ccc; text-align:left;">
-            <th style="padding:6px;width:36px;"></th>
-            <th style="padding:6px;">Booking#</th>
-            <th style="padding:6px;">Status</th>
-            <th style="padding:6px;">Vehicle</th>
-            <th style="padding:6px;">Start</th>
-            <th style="padding:6px;">End</th>
-            <th style="padding:6px;">Duration</th>
-            <th style="padding:6px;">Customer</th>
-            <th style="padding:6px;">Mileage</th>
-            <th style="padding:6px;">Rent</th>
-            <th style="padding:6px;">Extra</th>
-            <th style="padding:6px;">Insurance</th>
-            <th style="padding:6px;">Toll</th>
-            <th style="padding:6px;">DIA Fee</th>
-            <th style="padding:6px;width:80px;">Action</th>
+        <tr>
+            <th style="width:36px;"></th>
+            <th>Booking#</th>
+            <th>Status</th>
+            <th>Vehicle</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Customer</th>
+            <th>Mileage</th>
+            <th>Rent</th>
+            <th>Extra</th>
+            <th>Insurance</th>
+            <th>Toll</th>
+            <th>DIA Fee</th>
+            <th style="width:80px;">Action</th>
         </tr>
     </thead>
     <tbody>
@@ -75,27 +76,27 @@
                 }
             @endphp
             <tr id="tr_{{ $r->id }}" rel-parent="no">
-                <td style="padding:6px;"></td>
+                <td></td>
                 @if($isChain)
-                    <td style="padding:6px;" onclick="{{ $loadsub }}">
+                    <td onclick="{{ $loadsub }}">
                         <i class="icon-forward position-left text-warning-400"></i>{{ $r->increment_id ?? $r->id }}
                     </td>
                 @else
-                    <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $r->increment_id ?? $r->id }}</td>
+                    <td onclick="{{ $openTrip }}">{{ $r->increment_id ?? $r->id }}</td>
                 @endif
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $statusLabel }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $r->vehicle_name ?? '' }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $fmt($r->start_datetime ?? null) }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $endDisp }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $dur }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ trim(($r->renter_first_name ?? '') . ' ' . ($r->renter_last_name ?? '')) }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $mile }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $rentTotal }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{!! $extraHtml !!}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $ins }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $toll }}</td>
-                <td style="padding:6px;" onclick="{{ $openTrip }}">{{ $dia }}</td>
-                <td style="padding:6px;">
+                <td onclick="{{ $openTrip }}">{{ $statusLabel }}</td>
+                <td onclick="{{ $openTrip }}">{{ $r->vehicle_name ?? '' }}</td>
+                <td onclick="{{ $openTrip }}">{{ $fmt($r->start_datetime ?? null) }}</td>
+                <td onclick="{{ $openTrip }}">{{ $endDisp }}</td>
+                <td onclick="{{ $openTrip }}">{{ $dur }}</td>
+                <td onclick="{{ $openTrip }}">{{ trim(($r->renter_first_name ?? '') . ' ' . ($r->renter_last_name ?? '')) }}</td>
+                <td onclick="{{ $openTrip }}">{{ $mile }}</td>
+                <td onclick="{{ $openTrip }}">{{ $rentTotal }}</td>
+                <td onclick="{{ $openTrip }}">{!! $extraHtml !!}</td>
+                <td onclick="{{ $openTrip }}">{{ $ins }}</td>
+                <td onclick="{{ $openTrip }}">{{ $toll }}</td>
+                <td onclick="{{ $openTrip }}">{{ $dia }}</td>
+                <td>
                     @if((int)($r->status ?? 0) === 3)
                         <a href="javascript:void(0)" title="Review Images" onclick="reviewimages('{{ base64_encode((string)($r->id ?? '')) }}')"><i class="icon-clipboard3"></i></a>
                     @endif
@@ -103,10 +104,11 @@
                 </td>
             </tr>
         @empty
-            <tr><td colspan="15" style="padding:10px;">No rows found.</td></tr>
+            <tr><td colspan="15">No rows found.</td></tr>
         @endforelse
     </tbody>
 </table>
+</div>
 
 @if(isset($reportlists) && method_exists($reportlists, 'links'))
     {{ $reportlists->appends(request()->except('page'))->links() }}

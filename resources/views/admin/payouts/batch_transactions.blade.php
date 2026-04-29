@@ -6,18 +6,19 @@
 @endphp
 <div class="panel">
     <h4 style="margin-top:0;">Associated transactions</h4>
-    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <div class="table-responsive">
+    <table class="table table-striped table-bordered">
         <thead>
-            <tr style="border-bottom:2px solid #ccc;">
-                <th style="padding:6px;">Booking#</th>
-                <th style="padding:6px;">Vehicle</th>
-                <th style="padding:6px;">Customer</th>
-                <th style="padding:6px;">Type</th>
-                <th style="padding:6px;">Amount</th>
-                <th style="padding:6px;">Misc</th>
-                <th style="padding:6px;">Net</th>
-                <th style="padding:6px;">Date</th>
-                <th style="padding:6px;">Action</th>
+            <tr>
+                <th>Booking#</th>
+                <th>Vehicle</th>
+                <th>Customer</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Misc</th>
+                <th>Net</th>
+                <th>Date</th>
+                <th>Action</th>
             </tr>
         </thead>
         <tbody>
@@ -31,24 +32,25 @@
                     $net = $refund > 0 ? '-' . $fmtMoney($refund) : ($stripe > 0 ? $fmtMoney($stripe) : $fmtMoney($amt));
                     $oid = base64_encode((string)($row->order_table_id ?? ''));
                 @endphp
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px;">{{ $row->increment_id }}</td>
-                    <td style="padding:6px;">{{ $row->vehicle_name }}</td>
-                    <td style="padding:6px;">{{ trim(($row->renter_first_name ?? '') . ' ' . ($row->renter_last_name ?? '')) }}</td>
-                    <td style="padding:6px;">{{ $typeLabel($row->type) }}</td>
-                    <td style="padding:6px;">{{ $showAmt }}</td>
-                    <td style="padding:6px;">{{ $misc }}</td>
-                    <td style="padding:6px;">{{ $net }}</td>
-                    <td style="padding:6px;">{{ $row->start_datetime }}</td>
-                    <td style="padding:6px;">
+                <tr>
+                    <td>{{ $row->increment_id }}</td>
+                    <td>{{ $row->vehicle_name }}</td>
+                    <td>{{ trim(($row->renter_first_name ?? '') . ' ' . ($row->renter_last_name ?? '')) }}</td>
+                    <td>{{ $typeLabel($row->type) }}</td>
+                    <td>{{ $showAmt }}</td>
+                    <td>{{ $misc }}</td>
+                    <td>{{ $net }}</td>
+                    <td>{{ $row->start_datetime }}</td>
+                    <td>
                         @if (!empty($row->order_table_id))
                             <a href="/admin/transactions/updatetransaction/{{ $oid }}" target="_blank">Details</a>
                         @endif
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="9" style="padding:12px;">No records.</td></tr>
+                <tr><td colspan="9">No records.</td></tr>
             @endforelse
         </tbody>
     </table>
+    </div>
 </div>

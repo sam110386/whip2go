@@ -1,17 +1,30 @@
 @extends('layouts.main')
 
+@section('title', 'CC Details')
+
+@push('scripts')
+<script type="text/javascript">
+    $(function(){
+        $("#InsurancePayerTokenRuleid").change(function(){
+            window.location.href='{{ url("insurance/payer_tokens/index") }}/'+$(this).val();
+        });
+    });
+</script>
+@endpush
+
 @section('content')
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage</span> - CC Details</h4>
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage </span>- CC Details</h4>
         </div>
         <div class="heading-elements">
-            <a href="{{ url('insurance/payer_tokens/add') }}" class="btn btn-danger btn-lg" style="float:right;">Add New</a>
+            <a href="{{ url('insurance/payer_tokens/add') }}" class="btn btn-danger btn-lg">Add New</a>
         </div>
     </div>
 </div>
-<div class="row ">
+
+<div class="row">
     @if(session('flash_message'))
         <div class="alert alert-success">{{ session('flash_message') }}</div>
     @endif
@@ -19,6 +32,7 @@
         <div class="alert alert-danger">{{ session('flash_error') }}</div>
     @endif
 </div>
+
 @if(count($rules) > 1)
 <div class="panel">
     <div class="panel-body">
@@ -34,10 +48,11 @@
     </div>
 </div>
 @endif
+
 <div class="panel">
-    <div id="postsPaging" class="panel-body">
+    <div class="panel-body" id="listing">
         @if(!empty($InsurancePayerTokens) && count($InsurancePayerTokens) > 0)
-            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table  table-responsive">
+            <table class="table  table-responsive">
                 <tr>
                     <th valign="top">Card #</th>
                     <th valign="top">Card Type</th>
@@ -60,19 +75,22 @@
                 <tr><td heigth="6" colspan="5"></td></tr>
             </table>
         @else
-            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="borderTable">
-                <tr>
-                    <td colspan="5" align="center">No record found</td>
-                </tr>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <tr>
+                        <td colspan="5" class="text-center">No record found</td>
+                    </tr>
+                </table>
+            </div>
         @endif
     </div>
 </div>
-<script type="text/javascript">
-    $(function(){
-        $("#InsurancePayerTokenRuleid").change(function(){
-            window.location.href='{{ url("insurance/payer_tokens/index") }}/'+$(this).val();
-        });
-    })
-</script>
+
+<!-- Modal -->
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        </div>
+    </div>
+</div>
 @endsection

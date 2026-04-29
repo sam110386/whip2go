@@ -1,28 +1,48 @@
-@extends('admin.layouts.app')
+@extends('layouts.main')
 
 @section('title', 'Dynamic Fares')
 
 @section('content')
-    <h1>Dynamic fares (user #{{ $userId }})</h1>
-    <p><a href="/cloud/linked_users/index">Back</a></p>
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <thead>
-            <tr style="border-bottom:2px solid #ccc; text-align:left;">
-                <th style="padding:6px;">ID</th>
-                <th style="padding:6px;">Key</th>
-                <th style="padding:6px;">Value</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($rows as $r)
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px;">{{ $r->id }}</td>
-                    <td style="padding:6px;">{{ $r->key ?? ($r->name ?? '-') }}</td>
-                    <td style="padding:6px;">{{ $r->value ?? ($r->amount ?? '-') }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="3" style="padding:10px;">No rows.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4>
+                <i class="icon-arrow-left52 position-left"></i>
+                <span class="text-semibold">Dynamic</span> Fares (user #{{ $userId }})
+            </h4>
+        </div>
+        <div class="heading-elements">
+            <a href="/cloud/linked_users/index" class="btn btn-default">Return</a>
+        </div>
+    </div>
+</div>
+
+<div class="content">
+    @includeif('partials.flash')
+
+    <div class="panel panel-flat">
+        <div class="panel-body">
+            <table class="table table-responsive">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Key</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($rows as $r)
+                        <tr>
+                            <td>{{ $r->id }}</td>
+                            <td>{{ $r->key ?? ($r->name ?? '-') }}</td>
+                            <td>{{ $r->value ?? ($r->amount ?? '-') }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3" class="text-center">No rows.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 @endsection

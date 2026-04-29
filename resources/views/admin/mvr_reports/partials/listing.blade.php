@@ -1,6 +1,6 @@
 {{-- Cake `Elements/mvr_reports/_index.ctp` — AJAX target `#listing`. --}}
 @if($users && $users->total() > 0)
-    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+    <table class="table table-responsive">
         <tr>
             <th valign="top" width="5%">#</th>
             <th valign="top">First Name</th>
@@ -54,15 +54,17 @@
         </div>
     </section>
 @else
-    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="borderTable">
-        <tr>
-            <td colspan="9" align="center">
-                @if($users === null)
-                    Users or user_reports table is not available.
-                @else
-                    No record found
-                @endif
-            </td>
-        </tr>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <tr>
+                <td colspan="9" class="text-center">
+                    @if($users === null)
+                        Users or user_reports table is not available.
+                    @else
+                        No record found
+                    @endif
+                </td>
+            </tr>
+        </table>
+    </div>
 @endif

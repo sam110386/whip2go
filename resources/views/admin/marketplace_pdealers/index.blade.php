@@ -50,7 +50,7 @@
 
             @if($dealers && $dealers->total() > 0)
                 <div class="table-responsive">
-                    <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
+                    <table class="table table-responsive">
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
@@ -72,7 +72,7 @@
                                     <td valign="top">{{ $row->phone }}</td>
                                     <td valign="top">{{ $row->address }}</td>
                                     <td valign="top">{{ $row->created }}</td>
-                                    <td align="center" valign="bottom">
+                                    <td class="text-center">
                                         @if((int)($row->status ?? 0) === 1)
                                             <a href="{{ $basePath }}/status/{{ base64_encode((string)$row->id) }}/0" onclick="return confirm('Are you sure to update this record?')">
                                                 <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status" title="Status">
@@ -83,7 +83,7 @@
                                             </a>
                                         @endif
                                     </td>
-                                    <td align="center" valign="top">
+                                    <td class="text-center">
                                         <a href="{{ $basePath }}/delete/{{ base64_encode((string)$row->id) }}" onclick="return confirm('Delete this record?')">
                                             <i class="glyphicon glyphicon-trash"></i>
                                         </a>
@@ -97,17 +97,19 @@
                 
                 @include('partials.dispacher.paging_box', ['paginator' => $dealers, 'limit' => $limit ?? 50])
             @else
-                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="borderTable">
-                    <tr>
-                        <td colspan="7" align="center">
-                            @if($dealers === null)
-                                Marketplace pending dealers table is not available.
-                            @else
-                                No record found
-                            @endif
-                        </td>
-                    </tr>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                @if($dealers === null)
+                                    Marketplace pending dealers table is not available.
+                                @else
+                                    No record found
+                                @endif
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             @endif
         </div>
     </div>

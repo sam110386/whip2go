@@ -3,7 +3,7 @@
 <style type="text/css">
     tbody tr { cursor: pointer; }
 </style>
-<script src="/assets/js/select2.js"></script>
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
 <link rel="stylesheet" href="/css/select2.css">
 <script type="text/javascript">
     function format(item) { return item.tag; }
@@ -91,5 +91,5 @@ $status_opt = ['new' => 'New', 'active' => 'Active', 'cancel' => 'Cancel'];
         <div class="modal-content"></div>
     </div>
 </div>
-<script src="/Telematics/js/telematics.js"></script>
+<script src="{{ legacy_asset('Telematics/js/telematics.js') }}"></script>
 @endsection

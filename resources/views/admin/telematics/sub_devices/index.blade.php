@@ -47,5 +47,5 @@ $status_opt = ['active' => 'Active', 'inactive' => 'Inactive'];
         <div class="modal-content animate-bottom"></div>
     </div>
 </div>
-<script src="/Telematics/js/telematics.js"></script>
+<script src="{{ legacy_asset('Telematics/js/telematics.js') }}"></script>
 @endsection

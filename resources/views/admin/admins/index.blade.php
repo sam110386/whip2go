@@ -1,79 +1,181 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Admin Users')
+@section('title', 'Manage Admin Users')
+
+@php
+    $keyword ??= '';
+    $searchin ??= '';
+    $fieldname ??= '';
+    $showtype ??= '';
+    $options ??= [];
+    $limit ??= 50;
+@endphp
 
 @section('content')
-    <h1>Manage Admin Users</h1>
-
-    <div style="margin: 10px 0;">
-        <a href="/admin/admins/add">Add New User</a>
-    </div>
-
-    <form method="GET" action="/admin/admins/index" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <label>
-            Keyword
-            <input type="text" name="keyword" value="{{ $keyword ?? '' }}">
-        </label>
-        <label>
-            Search In
-            <select name="searchin">
-                @foreach(($options ?? []) as $k => $label)
-                    <option value="{{ $k }}" @if(($searchin ?? '') === $k) selected @endif>{{ $label }}</option>
-                @endforeach
-            </select>
-        </label>
-        <label>
-            Status
-            <select name="showtype">
-                <option value="" @if(empty($showtype)) selected @endif>Any</option>
-                <option value="Active" @if(($showtype ?? '') === 'Active') selected @endif>Active</option>
-                <option value="Deactive" @if(($showtype ?? '') === 'Deactive') selected @endif>Inactive</option>
-            </select>
-        </label>
-        <button type="submit">Apply</button>
-    </form>
-
-    <hr>
-
-    <div class="panel panel-flat">
-        <div class="table-responsive">
-            <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
-                <thead>
-                    <tr>
-                        @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'id', 'title' => 'ID'],
-                            ['field' => 'username', 'title' => 'Username'],
-                            ['field' => 'first_name', 'title' => 'First Name'],
-                            ['field' => 'last_name', 'title' => 'Last Name'],
-                            ['field' => 'email', 'title' => 'Email'],
-                            ['field' => 'contact_number', 'title' => 'Contact#'],
-                            ['field' => 'created', 'title' => 'Created'],
-                            ['field' => 'status', 'title' => 'Status'],
-                            ['field' => 'role_id', 'title' => 'Role', 'sortable' => false]
-                        ]])
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse(($users ?? []) as $u)
-                        <tr>
-                            <td>{{ $u->id }}</td>
-                            <td>{{ $u->username }}</td>
-                            <td>{{ $u->first_name }}</td>
-                            <td>{{ $u->last_name }}</td>
-                            <td>{{ $u->email }}</td>
-                            <td>{{ $u->contact_number }}</td>
-                            <td>{{ $u->created }}</td>
-                            <td>{{ (int)$u->status === 1 ? 'Active' : 'Inactive' }}</td>
-                            <td>{{ $u->role_name ?? '-' }}</td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="9" align="center">No record found</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Manage</span>
+                    Admin Users
+                </h4>
+            </div>
+            <div class="heading-elements">
+                <a href="{{ url('admin/admins/add') }}" class="btn btn-success">
+                    Add New User
+                </a>
+            </div>
         </div>
     </div>
 
-    @include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit ?? 50])
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <div class="panel">
+        <div class="panel-body">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/admins/index') }}">
+                <div class="row">
+                    <div class="col-md-10">
+                        <div class="col-md-3">
+                            Keyword :
+                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50" size="30">
+                        </div>
+
+                        <div class="col-md-3">
+                            Search In :
+                            <select name="searchin" class="form-control">
+                                <option value="">Select..</option>
+                                @foreach($options as $k => $label)
+                                    <option value="{{ $k }}" @selected($searchin === $k)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-3">
+                            Status :
+                            <select name="showtype" class="form-control">
+                                <option value="">Select..</option>
+                                <option value="Active" @selected($showtype === 'Active')>Active</option>
+                                <option value="Deactive" @selected($showtype === 'Deactive')>Inactive</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-1">
+                            <label style="margin-bottom: 0px;">&nbsp;</label>
+                            <button type="submit" value="search" class="btn btn-primary" alt="Next">
+                                APPLY
+                            </button>
+                        </div>
+                        <div class="col-md-1">
+                            <label style="margin-bottom: 0px;">&nbsp;</label>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">
+                                Clear Filter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="row">&nbsp;</div>
+
+            <div id="listing">
+                @include('admin.admins._index_table', [
+                    'users' => $users ?? [],
+                    'limit' => $limit,
+                ])
+            </div>
+        </div>
+    </div>
+
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
 @endsection
 
+@push('styles')
+    <style type="text/css">
+        .table>thead>tr>th,
+        .table>tbody>tr>th,
+        .table>tfoot>tr>th,
+        .table>thead>tr>td,
+        .table>tbody>tr>td,
+        .table>tfoot>tr>td {
+            padding: 5px;
+        }
+    </style>
+@endpush
+
+@push('scripts')
+    <script type="text/javascript">
+        $(document).ready(function () {
+
+            $(document).on('click', '.page-link, .sort-link', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                if (url && url !== '#' && url !== 'javascript:;') {
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('submit', '#frmSearchadmin', function (e) {
+                e.preventDefault();
+                var form = $(this);
+                var isClearFilter = false;
+
+                if (e.originalEvent && e.originalEvent.submitter) {
+                    var btn = $(e.originalEvent.submitter);
+                    if (btn.attr('name') === 'ClearFilter') {
+                        isClearFilter = true;
+                    }
+                }
+
+                if (isClearFilter) {
+                    form[0].reset();
+                    var baseUrl = form.attr('action');
+                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
+                } else {
+                    var formData = form.serialize();
+                    var url = form.attr('action') + '?' + formData;
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('change', '.ajax-limit', function (e) {
+                e.preventDefault();
+                var form = $(this).closest('form');
+                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+                loadListing(url);
+            });
+
+            function loadListing(url, historyUrl) {
+                if (typeof historyUrl === 'undefined') {
+                    historyUrl = url;
+                }
+                $('#listing').css('opacity', '0.5');
+
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    success: function (data) {
+                        $('#listing').html(data);
+                        $('#listing').css('opacity', '1');
+                        window.history.pushState(null, null, historyUrl);
+                    },
+                    error: function (xhr) {
+                        $('#listing').css('opacity', '1');
+                        console.error('AJAX Load Error:', xhr);
+                    }
+                });
+            }
+
+            window.onpopstate = function () {
+                loadListing(window.location.href);
+            };
+        });
+    </script>
+    <script src="{{ asset('js/admin_booking.js') }}"></script>
+@endpush

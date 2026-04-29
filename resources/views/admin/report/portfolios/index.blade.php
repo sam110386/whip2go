@@ -3,8 +3,8 @@
 @section('content')
 <script src="{{ asset('js/report/papaparser.js') }}"></script>
 <script src="{{ asset('js/report/excellentexport.js') }}"></script>
-<script src="{{ asset('js/select2.js') }}"></script>
-<link rel="stylesheet" href="{{ asset('css/select2.css') }}">
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
+<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 <script type="text/javascript">
     jQuery(document).ready(function() {
         jQuery("body").addClass('sidebar-xs');
@@ -17,13 +17,8 @@
         </div>
     </div>
 </div>
-<div class="row ">
-    @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-    @endif
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
+<div class="row">
+    @includeif('partials.flash')
 </div>
 <div class="panel">
     <div class="panel-body">
@@ -53,11 +48,13 @@
                 .table.panel{border-color:unset;border: none;}
             </style>
         @else
-            <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
-                <tr>
-                    <td colspan="7" align="center">No record found</td>
-                </tr>
-            </table>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <tr>
+                        <td colspan="7" class="text-center">No record found</td>
+                    </tr>
+                </table>
+            </div>
         @endif
     </div>
 </div>

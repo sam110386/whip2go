@@ -1,7 +1,14 @@
-@extends('layouts.admin')
-@section('content')
-<script src="/assets/js/select2.js"></script>
-<link rel="stylesheet" href="/css/select2.css">
+@extends('layouts.main')
+
+@section('title', 'Customer Reports')
+
+@push('styles')
+<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+@endpush
+
+@push('scripts')
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
+<script src="{{ legacy_asset('Hitch/js/hitch.js') }}"></script>
 <script type="text/javascript">
     function format(item) { return item.tag; }
     jQuery(document).ready(function() {
@@ -31,41 +38,51 @@
         });
     });
 </script>
-<div id="myModal" class="modal fade" role="dialog">
-    <div class="modal-dialog">
-        <div class="modal-content"></div>
-    </div>
-</div>
+@endpush
+
+@section('content')
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Customer</span> - Reports</h4>
+            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage </span>- Customer Reports</h4>
         </div>
     </div>
 </div>
+
 <div class="row">
-    @include('partials.flash')
+    @includeif('partials.flash')
 </div>
+
 <div class="panel">
-    <form action="/cloud/hitch/customer_reports/index" method="POST" class="form-horizontal">
-        @csrf
-        <div class="panel-body">
-            <div class="col-md-2">
-                <input type="text" name="Search[renterid]" id="SearchRenterid" style="width:100%;" value="{{ $renterid }}" placeholder="Driver">
-            </div>
-            <div class="col-md-2">
-                <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}" placeholder="Booking#">
-            </div>
-            <div class="col-md-2">
-                <button type="submit" name="search" value="search" class="btn btn-primary">SEARCH</button>
-            </div>
-        </div>
-    </form>
+    <div class="panel-body">
+        <form action="{{ url('/cloud/hitch/customer_reports/index') }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
+            @csrf
+            <fieldset class="content-group">
+                <div class="col-md-2">
+                    <input type="text" name="Search[renterid]" id="SearchRenterid" style="width:100%;" value="{{ $renterid }}" placeholder="Driver">
+                </div>
+                <div class="col-md-2">
+                    <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}" placeholder="Booking#">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" name="search" value="search" class="btn btn-primary">&nbsp;&nbsp;SEARCH&nbsp;&nbsp;</button>
+                </div>
+            </fieldset>
+        </form>
+    </div>
 </div>
+
 <div class="panel">
-    <div style="width:100%; overflow: visible;" id="postsPaging" class="panel-body">
+    <div class="panel-body" id="listing">
         @include('cloud.hitch.customer_reports._table')
     </div>
 </div>
-<script src="/Hitch/js/hitch.js"></script>
+
+<!-- Modal -->
+<div id="myModal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        </div>
+    </div>
+</div>
 @endsection
