@@ -20,7 +20,7 @@ class TelematicsSubDevicesController extends LegacyAppController
 
         $decodedSubid = $this->decodeId($subid);
         if (empty($decodedSubid)) {
-            return redirect('/admin/telematics/subscriptions/index');
+            return redirect('/admin/telematics_subscriptions/index');
         }
 
         $status_type = '';
@@ -71,7 +71,7 @@ class TelematicsSubDevicesController extends LegacyAppController
         $device = null;
 
         if (empty($subid)) {
-            return redirect('/admin/telematics/subscriptions/index');
+            return redirect('/admin/telematics_subscriptions/index');
         }
 
         if (!empty($deviceid)) {

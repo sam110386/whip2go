@@ -42,10 +42,17 @@ class TdkDealersController extends LegacyAppController
             $statusFilter = 0;
         }
 
+        $sort = $request->input('sort', 'id');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['id', 'status'];
+        if (!in_array($sort, $allowedSort, true)) {
+            $sort = 'id';
+        }
+
         $query = DB::table('tdk_dealers as d')
             ->leftJoin('users as u', 'u.id', '=', 'd.user_id')
             ->select('d.*', 'u.first_name', 'u.last_name', 'u.username', 'u.email')
-            ->orderByDesc('d.id');
+            ->orderBy($sort === 'id' ? 'd.id' : 'd.' . $sort, $direction);
 
         if ($keyword !== '') {
             $like = '%' . addcslashes($keyword, '%_\\') . '%';

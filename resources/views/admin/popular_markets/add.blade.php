@@ -11,12 +11,7 @@
         </div>
     </div>
     <div class="row">
-        @if(session('success'))
-            <div class="col-md-12"><div class="alert alert-success">{{ session('success') }}</div></div>
-        @endif
-        @if(session('error'))
-            <div class="col-md-12"><div class="alert alert-danger">{{ session('error') }}</div></div>
-        @endif
+        @include('partials.flash')
     </div>
     <div class="panel">
         <div class="panel-body">

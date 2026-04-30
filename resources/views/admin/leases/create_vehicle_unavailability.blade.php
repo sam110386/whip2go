@@ -34,7 +34,7 @@
         </div>
     </div>
 
-    @push('css')
+    @push('styles')
         <link rel="stylesheet" href="{{ legacy_asset('css/fullcalendar.css') }}">
     @endpush
 

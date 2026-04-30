@@ -14,12 +14,7 @@
         </div>
     </div>
     <div class="row">
-        @if(session('success'))
-            <div class="col-md-12"><div class="alert alert-success">{{ session('success') }}</div></div>
-        @endif
-        @if(session('error'))
-            <div class="col-md-12"><div class="alert alert-danger">{{ session('error') }}</div></div>
-        @endif
+        @include('partials.flash')
     </div>
     <div class="panel">
         <div class="panel-body">
@@ -54,9 +49,9 @@
                         <tr>
                             @include('partials.dispacher.sortable_header', ['columns' => [
                                 ['field' => 'id', 'title' => '#'],
-                                ['field' => 'first_name', 'title' => 'Name'],
-                                ['field' => 'metro_city', 'title' => 'Metro City'],
-                                ['field' => 'metro_state', 'title' => 'Metro State'],
+                                ['field' => 'first_name', 'title' => 'Name', 'sortable' => false],
+                                ['field' => 'metro_city', 'title' => 'Metro City', 'sortable' => false],
+                                ['field' => 'metro_state', 'title' => 'Metro State', 'sortable' => false],
                                 ['field' => 'status', 'title' => 'Status'],
                                 ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
                             ]])

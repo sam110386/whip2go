@@ -63,8 +63,8 @@
     </div>
 </div>
 
-<script src="{{ legacy_asset('assets/js/plugins/forms/validation/validate.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/forms/validation/additional_methods.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/forms/validation/validate.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/forms/validation/additional_methods.min.js') }}"></script>
 {{-- Cake `elements/sql_dump` omitted; use Laravel debug tooling when needed. --}}
 @stack('scripts')
 </body>

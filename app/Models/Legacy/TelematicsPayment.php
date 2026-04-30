@@ -2,20 +2,20 @@
 
 namespace App\Models\Legacy;
 
-class MetroExport extends LegacyModel
+class TelematicsPayment extends LegacyModel
 {
-    protected $table = 'metro_exports';
+    protected $table = 'telematics_payments';
 
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = null;
 
     protected $fillable = [
-        'filename',
-        'start',
-        'end',
-        'offset',
+        'telematics_id',
+        'amt',
+        'txn_id',
         'status',
+        'last_processed',
     ];
     protected $hidden = [];
     protected $guarded = [

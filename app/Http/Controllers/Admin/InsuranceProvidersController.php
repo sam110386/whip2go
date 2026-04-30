@@ -31,8 +31,12 @@ class InsuranceProvidersController extends LegacyAppController
         session([$sessKey => $limit]);
 
         $sort = $request->input('sort', 'id');
-        $direction = $request->input('direction', 'desc');
-        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['id', 'name', 'city'];
+        if (!in_array($sort, $allowedSort, true)) {
+            $sort = 'id';
+        }
+
         $records = $query->orderBy($sort, $direction)->paginate($limit);
 
         $data = compact('keyword', 'records', 'limit', 'sort', 'direction');

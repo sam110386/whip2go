@@ -3,7 +3,7 @@
 @section('title', 'Linked Rental Orders')
 
 @push('scripts')
-<script src="{{ legacy_asset('assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
 <script src="{{ legacy_asset('js/cloud_booking.js') }}"></script>
 <script>
     jQuery(document).ready(function () {

@@ -4,7 +4,7 @@
 
 @push('head_scripts')
     <script src="{{ legacy_asset('js/jquery.validate.js') }}"></script>
-    <script src="{{ legacy_asset('assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
+    <script src="{{  legacy_asset('js/assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
 @endpush
 
 @section('content')

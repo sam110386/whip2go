@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\TelematicsSubscription;
+use App\Models\Legacy\TelematicsPayment;
 
 class TelematicsSubscriptionsController extends LegacyAppController
 {
@@ -33,7 +35,7 @@ class TelematicsSubscriptionsController extends LegacyAppController
             }
         }
 
-        $query = DB::table('telematics_subscriptions as TelematicsSubscription')
+        $query = TelematicsSubscription::query()->from('telematics_subscriptions as TelematicsSubscription')
             ->leftJoin('users as Owner', 'Owner.id', '=', 'TelematicsSubscription.user_id')
             ->select('TelematicsSubscription.*', 'Owner.first_name', 'Owner.last_name');
 
@@ -58,7 +60,14 @@ class TelematicsSubscriptionsController extends LegacyAppController
             ?: session($sessLimitKey, $this->recordsPerPage);
         session([$sessLimitKey => $limit]);
 
-        $records = $query->orderByDesc('TelematicsSubscription.id')
+        $sort = $request->input('sort', 'id');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['id'];
+        if (!in_array($sort, $allowedSort, true)) {
+            $sort = 'id';
+        }
+
+        $records = $query->orderBy($sort === 'id' ? 'TelematicsSubscription.id' : $sort, $direction)
             ->paginate($limit)
             ->withQueryString();
 
@@ -87,8 +96,7 @@ class TelematicsSubscriptionsController extends LegacyAppController
             return response()->json($uInfo);
         }
 
-        $Payment = DB::table('telematics_payments')
-            ->where('status', 0)
+        $Payment = TelematicsPayment::where('status', 0)
             ->where('id', $paymentid)
             ->first();
 
@@ -119,7 +127,7 @@ class TelematicsSubscriptionsController extends LegacyAppController
             ?: session($sessLimitKey, $this->recordsPerPage);
         session([$sessLimitKey => $limit]);
 
-        $records = DB::table('telematics_payments as TelematicsPayment')
+        $records = TelematicsPayment::query()->from('telematics_payments as TelematicsPayment')
             ->where($conditions)
             ->orderByDesc('TelematicsPayment.id')
             ->paginate($limit)

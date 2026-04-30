@@ -2,19 +2,17 @@
 
 namespace App\Models\Legacy;
 
-class MetroExport extends LegacyModel
+class Waitlist extends LegacyModel
 {
-    protected $table = 'metro_exports';
+    protected $table = 'waitlist';
 
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = null;
 
     protected $fillable = [
-        'filename',
-        'start',
-        'end',
-        'offset',
+        'user_id',
+        'vehicle_id',
         'status',
     ];
     protected $hidden = [];

@@ -6,21 +6,19 @@
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
-                <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Metro</span> - Export</h4>
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i> 
+                    <span class="text-semibold">Metro</span> - Export
+                </h4>
             </div>
         </div>
     </div>
     <div class="row">
-        @if(session('success'))
-            <div class="col-md-12"><div class="alert alert-success">{{ session('success') }}</div></div>
-        @endif
-        @if(session('error'))
-            <div class="col-md-12"><div class="alert alert-danger">{{ session('error') }}</div></div>
-        @endif
+        @includeif('partials.flash')
     </div>
     <div class="panel">
         <div class="panel-body" id="listing">
-            <form method="post" action="{{ $basePath }}/export" id="frmSearchadmin" name="frmSearchadmin">
+            <form method="post" action="{{ url('/admin/metro_exports/export')}}" id="frmSearchadmin" name="frmSearchadmin">
                 @csrf
                 <div class="row">
                     <div class="col-md-10">
@@ -42,9 +40,9 @@
                     <thead>
                         <tr>
                             @include('partials.dispacher.sortable_header', ['columns' => [
-                                ['field' => 'id', 'title' => '#', 'style' => 'width: 5%;'],
-                                ['field' => 'filename', 'title' => 'File'],
-                                ['field' => 'status', 'title' => 'Status'],
+                                ['field' => 'id', 'title' => '#', 'sortable'=>false, 'style' => 'width: 5%;'],
+                                ['field' => 'filename', 'title' => 'File', 'sortable'=>false],
+                                ['field' => 'status', 'title' => 'Status', 'sortable'=>false],
                                 ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
                             ]])
                         </tr>
@@ -52,22 +50,23 @@
                     <tbody>
                         @if($exports !== null && $exports->count() > 0)
                             @foreach($exports as $export)
+                            
                                 <tr>
                                     <td valign="top">{{ $export->id }}</td>
                                     <td valign="top">{{ $export->filename }}</td>
                                     <td valign="top">
-                                        @if(property_exists($export, 'status') && $export->status !== null && $export->status !== '')
+                                        @if($export->status !== null && $export->status !== '')
                                             @if((string) $export->status === '0' || (int) $export->status === 0)
                                                 Queued
                                             @elseif((string) $export->status === '1' || (int) $export->status === 1)
                                                 Processing
                                             @elseif((string) $export->status === '2' || (int) $export->status === 2)
-                                                <a href="{{ $basePath }}/download/{{ rawurlencode($export->filename) }}">Download</a>
+                                                <a href="/admin/metro_exports/download/{{ rawurlencode($export->filename) }}">Download</a>
                                             @else
                                                 —
                                             @endif
                                         @else
-                                            <a href="{{ $basePath }}/download/{{ rawurlencode($export->filename) }}">Download</a>
+                                            <a href="/admin/metro_exports/download/{{ rawurlencode($export->filename) }}">Download</a>
                                         @endif
                                     </td>
                                     <td class="action"></td>

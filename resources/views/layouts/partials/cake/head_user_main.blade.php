@@ -12,7 +12,7 @@
 <script src="{{ legacy_asset('js/assets/js/core/libraries/bootstrap.min.js') }}"></script>
 <script src="{{ legacy_asset('js/assets/js/plugins/loaders/blockui.min.js') }}"></script>
 <script src="{{ legacy_asset('js/assets/js/core/app.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
 <script src="{{ legacy_asset('js/assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
 <script src="{{ legacy_asset('js/assets/js/plugins/forms/selects/bootstrap_multiselect.js') }}"></script>
 <script src="{{ legacy_asset('js/assets/js/plugins/ui/moment/moment.min.js') }}"></script>
@@ -25,7 +25,7 @@
 <link rel="stylesheet" href="{{ legacy_asset('css/theme2/components.css') }}">
 <link rel="stylesheet" href="{{ legacy_asset('css/theme2/colors.css') }}">
 @stack('meta')
-@stack('css')
+@stack('styles')
 @stack('head_scripts')
 @php
     $gaId = (string) config('legacy.analytics_measurement_id', '');

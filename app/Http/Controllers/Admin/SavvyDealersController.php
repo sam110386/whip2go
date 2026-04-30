@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\SavvyDealer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class SavvyDealersController extends LegacyAppController
 {
@@ -20,7 +20,7 @@ class SavvyDealersController extends LegacyAppController
             session([$sessLimitName => $limit]);
         }
 
-        $dealers = DB::table('savvy_dealers')
+        $dealers = SavvyDealer::query()
             ->leftJoin('users', 'users.id', '=', 'savvy_dealers.user_id')
             ->select('savvy_dealers.*', 'users.first_name', 'users.last_name')
             ->orderBy('savvy_dealers.id', 'DESC')
@@ -50,32 +50,32 @@ class SavvyDealersController extends LegacyAppController
             }
 
             if (empty($data['id'])) {
-                $exists = DB::table('savvy_dealers')->where('user_id', $data['user_id'])->exists();
+                $exists = SavvyDealer::where('user_id', $data['user_id'])->exists();
                 if ($exists) {
                     return back()->withErrors(['user_id' => 'User records already exists'])->withInput();
                 }
             }
 
             if (!empty($data['id'])) {
-                DB::table('savvy_dealers')->where('id', $data['id'])->update([
+                SavvyDealer::where('id', $data['id'])->update([
                     'user_id' => $data['user_id'],
                     'search_url' => $data['search_url'] ?? '',
                     'filters' => $data['filters'],
                 ]);
             } else {
-                DB::table('savvy_dealers')->insert([
+                SavvyDealer::create([
                     'user_id' => $data['user_id'],
                     'search_url' => $data['search_url'] ?? '',
                     'filters' => $data['filters'],
                 ]);
             }
 
-            return redirect()->route('admin.savvy.dealers.index')
+            return redirect('admin/savvy_dealers/index')
                 ->with('success', 'Dealer data saved successfully.');
         }
 
         if (!empty($decodedId)) {
-            $dealer = DB::table('savvy_dealers')
+            $dealer = SavvyDealer::query()
                 ->leftJoin('users', 'users.id', '=', 'savvy_dealers.user_id')
                 ->where('savvy_dealers.id', $decodedId)
                 ->select('savvy_dealers.*', 'users.first_name', 'users.last_name')
@@ -98,8 +98,7 @@ class SavvyDealersController extends LegacyAppController
 
         $decodedId = $id ? base64_decode($id) : null;
         if (!empty($decodedId)) {
-            DB::table('savvy_dealers')
-                ->where('id', $decodedId)
+            SavvyDealer::where('id', $decodedId)
                 ->update(['status' => ($status == 1) ? 1 : 0]);
         }
 
@@ -112,7 +111,7 @@ class SavvyDealersController extends LegacyAppController
 
         $decodedId = $id ? base64_decode($id) : null;
         if (!empty($decodedId)) {
-            DB::table('savvy_dealers')->where('id', $decodedId)->delete();
+            SavvyDealer::where('id', $decodedId)->delete();
         }
 
         return redirect()->back()->with('success', 'Dealer is deleted successfully');

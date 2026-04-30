@@ -49,7 +49,7 @@ Route::redirect('/cloud/linked_bookings/createbooking', '/cloud/linked_bookings/
 Route::redirect('/admin/bookings/create', '/admin/bookings/index', 301);
 Route::redirect('/admin/bookings/createbooking', '/admin/bookings/index', 301);
 Route::redirect('/logins/forgotpassword', '/logins/forgotPassword', 301);
-Route::redirect('/telematics/subscriptions/page', '/telematics', 301);
+Route::redirect('/telematics_subscriptions/page', '/telematics', 301);
 
 // Cake redirect parity (used after login)
 Route::get('/users/dashboard', function () {

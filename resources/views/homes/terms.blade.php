@@ -2,7 +2,7 @@
 
 @section('title', $title_for_layout ?? 'Terms of Service')
 
-@push('css')
+@push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('stylenew.css') }}">
 @endpush
 

@@ -2,7 +2,7 @@
 
 @section('title', $title_for_layout ?? 'Privacy Policy')
 
-@push('css')
+@push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('stylenew.css') }}">
 @endpush
 

@@ -70,7 +70,7 @@ class TelematicsSubscriptionsController extends LegacyAppController
             $unit = (int) $request->input('TelematicsSubscription.units');
             if ($unit <= 0) {
                 session()->flash('error', 'Please select a valid number of units');
-                return redirect('/telematics/subscriptions/buy');
+                return redirect('/telematics_subscriptions/buy');
             }
 
             $shipping = sprintf('%0.2f', config('legacy.TELEMATICSHIPPING', 0));

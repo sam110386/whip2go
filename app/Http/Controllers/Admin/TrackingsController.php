@@ -29,6 +29,13 @@ class TrackingsController extends LegacyAppController
         $limit = $this->resolveLimit($request);
         $request->merge(['Record' => ['limit' => $limit]]);
 
+        $sort = $request->input('sort', 'id');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $allowedSort = ['id', 'created'];
+        if (!in_array($sort, $allowedSort, true)) {
+            $sort = 'id';
+        }
+
         $trackings = DB::table('trackings')
             ->leftJoin('vehicles', 'vehicles.id', '=', 'trackings.vehicle_id')
             ->leftJoin('users', 'users.id', '=', 'trackings.user_id')
@@ -38,7 +45,7 @@ class TrackingsController extends LegacyAppController
                 'users.first_name',
                 'users.last_name'
             )
-            ->orderByDesc('trackings.id')
+            ->orderBy('trackings.' . $sort, $direction)
             ->paginate($limit)
             ->withQueryString();
 

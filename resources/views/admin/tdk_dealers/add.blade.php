@@ -49,11 +49,8 @@
                     <div class="form-group">
                         <label class="col-lg-3 control-label">Dealer :</label>
                         <div class="col-lg-9">
-                            <select id="tdk_dealer_user_id" name="TdkDealer[user_id]" class="form-control" style="width:100%;" data-placeholder="Select Dealer">
-                                @if($initialUserId)
-                                    <option value="{{ $initialUserId }}" selected>{{ $userLabel ?: 'Selected dealer' }}</option>
-                                @endif
-                            </select>
+                            <input type="text" id="tdk_dealer_user_id" name="TdkDealer[user_id]" style="width:100%;"
+                                value="{{ $initialUserId }}" data-placeholder="Select Dealer">
                             @error('TdkDealer.user_id')
                                 <span class="help-block text-danger">{{ $message }}</span>
                             @enderror
@@ -63,8 +60,9 @@
                     <div class="form-group">
                         <label class="col-lg-3 control-label">Metro City :</label>
                         <div class="col-lg-9">
-                            <input type="text" name="TdkDealer[metro_city]" class="required form-control" placeholder="Metro Town"
-                                   value="{{ old('TdkDealer.metro_city', $dealer->metro_city ?? '') }}">
+                            <input type="text" name="TdkDealer[metro_city]" class="required form-control"
+                                placeholder="Metro Town"
+                                value="{{ old('TdkDealer.metro_city', $dealer->metro_city ?? '') }}">
                             @error('TdkDealer.metro_city')
                                 <span class="help-block text-danger">{{ $message }}</span>
                             @enderror
@@ -74,8 +72,9 @@
                     <div class="form-group">
                         <label class="col-lg-3 control-label">Plate State :</label>
                         <div class="col-lg-9">
-                            <input type="text" name="TdkDealer[metro_state]" maxlength="3" class="required form-control" placeholder="Metro State"
-                                   value="{{ old('TdkDealer.metro_state', $dealer->metro_state ?? '') }}">
+                            <input type="text" name="TdkDealer[metro_state]" maxlength="3" class="required form-control"
+                                placeholder="Metro State"
+                                value="{{ old('TdkDealer.metro_state', $dealer->metro_state ?? '') }}">
                             @error('TdkDealer.metro_state')
                                 <span class="help-block text-danger">{{ $message }}</span>
                             @enderror
@@ -96,8 +95,10 @@
                     <div class="form-group">
                         <label class="col-lg-3 control-label">&nbsp;</label>
                         <div class="col-lg-9">
-                            <button type="submit" class="btn btn-primary">Save <i class="icon-database-insert position-right"></i></button>
-                            <button type="button" class="btn btn-default left-margin btn-cancel" onclick="window.location.href='{{ $basePath }}/index'">Return</button>
+                            <button type="submit" class="btn btn-primary">Save <i
+                                    class="icon-database-insert position-right"></i></button>
+                            <button type="button" class="btn btn-default left-margin btn-cancel"
+                                onclick="window.location.href='{{ $basePath }}/index'">Return</button>
                         </div>
                     </div>
                 </div>
@@ -121,29 +122,30 @@
                 ajax: {
                     url: '/admin/bookings/customerautocomplete',
                     dataType: 'json',
-                    delay: 250,
-                    data: function (params) {
-                        return { term: params.term || '', is_dealer: true };
+                    quietMillis: 250,
+                    data: function (term) {
+                        return { term: term, is_dealer: true };
                     },
-                    processResults: function (data) {
+                    results: function (data) {
                         return {
                             results: (data || []).map(function (item) {
                                 return { id: item.id, text: item.tag };
                             })
                         };
                     }
+                },
+                initSelection: function (element, callback) {
+                    var id = jQuery(element).val();
+                    if (id !== "") {
+                        jQuery.getJSON('/admin/bookings/customerautocomplete', { id: id })
+                            .done(function (data) {
+                                if (data && data.length) {
+                                    callback({ id: data[0].id, text: data[0].tag });
+                                }
+                            });
+                    }
                 }
             });
-            if (dealerId) {
-                jQuery.getJSON('/admin/bookings/customerautocomplete', { id: dealerId })
-                    .done(function (data) {
-                        if (data && data.length) {
-                            var item = data[0];
-                            var opt = new Option(item.tag, item.id, true, true);
-                            $sel.append(opt).trigger('change');
-                        }
-                    });
-            }
             jQuery('#TdkDealer').validate();
         })();
     </script>

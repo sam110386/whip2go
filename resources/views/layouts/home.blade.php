@@ -23,16 +23,16 @@
 @yield('content')
 
 @include('layouts.partials.cake.marketing_footer')
-<script src="{{ legacy_asset('assets/js/plugins/loaders/pace.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/loaders/pace.min.js') }}"></script>
 <script src="{{ legacy_asset('assets/js/core/libraries/jquery.min.js') }}"></script>
 <script src="{{ legacy_asset('assets/js/core/libraries/bootstrap.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/loaders/blockui.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/loaders/blockui.min.js') }}"></script>
 <script src="{{ legacy_asset('assets/js/core/app.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/forms/selects/bootstrap_multiselect.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/ui/moment/moment.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/plugins/pickers/datepicker.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/forms/selects/bootstrap_multiselect.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/ui/moment/moment.min.js') }}"></script>
+<script src="{{  legacy_asset('js/assets/js/plugins/pickers/datepicker.js') }}"></script>
 <script type="text/javascript">
     $(function () {
         $(window).on('scroll', function () {

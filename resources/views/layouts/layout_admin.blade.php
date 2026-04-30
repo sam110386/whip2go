@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="{{ legacy_asset('css/theme2/colors.css') }}">
 
     @stack('meta')
-    @stack('css')
+    @stack('styles')
     @stack('head_scripts')
 
 </head>

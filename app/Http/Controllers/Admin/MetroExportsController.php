@@ -8,17 +8,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Models\Legacy\MetroExport;
 
 class MetroExportsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
     private const SESSION_LIMIT_KEY = 'metro_exports_limit';
-
-    protected function basePath(): string
-    {
-        return '/admin/metro_exports';
-    }
 
     protected function exportDir(): string
     {
@@ -39,8 +35,7 @@ class MetroExportsController extends LegacyAppController
 
         $exports = null;
         if (Schema::hasTable('metro_exports')) {
-            $exports = DB::table('metro_exports')
-                ->orderByDesc('id')
+            $exports = MetroExport::orderByDesc('id')
                 ->paginate($limit)
                 ->appends(['Record' => ['limit' => $limit]])
                 ->withQueryString();
@@ -50,7 +45,6 @@ class MetroExportsController extends LegacyAppController
             'title_for_layout' => 'Metro Export',
             'exports' => $exports,
             'limit' => $limit,
-            'basePath' => $this->basePath(),
         ]);
     }
 
@@ -99,8 +93,6 @@ class MetroExportsController extends LegacyAppController
             'start' => $startYmd,
             'end' => $endYmd,
             'filename' => $filename,
-            'created' => $now,
-            'modified' => $now,
         ];
 
         if (Schema::hasColumn('metro_exports', 'status')) {
@@ -110,7 +102,7 @@ class MetroExportsController extends LegacyAppController
             $insert['offset'] = 0;
         }
 
-        DB::table('metro_exports')->insert($insert);
+        MetroExport::create($insert);
 
         return back()->with('success', 'Your request is saved successfully. Please download file after complete process');
     }
@@ -126,29 +118,29 @@ class MetroExportsController extends LegacyAppController
 
         $safeName = $filename !== null ? basename((string) $filename) : '';
         if ($safeName === '' || str_contains($safeName, '..')) {
-            return redirect($this->basePath() . '/index')->with('error', 'Invalid file.');
+            return redirect('/admin/metro_exports/index')->with('error', 'Invalid file.');
         }
 
         if (!Schema::hasTable('metro_exports')) {
-            return redirect($this->basePath() . '/index')->with('error', 'Metro exports table is not available.');
+            return redirect('/admin/metro_exports/index')->with('error', 'Metro exports table is not available.');
         }
 
-        $row = DB::table('metro_exports')->where('filename', $safeName)->first();
+        $row = MetroExport::where('filename', $safeName)->first();
         if (!$row) {
-            return redirect($this->basePath() . '/index')->with('error', 'File not found.');
+            return redirect('/admin/metro_exports/index')->with('error', 'File not found.');
         }
 
         $dir = $this->exportDir();
         $fullPath = $dir . DIRECTORY_SEPARATOR . $safeName;
 
         if (!is_file($fullPath)) {
-            return redirect($this->basePath() . '/index')->with('error', 'File not found.');
+            return redirect('/admin/metro_exports/index')->with('error', 'File not found.');
         }
 
         $realDir = realpath($dir);
         $realFile = realpath($fullPath);
         if ($realDir === false || $realFile === false || !str_starts_with($realFile, $realDir . DIRECTORY_SEPARATOR)) {
-            return redirect($this->basePath() . '/index')->with('error', 'Invalid file.');
+            return redirect('/admin/metro_exports/admin/metro_exports/index')->with('error', 'Invalid file.');
         }
 
         return response()->download($realFile, $safeName);

@@ -37,7 +37,7 @@
                         @endif
                     </td>
                     <td style="text-align:center;">
-                        <a href="{{ $basePath }}/delete/{{ base64_encode($list->id) }}" title="Delete" onclick="return confirm('are you sure you want to delete this record?')"><i class="icon-trash"></i></a>
+                        <a href="{{ url('/admin/waitlists/delete/' . base64_encode($list->id)) }}" title="Delete" onclick="return confirm('are you sure you want to delete this record?')"><i class="icon-trash"></i></a>
                     </td>
                 </tr>
             @empty

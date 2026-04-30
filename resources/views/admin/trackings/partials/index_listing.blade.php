@@ -2,12 +2,16 @@
 <div class="table-responsive">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <tr>
-            <th valign="top">Vehicle</th>
-            <th valign="top">Driver</th>
-            <th valign="top">Date</th>
+            @include('partials.dispacher.sortable_header', ['columns' => [
+                ['field' => 'id', 'title' => '#'],
+                ['field' => 'vehicle_name', 'title' => 'Vehicle', 'sortable' => false],
+                ['field' => 'first_name', 'title' => 'Driver', 'sortable' => false],
+                ['field' => 'created', 'title' => 'Date'],
+            ]])
         </tr>
         @forelse(($trackings ?? collect()) as $row)
             <tr>
+                <td valign="top">{{ $row->id }}</td>
                 <td valign="top">{{ $row->vehicle_name }}</td>
                 <td valign="top">{{ trim(($row->first_name ?? '') . ' ' . ($row->last_name ?? '')) }}</td>
                 <td valign="top">
@@ -18,10 +22,10 @@
             </tr>
         @empty
             <tr>
-                <td colspan="3" align="center">No record found</td>
+                <td colspan="4" align="center">No record found</td>
             </tr>
         @endforelse
-        <tr><td style="height:6px;" colspan="3"></td></tr>
+        <tr><td style="height:6px;" colspan="4"></td></tr>
     </table>
 </div>
 

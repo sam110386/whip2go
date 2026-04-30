@@ -6,18 +6,18 @@
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
-                <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">MVR</span> - Reports</h4>
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i> 
+                    <span class="text-semibold">MVR</span> - Reports
+                </h4>
             </div>
         </div>
     </div>
+
     <div class="row">
-        @if(session('success'))
-            <div class="col-md-12"><div class="alert alert-success">{{ session('success') }}</div></div>
-        @endif
-        @if(session('error'))
-            <div class="col-md-12"><div class="alert alert-danger">{{ session('error') }}</div></div>
-        @endif
+        @include('partials.flash')
     </div>
+
     <div class="panel">
         <div class="panel-body">
             <form method="get" action="{{ $basePath }}/index" id="frmSearchadmin" name="frmSearchadmin">
@@ -60,5 +60,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ legacy_asset('assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+    <script src="{{  legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
 @endpush

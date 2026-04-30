@@ -2,7 +2,7 @@
 
 @section('title', $title_for_layout ?? 'Renter Reports')
 
-@push('css')
+@push('styles')
 <link rel="stylesheet" href="{{ legacy_asset('css/colorbox.css') }}">
 @endpush
 
