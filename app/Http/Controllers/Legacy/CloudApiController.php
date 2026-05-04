@@ -29,7 +29,7 @@ class CloudApiController extends LegacyApiBaseController
     public function getAuthToken(Request $request)
     {
         $pepper = 'driveitaway';
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
 
         $raw = (string) $request->getContent();
         $dataValues = [];
@@ -478,7 +478,7 @@ class CloudApiController extends LegacyApiBaseController
             ])->header('Content-Type', 'application/json; charset=utf-8');
         }
 
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
 
         $firstName = isset($dataValues['first_name']) ? ucwords(strtolower((string) $dataValues['first_name'])) : '';
         $lastName = isset($dataValues['last_name']) ? ucwords(strtolower((string) $dataValues['last_name'])) : '';
@@ -728,7 +728,7 @@ class CloudApiController extends LegacyApiBaseController
      * Replicates CakePHP 2.x `Security::decrypt()` (AES-256-CBC + HMAC).
      * Key material from Cake config:
      * - Security.encryptKey: DYhG93b0qyJfIxfs2guR2G0FgaC9mixf
-     * - Security.salt: DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi
+     * - Security.salt: config('legacy.security.salt', '')
      *
      * @return string|false
      */
@@ -739,7 +739,7 @@ class CloudApiController extends LegacyApiBaseController
         }
 
         $encryptKey = 'DYhG93b0qyJfIxfs2guR2G0FgaC9mixf';
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
 
         $key = substr(hash('sha256', $encryptKey . $salt), 0, 32);
 

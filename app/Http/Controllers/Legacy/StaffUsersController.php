@@ -14,7 +14,7 @@ class StaffUsersController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
 
-    private const PASSWORD_SALT = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+    private const PASSWORD_SALT = config('legacy.security.salt', '');
 
     private function ownerUserId(): int
     {

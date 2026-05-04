@@ -8,7 +8,6 @@
     $show ??= null;
     $options ??= [];
     $limit ??= 50;
-    $basePath ??= '/admin/admin_staffs';
 @endphp
 
 @section('content')
@@ -84,7 +83,6 @@
                 @include('admin.admin_staffs._index_table', [
                     'users' => $users ?? [],
                     'limit' => $limit,
-                    'basePath' => $basePath,
                 ])
             </div>
         </div>
@@ -98,16 +96,6 @@
 @endsection
 
 @push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
 @endpush
 
 @push('scripts')
@@ -176,6 +164,10 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
+
+            $(document).on('click', '#selectAllChildCheckboxs', function () {
+                $('.select-item').prop('checked', this.checked);
+            });
         });
     </script>
     <script src="{{ asset('js/admin_booking.js') }}"></script>

@@ -25,11 +25,8 @@ if (!function_exists('legacy_site_url')) {
     function legacy_site_url(): string
     {
         $configured = trim((string) config('legacy.site_url', ''));
-        if ($configured !== '') {
-            return rtrim($configured, '/');
-        }
-
-        return rtrim((string) url('/'), '/');
+        $url = ($configured !== '') ? $configured : url('/');
+        return Str::finish((string) $url, '/');
     }
 }
 

@@ -37,11 +37,10 @@
                 <div class="row">
                     <div class="col-md-12">
                         <div class="col-md-3">
-                            Keyword :
-                            <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}" maxlength="50" size="30" placeholder="Keyword...">
+                            <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}"
+                                maxlength="50" size="30" placeholder="Keyword...">
                         </div>
                         <div class="col-md-2">
-                            Search By :
                             <select name="Search[searchin]" class="form-control">
                                 <option value="">Search By</option>
                                 @foreach ($options as $k => $label)
@@ -50,7 +49,6 @@
                             </select>
                         </div>
                         <div class="col-md-2">
-                            Status :
                             <select name="Search[show]" class="form-control">
                                 <option value="">Status..</option>
                                 <option value="1" @selected((string) $show === '1')>Approved</option>
@@ -59,63 +57,25 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            Driver :
-                            <input type="text" id="SearchUserId" name="Search[user_id]" class="form-control" style="width:100%;" value="{{ $user_id }}" placeholder="Select Driver">
+                            <input type="text" id="SearchUserId" name="Search[user_id]" class="" style="width:100%;"
+                                value="{{ $user_id }}" placeholder="Select Driver">
                         </div>
                         <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
                             <button type="submit" value="search" class="btn btn-primary" alt="APPLY">APPLY</button>
                         </div>
                         <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                                alt="Clear Filter">Clear Filter</button>
                         </div>
                     </div>
                 </div>
             </form>
-
-            <div class="row">&nbsp;</div>
-
+        </div>
+    </div>
+    <div class="panel">
+        <div class="panel-body">
             <div id="listing">
-                <div class="table-responsive">
-                    <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
-                        <thead>
-                            <tr>
-                                @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => 'ID'],
-                                    ['field' => 'vehicle_name', 'title' => 'Vehicle'],
-                                    ['field' => 'owner_first_name', 'title' => 'Dealer'],
-                                    ['field' => 'renter_first_name', 'title' => 'Renter'],
-                                    ['field' => 'offer_price', 'title' => 'Price'],
-                                    ['field' => 'status', 'title' => 'Status'],
-                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
-                                ]])
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($offers as $o)
-                                <tr>
-                                    <td>{{ $o->id }}</td>
-                                    <td>{{ $o->vehicle_unique_id }} - {{ $o->vehicle_name }}</td>
-                                    <td>{{ trim(($o->owner_first_name ?? '') . ' ' . ($o->owner_last_name ?? '')) }}</td>
-                                    <td>{{ trim(($o->renter_first_name ?? '') . ' ' . ($o->renter_last_name ?? '')) }}</td>
-                                    <td>{{ number_format((float) ($o->offer_price ?? 0), 2) }}</td>
-                                    <td>{{ $o->status }}</td>
-                                    <td>
-                                        <a href="{{ $basePath }}/view/{{ base64_encode((string) $o->id) }}" title="View"><i class="icon-clipboard3"></i></a>
-                                        <a href="{{ $basePath }}/add/{{ base64_encode((string) $o->id) }}" title="Edit"><i class="icon-pencil"></i></a>
-                                        <a href="{{ $basePath }}/duplicate/{{ base64_encode((string) $o->id) }}" title="Duplicate"><i class="icon-copy3"></i></a>
-                                        <a href="{{ $basePath }}/cancel/{{ base64_encode((string) $o->id) }}" title="Cancel"><i class="icon-cross2"></i></a>
-                                        <a href="{{ $basePath }}/delete/{{ base64_encode((string) $o->id) }}" onclick="return confirm('Delete this offer?')" title="Delete"><i class="icon-trash"></i></a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="7" align="center">No offers found.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                @include('partials.dispacher.paging_box', ['paginator' => $offers, 'limit' => $limit])
+                @include('admin.vehicle_offers.elements.index')
             </div>
         </div>
     </div>
@@ -129,16 +89,6 @@
 
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-    <style type="text/css">
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
-            padding: 5px;
-        }
-    </style>
 @endpush
 
 @push('scripts')
@@ -244,6 +194,10 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
+
+            $(document).on('click', '#selectAllChildCheckboxs', function () {
+                $('.select-item').prop('checked', this.checked);
+            });
         });
     </script>
     <script src="{{ asset('js/admin_booking.js') }}"></script>

@@ -29,13 +29,17 @@
         }
     @endphp
 
+    @php
+        $isHtml = $column['html'] ?? false;
+    @endphp
+
     <th valign="top" style="{{ $style }}">
         @if ($sortable)
             <a href="{{ $url }}" class="sort-link {{ $isSorted ? 'active-sort' : '' }}">
-                {{ $title }} {!! $icon !!}
+                @if($isHtml) {!! $title !!} @else {{ $title }} @endif {!! $icon !!}
             </a>
         @else
-            {{ $title }}
+            @if($isHtml) {!! $title !!} @else {{ $title }} @endif
         @endif
     </th>
 @endforeach

@@ -56,7 +56,7 @@ class LeadsController extends LegacyAppController
         $adminUser = $this->getAdminUserid();
 
         if ($adminUser['administrator']) {
-            return redirect('/admin/lead/leads/index')
+            return redirect('/admin/leads/index')
                 ->with('error', 'Sorry, you are not authorized user for this action');
         }
 
@@ -75,7 +75,7 @@ class LeadsController extends LegacyAppController
                 ->first();
 
             if (empty($data)) {
-                return redirect('/admin/lead/leads/index')
+                return redirect('/admin/leads/index')
                     ->with('error', 'Sorry, you are not authorized user for this action');
             }
             $data = (array) $data;
@@ -93,7 +93,7 @@ class LeadsController extends LegacyAppController
         $decodedId = $this->decodeId($id);
         DB::table('cs_leads')->where('id', $decodedId)->delete();
 
-        return redirect('/admin/lead/leads/index')
+        return redirect('/admin/leads/index')
             ->with('success', 'Record has been deleted, succesfully');
     }
 
@@ -168,10 +168,10 @@ class LeadsController extends LegacyAppController
 
             if ($existingId) {
                 DB::table('cs_leads')->where('id', $existingId)->update($dataToSave);
-                return redirect("/{$prefix}/lead/leads/index")->with('success', 'Lead has been updated successfully.');
+                return redirect("/{$prefix}/leads/index")->with('success', 'Lead has been updated successfully.');
             } else {
                 DB::table('cs_leads')->insert($dataToSave);
-                return redirect("/{$prefix}/lead/leads/index")->with('success', 'Lead has been added successfully.');
+                return redirect("/{$prefix}/leads/index")->with('success', 'Lead has been added successfully.');
             }
         } catch (\Exception $e) {
             return back()->withInput()->with('error', $e->getMessage());

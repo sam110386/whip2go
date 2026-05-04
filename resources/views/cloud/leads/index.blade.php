@@ -23,7 +23,7 @@ $status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 
         </div>
         <div class="heading-elements">
             <div class="input-group-btn">
-                <a href="{{ url('/cloud/lead/leads/add') }}" class="btn btn-success">Add New</a>
+                <a href="{{ url('/cloud/leads/add') }}" class="btn btn-success">Add New</a>
             </div>
         </div>
     </div>
@@ -36,7 +36,7 @@ $status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 
 
 <div class="panel">
     <div class="panel-body">
-        <form action="{{ url('/cloud/lead/leads/index') }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
+        <form action="{{ url('/cloud/leads/index') }}" method="POST" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
             @csrf
             <fieldset class="content-group">
                 <div class="col-md-2">
@@ -103,8 +103,8 @@ $status_opt = ['complete' => 'Pending', 'cancel' => 'Canceled', 'incomplete' => 
                     <td>{{ $lead->owner_first_name }} {{ $lead->owner_last_name }}</td>
                     <td>
                         @if($lead->status != 1)
-                            &nbsp;<a href="{{ url('/cloud/lead/leads/add/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
-                            &nbsp;<a href="{{ url('/cloud/lead/leads/delete/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-trash"></i></a>
+                            &nbsp;<a href="{{ url('/cloud/leads/add/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
+                            &nbsp;<a href="{{ url('/cloud/leads/delete/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-trash"></i></a>
                         @endif
                         &nbsp;<a href="javascript:;" onclick="refreshLead('{{ base64_encode($lead->id) }}')"><i class="icon-spinner9"></i></a>
                     </td>

@@ -28,7 +28,7 @@
 </div>
 <div class="panel">
     <div class="panel-body">
-        <form action="{{ url('/cloud/lead/leads/add') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
+        <form action="{{ url('/cloud/leads/add') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
             @csrf
             <div class="row">
                 <div class="col-lg-6">
@@ -99,7 +99,7 @@
                             @else
                                 <button type="submit" class="btn">Update</button>
                             @endif
-                            <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/cloud/lead/leads/index')">Return</button>
+                            <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/cloud/leads/index')">Return</button>
                         </div>
                     </div>
                 </div>

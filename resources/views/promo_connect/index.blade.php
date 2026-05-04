@@ -26,7 +26,7 @@
         ul.partnerlist li.mb-10:hover, ul.partnerlist li.mb-10:active, ul.partnerlist li.mb-10:focus { background-color: #ccc; }
     </style>
     <script type="text/javascript">
-        var SITE_URL = '{{ config("app.url") }}';
+        var SITE_URL = @json(legacy_site_url());
         $(function() {
             $("#PromotionRuleCodeForm").validate();
             $("#PromotionRuleCodeSearch").keyup(function(e) {

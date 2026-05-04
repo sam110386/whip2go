@@ -3,12 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Concerns\LoadsMvrActiveBookings;
+use App\Http\Controllers\Traits\DriverBackgroundReport;
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\UserReport;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\VehicleReservation;
+use App\Models\Legacy\CsReservationPayment;
+use App\Models\Legacy\CsWallet;
+use App\Services\Legacy\CheckrApiClient;
+use App\Services\Legacy\PaymentProcessor;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -17,15 +25,11 @@ use Illuminate\View\View;
  */
 class MvrReportsController extends LegacyAppController
 {
-    use LoadsMvrActiveBookings;
+    use LoadsMvrActiveBookings, DriverBackgroundReport;
 
     protected bool $shouldLoadLegacyModules = true;
 
     private const SESSION_LIMIT_KEY = 'mvr_reports_limit';
-
-    private const CHECKR_STUB_MESSAGE = 'Checkr API integration not yet ported to Laravel';
-
-    private const RESERVATION_CANCEL_STUB_MESSAGE = 'Reservation cancel / payment release logic not yet ported to Laravel';
 
     protected function adminBasePath(): string
     {
@@ -128,7 +132,39 @@ class MvrReportsController extends LegacyAppController
             return $redirect;
         }
 
-        return back()->with('error', self::CHECKR_STUB_MESSAGE);
+        $userId = $this->decodeId($id);
+        if (!$userId) {
+            return back()->with('error', 'Invalid User ID');
+        }
+
+        $userReport = UserReport::where('user_id', $userId)->first();
+
+        if (!$userReport) {
+            $checkrStatus = $this->addCandidateToDriverBackgroundReport($userId);
+
+            if ($checkrStatus['status']) {
+                return back()->with('success', "User is added to Checkr API for processing");
+            } else {
+                return back()->with('error', $checkrStatus['message']);
+            }
+        } elseif ($userReport->status && !empty($userReport->checkr_reportid)) {
+            $report = $this->pullBackgroundReport($userId);
+            if ($report['status']) {
+                return back()->with('success', "User Report is Ready");
+            } else {
+                return back()->with('error', $report['message'] ?? 'Report not ready');
+            }
+        } elseif ($userReport && $userReport->status == 0) {
+            // If user is not added to Checkr API yet or report not requested
+            $checkrReport = $this->createBackgroundReport($userId);
+            if ($checkrReport['status']) {
+                return back()->with('success', "User Report is requested");
+            } else {
+                return back()->with('error', $checkrReport['message']);
+            }
+        } else {
+            return back()->with('error', "User Report is not ready");
+        }
     }
 
     public function report(Request $request): Response|RedirectResponse
@@ -137,7 +173,15 @@ class MvrReportsController extends LegacyAppController
             return $redirect;
         }
 
-        return response(self::CHECKR_STUB_MESSAGE, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+        $reportId = $request->input('reportid');
+        if (!$reportId) {
+            return back()->with('error', 'Report ID missing');
+        }
+
+        $checkrApi = new CheckrApiClient();
+        $report = $checkrApi->getReport($reportId);
+
+        return response('<pre>' . print_r($report, true) . '</pre>', 200)->header('Content-Type', 'text/html; charset=UTF-8');
     }
 
     public function vehiclereport(Request $request): Response|RedirectResponse
@@ -146,7 +190,15 @@ class MvrReportsController extends LegacyAppController
             return $redirect;
         }
 
-        return response(self::CHECKR_STUB_MESSAGE, 200)->header('Content-Type', 'text/plain; charset=UTF-8');
+        $reportId = $request->input('reportid');
+        if (!$reportId) {
+            return back()->with('error', 'Report ID missing');
+        }
+
+        $checkrApi = new CheckrApiClient();
+        $report = $checkrApi->getMotorVehicleReport($reportId);
+
+        return response('<pre>' . print_r($report, true) . '</pre>', 200)->header('Content-Type', 'text/html; charset=UTF-8');
     }
 
     public function loadactivebooking(Request $request): View|RedirectResponse
@@ -166,7 +218,7 @@ class MvrReportsController extends LegacyAppController
         return view('admin.mvr_reports.loadactivebooking', [
             'bookings' => $bookings,
             'reservations' => $reservations,
-            'formatMvrDt' => fn (?string $v, ?string $tz) => $this->mvrFormatDateTime($v, $tz),
+            'formatMvrDt' => fn(?string $v, ?string $tz) => $this->mvrFormatDateTime($v, $tz),
         ]);
     }
 
@@ -176,6 +228,7 @@ class MvrReportsController extends LegacyAppController
             return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
         }
 
+        $bookingId = $this->decodeId($request->input('bookingid'));
         return response()->json([
             'status' => 'error',
             'message' => 'Sorry, booking not found, please refresh your page and try again.',
@@ -185,14 +238,61 @@ class MvrReportsController extends LegacyAppController
     public function cancelMvrResevationBooking(Request $request): JsonResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized', 'result' => []], 403);
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 403);
         }
 
-        return response()->json([
-            'status' => 'error',
-            'message' => self::RESERVATION_CANCEL_STUB_MESSAGE,
-            'result' => [],
-        ]);
+        $bookingId = $this->decodeId($request->input('bookingid'));
+        if (empty($bookingId)) {
+            return response()->json(['status' => 'error', 'message' => "Sorry, pending booking not found, please refresh your page and try again."]);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $reservation = VehicleReservation::find($bookingId);
+            if (!$reservation) {
+                return response()->json(['status' => 'error', 'message' => "Reservation not found."]);
+            }
+
+            // Update reservation as canceled
+            $reservation->update(['status' => 2]);
+
+            // Release vehicle
+            Vehicle::where('id', $reservation->vehicle_id)->update(['booked' => 0]);
+
+            $paymentProcessor = new PaymentProcessor();
+            $csWallet = new CsWallet();
+
+            // Release/refund deposits transactions
+            $deposits = CsReservationPayment::where('reservation_id', $bookingId)->where('type', 1)->where('status', 1)->get();
+            foreach ($deposits as $deposit) {
+                if ($deposit->txntype == 'C') {
+                    $csWallet->addBalance($deposit->amount, $reservation->renter_id, $deposit->transaction_id, "deposit is refunded from pending booking", $bookingId, $deposit->created);
+                } else {
+                    $paymentProcessor->ReservationReleaseAuthorizePayment($deposit->toArray(), $reservation->user_id);
+                }
+                $deposit->update(['status' => 2]);
+            }
+
+            // Release/refund initial fee transactions
+            $initialFees = CsReservationPayment::where('reservation_id', $bookingId)->where('type', 3)->where('status', 1)->get();
+            foreach ($initialFees as $initialFee) {
+                if ($initialFee->txntype == 'C') {
+                    $csWallet->addBalance($initialFee->amount, $reservation->renter_id, $initialFee->transaction_id, "initial fee is refunded from pending booking", $bookingId, $initialFee->created);
+                } else {
+                    $paymentProcessor->ReservationReleaseAuthorizePayment($initialFee->toArray(), $reservation->user_id);
+                }
+                $initialFee->update(['status' => 2]);
+            }
+
+            DB::commit();
+            return response()->json(['status' => 'success', 'message' => "Your request processed successfully", "orderid" => $bookingId]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("cancelMvrResevationBooking error: " . $e->getMessage());
+            return response()->json(['status' => 'error', 'message' => "An error occurred while processing your request: " . $e->getMessage()]);
+        }
     }
 
     public function requestagain(Request $request, ?string $userid = null): RedirectResponse
@@ -201,7 +301,27 @@ class MvrReportsController extends LegacyAppController
             return $redirect;
         }
 
-        return back()->with('error', self::CHECKR_STUB_MESSAGE);
+        $userId = $this->decodeId($userid);
+        if (!$userId) {
+            return back()->with('error', 'Invalid User ID');
+        }
+
+        $userReport = UserReport::where('user_id', $userId)->first();
+        if ($userReport) {
+            $checkrStatus = $this->addCandidateToDriverBackgroundReport($userId);
+            if ($checkrStatus['status']) {
+                $userReport->update([
+                    'checkr_reportid' => null,
+                    'motor_vehicle_report_id' => null,
+                    'status' => 0
+                ]);
+                return back()->with('success', "User is added to Checkr API for processing");
+            } else {
+                return back()->with('error', $checkrStatus['message']);
+            }
+        }
+
+        return back()->with('error', 'Report record not found');
     }
 
     public function ajaxrequestagain(Request $request): JsonResponse
@@ -214,9 +334,29 @@ class MvrReportsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Invalid Request']);
         }
 
-        return response()->json([
-            'status' => false,
-            'message' => self::CHECKR_STUB_MESSAGE,
-        ]);
+        $rawUserId = $request->input('userid');
+        $userId = $this->decodeId(is_string($rawUserId) ? $rawUserId : (string) $rawUserId);
+
+        if (!$userId) {
+            return response()->json(['status' => false, 'message' => 'Invalid User ID']);
+        }
+
+        $userReport = UserReport::where('user_id', $userId)->first();
+        if (!$userReport) {
+            return response()->json(['status' => false, 'message' => "Sorry existing records could not be found, so we cant process your request."]);
+        }
+
+        $checkrStatus = $this->addCandidateToDriverBackgroundReport($userId);
+        if ($checkrStatus['status']) {
+            $userReport->update([
+                'checkr_reportid' => null,
+                'motor_vehicle_report_id' => null,
+                'status' => 0,
+                'created' => now()->toDateTimeString()
+            ]);
+            return response()->json(['status' => true, 'message' => "User is added to Checkr API for processing"]);
+        } else {
+            return response()->json(['status' => false, 'message' => $checkrStatus['message']]);
+        }
     }
 }

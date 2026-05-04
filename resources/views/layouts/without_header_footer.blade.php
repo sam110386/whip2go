@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <title>@yield('title', $title_for_layout ?? 'DriveItAway')</title>
     <script type="text/javascript">
-        var SITE_URL = @json(rtrim(legacy_site_url(), '/').'/');
+        var SITE_URL = @json(legacy_site_url());
     </script>
     <link href="https://fonts.googleapis.com/css?family=Roboto:400,300,100,500,700,900" rel="stylesheet" type="text/css">
     <script src="{{  legacy_asset('js/assets/js/plugins/loaders/pace.min.js') }}"></script>

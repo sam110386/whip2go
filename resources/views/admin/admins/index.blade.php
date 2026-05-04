@@ -77,9 +77,10 @@
                     </div>
                 </div>
             </form>
-
-            <div class="row">&nbsp;</div>
-
+        </div>
+    </div>
+    <div class="panel">
+        <div class="panel-body">
             <div id="listing">
                 @include('admin.admins._index_table', [
                     'users' => $users ?? [],
@@ -96,18 +97,7 @@
     </div>
 @endsection
 
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
+
 
 @push('scripts')
     <script type="text/javascript">

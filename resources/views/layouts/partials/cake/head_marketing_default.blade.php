@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
 
 <script type="text/javascript">
-    var SITE_URL = @json(rtrim(legacy_site_url(), '/') . '/');
+    var SITE_URL = @json(legacy_site_url());
 </script>
 
 <meta charset="utf-8">
