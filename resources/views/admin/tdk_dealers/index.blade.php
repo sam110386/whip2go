@@ -48,12 +48,12 @@
                     <thead>
                         <tr>
                             @include('partials.dispacher.sortable_header', ['columns' => [
-                                ['field' => 'id', 'title' => '#'],
-                                ['field' => 'first_name', 'title' => 'Name', 'sortable' => false],
-                                ['field' => 'metro_city', 'title' => 'Metro City', 'sortable' => false],
-                                ['field' => 'metro_state', 'title' => 'Metro State', 'sortable' => false],
-                                ['field' => 'status', 'title' => 'Status'],
-                                ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                                ['title' => '#', 'field' => 'id'],
+                                ['title' => 'Name', 'sortable' => false],
+                                ['title' => 'Metro City', 'sortable' => false],
+                                ['title' => 'Metro State', 'sortable' => false],
+                                ['title' => 'Status', 'field' => 'status'],
+                                ['title' => 'Actions', 'sortable' => false]
                             ]])
                         </tr>
                     </thead>

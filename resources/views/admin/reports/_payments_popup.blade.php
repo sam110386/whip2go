@@ -12,8 +12,8 @@
         <tbody>
             @forelse($rows as $p)
                 <tr>
-                    <td>{{ $p->type }}</td>
-                    <td>{{ $p->amount }}</td>
+                    <td>{{ $paymentTypeValue[$p->type] ?? $p->type }}</td>
+                    <td>{{ number_format((float)$p->amount, 2) }}</td>
                     <td>{{ $p->transaction_id }}</td>
                 </tr>
             @empty

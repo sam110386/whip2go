@@ -42,72 +42,74 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/reports/index') }}">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="col-md-2">
-                            Dealer :
-                            <input type="text" id="SearchDealerId" name="Search[dealer_id]" class="form-control" style="width:100%;" value="{{ $dealerid }}" placeholder="Dealers">
-                        </div>
-                        <div class="col-md-2">
-                            Keyword :
-                            <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}" maxlength="50" placeholder="Keyword">
-                        </div>
-                        <div class="col-md-2">
-                            Search By :
-                            <select name="Search[searchin]" class="form-control">
-                                <option value="">Search By</option>
-                                @foreach ($search_in as $k => $label)
-                                    <option value="{{ $k }}" @selected((string) $fieldname === (string) $k)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            Status :
-                            <select name="Search[status_type]" class="form-control">
-                                <option value="">Status</option>
-                                @foreach ($status_opt as $k => $label)
-                                    <option value="{{ $k }}" @selected((string) $status_type === (string) $k)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            Date From :
-                            <input type="text" name="Search[date_from]" class="form-control" value="{{ $dateFrom }}" placeholder="Date Range From">
-                        </div>
-                        <div class="col-md-2">
-                            Date To :
-                            <input type="text" name="Search[date_to]" class="form-control" value="{{ $dateTo }}" placeholder="Date Range To">
-                        </div>
+            <form id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal" method="GET"
+                action="{{ url('admin/reports/index') }}">
+                <fieldset class="content-group">
+                    <div class="col-md-2">
+                        <input type="text" id="SearchDealerId" name="Search[dealer_id]" class="" style="width:100%;"
+                            value="{{ $dealerid }}" placeholder="Dealers">
                     </div>
-                </div>
-                <div class="row pb-10">
-                    <div class="col-md-12">
-                        <div class="col-md-2">
-                            Customer :
-                            <input type="text" id="SearchRenterId" name="Search[renter_id]" class="form-control" style="width:100%;" value="{{ $renterid }}" placeholder="Customer..">
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" value="SEARCH" name="search" class="btn btn-primary" alt="SEARCH">SEARCH</button>
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="search" value="EXPORT" class="btn btn-primary" alt="EXPORT"><i class="icon-file-excel"></i> EXPORT</button>
-                        </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[keyword]" class="form-control" value="{{ $keyword }}" maxlength="50"
+                            placeholder="Keyword">
                     </div>
-                </div>
+                    <div class="col-md-2">
+                        <select name="Search[searchin]" class="form-control">
+                            <option value="">Search By</option>
+                            @foreach ($search_in as $k => $label)
+                                <option value="{{ $k }}" @selected((string) $fieldname === (string) $k)>{{ $label }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select name="Search[status_type]" class="form-control">
+                            <option value="">Status</option>
+                            @foreach ($status_opt as $k => $label)
+                                <option value="{{ $k }}" @selected((string) $status_type === (string) $k)>{{ $label }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[date_from]" class="form-control" value="{{ $dateFrom }}"
+                            placeholder="Date Range From" id="SearchDateFrom">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[date_to]" class="form-control" value="{{ $dateTo }}"
+                            placeholder="Date Range To" id="SearchDateTo">
+                    </div>
+                </fieldset>
+                <fieldset class="content-group">
+                    <div class="col-md-2">
+                        <input type="text" id="SearchRenterId" name="Search[renter_id]" class="" style="width:100%;"
+                            value="{{ $renterid }}" placeholder="Customer..">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" value="SEARCH" name="search" class="btn btn-primary" alt="SEARCH">
+                            SEARCH
+                        </button>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                            alt="Clear Filter">
+                            Clear Filter
+                        </button>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" name="search" value="EXPORT" class="btn btn-primary" alt="EXPORT">
+                            <i class="icon-file-excel"></i>
+                            EXPORT
+                        </button>
+                    </div>
+                </fieldset>
             </form>
+        </div>
+    </div>
 
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.reports._listing', ['reportlists' => $reportlists ?? []])
-            </div>
+    <div class="panel">
+        <div class="panel-body" id="listing">
+            @include('admin.reports.elements.index', ['reportlists' => $reportlists ?? []])
         </div>
     </div>
 
@@ -121,14 +123,8 @@
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
     <style type="text/css">
-        tbody tr { cursor: pointer; }
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
-            padding: 5px;
+        tbody tr {
+            cursor: pointer;
         }
     </style>
 @endpush
@@ -276,6 +272,10 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
+
+            $(document).on('click', '#selectAllChildCheckboxs', function () {
+                $('.select-item').prop('checked', this.checked);
+            });
         });
     </script>
     <script src="{{ asset('js/admin_booking.js') }}"></script>

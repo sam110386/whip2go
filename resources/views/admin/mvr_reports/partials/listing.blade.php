@@ -5,12 +5,12 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'id', 'title' => '#', 'style' => 'width: 5%;', 'sortable' => false],
-                        ['field' => 'first_name', 'title' => 'First Name', 'sortable' => false],
-                        ['field' => 'last_name', 'title' => 'Last Name', 'sortable' => false],
-                        ['field' => 'email', 'title' => 'Email', 'sortable' => false],
-                        ['field' => 'contact_number', 'title' => 'Contact#', 'sortable' => false],
-                        ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
+                        ['title' => '#', 'style' => 'width: 5%;', 'sortable' => false],
+                        ['title' => 'First Name', 'sortable' => false],
+                        ['title' => 'Last Name', 'sortable' => false],
+                        ['title' => 'Email', 'sortable' => false],
+                        ['title' => 'Contact#', 'sortable' => false],
+                        ['title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
                     ]])
                 </tr>
             </thead>

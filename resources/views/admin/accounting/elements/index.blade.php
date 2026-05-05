@@ -9,16 +9,16 @@
                 <thead>
                     <tr>
                         @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'created', 'title' => 'Time'],
-                            ['field' => 'amt', 'title' => 'Debit'],
-                            ['field' => 'amt', 'title' => 'Credit'],
-                            ['field' => 'running_bal', 'title' => 'Running Bal.', 'sortable' => false],
-                            ['field' => 'type', 'title' => 'Type'],
-                            ['field' => 'source', 'title' => 'Source'],
-                            ['field' => 'action', 'title' => 'Action', 'sortable' => false],
-                            ['field' => 'increment_id', 'title' => 'Booking#'],
-                            ['field' => 'transaction_id', 'title' => 'Transaction'],
-                            ['field' => 'note', 'title' => 'Note', 'style' => 'width:160px;']
+                            ['title' => 'Time', 'field' => 'created'],
+                            ['title' => 'Debit', 'field' => 'amt'],
+                            ['title' => 'Credit', 'field' => 'amt'],
+                            ['title' => 'Running Bal.', 'sortable' => false],
+                            ['title' => 'Type', 'field' => 'type'],
+                            ['title' => 'Source', 'field' => 'source'],
+                            ['title' => 'Action', 'sortable' => false],
+                            ['title' => 'Booking#', 'field' => 'increment_id'],
+                            ['title' => 'Transaction', 'field' => 'transaction_id'],
+                            ['title' => 'Note', 'field' => 'note', 'style' => 'width:160px;']
                         ]])
                     </tr>
                 </thead>

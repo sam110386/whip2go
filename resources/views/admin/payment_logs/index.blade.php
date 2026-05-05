@@ -62,12 +62,12 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => 'ID'],
-                                    ['field' => 'user_id', 'title' => 'User'],
-                                    ['field' => 'transaction_id', 'title' => 'Txn ID'],
-                                    ['field' => 'reference_id', 'title' => 'Reference'],
-                                    ['field' => 'message', 'title' => 'Message'],
-                                    ['field' => 'created', 'title' => 'Created'],
+                                    ['title' => 'ID', 'field' => 'id'],
+                                    ['title' => 'User', 'field' => 'user_id'],
+                                    ['title' => 'Txn ID', 'field' => 'transaction_id'],
+                                    ['title' => 'Reference', 'field' => 'reference_id'],
+                                    ['title' => 'Message', 'field' => 'message'],
+                                    ['title' => 'Created', 'field' => 'created'],
                                 ]])
                             </tr>
                         </thead>

@@ -31,13 +31,13 @@
                 <thead>
                     <tr>
                         @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'card_type', 'title' => 'Card Type'],
-                            ['field' => 'card_holder_name', 'title' => 'Card Holder Name'],
-                            ['field' => 'credit_card_number', 'title' => 'Credit Card #'],
-                            ['field' => 'created', 'title' => 'Created'],
-                            ['field' => 'status', 'title' => 'Status'],
-                            ['field' => 'default', 'title' => 'Default', 'sortable' => false],
-                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                            ['title' => 'Card Type', 'field' => 'card_type'],
+                            ['title' => 'Card Holder Name', 'field' => 'card_holder_name'],
+                            ['title' => 'Credit Card #', 'field' => 'credit_card_number'],
+                            ['title' => 'Created', 'field' => 'created'],
+                            ['title' => 'Status', 'field' => 'status'],
+                            ['title' => 'Default', 'sortable' => false],
+                            ['title' => 'Actions', 'sortable' => false]
                         ]])
                     </tr>
                 </thead>

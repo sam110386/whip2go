@@ -7,16 +7,16 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
-                    ['field' => 'days', 'title' => '# of Days', 'style' => 'text-align:center;'],
-                    ['field' => 'miles', 'title' => 'Total Distance', 'style' => 'text-align:center;'],
-                    ['field' => 'avg_miles', 'title' => 'Distance/Day', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'total_collected', 'title' => 'Total Revenue ($)', 'style' => 'text-align:center;'],
-                    ['field' => 'write_down_allocation', 'title' => 'Write Down Allocation', 'style' => 'text-align:center;'],
-                    ['field' => 'depreciation', 'title' => 'Est. Depreciation ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'starting_cost', 'title' => 'Starting Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'expenses', 'title' => 'Expenses ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'ending_cost', 'title' => 'Ending Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Vehicle', 'field' => 'vehicle_name', 'style' => 'text-align:center;'],
+                    ['title' => '# of Days', 'field' => 'days', 'style' => 'text-align:center;'],
+                    ['title' => 'Total Distance', 'field' => 'miles', 'style' => 'text-align:center;'],
+                    ['title' => 'Distance/Day', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Total Revenue ($)', 'field' => 'total_collected', 'style' => 'text-align:center;'],
+                    ['title' => 'Write Down Allocation', 'field' => 'write_down_allocation', 'style' => 'text-align:center;'],
+                    ['title' => 'Est. Depreciation ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Starting Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Expenses ($)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Ending Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
                 ]])
             </tr>
         </thead>

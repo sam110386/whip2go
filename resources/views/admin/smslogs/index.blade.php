@@ -79,11 +79,11 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => '#', 'style' => 'width:105px;'],
-                                    ['field' => 'type', 'title' => 'Type'],
-                                    ['field' => 'renter_phone', 'title' => 'Phone#'],
-                                    ['field' => 'created', 'title' => 'TimeStamp'],
-                                    ['field' => 'actions', 'title' => 'Action', 'sortable' => false, 'style' => 'width:80px;']
+                                    ['title' => '#', 'field' => 'id', 'style' => 'width:105px;'],
+                                    ['title' => 'Type', 'field' => 'type'],
+                                    ['title' => 'Phone#', 'field' => 'renter_phone'],
+                                    ['title' => 'TimeStamp', 'field' => 'created'],
+                                    ['title' => 'Action', 'sortable' => false, 'style' => 'width:80px;']
                                 ]])
                             </tr>
                         </thead>

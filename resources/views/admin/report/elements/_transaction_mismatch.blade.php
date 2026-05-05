@@ -6,11 +6,11 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'cpl_transaction_id', 'title' => 'Charged Transaction #', 'style' => 'text-align:center;'],
-                    ['field' => 'charged_at', 'title' => 'Charged Time (UTC)', 'style' => 'text-align:center;'],
-                    ['field' => 'cpl_amount', 'title' => 'Charged Amount', 'style' => 'text-align:center;'],
-                    ['field' => 'c_amount', 'title' => 'Used Amount', 'style' => 'text-align:center;'],
-                    ['field' => 'c_transaction_id', 'title' => 'Used Transaction #', 'style' => 'text-align:center;'],
+                    ['title' => 'Charged Transaction #', 'field' => 'cpl_transaction_id', 'style' => 'text-align:center;'],
+                    ['title' => 'Charged Time (UTC)', 'field' => 'charged_at', 'style' => 'text-align:center;'],
+                    ['title' => 'Charged Amount', 'field' => 'cpl_amount', 'style' => 'text-align:center;'],
+                    ['title' => 'Used Amount', 'field' => 'c_amount', 'style' => 'text-align:center;'],
+                    ['title' => 'Used Transaction #', 'field' => 'c_transaction_id', 'style' => 'text-align:center;'],
                 ]])
             </tr>
         </thead>

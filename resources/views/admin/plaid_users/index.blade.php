@@ -36,12 +36,12 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => 'ID'],
-                                    ['field' => 'user_id', 'title' => 'User ID'],
-                                    ['field' => 'paystub', 'title' => 'Paystub'],
-                                    ['field' => 'plaid_user_id', 'title' => 'Plaid user ID'],
-                                    ['field' => 'link_token', 'title' => 'Link token'],
-                                    ['field' => 'created', 'title' => 'Created']
+                                    ['title' => 'ID', 'field' => 'id'],
+                                    ['title' => 'User ID', 'field' => 'user_id'],
+                                    ['title' => 'Paystub', 'field' => 'paystub'],
+                                    ['title' => 'Plaid user ID', 'field' => 'plaid_user_id'],
+                                    ['title' => 'Link token', 'field' => 'link_token'],
+                                    ['title' => 'Created', 'field' => 'created']
                                 ]])
                             </tr>
                         </thead>

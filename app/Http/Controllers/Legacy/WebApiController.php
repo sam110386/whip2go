@@ -110,7 +110,7 @@ class WebApiController extends ServicesController
     public function loginadvance(Request $request): JsonResponse { return parent::loginadvance($request); }
     public function ssologin(Request $request): JsonResponse { return parent::ssologin($request); }
     public function refreshToken(Request $request): JsonResponse { return parent::refreshToken($request); }
-    public function Logout() { return response()->json(["status" => 1, "message" => ""]); }
+    public function Logout(Request $request): JsonResponse { return response()->json(["status" => 1, "message" => ""]); }
     public function forgotPassword(Request $request): JsonResponse { return parent::forgotPassword($request); }
     public function updatePassword(Request $request): JsonResponse { return parent::updatePassword($request); }
     public function resendActivation(Request $request): JsonResponse { return parent::resendActivation($request); }

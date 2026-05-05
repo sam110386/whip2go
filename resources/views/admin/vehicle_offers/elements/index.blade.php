@@ -3,18 +3,18 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'select_all', 'title' => '<input type="checkbox" id="selectAllChildCheckboxs" value="1">', 'sortable' => false, 'html' => true],
-                    ['field' => 'vehicle_unique_id', 'title' => 'Vehicle#', 'sortable' => false],
-                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'sortable' => false],
-                    ['field' => 'renter_first_name', 'title' => 'Driver', 'sortable' => false],
-                    ['field' => 'driver_phone', 'title' => 'Driver Phone', 'sortable' => false],
-                    ['field' => 'day_rent', 'title' => 'Rental', 'sortable' => false],
-                    ['field' => 'total_initial_fee', 'title' => 'Initial Fee', 'sortable' => false],
-                    ['field' => 'total_deposit_amt', 'title' => 'Deposit', 'sortable' => false],
-                    ['field' => 'start_datetime', 'title' => 'Start Date', 'sortable' => false],
-                    ['field' => 'financing', 'title' => 'Financing', 'sortable' => false],
-                    ['field' => 'status', 'title' => 'Status', 'sortable' => false],
-                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                    ['title' => '<input type="checkbox" id="selectAllChildCheckboxs" value="1">', 'sortable' => false, 'html' => true],
+                    ['title' => 'Vehicle#', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Driver', 'sortable' => false],
+                    ['title' => 'Driver Phone', 'sortable' => false],
+                    ['title' => 'Rental', 'sortable' => false],
+                    ['title' => 'Initial Fee', 'sortable' => false],
+                    ['title' => 'Deposit', 'sortable' => false],
+                    ['title' => 'Start Date', 'sortable' => false],
+                    ['title' => 'Financing', 'sortable' => false],
+                    ['title' => 'Status', 'sortable' => false],
+                    ['title' => 'Actions', 'sortable' => false]
                 ]])
             </tr>
         </thead>

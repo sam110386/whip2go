@@ -4,6 +4,7 @@ namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use App\Models\Legacy\CsOrder;
 
 /**
  * Port of CakePHP app/Lib/Common.php
@@ -501,20 +502,26 @@ class Common
 
     public function getChildBookingEndDate(int $bookingId): array
     {
-        $child = DB::table('cs_orders')
-            ->where('parent_order_id', $bookingId)
-            ->where('status', '>=', 2)
-            ->orderByDesc('end_datetime')
+        $child = CsOrder::selectRaw("
+            MAX(end_datetime) as end_datetime,
+            SUM(rent + initial_fee + extra_mileage_fee + damage_fee + uncleanness_fee) as paid_amount,
+            SUM(insurance_amt + dia_insu) as insurance,
+            SUM(toll + pending_toll) as toll,
+            SUM(end_odometer - start_odometer) as mileage,
+            SUM(dia_fee) as dia_fee,
+            SUM(extra_mileage_fee) as extra_mileage_fee,
+            SUM(damage_fee) as damage_fee,
+            SUM(lateness_fee) as lateness_fee,
+            SUM(uncleanness_fee) as uncleanness_fee
+        ")->where(function ($query) use ($bookingId) {
+            $query->where('parent_id', $bookingId)
+                ->orWhere('id', $bookingId);
+        })->where('status', 3)
+            ->groupBy('id')
+            ->orderBy('id', 'DESC')
             ->first();
 
-        if ($child) {
-            return [
-                'end_datetime' => $child->end_datetime,
-                'rent' => $child->rent ?? 0,
-                'initial_fee' => $child->initial_fee ?? 0,
-            ];
-        }
-        return [];
+        return $child ? $child->toArray() : [];
     }
 
     // ── File size parsing ──

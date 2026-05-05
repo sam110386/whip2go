@@ -15,20 +15,66 @@ class ReportsController extends LegacyAppController
     public function index(Request $request)
     {
         $limit = $this->resolveLimit($request, 'admin_reports_limit');
+        
+        $keyword = trim((string)$this->searchInput($request, 'keyword'));
+        $fieldname = trim((string)$this->searchInput($request, 'searchin'));
+        $status_type = trim((string)$this->searchInput($request, 'status_type'));
         $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
         $dateTo = trim((string)$this->searchInput($request, 'date_to'));
-        $status = trim((string)$this->searchInput($request, 'status'));
+        $dealerid = trim((string)$this->searchInput($request, 'dealer_id'));
+        $renterid = trim((string)$this->searchInput($request, 'renter_id'));
+
+        if ($request->has('ClearFilter')) {
+            session()->forget('admin_reports_search');
+            return redirect('/admin/reports/index');
+        }
+
+        if ($request->has('search') || $request->has('Search')) {
+            session(['admin_reports_search' => [
+                'keyword' => $keyword,
+                'fieldname' => $fieldname,
+                'status_type' => $status_type,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'dealerid' => $dealerid,
+                'renterid' => $renterid,
+            ]]);
+        } else {
+            $sess = session('admin_reports_search', []);
+            $keyword = $sess['keyword'] ?? $keyword;
+            $fieldname = $sess['fieldname'] ?? $fieldname;
+            $status_type = $sess['status_type'] ?? $status_type;
+            $dateFrom = $sess['date_from'] ?? $dateFrom;
+            $dateTo = $sess['date_to'] ?? $dateTo;
+            $dealerid = $sess['dealerid'] ?? $dealerid;
+            $renterid = $sess['renterid'] ?? $renterid;
+        }
 
         $q = DB::table('cs_orders as o')
             ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
             ->leftJoin('users as owner', 'owner.id', '=', 'o.user_id')
+            ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
             ->select([
                 'o.*',
                 'renter.first_name as renter_first_name',
                 'renter.last_name as renter_last_name',
                 'owner.first_name as owner_first_name',
                 'owner.last_name as owner_last_name',
+                'owner.business_name as owner_business_name',
+                'v.make', 'v.model', 'v.year', 'v.vin_no'
             ]);
+
+        $q->where('o.parent_id', 0);
+
+        if ($keyword !== '') {
+            if ($fieldname === '1') {
+                $q->where('o.pickup_address', 'LIKE', '%' . $keyword . '%');
+            } elseif ($fieldname === '2') {
+                $q->where('o.vehicle_name', $keyword);
+            } elseif ($fieldname === '3') {
+                $q->where('o.increment_id', $keyword);
+            }
+        }
 
         if ($dateFrom !== '') {
             $q->whereDate('o.start_datetime', '>=', Carbon::parse($dateFrom)->toDateString());
@@ -36,16 +82,93 @@ class ReportsController extends LegacyAppController
         if ($dateTo !== '') {
             $q->whereDate('o.end_datetime', '<=', Carbon::parse($dateTo)->toDateString());
         }
-        if ($status !== '' && is_numeric($status)) {
-            $q->where('o.status', (int)$status);
+
+        if ($status_type !== '') {
+            if ($status_type === 'cancel') {
+                $q->where('o.status', 2);
+            } elseif ($status_type === 'complete') {
+                $q->where('o.status', 3);
+            } elseif ($status_type === 'incomplete') {
+                $q->whereIn('o.status', [0, 1]);
+            }
         }
 
-        $reportlists = $q->orderByDesc('o.id')->paginate($limit)->withQueryString();
+        if ($dealerid !== '') {
+            $q->where('o.user_id', $dealerid);
+        }
+        if ($renterid !== '') {
+            $q->where('o.renter_id', $renterid);
+        }
+
+        if ($request->input('search') === 'EXPORT' || $request->input('Search.search') === 'EXPORT') {
+            return $this->export($q->orderBy('o.id', 'asc')->get());
+        }
+
+        $allowedSorts = ['increment_id', 'start_datetime', 'end_datetime'];
+        $sort = $request->input('sort');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sort && in_array($sort, $allowedSorts)) {
+            $q->orderBy('o.' . $sort, $direction);
+        } else {
+            $q->orderByDesc('o.id');
+        }
+
+        $reportlists = $q->paginate($limit)->withQueryString();
+        
         if ($request->ajax()) {
-            return response()->view('admin.reports._listing', compact('reportlists'));
+            return response()->view('admin.reports.elements.index', compact('reportlists'));
         }
 
-        return view('admin.reports.index', compact('reportlists', 'dateFrom', 'dateTo', 'status', 'limit'));
+        return view('admin.reports.index', compact(
+            'reportlists', 'dateFrom', 'dateTo', 'keyword', 'fieldname', 
+            'status_type', 'dealerid', 'renterid', 'limit'
+        ));
+    }
+
+    private function export($orders)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="Booking_Report.csv"',
+        ];
+
+        $callback = function () use ($orders) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ["No", "Booking No", "Duration", "Total Rental", "Mileage", "Insurance", "Type", "Car Info", "VIN Number", "Start Date", "End Date", "Owner Name", "Driver Name", "DIA Commission", "Late Fee Share", "Late Insurance", "City Tax", "Tourism Surcharge", "City", "Amount To Owner"]);
+
+            $i = 1;
+            foreach ($orders as $o) {
+                $duration = \App\Support\PortfolioSupport::daysBetweenDates($o->start_datetime, $o->end_datetime);
+                $carInfo = trim(($o->make ?? '') . ' ' . ($o->model ?? '') . ' ' . ($o->year ?? ''));
+                
+                fputcsv($file, [
+                    $i++,
+                    $o->increment_id,
+                    $duration,
+                    $o->rent,
+                    $o->end_odometer,
+                    $o->insurance_amt,
+                    $o->parent_id ? "Extended" : "",
+                    $carInfo,
+                    $o->vin_no ?? '',
+                    Carbon::parse($o->start_datetime)->format('m/d/Y'),
+                    Carbon::parse($o->end_datetime)->format('m/d/Y'),
+                    $o->owner_business_name ?: ($o->owner_first_name . ' ' . $o->owner_last_name),
+                    $o->renter_first_name . ' ' . $o->renter_last_name,
+                    sprintf("%0.2f", ($o->rent * 15 / 100)),
+                    0.0,
+                    0.0,
+                    3.43,
+                    2,
+                    $o->pickup_address,
+                    sprintf("%0.2f", ($o->rent * 85 / 100))
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function details($id)
@@ -99,21 +222,84 @@ class ReportsController extends LegacyAppController
 
     public function productivity(Request $request)
     {
-        $from = trim((string)$this->searchInput($request, 'date_from'));
-        $to = trim((string)$this->searchInput($request, 'date_to'));
+        $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
+        $dateTo = trim((string)$this->searchInput($request, 'date_to'));
+        $user_id = trim((string)$this->searchInput($request, 'user_id'));
 
-        $q = DB::table('cs_orders')
-            ->selectRaw('user_id, COUNT(*) as total_orders, SUM(rent + tax + dia_fee) as gross')
-            ->groupBy('user_id');
-        if ($from !== '') {
-            $q->whereDate('start_datetime', '>=', Carbon::parse($from)->toDateString());
-        }
-        if ($to !== '') {
-            $q->whereDate('end_datetime', '<=', Carbon::parse($to)->toDateString());
-        }
-        $rows = $q->orderByDesc('total_orders')->limit(500)->get();
+        $q = DB::table('vehicles as v')
+            ->leftJoin('cs_orders as o', function($join) {
+                $join->on('o.vehicle_id', '=', 'v.id')->where('o.status', '=', 3);
+            })
+            ->select([
+                'v.id', 'v.vehicle_name', 'v.msrp', 'v.created_at',
+                DB::raw('SUM(o.rent + o.initial_fee + o.damage_fee + o.uncleanness_fee) as totalrent'),
+                DB::raw('SUM(o.end_odometer - o.start_odometer) as mileage'),
+                DB::raw('SUM(DATEDIFF(o.end_datetime, o.start_datetime)) as totaldays'),
+                DB::raw('SUM(o.extra_mileage_fee) as extra_mileage_fee')
+            ])
+            ->groupBy('v.id');
 
-        return view('admin.reports.productivity', ['rows' => $rows, 'dateFrom' => $from, 'dateTo' => $to]);
+        if ($user_id !== '') {
+            $q->where('v.user_id', $user_id);
+        }
+        
+        // Date filters apply to the orders joined
+        if ($dateFrom !== '') {
+            $q->whereDate('o.end_datetime', '>=', Carbon::parse($dateFrom)->toDateString());
+        }
+        if ($dateTo !== '') {
+            $q->whereDate('o.end_datetime', '<=', Carbon::parse($dateTo)->toDateString());
+        }
+
+        if ($request->input('search') === 'EXPORT') {
+            return $this->exportproductivity($q->orderByDesc('v.id')->get(), $dateFrom, $dateTo);
+        }
+
+        $limit = $this->resolveLimit($request, 'admin_productivity_limit');
+        $reportlists = $q->orderByDesc('v.id')->paginate($limit)->withQueryString();
+
+        return view('admin.reports.productivity', compact('reportlists', 'dateFrom', 'dateTo', 'user_id', 'limit'));
+    }
+
+    private function exportproductivity($data, $dateFrom, $dateTo)
+    {
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="Productivity_Report.csv"',
+        ];
+
+        $callback = function () use ($data, $dateFrom, $dateTo) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ["Vehicle", "Vehicle Cost", "Depreciation", "Base Uses ($)", "Extra Usage", "Total Usage Fee", "Total Distance", "Total Days", "Idle Days"]);
+
+            foreach ($data as $r) {
+                $expenses = \App\Support\PortfolioSupport::getVehicleExpenses($r->id, $dateFrom, $dateTo);
+                
+                if (empty($dateFrom) || empty($dateTo)) {
+                    $totalRangeDays = \App\Support\PortfolioSupport::daysBetweenDates($r->created_at, date('Y-m-d'));
+                } else {
+                    $totalRangeDays = \App\Support\PortfolioSupport::daysBetweenDates($dateFrom, $dateTo);
+                }
+
+                $totalUsageFee = (float)$r->totalrent + (float)$r->extra_mileage_fee;
+                $idleDays = $totalRangeDays - (int)$r->totaldays;
+
+                fputcsv($file, [
+                    $r->vehicle_name,
+                    $r->msrp,
+                    $expenses['depreciation'] ?: 0,
+                    sprintf('%0.2f', $r->totalrent ?: 0),
+                    $r->extra_mileage_fee ?: 0,
+                    sprintf('%0.2f', $totalUsageFee),
+                    $r->mileage ?: 0,
+                    $r->totaldays ?: 0,
+                    $idleDays > 0 ? $idleDays : 0
+                ]);
+            }
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     public function paymentspopup(Request $request)
@@ -123,8 +309,9 @@ class ReportsController extends LegacyAppController
             return response('Invalid booking id', 400);
         }
         $rows = DB::table('cs_order_payments')->where('cs_order_id', $id)->orderByDesc('id')->get();
+        $paymentTypeValue = BookingReportDetailPresenter::payoutTypeLabels();
 
-        return response()->view('admin.reports._payments_popup', compact('rows', 'id'));
+        return response()->view('admin.reports._payments_popup', compact('rows', 'id', 'paymentTypeValue'));
     }
 
     private function searchInput(Request $request, string $key): ?string
@@ -149,5 +336,6 @@ class ReportsController extends LegacyAppController
 
         return $limit > 0 ? $limit : 50;
     }
+
 }
 

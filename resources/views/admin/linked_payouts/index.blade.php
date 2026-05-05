@@ -92,11 +92,11 @@
                             <thead>
                                 <tr>
                                     @include('partials.dispacher.sortable_header', ['columns' => [
-                                        ['field' => 'id', 'title' => 'Payout#'],
-                                        ['field' => 'user_id', 'title' => 'Dealer'],
-                                        ['field' => 'processed_on', 'title' => 'Processed on'],
-                                        ['field' => 'amount', 'title' => 'Amount'],
-                                        ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                                        ['title' => 'Payout#', 'field' => 'id'],
+                                        ['title' => 'Dealer', 'field' => 'user_id'],
+                                        ['title' => 'Processed on', 'field' => 'processed_on'],
+                                        ['title' => 'Amount', 'field' => 'amount'],
+                                        ['title' => 'Actions', 'sortable' => false]
                                     ]])
                                 </tr>
                             </thead>
@@ -123,12 +123,12 @@
                             <thead>
                                 <tr>
                                     @include('partials.dispacher.sortable_header', ['columns' => [
-                                        ['field' => 'cs_payout_id', 'title' => 'Payout#'],
-                                        ['field' => 'increment_id', 'title' => 'Booking'],
-                                        ['field' => 'vehicle_name', 'title' => 'Vehicle'],
-                                        ['field' => 'renter_first_name', 'title' => 'Driver'],
-                                        ['field' => 'type', 'title' => 'Type'],
-                                        ['field' => 'amount', 'title' => 'Amount']
+                                        ['title' => 'Payout#', 'field' => 'cs_payout_id'],
+                                        ['title' => 'Booking', 'field' => 'increment_id'],
+                                        ['title' => 'Vehicle', 'field' => 'vehicle_name'],
+                                        ['title' => 'Driver', 'field' => 'renter_first_name'],
+                                        ['title' => 'Type', 'field' => 'type'],
+                                        ['title' => 'Amount', 'field' => 'amount']
                                     ]])
                                 </tr>
                             </thead>

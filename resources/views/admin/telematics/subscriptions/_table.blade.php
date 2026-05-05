@@ -11,16 +11,16 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'id', 'title' => '#', 'style' => 'text-align:center;'],
-                    ['field' => 'status', 'title' => 'Status', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'created', 'title' => 'Started On', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'next_on', 'title' => 'Next On', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'dealer', 'title' => 'Dealer', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'units', 'title' => '# of Units', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'upfront_amt', 'title' => 'Subtotal Amt', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'amt', 'title' => 'Amt', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'txn_id', 'title' => 'Txn #', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'action', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => '#', 'field' => 'id', 'style' => 'text-align:center;'],
+                    ['title' => 'Status', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Started On', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Next On', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Dealer', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => '# of Units', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Subtotal Amt', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Amt', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Txn #', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
                 ]])
             </tr>
         </thead>

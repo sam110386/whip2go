@@ -3,20 +3,20 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'id', 'title' => '#'],
-                            ['field' => 'first_name', 'title' => 'First Name'],
-                            ['field' => 'last_name', 'title' => 'Last Name'],
-                            ['field' => 'email', 'title' => 'Email', 'style' => 'width: 30px;'],
-                            ['field' => 'contact_number', 'title' => 'Contact#'],
-                            ['field' => 'created', 'title' => 'Created'],
-                            ['field' => 'status', 'title' => 'Status'],
-                            ['field' => 'is_verified', 'title' => 'Verified'],
-                            ['field' => 'is_renter', 'title' => 'Renter'],
-                            ['field' => 'is_driver', 'title' => 'Driver'],
-                            ['field' => 'is_dealer', 'title' => 'Dealer'],
-                            ['field' => 'checkr_status', 'title' => 'Checkr Status'],
-                            ['field' => 'trash', 'title' => 'Deleted'],
-                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                            ['title' => '#', 'field' => 'id'],
+                            ['title' => 'First Name', 'field' => 'first_name'],
+                            ['title' => 'Last Name', 'field' => 'last_name'],
+                            ['title' => 'Email', 'field' => 'email', 'style' => 'width: 30px;'],
+                            ['title' => 'Contact#', 'field' => 'contact_number'],
+                            ['title' => 'Created', 'field' => 'created'],
+                            ['title' => 'Status', 'field' => 'status'],
+                            ['title' => 'Verified', 'field' => 'is_verified'],
+                            ['title' => 'Renter', 'field' => 'is_renter'],
+                            ['title' => 'Driver', 'field' => 'is_driver'],
+                            ['title' => 'Dealer', 'field' => 'is_dealer'],
+                            ['title' => 'Checkr Status', 'field' => 'checkr_status'],
+                            ['title' => 'Deleted', 'field' => 'trash'],
+                            ['title' => 'Actions', 'sortable' => false]
                         ]])
             </tr>
         </thead>

@@ -6,11 +6,11 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
-                    ['field' => 'vin_no', 'title' => 'VIN', 'style' => 'text-align:center;'],
-                    ['field' => 'last_mile', 'title' => 'Last Recorded Mile', 'style' => 'text-align:center;'],
-                    ['field' => 'modified', 'title' => 'Last Checked', 'style' => 'text-align:center;'],
-                    ['field' => 'increment_id', 'title' => 'Booking', 'style' => 'text-align:center;'],
+                    ['title' => 'Vehicle', 'field' => 'vehicle_name', 'style' => 'text-align:center;'],
+                    ['title' => 'VIN', 'field' => 'vin_no', 'style' => 'text-align:center;'],
+                    ['title' => 'Last Recorded Mile', 'field' => 'last_mile', 'style' => 'text-align:center;'],
+                    ['title' => 'Last Checked', 'field' => 'modified', 'style' => 'text-align:center;'],
+                    ['title' => 'Booking', 'field' => 'increment_id', 'style' => 'text-align:center;'],
                 ]])
             </tr>
         </thead>

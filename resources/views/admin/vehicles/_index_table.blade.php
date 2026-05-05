@@ -8,14 +8,14 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'id', 'title' => 'ID'],
-                        ['field' => 'vehicle_name', 'title' => 'Car #'],
-                        ['field' => 'owner_first_name', 'title' => 'Owner'],
-                        ['field' => 'vehicle_unique_id', 'title' => 'Veh #'],
-                        ['field' => 'vin_no', 'title' => 'VIN'],
-                        ['field' => 'plate_number', 'title' => 'Plate'],
-                        ['field' => 'status', 'title' => 'Status'],
-                        ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                        ['title' => 'ID', 'field' => 'id'],
+                        ['title' => 'Car #', 'field' => 'vehicle_name'],
+                        ['title' => 'Owner', 'field' => 'owner_first_name'],
+                        ['title' => 'Veh #', 'field' => 'vehicle_unique_id'],
+                        ['title' => 'VIN', 'field' => 'vin_no'],
+                        ['title' => 'Plate', 'field' => 'plate_number'],
+                        ['title' => 'Status', 'field' => 'status'],
+                        ['title' => 'Actions', 'sortable' => false]
                     ]])
                 </tr>
             </thead>

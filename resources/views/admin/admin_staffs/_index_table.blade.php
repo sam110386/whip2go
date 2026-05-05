@@ -14,17 +14,17 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'select_all', 'title' => '<input type="checkbox" id="selectAllChildCheckboxs" value="1">', 'sortable' => false, 'html' => true],
-                        ['field' => 'id', 'title' => '#'],
-                        ['field' => 'username', 'title' => 'Username', 'sortable' => false],
-                        ['field' => 'first_name', 'title' => 'First Name', 'sortable' => false],
-                        ['field' => 'last_name', 'title' => 'Last Name', 'sortable' => false],
-                        ['field' => 'email', 'title' => 'Email', 'sortable' => false],
-                        ['field' => 'contact_number', 'title' => 'Contact#', 'sortable' => false],
-                        ['field' => 'created', 'title' => 'Created'],
-                        ['field' => 'status', 'title' => 'Status'],
-                        ['field' => 'role_id', 'title' => 'Role', 'sortable' => false],
-                        ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                        ['title' => '<input type="checkbox" id="selectAllChildCheckboxs" value="1">', 'sortable' => false, 'html' => true],
+                        ['title' => '#', 'field' => 'id'],
+                        ['title' => 'Username', 'sortable' => false],
+                        ['title' => 'First Name', 'sortable' => false],
+                        ['title' => 'Last Name', 'sortable' => false],
+                        ['title' => 'Email', 'sortable' => false],
+                        ['title' => 'Contact#', 'sortable' => false],
+                        ['title' => 'Created', 'field' => 'created'],
+                        ['title' => 'Status', 'field' => 'status'],
+                        ['title' => 'Role', 'sortable' => false],
+                        ['title' => 'Actions', 'sortable' => false]
                     ]])
                 </tr>
             </thead>

@@ -9,11 +9,11 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'increment_id', 'title' => '#', 'style' => 'text-align:center;'],
-                    ['field' => 'ext_date', 'title' => 'Extended Date', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'note', 'title' => 'Note', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'cycle_exts', 'title' => 'Cycle Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['field' => 'total_exts', 'title' => 'Total Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => '#', 'field' => 'increment_id', 'style' => 'text-align:center;'],
+                    ['title' => 'Extended Date', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Note', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Cycle Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => 'Total Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
                 ]])
             </tr>
         </thead>

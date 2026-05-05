@@ -11,11 +11,11 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'id', 'title' => 'Payout #'],
-                        ['field' => 'amount', 'title' => 'Amount'],
-                        ['field' => 'processed_on', 'title' => 'Processed'],
-                        ['field' => 'transaction_id', 'title' => 'Txn id'],
-                        ['field' => 'actions', 'title' => 'Action', 'sortable' => false]
+                        ['title' => 'Payout #', 'field' => 'id'],
+                        ['title' => 'Amount', 'field' => 'amount'],
+                        ['title' => 'Processed', 'field' => 'processed_on'],
+                        ['title' => 'Txn id', 'field' => 'transaction_id'],
+                        ['title' => 'Action', 'sortable' => false]
                     ]])
                 </tr>
             </thead>
@@ -44,15 +44,15 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'increment_id', 'title' => 'Booking#'],
-                        ['field' => 'vehicle_name', 'title' => 'Vehicle'],
-                        ['field' => 'renter_first_name', 'title' => 'Customer'],
-                        ['field' => 'type', 'title' => 'Type'],
-                        ['field' => 'amount', 'title' => 'Amount'],
-                        ['field' => 'stripe_amt', 'title' => 'Misc'],
-                        ['field' => 'net', 'title' => 'Net', 'sortable' => false],
-                        ['field' => 'created', 'title' => 'Date'],
-                        ['field' => 'actions', 'title' => 'Action', 'sortable' => false]
+                        ['title' => 'Booking#', 'field' => 'increment_id'],
+                        ['title' => 'Vehicle', 'field' => 'vehicle_name'],
+                        ['title' => 'Customer', 'field' => 'renter_first_name'],
+                        ['title' => 'Type', 'field' => 'type'],
+                        ['title' => 'Amount', 'field' => 'amount'],
+                        ['title' => 'Misc', 'field' => 'stripe_amt'],
+                        ['title' => 'Net', 'sortable' => false],
+                        ['title' => 'Date', 'field' => 'created'],
+                        ['title' => 'Action', 'sortable' => false]
                     ]])
                 </tr>
             </thead>

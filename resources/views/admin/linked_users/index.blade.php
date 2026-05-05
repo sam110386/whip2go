@@ -82,13 +82,13 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => 'ID'],
-                                    ['field' => 'first_name', 'title' => 'Name'],
-                                    ['field' => 'email', 'title' => 'Email'],
-                                    ['field' => 'contact_number', 'title' => 'Phone'],
-                                    ['field' => 'is_dealer', 'title' => 'Type', 'sortable' => false],
-                                    ['field' => 'status', 'title' => 'Status'],
-                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                                    ['title' => 'ID', 'field' => 'id'],
+                                    ['title' => 'Name', 'field' => 'first_name'],
+                                    ['title' => 'Email', 'field' => 'email'],
+                                    ['title' => 'Phone', 'field' => 'contact_number'],
+                                    ['title' => 'Type', 'sortable' => false],
+                                    ['title' => 'Status', 'field' => 'status'],
+                                    ['title' => 'Actions', 'sortable' => false]
                                 ]])
                             </tr>
                         </thead>

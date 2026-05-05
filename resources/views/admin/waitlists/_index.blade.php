@@ -3,13 +3,13 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'id', 'title' => '#', 'style' => 'text-align:center;'],
-                    ['field' => 'first_name', 'title' => 'Driver', 'style' => 'text-align:center;'],
-                    ['field' => 'address', 'title' => 'Address', 'style' => 'text-align:center;'],
-                    ['field' => 'vehicle_id', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
-                    ['field' => 'status', 'title' => 'Status', 'style' => 'text-align:center;'],
-                    ['field' => 'created', 'title' => 'Date', 'style' => 'text-align:center;'],
-                    ['field' => 'action', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => '#', 'field' => 'id', 'style' => 'text-align:center;'],
+                    ['title' => 'Driver', 'field' => 'first_name', 'style' => 'text-align:center;'],
+                    ['title' => 'Address', 'field' => 'address', 'style' => 'text-align:center;'],
+                    ['title' => 'Vehicle', 'field' => 'vehicle_id', 'style' => 'text-align:center;'],
+                    ['title' => 'Status', 'field' => 'status', 'style' => 'text-align:center;'],
+                    ['title' => 'Date', 'field' => 'created', 'style' => 'text-align:center;'],
+                    ['title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
                 ]])
             </tr>
         </thead>

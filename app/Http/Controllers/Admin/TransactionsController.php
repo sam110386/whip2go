@@ -21,20 +21,20 @@ class TransactionsController extends LegacyAppController
      */
     public function index(Request $request)
     {
-        $keyword = trim((string)$this->searchInput($request, 'keyword'));
-        $fieldname = trim((string)$this->searchInput($request, 'searchin'));
-        $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
-        $dateTo = trim((string)$this->searchInput($request, 'date_to'));
-        $statusType = trim((string)$this->searchInput($request, 'status_type'));
-        $transactionId = trim((string)$this->searchInput($request, 'transaction_id'));
+        $keyword = trim((string) $this->searchInput($request, 'keyword'));
+        $fieldname = trim((string) $this->searchInput($request, 'searchin'));
+        $dateFrom = trim((string) $this->searchInput($request, 'date_from'));
+        $dateTo = trim((string) $this->searchInput($request, 'date_to'));
+        $statusType = trim((string) $this->searchInput($request, 'status_type'));
+        $transactionId = trim((string) $this->searchInput($request, 'transaction_id'));
 
         if ($request->isMethod('POST') && $request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
+            $lim = (int) $request->input('Record.limit');
             if ($lim > 0 && $lim <= 500) {
                 session(['admin_transactions_limit' => $lim]);
             }
         }
-        $limit = (int)session('admin_transactions_limit', 50);
+        $limit = (int) session('admin_transactions_limit', 50);
         if ($limit < 1) {
             $limit = 50;
         }
@@ -46,8 +46,18 @@ class TransactionsController extends LegacyAppController
 
         $hasSearch = $request->isMethod('POST')
             || $request->anyFilled([
-                'keyword', 'searchin', 'date_from', 'date_to', 'status_type', 'transaction_id',
-                'Search.keyword', 'Search.searchin', 'Search.date_from', 'Search.date_to', 'Search.status_type', 'Search.transaction_id',
+                'keyword',
+                'searchin',
+                'date_from',
+                'date_to',
+                'status_type',
+                'transaction_id',
+                'Search.keyword',
+                'Search.searchin',
+                'Search.date_from',
+                'Search.date_to',
+                'Search.status_type',
+                'Search.transaction_id',
             ]);
 
         if ($hasSearch) {
@@ -89,7 +99,10 @@ class TransactionsController extends LegacyAppController
             });
         }
 
-        $reportlists = $query->orderByDesc('o.id')->paginate($limit)->withQueryString();
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+
+        $reportlists = $query->orderBy($sort, $direction)->paginate($limit)->withQueryString();
 
         if ($request->ajax()) {
             return response()->view('admin.transactions.listing', [
@@ -116,23 +129,23 @@ class TransactionsController extends LegacyAppController
      */
     public function usertransactions(Request $request, $userid = null, $time = '1 day', $partial = null)
     {
-        $uid = (int)($userid ?? $request->input('userid') ?? 0);
+        $uid = (int) ($userid ?? $request->input('userid') ?? 0);
         if ($uid <= 0) {
             return response('Invalid user', 400);
         }
 
-        $timeStr = trim((string)($time ?: '1 day'));
+        $timeStr = trim((string) ($time ?: '1 day'));
         if ($timeStr === '') {
             $timeStr = '1 day';
         }
 
-        $bookingid = (string)$request->input('bookingid', '');
-        $currency = (string)$request->input('currency', 'USD');
+        $bookingid = (string) $request->input('bookingid', '');
+        $currency = (string) $request->input('currency', 'USD');
 
         $dateFrom = Carbon::now()->modify('-' . $timeStr)->format('Y-m-d');
         $dateTo = Carbon::now()->format('Y-m-d');
 
-        $lim = (int)session('admin_transactions_limit', 50);
+        $lim = (int) session('admin_transactions_limit', 50);
         if ($lim < 1) {
             $lim = 50;
         }
@@ -144,7 +157,7 @@ class TransactionsController extends LegacyAppController
             ->whereDate('p.created', '>=', $dateFrom)
             ->whereDate('p.created', '<=', $dateTo);
 
-        $total = (float)(clone $basePayments)->sum('p.amount');
+        $total = (float) (clone $basePayments)->sum('p.amount');
         $reportlists = (clone $basePayments)
             ->select([
                 'p.*',
@@ -164,7 +177,7 @@ class TransactionsController extends LegacyAppController
             'userid' => $uid,
         ];
 
-        $partialOnly = $partial !== null && $partial !== '' && (string)$partial === '1';
+        $partialOnly = $partial !== null && $partial !== '' && (string) $partial === '1';
 
         if ($partialOnly) {
             return view('admin.transactions.usertransactions_list', $listVars);
@@ -189,7 +202,7 @@ class TransactionsController extends LegacyAppController
      */
     public function updatetransaction(Request $request, $id = null)
     {
-        $orderId = $this->decodeId((string)$id);
+        $orderId = $this->decodeId((string) $id);
         if (!$orderId) {
             return redirect('/admin/transactions/index');
         }
@@ -204,17 +217,38 @@ class TransactionsController extends LegacyAppController
             return redirect('/admin/transactions/index');
         }
 
-        $payments = LegacyCsOrderPayment::query()
+        $orderPayments = LegacyCsOrderPayment::query()
             ->where('cs_order_id', $orderId)
             ->where('status', 1)
             ->orderByDesc('id')
             ->get();
 
+        $payouts = LegacyCsPayoutTransaction::query()
+            ->where('cs_order_id', $orderId)
+            ->where('status', 1)
+            ->where('transfer_id', '!=', '')
+            ->get();
+
+        // Emulate CakePHP Hash::combine for transferedPayouts
+        $transferedPayouts = $payouts->groupBy('type');
+
+        // Emulate CakePHP Hash::combine for transactionIds
+        // format: type => [ "amount -> transaction_id", ... ]
+        $transactionIds = $orderPayments->groupBy('type')->map(function ($group) {
+            return $group->map(function ($p) {
+                return $p->amount . '-> ' . $p->transaction_id;
+            })->toArray();
+        });
+
         return view('admin.transactions.updatetransaction', [
+            'csorder' => (array) $order,
             'order' => $order,
-            'payments' => $payments,
+            'payments' => $orderPayments,
+            'transferedPayouts' => $transferedPayouts,
+            'transactionIds' => $transactionIds,
         ]);
     }
+
 
     public function updatefare($id)
     {
@@ -253,7 +287,7 @@ class TransactionsController extends LegacyAppController
 
     public function updateenddatetime(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('booking_id', ''));
+        $id = $this->decodeId((string) $request->input('booking_id', ''));
         if (!$id) {
             return response('Invalid booking id', 400);
         }
@@ -267,8 +301,8 @@ class TransactionsController extends LegacyAppController
 
     public function changeendtiming(Request $request): JsonResponse
     {
-        $id = (int)$request->input('CsOrder.id', 0);
-        $endTiming = (string)$request->input('CsOrder.end_timing', '');
+        $id = (int) $request->input('CsOrder.id', 0);
+        $endTiming = (string) $request->input('CsOrder.end_timing', '');
         if ($id <= 0 || $endTiming === '') {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
@@ -359,8 +393,8 @@ class TransactionsController extends LegacyAppController
 
     public function failedtransfer(Request $request)
     {
-        $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
-        $dateTo = trim((string)$this->searchInput($request, 'date_to'));
+        $dateFrom = trim((string) $this->searchInput($request, 'date_from'));
+        $dateTo = trim((string) $this->searchInput($request, 'date_to'));
 
         $q = DB::table('cs_order_payments as p')
             ->leftJoin('cs_orders as o', 'o.id', '=', 'p.cs_order_id')
@@ -375,7 +409,7 @@ class TransactionsController extends LegacyAppController
             $q->whereDate('p.created', '<=', $dateTo);
         }
 
-        $limit = (int)session('admin_transactions_limit', 50);
+        $limit = (int) session('admin_transactions_limit', 50);
         $reportlists = $q->orderByDesc('p.id')->paginate($limit)->withQueryString();
 
         return view('admin.transactions.failedtransfer', [
@@ -387,7 +421,7 @@ class TransactionsController extends LegacyAppController
 
     public function requeuefailedtransfer(Request $request): JsonResponse
     {
-        $id = (int)$request->input('id', 0);
+        $id = (int) $request->input('id', 0);
         if ($id <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
@@ -428,7 +462,7 @@ class TransactionsController extends LegacyAppController
 
     public function updatedeposit($id)
     {
-        $orderId = $this->decodeId((string)$id);
+        $orderId = $this->decodeId((string) $id);
         if (!$orderId) {
             return redirect('/admin/transactions/index');
         }
@@ -458,7 +492,7 @@ class TransactionsController extends LegacyAppController
 
     public function rentReversetotal(Request $request): JsonResponse
     {
-        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
         if (!$orderId) {
             return response()->json(['status' => 'error', 'message' => 'Invalid order']);
         }
@@ -487,7 +521,7 @@ class TransactionsController extends LegacyAppController
 
     public function initialfeeReversetotal(Request $request): JsonResponse
     {
-        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
         if (!$orderId) {
             return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
         }
@@ -509,14 +543,14 @@ class TransactionsController extends LegacyAppController
 
     public function adjustDealerInitialFeePart(Request $request): JsonResponse
     {
-        $orderId = (int)$request->input('CsOrder.id', 0);
-        $newDealerAmount = (float)$request->input('CsOrder.dealerpart', 0);
+        $orderId = (int) $request->input('CsOrder.id', 0);
+        $newDealerAmount = (float) $request->input('CsOrder.dealerpart', 0);
 
         if ($orderId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
         }
 
-        $transferedAmount = (float)DB::table('cs_payout_transactions')
+        $transferedAmount = (float) DB::table('cs_payout_transactions')
             ->where('cs_order_id', $orderId)
             ->where('status', 1)
             ->where('type', 3)
@@ -535,7 +569,7 @@ class TransactionsController extends LegacyAppController
 
     public function insuranceReversetotal(Request $request): JsonResponse
     {
-        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
         if (!$orderId) {
             return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
         }
@@ -557,14 +591,14 @@ class TransactionsController extends LegacyAppController
 
     public function adjustDealerInsurancePart(Request $request): JsonResponse
     {
-        $orderId = (int)$request->input('CsOrder.id', 0);
-        $newDealerAmount = (float)$request->input('CsOrder.dealerpart', 0);
+        $orderId = (int) $request->input('CsOrder.id', 0);
+        $newDealerAmount = (float) $request->input('CsOrder.dealerpart', 0);
 
         if ($orderId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
         }
 
-        $transferedAmount = (float)DB::table('cs_payout_transactions')
+        $transferedAmount = (float) DB::table('cs_payout_transactions')
             ->where('cs_order_id', $orderId)
             ->where('status', 1)
             ->where('type', 4)
@@ -583,7 +617,7 @@ class TransactionsController extends LegacyAppController
 
     public function emfReversetotal(Request $request): JsonResponse
     {
-        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
         if (!$orderId) {
             return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
         }
@@ -605,14 +639,14 @@ class TransactionsController extends LegacyAppController
 
     public function adjustDealerEmfPart(Request $request): JsonResponse
     {
-        $orderId = (int)$request->input('CsOrder.id', 0);
-        $newDealerAmount = (float)$request->input('CsOrder.dealerpart', 0);
+        $orderId = (int) $request->input('CsOrder.id', 0);
+        $newDealerAmount = (float) $request->input('CsOrder.dealerpart', 0);
 
         if ($orderId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
         }
 
-        $transferedAmount = (float)DB::table('cs_payout_transactions')
+        $transferedAmount = (float) DB::table('cs_payout_transactions')
             ->where('cs_order_id', $orderId)
             ->where('status', 1)
             ->where('type', 16)
@@ -633,7 +667,7 @@ class TransactionsController extends LegacyAppController
 
     public function creditdriver(Request $request, $id = null)
     {
-        $orderId = $this->decodeId((string)$id);
+        $orderId = $this->decodeId((string) $id);
         if (!$orderId) {
             return redirect('/admin/transactions/index')
                 ->with('error', 'Sorry, something went wrong.');
@@ -672,9 +706,9 @@ class TransactionsController extends LegacyAppController
             ->get();
 
         $rentalPayments = $payments->where('type', 2);
-        $totalRent = (float)$rentalPayments->sum('rent');
-        $totalTax = (float)$rentalPayments->sum('tax');
-        $revShare = (float)($order->rev ?? 85);
+        $totalRent = (float) $rentalPayments->sum('rent');
+        $totalTax = (float) $rentalPayments->sum('tax');
+        $revShare = (float) ($order->rev ?? 85);
         $dealerPart = $totalRent > 0 ? sprintf('%0.2f', $totalRent * $revShare / 100) : 0;
 
         return view('admin.transactions.creditdriver', [
@@ -692,7 +726,7 @@ class TransactionsController extends LegacyAppController
     {
         $v = $request->input('Search.' . $key);
         if ($v !== null && $v !== '') {
-            return (string)$v;
+            return (string) $v;
         }
 
         return $request->input($key);
@@ -700,7 +734,7 @@ class TransactionsController extends LegacyAppController
 
     private function renderOrderAdjustView($id, string $field, string $title)
     {
-        $orderId = $this->decodeId((string)$id);
+        $orderId = $this->decodeId((string) $id);
         if (!$orderId) {
             return redirect('/admin/transactions/index');
         }
@@ -718,7 +752,7 @@ class TransactionsController extends LegacyAppController
 
     private function renderDealerTransferAdjust($id, int $type, string $title)
     {
-        $orderId = $this->decodeId((string)$id);
+        $orderId = $this->decodeId((string) $id);
         if (!$orderId) {
             return redirect('/admin/transactions/index');
         }
@@ -733,7 +767,7 @@ class TransactionsController extends LegacyAppController
             ->where('transfer_id', '!=', '')
             ->orderByDesc('id')
             ->get();
-        $total = (float)$payments->sum('amount');
+        $total = (float) $payments->sum('amount');
 
         return view('admin.transactions.adjust_dealer_transfer', [
             'order' => $order,
@@ -746,8 +780,8 @@ class TransactionsController extends LegacyAppController
 
     private function adjustField(Request $request, string $field, string $successMsg, string $newKey = 'value'): JsonResponse
     {
-        $id = (int)$request->input('CsOrder.id', 0);
-        $value = (float)$request->input('CsOrder.' . $newKey, 0);
+        $id = (int) $request->input('CsOrder.id', 0);
+        $value = (float) $request->input('CsOrder.' . $newKey, 0);
         if ($id <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
         }
@@ -762,7 +796,7 @@ class TransactionsController extends LegacyAppController
 
     private function zeroFieldByOrderId(Request $request, string $field, ?string $appendField, string $appendText): JsonResponse
     {
-        $orderId = $this->decodeId((string)$request->input('orderid', ''));
+        $orderId = $this->decodeId((string) $request->input('orderid', ''));
         if (!$orderId) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, order not found']);
         }
@@ -772,7 +806,7 @@ class TransactionsController extends LegacyAppController
         }
         $updates = [$field => 0];
         if ($appendField !== null && $appendField !== '' && $appendText !== '') {
-            $updates[$appendField] = trim(((string)($order->{$appendField} ?? '')) . "\n " . $appendText);
+            $updates[$appendField] = trim(((string) ($order->{$appendField} ?? '')) . "\n " . $appendText);
         }
         LegacyCsOrder::query()->whereKey($orderId)->update($updates);
 

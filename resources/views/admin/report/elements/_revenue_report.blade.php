@@ -6,12 +6,12 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
-                    ['field' => 'month', 'title' => 'Month', 'style' => 'text-align:center;'],
-                    ['field' => 'bookings', 'title' => '# of Bookings', 'style' => 'text-align:center;'],
-                    ['field' => 'days', 'title' => '# of Days', 'style' => 'text-align:center;'],
-                    ['field' => 'revenue_for_month', 'title' => 'Revenue($)', 'style' => 'text-align:center;'],
-                    ['field' => 'odometer_for_month', 'title' => 'Total Miles', 'style' => 'text-align:center;'],
+                    ['title' => 'Vehicle', 'field' => 'vehicle_name', 'style' => 'text-align:center;'],
+                    ['title' => 'Month', 'field' => 'month', 'style' => 'text-align:center;'],
+                    ['title' => '# of Bookings', 'field' => 'bookings', 'style' => 'text-align:center;'],
+                    ['title' => '# of Days', 'field' => 'days', 'style' => 'text-align:center;'],
+                    ['title' => 'Revenue($)', 'field' => 'revenue_for_month', 'style' => 'text-align:center;'],
+                    ['title' => 'Total Miles', 'field' => 'odometer_for_month', 'style' => 'text-align:center;'],
                 ]])
             </tr>
         </thead>

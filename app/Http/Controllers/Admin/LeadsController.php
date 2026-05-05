@@ -38,8 +38,23 @@ class LeadsController extends LegacyAppController
             $query->leftJoin('users as LeadOwner', 'LeadOwner.id', '=', 'cs_leads.sub_admin_id');
         }
 
+        // Handle sorting
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+        $allowedSort = [
+            'id' => 'cs_leads.id',
+            'status' => 'cs_leads.status',
+            'phone' => 'cs_leads.phone',
+            'type' => 'cs_leads.type',
+            'created' => 'cs_leads.created',
+        ];
+
+        $orderBy = $allowedSort[$sort] ?? 'cs_leads.id';
+
         $leads = $query->select('cs_leads.*', 'LeadOwner.first_name as owner_first_name', 'LeadOwner.last_name as owner_last_name')
-            ->orderByDesc('cs_leads.id')
+            ->orderBy($orderBy, $direction)
             ->paginate($limit)
             ->appends($request->query());
 

@@ -24,13 +24,13 @@
                 <thead>
                     <tr>
                         @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'checkbox', 'title' => '<input type="checkbox" id="selectall" onclick="toggleAll(this)"/>', 'sortable' => false, 'style' => 'width:28px;'],
-                            ['field' => 'head_title', 'title' => 'Title'],
-                            ['field' => 'subject', 'title' => 'Subject'],
-                            ['field' => 'type', 'title' => 'Type'],
-                            ['field' => 'status', 'title' => 'Status'],
-                            ['field' => 'modified', 'title' => 'Modified'],
-                            ['field' => 'actions', 'title' => 'Action', 'sortable' => false, 'style' => 'width:120px;']
+                            ['title' => '<input type="checkbox" id="selectall" onclick="toggleAll(this)"/>', 'sortable' => false, 'style' => 'width:28px;'],
+                            ['title' => 'Title', 'field' => 'head_title'],
+                            ['title' => 'Subject', 'field' => 'subject'],
+                            ['title' => 'Type', 'field' => 'type'],
+                            ['title' => 'Status', 'field' => 'status'],
+                            ['title' => 'Modified', 'field' => 'modified'],
+                            ['title' => 'Action', 'sortable' => false, 'style' => 'width:120px;']
                         ]])
                     </tr>
                 </thead>

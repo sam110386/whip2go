@@ -20,20 +20,20 @@
     <thead>
         <tr>
             @include('partials.dispacher.sortable_header', ['columns' => [
-                ['field' => 'increment_id', 'title' => 'Booking#'],
-                ['field' => 'status', 'title' => 'Status'],
-                ['field' => 'renter_first_name', 'title' => 'Customer', 'sortable' => false],
-                ['field' => 'paid_amount', 'title' => 'Total'],
-                ['field' => 'rent', 'title' => 'Rent'],
-                ['field' => 'tax', 'title' => 'Tax'],
-                ['field' => 'extra_mileage_fee', 'title' => 'EMF'],
-                ['field' => 'emf_tax', 'title' => 'EMF tax'],
-                ['field' => 'dia_insu', 'title' => 'EMF ins.'],
-                ['field' => 'insurance_amt', 'title' => 'Insurance'],
-                ['field' => 'initial_fee', 'title' => 'Initial'],
-                ['field' => 'initial_fee_tax', 'title' => 'Init. tax'],
-                ['field' => 'cancellation_fee', 'title' => 'Cancel fee'],
-                ['field' => 'action', 'title' => 'Action', 'sortable' => false],
+                ['title' => 'Booking#', 'field' => 'increment_id'],
+                ['title' => 'Status', 'field' => 'status'],
+                ['title' => 'Customer', 'sortable' => false],
+                ['title' => 'Total', 'field' => 'paid_amount'],
+                ['title' => 'Rent', 'field' => 'rent'],
+                ['title' => 'Tax', 'field' => 'tax'],
+                ['title' => 'EMF', 'field' => 'extra_mileage_fee'],
+                ['title' => 'EMF tax', 'field' => 'emf_tax'],
+                ['title' => 'EMF ins.', 'field' => 'dia_insu'],
+                ['title' => 'Insurance', 'field' => 'insurance_amt'],
+                ['title' => 'Initial', 'field' => 'initial_fee'],
+                ['title' => 'Init. tax', 'field' => 'initial_fee_tax'],
+                ['title' => 'Cancel fee', 'field' => 'cancellation_fee'],
+                ['title' => 'Action', 'sortable' => false],
             ]])
         </tr>
     </thead>

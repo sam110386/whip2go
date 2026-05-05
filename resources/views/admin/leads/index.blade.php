@@ -80,14 +80,14 @@
                         <tr>
                             @include('partials.dispacher.sortable_header', [
                                 'columns' => [
-                                    ['field' => 'id', 'title' => '#', 'style' => 'width:5px;'],
-                                    ['field' => 'status', 'title' => 'Status', 'style' => 'width:10px;'],
-                                    ['field' => 'phone', 'title' => 'Phone', 'style' => 'width:5px;'],
-                                    ['field' => 'type', 'title' => 'Lead Type', 'style' => 'width:5px;'],
-                                    ['field' => 'first_name', 'title' => 'Name', 'sortable' => false, 'style' => 'width:5px;'],
-                                    ['field' => 'created', 'title' => 'Created', 'style' => 'width:5px;'],
-                                    ['field' => 'owner_first_name', 'title' => 'By', 'sortable' => false, 'style' => 'width:5px;'],
-                                    ['field' => 'actions', 'title' => 'Action', 'sortable' => false, 'style' => 'width:10px;']
+                                    ['title' => '#', 'field' => 'id', 'style' => 'width:5px;'],
+                                    ['title' => 'Status', 'field' => 'status', 'style' => 'width:10px;'],
+                                    ['title' => 'Phone', 'field' => 'phone', 'style' => 'width:5px;'],
+                                    ['title' => 'Lead Type', 'field' => 'type', 'style' => 'width:5px;'],
+                                    ['title' => 'Name', 'sortable' => false, 'style' => 'width:5px;'],
+                                    ['title' => 'Created', 'field' => 'created', 'style' => 'width:5px;'],
+                                    ['title' => 'By', 'sortable' => false, 'style' => 'width:5px;'],
+                                    ['title' => 'Action', 'sortable' => false, 'style' => 'width:10px;']
                                 ]
                             ])
                         </tr>

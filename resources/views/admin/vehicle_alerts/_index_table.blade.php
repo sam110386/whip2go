@@ -7,14 +7,14 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'id', 'title' => '#', 'style' => 'text-align:center;'],
-                    ['field' => 'vehicle_name', 'title' => 'Vehicle', 'style' => 'text-align:center;'],
-                    ['field' => 'type', 'title' => 'Type', 'style' => 'text-align:center;'],
-                    ['field' => 'geo', 'title' => 'Geo', 'style' => 'text-align:center;'],
-                    ['field' => 'speed', 'title' => 'MPH', 'style' => 'text-align:center;'],
-                    ['field' => 'created', 'title' => 'Recorded At', 'style' => 'text-align:center;'],
-                    ['field' => 'note', 'title' => 'Note', 'style' => 'text-align:center;'],
-                    ['field' => 'action', 'title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
+                    ['title' => '#', 'field' => 'id', 'style' => 'text-align:center;'],
+                    ['title' => 'Vehicle', 'field' => 'vehicle_name', 'style' => 'text-align:center;'],
+                    ['title' => 'Type', 'field' => 'type', 'style' => 'text-align:center;'],
+                    ['title' => 'Geo', 'field' => 'geo', 'style' => 'text-align:center;'],
+                    ['title' => 'MPH', 'field' => 'speed', 'style' => 'text-align:center;'],
+                    ['title' => 'Recorded At', 'field' => 'created', 'style' => 'text-align:center;'],
+                    ['title' => 'Note', 'field' => 'note', 'style' => 'text-align:center;'],
+                    ['title' => 'Action', 'style' => 'text-align:center;', 'sortable' => false],
                 ]])
             </tr>
         </thead>

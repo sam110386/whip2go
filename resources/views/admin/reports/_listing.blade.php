@@ -5,13 +5,13 @@
     <thead>
         <tr>
             @include('partials.dispacher.sortable_header', ['columns' => [
-                ['field' => 'increment_id', 'title' => 'Order'],
-                ['field' => 'owner_first_name', 'title' => 'Dealer', 'sortable' => false],
-                ['field' => 'renter_first_name', 'title' => 'Renter', 'sortable' => false],
-                ['field' => 'start_datetime', 'title' => 'Start'],
-                ['field' => 'end_datetime', 'title' => 'End'],
-                ['field' => 'status', 'title' => 'Status'],
-                ['field' => 'actions', 'title' => 'Actions', 'sortable' => false],
+                ['title' => 'Order', 'field' => 'increment_id'],
+                ['title' => 'Dealer', 'sortable' => false],
+                ['title' => 'Renter', 'sortable' => false],
+                ['title' => 'Start', 'field' => 'start_datetime'],
+                ['title' => 'End', 'field' => 'end_datetime'],
+                ['title' => 'Status', 'field' => 'status'],
+                ['title' => 'Actions', 'sortable' => false],
             ]])
         </tr>
     </thead>

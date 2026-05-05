@@ -55,11 +55,11 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => 'ID'],
-                                    ['field' => 'title', 'title' => 'Title'],
-                                    ['field' => 'pagecode', 'title' => 'Code'],
-                                    ['field' => 'status', 'title' => 'Status'],
-                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false],
+                                    ['title' => 'ID', 'field' => 'id'],
+                                    ['title' => 'Title', 'field' => 'title'],
+                                    ['title' => 'Code', 'field' => 'pagecode'],
+                                    ['title' => 'Status', 'field' => 'status'],
+                                    ['title' => 'Actions', 'sortable' => false],
                                 ]])
                             </tr>
                         </thead>

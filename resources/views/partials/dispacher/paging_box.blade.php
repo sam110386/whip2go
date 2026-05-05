@@ -2,6 +2,7 @@
     $paginator ??= null;
     $limit ??= 50;
     $search = request('Search', []);
+    $positon ??= "bottom";
     if ($paginator && !($paginator instanceof \Illuminate\Contracts\Pagination\Paginator)) {
         $paginator = null;
     }
@@ -13,31 +14,33 @@
 @if($paginator)
     <section class='pagging'>
         <div style="width: 30%; float: left;">
-            <form name="frmRecordsPages" action="{{ url()->current() }}" method="post" style="display:inline;">
-                @foreach(request()->except(['Record', 'page']) as $key => $value)
-                    @if(is_array($value))
-                        @foreach($value as $k => $v)
-                            @if(is_array($v))
-                                @foreach($v as $k2 => $v2)
-                                    <input type="hidden" name="{{ $key }}[{{ $k }}][{{ $k2 }}]" value="{{ $v2 }}">
-                                @endforeach
-                            @else
-                                <input type="hidden" name="{{ $key }}[{{ $k }}]" value="{{ $v }}">
-                            @endif
-                        @endforeach
-                    @else
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endif
-                @endforeach
-
-                {{'Show'}} &nbsp;
-                <select name="Record[limit]" class="textbox pagingcls ajax-limit" onchange="this.form.submit()">
-                    @foreach([25, 50, 100, 200] as $opt)
-                        <option value="{{ $opt }}" {{ $limit == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+            @if($positon !== "top")
+                <form name="frmRecordsPages" action="{{ url()->current() }}" method="post" style="display:inline;">
+                    @foreach(request()->except(['Record', 'page']) as $key => $value)
+                        @if(is_array($value))
+                            @foreach($value as $k => $v)
+                                @if(is_array($v))
+                                    @foreach($v as $k2 => $v2)
+                                        <input type="hidden" name="{{ $key }}[{{ $k }}][{{ $k2 }}]" value="{{ $v2 }}">
+                                    @endforeach
+                                @else
+                                    <input type="hidden" name="{{ $key }}[{{ $k }}]" value="{{ $v }}">
+                                @endif
+                            @endforeach
+                        @else
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                        @endif
                     @endforeach
-                </select>
-                &nbsp;{{'Records per page'}} &nbsp;
-            </form>
+
+                    {{'Show'}} &nbsp;
+                    <select name="Record[limit]" class="textbox pagingcls ajax-limit" onchange="this.form.submit()">
+                        @foreach([25, 50, 100, 200] as $opt)
+                            <option value="{{ $opt }}" {{ $limit == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                        @endforeach
+                    </select>
+                    &nbsp;{{'Records per page'}} &nbsp;
+                </form>
+            @endif
         </div>
 
         @if ($paginator->hasPages())

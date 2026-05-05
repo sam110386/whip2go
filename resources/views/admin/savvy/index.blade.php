@@ -35,10 +35,10 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => '#', 'sortable'=>false, 'style' => 'width: 5%;'],
-                                    ['field' => 'first_name', 'title' => 'Name', 'sortable'=>false,],
-                                    ['field' => 'status', 'title' => 'Status', 'sortable'=>false,],
-                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
+                                    ['title' => '#', 'sortable' => false, 'style' => 'width: 5%;'],
+                                    ['title' => 'Name', 'sortable' => false],
+                                    ['title' => 'Status', 'sortable' => false],
+                                    ['title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
                                 ]])
                             </tr>
                         </thead>
