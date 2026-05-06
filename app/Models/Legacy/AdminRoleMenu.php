@@ -4,6 +4,7 @@ namespace App\Models\Legacy;
 
 class AdminRoleMenu extends LegacyModel
 {
+     
     protected $table = 'admin_role_menu';
 
     protected $fillable = [

@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class CsPayoutTransaction extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'cs_payout_transactions';
 
     protected $fillable = [

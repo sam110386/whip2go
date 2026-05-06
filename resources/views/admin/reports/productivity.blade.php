@@ -57,25 +57,29 @@
                         <table class="table table-striped table-bordered">
                             <thead>
                                 <tr>
-                                    <th>Vehicle#</th>
-                                    <th>Vehicle Cost</th>
-                                    <th>Depreciation</th>
-                                    <th>Base Usage ($)</th>
-                                    <th>Extra Usage</th>
-                                    <th>Total Usage Fee</th>
-                                    <th>Total Distance</th>
-                                    <th>Total Days</th>
-                                    <th>Idle Days</th>
+                                    @include('partials.dispacher.sortable_header', [
+                                        'columns' => [
+                                            ['title' => 'Vehicle#', 'field' => 'vehicle_name'],
+                                            ['title' => 'Vehicle Cost', 'field' => 'msrp'],
+                                            ['title' => 'Depreciation', 'sortable' => false],
+                                            ['title' => 'Base Usage ($)', 'field' => 'totalrent'],
+                                            ['title' => 'Extra Usage', 'field' => 'extra_mileage_fee'],
+                                            ['title' => 'Total Usage Fee', 'sortable' => false],
+                                            ['title' => 'Total Distance', 'field' => 'mileage'],
+                                            ['title' => 'Total Days', 'field' => 'totaldays'],
+                                            ['title' => 'Idle Days', 'sortable' => false]
+                                        ]
+                                    ])
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($reportlists as $r)
                                     @php
-                                        $expenses = \App\Support\PortfolioSupport::getVehicleExpenses($r->id, $dateFrom, $dateTo);
+                                        $expenses = (new \App\Services\Legacy\Portfolio())->getVehicleExpenses($r->id, $dateFrom, $dateTo);
                                         if (empty($dateFrom) || empty($dateTo)) {
-                                            $totalRangeDays = \App\Support\PortfolioSupport::daysBetweenDates($r->created_at, date('Y-m-d'));
+                                            $totalRangeDays = \Carbon\Carbon::parse($r->created_at)->diffInDays(\Carbon\Carbon::now());
                                         } else {
-                                            $totalRangeDays = \App\Support\PortfolioSupport::daysBetweenDates($dateFrom, $dateTo);
+                                            $totalRangeDays = \Carbon\Carbon::parse($dateFrom)->diffInDays(\Carbon\Carbon::parse($dateTo));
                                         }
                                         $totalUsageFee = (float)$r->totalrent + (float)$r->extra_mileage_fee;
                                         $idleDays = $totalRangeDays - (int)$r->totaldays;
@@ -99,7 +103,9 @@
                     </div>
                     
                     <div class="mt-10">
-                        {{ $reportlists->links() }}
+                        @if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+                            @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
+                        @endif
                     </div>
                 </div>
             </div>

@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class CsOrderStatuslog extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'cs_order_statuslogs';
 
     protected $fillable = [

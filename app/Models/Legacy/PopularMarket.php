@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class PopularMarket extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'popular_markets';
 
     protected $fillable = [

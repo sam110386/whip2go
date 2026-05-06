@@ -4,11 +4,10 @@ namespace App\Models\Legacy;
 
 class TelematicsSubscription extends LegacyModel
 {
-    protected $table = 'telematics_subscriptions';
-
     public $timestamps = true;
     const CREATED_AT = 'created';
-    const UPDATED_AT = 'updated';
+    const UPDATED_AT = null;
+    protected $table = 'telematics_subscriptions';
 
     protected $fillable = [
         'user_id',
@@ -17,6 +16,8 @@ class TelematicsSubscription extends LegacyModel
         'amt',
         'status',
         'next_on',
+        'created',
+        'updated',
     ];
     protected $hidden = [];
     protected $guarded = [

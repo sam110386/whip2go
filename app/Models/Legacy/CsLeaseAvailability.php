@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class CsLeaseAvailability extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'cs_lease_availabilities';
 
     protected $fillable = [

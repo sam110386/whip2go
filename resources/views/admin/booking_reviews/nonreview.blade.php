@@ -54,3 +54,7 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/admin_booking_reviews.js') }}"></script>
+@endpush

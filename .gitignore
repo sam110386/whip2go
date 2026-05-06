@@ -19,3 +19,4 @@ yarn-error.log
 /.vscode
 .DS_Store
 .editorconfig
+MIGRATION_GUIDE.md

@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class UserIncome extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'user_incomes';
 
     protected $fillable = [

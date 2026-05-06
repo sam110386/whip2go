@@ -9,6 +9,17 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\CsOrderReview;
+use App\Models\Legacy\CsOrderReviewImage;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\VehicleReservation;
+use App\Models\Legacy\CsOrderStatuslog;
+use App\Models\Legacy\CsWalletTransaction;
+use App\Models\Legacy\CsWallet;
+use App\Models\Legacy\RevSetting;
+use App\Services\Legacy\PaymentProcessor;
 
 /**
  * CakePHP `BookingReviewsController` — admin (and shared) booking / reservation review flows.
@@ -51,7 +62,9 @@ class BookingReviewsController extends LegacyAppController
         }
 
         $limit = $this->resolveNonreviewLimit($request, 'booking_reviews_limit');
-        $query = $this->nonreviewOrdersQuery(null);
+        $sort = (string) $request->input('sort', 'id');
+        $direction = strtolower((string) $request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $query = $this->nonreviewOrdersQuery(null, $sort, $direction);
         $nonreviews = $query->paginate($limit)->withQueryString();
 
         if ($request->ajax()) {
@@ -80,28 +93,28 @@ class BookingReviewsController extends LegacyAppController
         }
 
         if ($request->isMethod('POST')) {
-            $reviewId = (int)$request->input('CsOrderReview.id', 0);
+            $reviewId = (int) $request->input('CsOrderReview.id', 0);
             $this->saveOrderReviewFields($request, $reviewId, ['details', 'mileage']);
 
             return $this->refererRedirect($request, $this->bookingReviewsBasePath() . '/nonreview');
         }
 
-        $csOrder = DB::table('cs_orders')->where('id', $orderId)->where('auto_renew', 0)->first();
+        $csOrder = CsOrder::where('id', $orderId)->where('auto_renew', 0)->first();
         if (!$csOrder) {
             return redirect($this->bookingReviewsBasePath() . '/nonreview');
         }
 
-        $odr = DB::table('cs_order_deposit_rules')->where('cs_order_id', $orderId)->first();
+        $odr = OrderDepositRule::where('cs_order_id', $orderId)->first();
         $review = $this->findOrCreateInitialReview($orderId, $odr);
         $pickupData = [];
         if ($odr && !empty($odr->pickup_data)) {
-            $decoded = json_decode((string)$odr->pickup_data, true);
+            $decoded = json_decode((string) $odr->pickup_data, true);
             $pickupData = is_array($decoded) ? $decoded : [];
         }
 
         return view('admin.booking_reviews.initial', [
-            'CsOrder' => ['CsOrder' => (array)$csOrder],
-            'CsOrderReview' => ['CsOrderReview' => (array)$review],
+            'CsOrder' => ['CsOrder' => (array) $csOrder],
+            'CsOrderReview' => ['CsOrderReview' => (array) $review],
             'orderid' => $orderId,
             'pickup_data' => $pickupData,
             'basePath' => $this->bookingReviewsBasePath(),
@@ -120,17 +133,16 @@ class BookingReviewsController extends LegacyAppController
         }
 
         if ($request->isMethod('POST')) {
-            $payload = (array)$request->input('CsOrderReview', []);
-            $reviewId = (int)($payload['id'] ?? 0);
+            $payload = (array) $request->input('CsOrderReview', []);
+            $reviewId = (int) ($payload['id'] ?? 0);
             if ($reviewId <= 0) {
-                $existing = DB::table('cs_order_reviews')
-                    ->where('cs_order_id', $orderId)
+                $existing = CsOrderReview::where('cs_order_id', $orderId)
                     ->where('event', 2)
                     ->first();
                 if ($existing) {
-                    $reviewId = (int)$existing->id;
+                    $reviewId = (int) $existing->id;
                 } else {
-                    $reviewId = DB::table('cs_order_reviews')->insertGetId([
+                    $review = CsOrderReview::create([
                         'cs_order_id' => $orderId,
                         'reservation_id' => null,
                         'event' => 2,
@@ -142,21 +154,22 @@ class BookingReviewsController extends LegacyAppController
                         'created' => now()->toDateTimeString(),
                         'modified' => now()->toDateTimeString(),
                     ]);
+                    $reviewId = (int) $review->id;
                 }
             }
-            $submit = (string)$request->input('submit', '');
+            $submit = (string) $request->input('submit', '');
 
             $extra = isset($payload['extra']) && is_array($payload['extra']) ? $payload['extra'] : [];
             $save = [
-                'details' => (string)($payload['details'] ?? ''),
-                'mileage' => (int)($payload['mileage'] ?? 0),
-                'is_cleaned' => (int)($payload['is_cleaned'] ?? 0),
+                'details' => (string) ($payload['details'] ?? ''),
+                'mileage' => (int) ($payload['mileage'] ?? 0),
+                'is_cleaned' => (int) ($payload['is_cleaned'] ?? 0),
                 'service_date' => $payload['service_date'] ?? null,
                 'vehicle_service' => (($payload['vehicle_service'] ?? '') === 'done') ? 1 : 0,
                 'extra' => json_encode($extra),
             ];
 
-            DB::table('cs_order_reviews')->where('id', $reviewId)->update(array_merge($save, [
+            CsOrderReview::where('id', $reviewId)->update(array_merge($save, [
                 'modified' => now()->toDateTimeString(),
             ]));
 
@@ -164,30 +177,29 @@ class BookingReviewsController extends LegacyAppController
                 return redirect($this->bookingReviewsBasePath() . '/nonreview')->with('success', 'Review data saved successfully');
             }
 
-            DB::table('cs_orders')->where('id', $orderId)->update(['review_status' => 1]);
+            CsOrder::where('id', $orderId)->update(['review_status' => 1]);
 
-            $orderRow = DB::table('cs_orders')->where('id', $orderId)->first();
+            $orderRow = CsOrder::where('id', $orderId)->first();
             if ($orderRow) {
-                $this->insertBookingCloseEvent($orderId, (int)$orderRow->user_id);
-                DB::table('vehicles')->where('id', (int)$orderRow->vehicle_id)->update(['status' => 1]);
+                $this->insertBookingCloseEvent($orderId, (int) $orderRow->user_id);
+                Vehicle::where('id', (int) $orderRow->vehicle_id)->update(['status' => 1]);
                 // VehicleIssueLib tickets omitted (not ported).
             }
 
             return redirect($this->bookingReviewsBasePath() . '/nonreview')->with('success', 'Final review completed successfully');
         }
 
-        $csOrder = DB::table('cs_orders')->where('id', $orderId)->where('auto_renew', 0)->first();
+        $csOrder = CsOrder::where('id', $orderId)->where('auto_renew', 0)->first();
         if (!$csOrder) {
             return redirect($this->bookingReviewsBasePath() . '/nonreview');
         }
 
-        $review = DB::table('cs_order_reviews')
-            ->where('cs_order_id', $orderId)
+        $review = CsOrderReview::where('cs_order_id', $orderId)
             ->where('event', 2)
             ->first();
 
         if (!$review) {
-            $newId = DB::table('cs_order_reviews')->insertGetId([
+            $review = CsOrderReview::create([
                 'cs_order_id' => $orderId,
                 'reservation_id' => null,
                 'event' => 2,
@@ -199,24 +211,22 @@ class BookingReviewsController extends LegacyAppController
                 'created' => now()->toDateTimeString(),
                 'modified' => now()->toDateTimeString(),
             ]);
-            $review = DB::table('cs_order_reviews')->where('id', $newId)->first();
         }
 
-        $reviewArr = (array)$review;
+        $reviewArr = (array) $review;
         if (!empty($reviewArr['extra'])) {
-            $decoded = json_decode((string)$reviewArr['extra'], true);
+            $decoded = json_decode((string) $reviewArr['extra'], true);
             $reviewArr['extra'] = is_array($decoded) ? $decoded : [];
         } else {
             $reviewArr['extra'] = [];
         }
 
-        $reviewImages = DB::table('cs_order_review_images')
-            ->where('cs_order_review_id', (int)($reviewArr['id'] ?? 0))
+        $reviewImages = CsOrderReviewImage::where('cs_order_review_id', (int) ($reviewArr['id'] ?? 0))
             ->orderBy('id')
             ->get();
 
         return view('admin.booking_reviews.finalreview', [
-            'CsOrder' => ['CsOrder' => (array)$csOrder],
+            'CsOrder' => ['CsOrder' => (array) $csOrder],
             'CsOrderReview' => ['CsOrderReview' => $reviewArr],
             'CsOrderReviewImages' => $reviewImages,
             'orderid' => $orderId,
@@ -237,27 +247,25 @@ class BookingReviewsController extends LegacyAppController
         }
 
         if ($request->isMethod('POST')) {
-            $reviewId = (int)$request->input('CsOrderReview.id', 0);
+            $reviewId = (int) $request->input('CsOrderReview.id', 0);
             $this->saveOrderReviewFields($request, $reviewId, ['details', 'mileage']);
 
             return redirect('/admin/vehicle_reservations/index')->with('success', 'Review data saved successfully');
         }
 
-        $reservation = DB::table('vehicle_reservations')
-            ->where('id', $reservationId)
+        $reservation = VehicleReservation::where('id', $reservationId)
             ->where('status', 0)
             ->first();
         if (!$reservation) {
             return redirect('/admin/vehicle_reservations/index');
         }
 
-        $review = DB::table('cs_order_reviews')
-            ->where('reservation_id', $reservationId)
+        $review = CsOrderReview::where('reservation_id', $reservationId)
             ->where('event', 1)
             ->first();
 
         if (!$review) {
-            $newId = DB::table('cs_order_reviews')->insertGetId([
+            $review = CsOrderReview::create([
                 'cs_order_id' => null,
                 'reservation_id' => $reservationId,
                 'event' => 1,
@@ -266,19 +274,18 @@ class BookingReviewsController extends LegacyAppController
                 'created' => now()->toDateTimeString(),
                 'modified' => now()->toDateTimeString(),
             ]);
-            $review = DB::table('cs_order_reviews')->where('id', $newId)->first();
         }
 
-        $odr = DB::table('cs_order_deposit_rules')->where('vehicle_reservation_id', $reservationId)->first();
+        $odr = OrderDepositRule::where('vehicle_reservation_id', $reservationId)->first();
         $pickupData = [];
         if ($odr && !empty($odr->pickup_data)) {
-            $decoded = json_decode((string)$odr->pickup_data, true);
+            $decoded = json_decode((string) $odr->pickup_data, true);
             $pickupData = is_array($decoded) ? $decoded : [];
         }
 
         return view('admin.booking_reviews.reservationreview', [
             'CsOrder' => null,
-            'CsOrderReview' => ['CsOrderReview' => (array)$review],
+            'CsOrderReview' => ['CsOrderReview' => (array) $review],
             'orderid' => $reservationId,
             'pickup_data' => $pickupData,
             'basePath' => $this->bookingReviewsBasePath(),
@@ -309,10 +316,101 @@ class BookingReviewsController extends LegacyAppController
             return response()->json(['status' => 'error', 'message' => 'Unauthorized']);
         }
 
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Deposit settlement via payment processor is not wired in Laravel yet. Use legacy app or extend PaymentProcessor port.',
-        ]);
+        $payload = (array) $request->input('CsOrderReview', []);
+        $orderId = (int) ($payload['cs_order_id'] ?? 0);
+        $reviewId = (int) ($payload['id'] ?? 0);
+
+        $userId = (int) session()->get('userParentId', session()->get('userid', 0));
+
+        $review = CsOrderReview::where('cs_order_id', $orderId)
+            ->where('event', 2)
+            ->where('id', $reviewId)
+            ->first();
+
+        $csOrder = CsOrder::where('id', $orderId)
+            ->where('user_id', $userId)
+            ->where('deposit_type', 'C')
+            ->where('review_status', 0)
+            ->first();
+
+        if (!$csOrder || !$review) {
+            return response()->json(['status' => 'error', 'message' => 'Sorry, you are not authorized for this action now.']);
+        }
+
+        $refundAmount = (float) $csOrder->deposit;
+        $adjustToll = (bool) ($payload['adjusttollfromdeposit'] ?? false);
+
+        $revSetting = RevSetting::where('user_id', $userId)->first();
+        $revShare = $revSetting ? (float) $revSetting->rev : (float) config('legacy.owner_part', 60);
+
+        $pp = new PaymentProcessor();
+        $return = ['status' => 'error', 'message' => 'Unknown error'];
+
+        if ($refundAmount > 0) {
+            if ($refundAmount <= (float) $csOrder->deposit) {
+                if ($csOrder->pending_toll > 0 && $adjustToll) {
+                    $pendingToll = (float) $csOrder->pending_toll;
+                    $tollResp = $pp->chargeTollFromDeposit($pendingToll, $csOrder);
+                    if ($tollResp['status'] === 'success') {
+                        $csOrder->toll += $pendingToll;
+                        $csOrder->deposit -= $pendingToll;
+                        $csOrder->pending_toll = 0;
+                        if ($refundAmount > $csOrder->deposit) {
+                            $refundAmount = $csOrder->deposit;
+                        }
+                        $csOrder->details .= ", $pendingToll was deducted from deposits";
+                        $return = $pp->refundBalanceDeposit($refundAmount, $csOrder);
+                    }
+                } elseif ($refundAmount > 1) {
+                    $return = $pp->refundBalanceDeposit($refundAmount, $csOrder);
+                }
+
+                if ($refundAmount == 0 || (isset($return['status']) && $return['status'] === 'success')) {
+                    $balanceRefund = (float) $csOrder->deposit - $refundAmount;
+                    $csOrder->review_status = 1;
+                    $csOrder->deposit = $balanceRefund;
+                    $csOrder->save();
+
+                    $review->update([
+                        'original_amt' => $csOrder->deposit + $refundAmount,
+                        'refund_amt' => $refundAmount,
+                        'details' => (string) ($payload['details'] ?? ''),
+                        'mileage' => (int) ($payload['mileage'] ?? 0),
+                    ]);
+
+                    $return['status'] = 'success';
+                    $return['message'] = "Your request has been processed successfully";
+
+                    $transferResp = $pp->transferDepositToDealer(sprintf('%0.2f', ($balanceRefund * $revShare) / 100), $csOrder);
+                    if ($transferResp['status'] === 'error') {
+                        $return['message'] = "Customer refund is done but Dealer transfer is not done. Please contact to administrator.";
+                    }
+                }
+            } else {
+                $return['message'] = "Sorry, refund can't be more than deposit.";
+            }
+        } elseif ((float) $csOrder->deposit > 0) {
+            $balanceRefund = (float) $csOrder->deposit;
+            $csOrder->review_status = 1;
+            $csOrder->save();
+
+            $review->update([
+                'original_amt' => $csOrder->deposit,
+                'refund_amt' => 0,
+                'details' => (string) ($payload['details'] ?? ''),
+                'mileage' => (int) ($payload['mileage'] ?? 0),
+            ]);
+
+            $return['status'] = 'success';
+            $return['message'] = "Your request has been processed successfully";
+
+            $transferResp = $pp->transferDepositToDealer(sprintf('%0.2f', (($balanceRefund * $revShare) / 100)), $csOrder);
+            if ($transferResp['status'] === 'error') {
+                $return['message'] = "Customer refund is done but Dealer transfer is not done. Please contact to administrator.";
+            }
+        }
+
+        return response()->json($return);
     }
 
     public function reviewimages(Request $request, $orderid = null): Response
@@ -322,15 +420,16 @@ class BookingReviewsController extends LegacyAppController
         }
 
         $orderId = $this->decodeB64Id($orderid);
+
         if (!$orderId) {
-            return response('', 400);
+            return response('Unauthorized', 401);
         }
 
-        $rows = DB::table('cs_order_reviews')->where('cs_order_id', $orderId)->get();
+        $CsOrderReview = CsOrderReview::where('cs_order_id', $orderId)->get();
         $result = [];
-        foreach ($rows as $row) {
-            $title = ((int)$row->event === 1) ? 'initial' : 'final';
-            $result[$title] = ['CsOrderReview' => (array)$row];
+        foreach ($CsOrderReview as $CsOrderRvws) {
+            $title = ((int) $CsOrderRvws->event === 1) ? 'initial' : 'final';
+            $result[$title] = ['CsOrderReview' => (array) $CsOrderRvws];
         }
 
         return response()->view('admin.booking_reviews.reviewimages', ['result' => $result]);
@@ -342,7 +441,7 @@ class BookingReviewsController extends LegacyAppController
             return response('Unauthorized', 401);
         }
 
-        $orderid = trim((string)$request->input('orderid', ''));
+        $orderid = trim((string) $request->input('orderid', ''));
 
         return response()->view('admin.booking_reviews.reviewpopup', ['orderid' => $orderid]);
     }
@@ -353,11 +452,11 @@ class BookingReviewsController extends LegacyAppController
             return response('Unauthorized', 401);
         }
 
-        $orderid = $this->decodeB64Id((string)$request->input('BookingReview.orderid', $request->input('orderid', '')));
+        $orderid = $this->decodeB64Id((string) $request->input('BookingReview.orderid', $request->input('orderid', '')));
         if (!$orderid) {
             return response('Sorry, something went wrong, please try again later.', 400);
         }
-        $order = DB::table('cs_orders')->where('id', $orderid)->first();
+        $order = CsOrder::where('id', $orderid)->first();
         if (!$order) {
             return response('Sorry, booking not found', 404);
         }
@@ -374,34 +473,40 @@ class BookingReviewsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Unauthorized']);
         }
 
-        $data = (array)$request->input('BookingReview', []);
-        $orderid = $this->decodeB64Id((string)($data['orderid'] ?? ''));
+        $data = (array) $request->input('BookingReview', []);
+        $orderid = $this->decodeB64Id((string) ($data['orderid'] ?? ''));
         if (!$orderid) {
             return response()->json(['status' => false, 'message' => 'Sorry, something went wrong, please try again later.']);
         }
 
-        $order = DB::table('cs_orders')->where('id', $orderid)->first();
+        $order = CsOrder::where('id', $orderid)->first();
         if (!$order) {
             return response()->json(['status' => false, 'message' => 'Sorry, booking not found']);
         }
 
-        DB::table('cs_orders')->where('id', $orderid)->update([
+        CsOrder::where('id', $orderid)->update([
             'status' => 1,
             'bad_debt' => 0,
             'dia_bad_debt' => 0,
         ]);
 
         if (!empty($order->vehicle_id)) {
-            DB::table('vehicles')->where('id', (int)$order->vehicle_id)->update(['booked' => 1]);
+            Vehicle::where('id', (int) $order->vehicle_id)->update(['booked' => 1]);
         }
 
         if ((!empty($data['reset_bad_debt']) || !empty($data['remove_wallet_debt'])) && Schema::hasTable('cs_wallet_transactions')) {
-            $this->removeWalletDebtForOrder($orderid, (int)$order->renter_id);
+            $this->removeWalletDebtForOrder($orderid, (int) $order->renter_id);
         }
 
         $message = 'Your request processed successfully';
         if (!empty($data['refund_py'])) {
-            $message .= ' (dealer-paid insurance refund not executed in Laravel — use legacy or wire PaymentProcessor.)';
+            $pp = new PaymentProcessor();
+            $refundResp = $pp->deailerPaidInsuranceRefund($order, true);
+            if ($refundResp['status'] === 'success') {
+                $message = 'Booking reopened successfully and dealer paid insurance refunded successfully';
+            } else {
+                $message .= ' (Dealer-paid insurance refund failed: ' . ($refundResp['message'] ?? 'Unknown error') . ')';
+            }
         }
 
         return response()->json([
@@ -417,35 +522,50 @@ class BookingReviewsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []]);
         }
 
-        $vehicleId = $this->decodeB64Id((string)$request->input('vehicle', ''));
+        $vehicleId = $this->decodeB64Id((string) $request->input('vehicle', ''));
         if (!$vehicleId) {
             return response()->json(['status' => false, 'message' => 'Invalid vehicle.', 'result' => []]);
         }
 
-        $lastMile = DB::table('vehicles')->where('id', $vehicleId)->value('last_mile');
+        $lastMile = Vehicle::where('id', $vehicleId)->value('last_mile');
 
         return response()->json([
             'status' => true,
             'message' => '',
-            'miles' => $lastMile !== null ? (int)$lastMile : 0,
+            'miles' => $lastMile !== null ? (int) $lastMile : 0,
             'result' => [],
         ]);
     }
 
-    protected function nonreviewOrdersQuery(?array $dealerUserIds)
+    protected function nonreviewOrdersQuery(?array $dealerUserIds, string $sort = 'id', string $direction = 'desc')
     {
-        $q = DB::table('cs_orders as o')
+        $q = CsOrder::query()
+            ->from('cs_orders as o')
             ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
             ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
             ->where('o.status', 3)
             ->where('o.review_status', 0)
-            ->where('o.auto_renew', 0)
-            ->orderByDesc('o.id')
-            ->select([
-                'o.*',
-                'v.vehicle_unique_id',
-                DB::raw("TRIM(CONCAT(COALESCE(renter.first_name,''),' ',COALESCE(renter.last_name,''))) as renter_name"),
-            ]);
+            ->where('o.auto_renew', 0);
+
+        $allowedSorts = ['increment_id', 'vehicle_unique_id', 'start_datetime', 'end_datetime', 'renter_name', 'id'];
+        if (in_array($sort, $allowedSorts, true)) {
+            if ($sort === 'renter_name') {
+                $q->orderBy($sort, $direction);
+            } elseif ($sort === 'vehicle_unique_id') {
+                $q->orderBy('v.vehicle_unique_id', $direction);
+            } else {
+                $q->orderBy('o.' . $sort, $direction);
+            }
+        } else {
+            $q->orderByDesc('o.id');
+        }
+
+        $q->select([
+            'o.*',
+            'v.vehicle_unique_id',
+            'o.insurance_amt', 'o.initial_fee', 'o.insu_status', 'o.infee_status', 'o.payment_status', 'o.dpa_status',
+            DB::raw("TRIM(CONCAT(COALESCE(renter.first_name,''),' ',COALESCE(renter.last_name,''))) as renter_name"),
+        ]);
 
         if ($dealerUserIds !== null) {
             if ($dealerUserIds === []) {
@@ -463,14 +583,14 @@ class BookingReviewsController extends LegacyAppController
         $allowed = [25, 50, 100, 200];
         $fromForm = $request->input('Record.limit');
         if ($fromForm !== null && $fromForm !== '') {
-            $lim = (int)$fromForm;
+            $lim = (int) $fromForm;
             if (in_array($lim, $allowed, true)) {
                 session()->put($sessionKey, $lim);
 
                 return $lim;
             }
         }
-        $sess = (int)session()->get($sessionKey, 0);
+        $sess = (int) session()->get($sessionKey, 0);
 
         return in_array($sess, $allowed, true) ? $sess : 25;
     }
@@ -481,11 +601,11 @@ class BookingReviewsController extends LegacyAppController
             return null;
         }
         $tmp = base64_decode($value, true);
-        if ($tmp !== false && ctype_digit((string)$tmp)) {
-            return (int)$tmp;
+        if ($tmp !== false && ctype_digit((string) $tmp)) {
+            return (int) $tmp;
         }
-        if (ctype_digit((string)$value)) {
-            return (int)$value;
+        if (ctype_digit((string) $value)) {
+            return (int) $value;
         }
 
         return null;
@@ -509,22 +629,20 @@ class BookingReviewsController extends LegacyAppController
     {
         $review = null;
         if ($odr && !empty($odr->vehicle_reservation_id)) {
-            $resId = (int)$odr->vehicle_reservation_id;
-            $review = DB::table('cs_order_reviews')
-                ->where('event', 1)
+            $resId = (int) $odr->vehicle_reservation_id;
+            $review = CsOrderReview::where('event', 1)
                 ->where(function ($q) use ($orderId, $resId) {
                     $q->where('cs_order_id', $orderId)->orWhere('reservation_id', $resId);
                 })
                 ->first();
         } else {
-            $review = DB::table('cs_order_reviews')
-                ->where('cs_order_id', $orderId)
+            $review = CsOrderReview::where('cs_order_id', $orderId)
                 ->where('event', 1)
                 ->first();
         }
 
         if (!$review) {
-            $newId = DB::table('cs_order_reviews')->insertGetId([
+            $review = CsOrderReview::create([
                 'cs_order_id' => $orderId,
                 'reservation_id' => null,
                 'event' => 1,
@@ -533,13 +651,12 @@ class BookingReviewsController extends LegacyAppController
                 'created' => now()->toDateTimeString(),
                 'modified' => now()->toDateTimeString(),
             ]);
-            $review = DB::table('cs_order_reviews')->where('id', $newId)->first();
         } elseif (empty($review->cs_order_id)) {
-            DB::table('cs_order_reviews')->where('id', $review->id)->update([
+            $review->update([
                 'cs_order_id' => $orderId,
                 'modified' => now()->toDateTimeString(),
             ]);
-            $review = DB::table('cs_order_reviews')->where('id', $review->id)->first();
+            $review->refresh();
         }
 
         return $review;
@@ -550,7 +667,7 @@ class BookingReviewsController extends LegacyAppController
         if ($reviewId <= 0) {
             return;
         }
-        $payload = (array)$request->input('CsOrderReview', []);
+        $payload = (array) $request->input('CsOrderReview', []);
         $save = ['modified' => now()->toDateTimeString()];
         foreach ($fields as $f) {
             if (array_key_exists($f, $payload)) {
@@ -558,9 +675,9 @@ class BookingReviewsController extends LegacyAppController
             }
         }
         if (array_key_exists('mileage', $save)) {
-            $save['mileage'] = (int)$save['mileage'];
+            $save['mileage'] = (int) $save['mileage'];
         }
-        DB::table('cs_order_reviews')->where('id', $reviewId)->update($save);
+        CsOrderReview::where('id', $reviewId)->update($save);
     }
 
     protected function insertBookingCloseEvent(int $orderId, int $userId): void
@@ -568,7 +685,7 @@ class BookingReviewsController extends LegacyAppController
         if (!Schema::hasTable('cs_order_statuslogs')) {
             return;
         }
-        DB::table('cs_order_statuslogs')->insert([
+        CsOrderStatuslog::insert([
             'cs_order_id' => $orderId,
             'vehicle_id' => null,
             'user_id' => $userId,
@@ -581,16 +698,16 @@ class BookingReviewsController extends LegacyAppController
 
     protected function jsonHandleUpload(Request $request): JsonResponse
     {
-        $reviewId = (int)$request->input('id', 0);
+        $reviewId = (int) $request->input('id', 0);
         if ($reviewId <= 0 || !$request->hasFile('reviewimage')) {
             return response()->json(['error' => 'Invalid upload.']);
         }
         $file = $request->file('reviewimage');
         if (!$file->isValid()) {
-            return response()->json(['error' => 'Upload error #' . (int)$file->getError()]);
+            return response()->json(['error' => 'Upload error #' . (int) $file->getError()]);
         }
 
-        $ext = strtolower((string)$file->getClientOriginalExtension());
+        $ext = strtolower((string) $file->getClientOriginalExtension());
         $allowed = ['jpeg', 'jpg', 'png', 'pdf'];
         if (!in_array($ext, $allowed, true)) {
             return response()->json(['error' => 'File has an invalid extension.']);
@@ -601,11 +718,11 @@ class BookingReviewsController extends LegacyAppController
             mkdir($dir, 0755, true);
         }
 
-        $count = 1 + (int)DB::table('cs_order_review_images')->where('cs_order_review_id', $reviewId)->count();
+        $count = 1 + (int) CsOrderReviewImage::where('cs_order_review_id', $reviewId)->count();
         $basename = 'review_' . $reviewId . '_' . $count . '.' . $ext;
         $file->move($dir, $basename);
 
-        $imageId = DB::table('cs_order_review_images')->insertGetId([
+        $imageId = CsOrderReviewImage::insertGetId([
             'cs_order_review_id' => $reviewId,
             'image' => $basename,
             'created' => now()->toDateTimeString(),
@@ -617,18 +734,18 @@ class BookingReviewsController extends LegacyAppController
 
     protected function jsonDeleteReviewImage(Request $request): JsonResponse
     {
-        $key = (int)$request->input('key', 0);
+        $key = (int) $request->input('key', 0);
         if ($key <= 0) {
             return response()->json(['success' => false, 'key' => '']);
         }
-        $row = DB::table('cs_order_review_images')->where('id', $key)->first();
+        $row = CsOrderReviewImage::where('id', $key)->first();
         if ($row && !empty($row->image)) {
             $path = $this->reviewImageDir() . DIRECTORY_SEPARATOR . $row->image;
             if (is_file($path)) {
                 @unlink($path);
             }
         }
-        DB::table('cs_order_review_images')->where('id', $key)->delete();
+        CsOrderReviewImage::where('id', $key)->delete();
 
         return response()->json(['success' => true, 'key' => '']);
     }
@@ -638,23 +755,22 @@ class BookingReviewsController extends LegacyAppController
         if (!Schema::hasTable('cs_wallet_transactions') || !Schema::hasTable('cs_wallets')) {
             return;
         }
-        $rows = DB::table('cs_wallet_transactions')
-            ->where('cs_order_id', $orderId)
+        $rows = CsWalletTransaction::where('cs_order_id', $orderId)
             ->where('balance', '<', 0)
             ->where('type', 1)
             ->get();
 
         $totalDebt = 0.0;
         foreach ($rows as $r) {
-            $amt = (float)($r->amt ?? 0);
+            $amt = (float) ($r->amt ?? 0);
             if ($amt == 0.0) {
-                $amt = (float)($r->amount ?? 0);
+                $amt = (float) ($r->amount ?? 0);
             }
             $totalDebt += $amt;
-            DB::table('cs_wallet_transactions')->where('id', $r->id)->delete();
+            $r->delete();
         }
         if ($totalDebt != 0.0) {
-            DB::table('cs_wallets')->where('user_id', $renterId)->increment('balance', $totalDebt);
+            CsWallet::where('user_id', $renterId)->increment('balance', $totalDebt);
         }
     }
 }

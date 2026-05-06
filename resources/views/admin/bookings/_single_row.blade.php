@@ -2,9 +2,15 @@
     {{ $trip->increment_id ?? ($trip->id ?? '') }}
 </td>
 <td style="text-align:center;">{{ $trip->insurance_payer ?? 'N/A' }}</td>
-<td onclick="openBookingDetails({{ (int)($trip->id ?? 0) }});">{{ $trip->vehicle_name ?? '' }}</td>
+<td onclick="openBookingDetails({{ (int)($trip->id ?? 0) }});">{{ $trip->vehicle->vehicle_name ?? ($trip->vehicle_name ?? '') }}</td>
 <td onclick="openUserTransactions({{ (int)($trip->renter_id ?? 0) }},'{{ (int)($trip->id ?? 0) }}','{{ $trip->currency ?? '' }}');" style="text-align:center;">
-    <span class="btn-link text-blue">{{ trim(($trip->driver_first_name ?? '') . ' ' . ($trip->driver_last_name ?? '')) }}</span>
+    <span class="btn-link text-blue">
+        @if($trip->renter)
+            {{ trim($trip->renter->first_name . ' ' . $trip->renter->last_name) }}
+        @else
+            {{ trim(($trip->driver_first_name ?? '') . ' ' . ($trip->driver_last_name ?? '')) }}
+        @endif
+    </span>
 </td>
 <td onclick="openBookingDetails({{ (int)($trip->id ?? 0) }});" style="text-align:center;">{{ $trip->start_datetime ?? '' }}</td>
 <td onclick="openBookingDetails({{ (int)($trip->id ?? 0) }});" style="text-align:center;">{{ $trip->end_datetime ?? '' }}</td>

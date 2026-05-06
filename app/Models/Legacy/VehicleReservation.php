@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class VehicleReservation extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'vehicle_reservations';
 
     protected $fillable = [

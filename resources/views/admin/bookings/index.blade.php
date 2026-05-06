@@ -8,8 +8,7 @@
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Rental</span>
-                    Orders
+                    <span class="text-semibold">Rental</span> Orders
                 </h4>
             </div>
             <div class="heading-elements"></div>
@@ -24,7 +23,7 @@
         <div class="panel-body">
             <div id="listing">
                 <div style="width:100%; overflow: visible;" id="update_log">
-                    @include('admin.bookings.booking_table', ['trips' => $trips])
+                    @include('admin.bookings.elements.booking', ['tripLog' => $tripLog])
                 </div>
             </div>
         </div>

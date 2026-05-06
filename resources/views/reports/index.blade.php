@@ -66,7 +66,7 @@
 </div>
 <div class="panel">
     <div class="panel-body" id="listing">
-        @include('reports._listing', ['reportlists' => $reportlists])
+        @include('reports.elements.index', ['reportlists' => $reportlists])
     </div>
 </div>
 @endsection

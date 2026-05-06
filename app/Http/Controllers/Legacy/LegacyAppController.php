@@ -60,18 +60,19 @@ class LegacyAppController extends Controller
 
     protected function getAdminUserid(): array
     {
-        $admin = session()->get('SESSION_ADMIN');
-        if (empty($admin)) {
+        $AdminUser = session()->get('SESSION_ADMIN');
+
+        if (empty($AdminUser)) {
             return [];
         }
 
+        $id = $admin['id'] ?? null;
+
         return [
-            'admin_id' => $admin['id'] ?? null,
-            'administrator' => (($admin['role_id'] ?? null) == 1),
-            'parent_id' => !empty($admin['parent_id'])
-                ? ($admin['parent_id'])
-                : ($admin['id'] ?? null),
-            'timezone' => $admin['timezone'] ?? null,
+            'admin_id' => $id,
+            'administrator' => ($AdminUser['role_id'] ?? null) == 1,
+            'parent_id' => $AdminUser['parent_id'] ?? $id,
+            'timezone' => $AdminUser['timezone'] ?? null,
         ];
     }
 

@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class UserLicenseDetail extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'cs_user_license_details';
 
     protected $fillable = [

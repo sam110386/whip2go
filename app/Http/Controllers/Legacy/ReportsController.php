@@ -78,10 +78,20 @@ class ReportsController extends LegacyAppController
             return $this->exportBookingsCsv($q, $userId);
         }
 
-        $reportlists = $q->orderByDesc('o.id')->paginate($limit)->withQueryString();
+        $allowedSorts = ['increment_id', 'start_datetime', 'end_datetime'];
+        $sort = $request->input('sort');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sort && in_array($sort, $allowedSorts)) {
+            $q->orderBy('o.' . $sort, $direction);
+        } else {
+            $q->orderByDesc('o.id');
+        }
+
+        $reportlists = $q->paginate($limit)->withQueryString();
 
         if ($request->ajax()) {
-            return response()->view('reports._listing', [
+            return response()->view('reports.elements.index', [
                 'reportlists' => $reportlists,
                 'prefix' => 'reports',
             ]);
@@ -115,7 +125,22 @@ class ReportsController extends LegacyAppController
         }
 
         $q = $this->vehicleProductivityQuery($userId, $dateFrom, $dateTo);
-        $reportlists = $q->orderByDesc('v.id')->paginate($limit)->withQueryString();
+
+        $allowedSorts = ['vehicle_name', 'msrp', 'totalrent', 'mileage', 'totaldays', 'extra_mileage_fee'];
+        $sort = $request->input('sort');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sort && in_array($sort, $allowedSorts)) {
+            if (in_array($sort, ['vehicle_name', 'msrp'])) {
+                $q->orderBy('v.' . $sort, $direction);
+            } else {
+                $q->orderBy($sort, $direction);
+            }
+        } else {
+            $q->orderByDesc('v.id');
+        }
+
+        $reportlists = $q->paginate($limit)->withQueryString();
 
         return view('reports.vehicle', [
             'title_for_layout' => 'Fleet Productivity',
@@ -138,23 +163,12 @@ class ReportsController extends LegacyAppController
         }
 
         $userId = $this->effectiveUserId();
-        $row = DB::table('cs_orders as o')
-            ->leftJoin('users as u', 'u.id', '=', 'o.renter_id')
-            ->where('o.id', $orderId)
-            ->where('o.user_id', $userId)
-            ->select(['o.*', 'u.first_name as renter_first_name', 'u.last_name as renter_last_name'])
-            ->first();
-
-        if (!$row) {
+        $owns = DB::table('cs_orders')->where('id', $orderId)->where('user_id', $userId)->exists();
+        if (!$owns) {
             return response('<p>Booking not found.</p>', 404);
         }
 
-        $payload = BookingReportDetailPresenter::buildSingle($orderId);
-        if ($payload === null) {
-            return response('<p>Booking not found.</p>', 404);
-        }
-
-        return response()->view('reports._booking_details_full', $payload);
+        return $this->_details($orderId);
     }
 
     public function autorenewddetails(Request $request, ?string $id = null)
@@ -174,12 +188,7 @@ class ReportsController extends LegacyAppController
             return response('<p>Booking not found.</p>', 404);
         }
 
-        $payload = BookingReportDetailPresenter::buildAutoRenew($orderId);
-        if ($payload === null) {
-            return response('<p>Booking not found.</p>', 404);
-        }
-
-        return response()->view('reports._booking_details_full', $payload);
+        return $this->_autorenewddetails($orderId);
     }
 
     public function loadsubbooking(Request $request, ?string $orderid = null)
@@ -194,7 +203,7 @@ class ReportsController extends LegacyAppController
             return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
         }
 
-        $rows = DB::table('cs_orders as o')
+        $subbookinglists = DB::table('cs_orders as o')
             ->leftJoin('users as u', 'u.id', '=', 'o.renter_id')
             ->where('o.user_id', $userId)
             ->where(function ($q) use ($oid) {
@@ -202,16 +211,17 @@ class ReportsController extends LegacyAppController
             })
             ->orderByDesc('o.id')
             ->select(['o.*', 'u.first_name', 'u.last_name'])
-            ->get();
+            ->get()
+            ->map(function ($item) {
+                return ['CsOrder' => (array) $item, 'User' => ['first_name' => $item->first_name, 'last_name' => $item->last_name]];
+            })->toArray();
 
-        if ($rows->isEmpty()) {
+        if (empty($subbookinglists)) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, no record found']);
         }
 
-        $html = view('reports._loadsubbooking_rows', [
-            'rows' => $rows,
-            'bookingId' => $oid,
-        ])->render();
+        $booking_id = $oid;
+        $html = view('reports.elements.loadsubbooking', compact('subbookinglists', 'booking_id'))->render();
 
         return response()->json([
             'status' => 'success',
@@ -244,7 +254,8 @@ class ReportsController extends LegacyAppController
             ->orderByDesc('id')
             ->get();
 
-        $html = view('reports._payments_popup', compact('payments'))->render();
+        $paymentTypeValue = app(\App\Services\Legacy\Common::class)->getPayoutTypeValue(true);
+        $html = view('reports._paymentspopup', compact('payments', 'paymentTypeValue'))->render();
 
         return response()->json(['status' => 'success', 'data' => $html]);
     }

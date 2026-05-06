@@ -9,10 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class User extends LegacyModel
 {
-    protected $table = 'users';
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = 'modified';
+    protected $table = 'users';
 
     protected $fillable = [
         'username',

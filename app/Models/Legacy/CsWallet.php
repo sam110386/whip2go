@@ -5,6 +5,9 @@ use App\Models\Legacy\CsWalletTransaction;
 
 class CsWallet extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'cs_wallets';
 
     protected $fillable = [

@@ -2,19 +2,23 @@
 <table style="width:100%; border-collapse:collapse; font-size:13px;" class="table table-responsive">
     <thead>
         <tr style="border-bottom:2px solid #ccc; text-align:left;">
-            <th style="padding:6px;width:36px;"></th>
-            <th style="padding:6px;">Booking#</th>
-            <th style="padding:6px;">Status</th>
-            <th style="padding:6px;">Vehicle</th>
-            <th style="padding:6px;">Start</th>
-            <th style="padding:6px;">End</th>
-            <th style="padding:6px;">Duration</th>
-            <th style="padding:6px;">Customer</th>
-            <th style="padding:6px;">Distance</th>
-            <th style="padding:6px;">Total</th>
-            <th style="padding:6px;">Insurance</th>
-            <th style="padding:6px;">Tolls</th>
-            <th style="padding:6px;width:80px;">Documents</th>
+            @include('partials.dispacher.sortable_header', [
+                'columns' => [
+                    ['title' => '', 'sortable' => false, 'style' => 'padding:6px;width:36px;'],
+                    ['title' => 'Booking#', 'field' => 'increment_id', 'style' => 'padding:6px;'],
+                    ['title' => 'Status', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Vehicle', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Start', 'field' => 'start_datetime', 'style' => 'padding:6px;'],
+                    ['title' => 'End', 'field' => 'end_datetime', 'style' => 'padding:6px;'],
+                    ['title' => 'Duration', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Customer', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Distance', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Total', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Insurance', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Tolls', 'sortable' => false, 'style' => 'padding:6px;'],
+                    ['title' => 'Documents', 'sortable' => false, 'style' => 'padding:6px;width:80px;']
+                ]
+            ])
         </tr>
     </thead>
     <tbody>
@@ -50,4 +54,6 @@
     </tbody>
 </table>
 
-{{ $reportlists->links() }}
+@if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
+@endif
