@@ -2,32 +2,33 @@
 
 namespace App\Services\Legacy;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use App\Helpers\Legacy\Security;
+use App\Models\Legacy\TinnyUrl;
+use Carbon\Carbon;
 
 /**
  * Migrated from: app/Plugin/TinnyUrl/Lib/TinnyUrlLib.php
- *
- * Generates short URLs stored in tinny_urls table.
  */
+
 class TinnyUrlService
 {
-    public function generate(?string $url): string
+    public function generate($url = null)
     {
-        $parsed = parse_url($url);
-        if (!isset($parsed['path']) || empty($parsed['path'])) {
-            return $url ?? '';
+        $url = parse_url($url);
+
+        if (!isset($url['path']) || empty($url['path'])) {
+            return $url;
         }
 
-        $path = $parsed['path'];
-        $shortkey = hash('sha256', $path . time());
+        $url = $url['path'];
+        $shortkey = Security::hash($url . time());
 
-        DB::table('tinny_urls')->insert([
-            'ukey'   => $shortkey,
-            'target' => $path,
-            'expire' => now()->addHours(5)->toDateTimeString(),
+        TinnyUrl::create([
+            'ukey' => $shortkey,
+            'target' => $url,
+            'expire' => Carbon::now()->addHours(5),
         ]);
 
-        return config('app.url') . '/g/' . $shortkey;
+        return url('/g/' . $shortkey);
     }
 }

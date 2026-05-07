@@ -101,6 +101,17 @@ return [
 
 
     'GOOGLE_MAPS_EMBED_URL' => env('GOOGLE_MAPS_EMBED_URL', 'https://www.google.com/maps/embed/v1/place'),
-    'GOOGLE_MAPS_API_KEY' => env('GOOGLE_MAPS_API_KEY', '')
+    'GOOGLE_MAPS_API_KEY' => env('GOOGLE_MAPS_API_KEY', ''),
+
+    'vindecoder' => [
+        'apiUrl' => env('LEGACY_VINDECODER_BASE_URL', 'https://api.vindecoder.eu/3.2'),
+        'apiKey' => env('LEGACY_VINDECODER_API_KEY', ''),
+        'apiSecret' => env('LEGACY_VINDECODER_API_SECRET', ''),
+    ],
+
+    'tinyurl' => [
+        'apiUrl' => env('LEGACY_TINYURL_BASE_URL', 'http://tiny-url.info/api/v1/create'),
+        'apiKey' => env('LEGACY_TINYURL_API_KEY', ''),
+    ],
 
 ];
