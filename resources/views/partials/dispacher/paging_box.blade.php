@@ -2,7 +2,7 @@
     $paginator ??= null;
     $limit ??= 50;
     $search = request('Search', []);
-    $positon ??= "bottom";
+    $position ??= "bottom";
     if ($paginator && !($paginator instanceof \Illuminate\Contracts\Pagination\Paginator)) {
         $paginator = null;
     }
@@ -14,7 +14,7 @@
 @if($paginator)
     <section class='pagging'>
         <div style="width: 30%; float: left;">
-            @if($positon !== "top")
+            @if($position !== "top")
                 <form name="frmRecordsPages" action="{{ url()->current() }}" method="post" style="display:inline;">
                     @foreach(request()->except(['Record', 'page']) as $key => $value)
                         @if(is_array($value))

@@ -142,8 +142,8 @@
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
     <script src="{{ legacy_asset('js/selectAllCheckbox.js') }}"></script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
-    <script src="{{ asset('js/admin_setting.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_setting.js') }}"></script>
     <script type="text/javascript">
         function format(item) { return item.tag; }
 

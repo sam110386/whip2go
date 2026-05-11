@@ -140,7 +140,7 @@
 
 @push('scripts')
     <script src="{{ legacy_asset('js/colorbox.js') }}"></script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
     <script type="text/javascript">
         jQuery(document).ready(function () {
             if (jQuery.fn.datepicker) {

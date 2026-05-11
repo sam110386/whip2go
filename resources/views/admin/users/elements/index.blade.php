@@ -33,7 +33,7 @@
                     <td align="center" valign="bottom">
                         <a href="{{ url('admin/users/status/' . base64_encode($user->id) . '/' . ($user->status == 1 ? 0 : 1)) }}"
                             onclick="return confirm('Are you sure to update this User?')">
-                            <img src="{{ asset($user->status == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                            <img src="{{ legacy_asset($user->status == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 title="Status" alt="Status">
                         </a>
                     </td>
@@ -41,11 +41,11 @@
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
                             @if ($user->is_verified == 1)
-                                <img src="{{ asset('img/green2.jpg') }}" alt="Status">
+                                <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status">
                             @else
                                 <a href="{{ url('admin/users/verify/' . base64_encode($user->id)) }}"
                                     onclick="return confirm('Are you sure?')">
-                                    <img src="{{ asset('img/red3.jpg') }}" alt="Verify">
+                                    <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Verify">
                                 </a>
                             @endif
                         @endif
@@ -53,7 +53,7 @@
 
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
-                            <img src="{{ asset($user->is_renter == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                            <img src="{{ legacy_asset($user->is_renter == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 alt="Renter">
                         @endif
                     </td>
@@ -62,7 +62,7 @@
                         @if (!$user->is_admin)
                             <a href="{{ url('admin/users/driverstatus/' . base64_encode($user->id) . '/' . ($user->is_driver == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Update Driver?')">
-                                <img src="{{ asset($user->is_driver == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                                <img src="{{ legacy_asset($user->is_driver == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                     alt="Driver">
                             </a>
                         @endif
@@ -73,7 +73,7 @@
                             @if ($user->is_dealer == 1)
                                 <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/2') }}"
                                     onclick="return confirm('Reject dealer?')">
-                                    <img src="{{ asset('img/green2.jpg') }}">
+                                    <img src="{{ legacy_asset('img/green2.jpg') }}">
                                 </a>
                             @elseif($user->is_dealer == 2)
                                 <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/1') }}"
@@ -81,7 +81,7 @@
                                     <i class='fa fa-frown-o fa-2x'></i>
                                 </a>
                             @else
-                                <img src="{{ asset('img/red3.jpg') }}" alt="Dealer">
+                                <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Dealer">
                             @endif
                         @endif
                     </td>
@@ -93,7 +93,7 @@
                             @endphp
                             @switch($user->checkr_status)
                                 @case(1)
-                                    <img src="{{ asset('img/green2.jpg') }}" title="Approved">
+                                    <img src="{{ legacy_asset('img/green2.jpg') }}" title="Approved">
                                 @break
 
                                 @case(0)
@@ -123,7 +123,7 @@
 
                                 @default
                                     <a href="{{ $checkrUrl }}">
-                                        <img src="{{ asset('img/red3.jpg') }}">
+                                        <img src="{{ legacy_asset('img/red3.jpg') }}">
                                     </a>
                             @endswitch
                         @endif
@@ -133,7 +133,7 @@
                         @if (!$user->is_admin)
                             <a href="{{ url('admin/users/trash/' . base64_encode($user->id) . '/' . ($user->trash == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Are you sure?')">
-                                <img src="{{ asset($user->trash == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
+                                <img src="{{ legacy_asset($user->trash == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
                                     title="Delete Toggle">
                             </a>
                         @endif

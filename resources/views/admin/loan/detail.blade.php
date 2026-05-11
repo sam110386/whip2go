@@ -6,7 +6,7 @@
         jQuery("#addVehicleForm").validate();
     });
 </script>
-<script src="{{ asset('assets/js/plugins/forms/editable/editable.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/editable/editable.min.js') }}"></script>
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
@@ -99,7 +99,7 @@
         </div>
     </div>
 </form>
-<script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
 <script type="text/javascript">
     $(document).ready(function() {
         $(".fancybox").fancybox();
@@ -110,8 +110,8 @@
         });
     });
 </script>
-<script src="{{ asset('Loan/js/loan.js') }}"></script>
-<script src="{{ asset('js/admin_plaid.js') }}"></script>
+<script src="{{ legacy_asset('Loan/js/loan.js') }}"></script>
+<script src="{{ legacy_asset('js/admin_plaid.js') }}"></script>
 <script type="text/javascript">
     var userid = "{{ $userid }}";
     var encodeduserid = "{{ base64_encode($userid) }}";

@@ -78,7 +78,7 @@
                                 <span class="text-semibold">{{ $val['imageTag'] }}:</span>
                                 <div class="thumbnail origimgwrapper">
                                     <div class="thumb">
-                                        <img src="{{ asset('img/placeholder.jpg') }}" alt="" class="media-preview">
+                                        <img src="{{ legacy_asset('img/placeholder.jpg') }}" alt="" class="media-preview">
                                         <div class="caption-overflow">
                                             <span>
                                                 <a href="{{ $val['imageUrl'] }}" class="btn border-white text-white btn-flat btn-icon btn-rounded ml-5" target="_blank"><i class="icon-link2"></i></a>
@@ -91,7 +91,7 @@
                                 </div>
                                 <div class="thumbnail refimgwrapper">
                                     <div class="thumb">
-                                        <img src="{{ asset('img/placeholder.jpg') }}" alt="" class="media-preview">
+                                        <img src="{{ legacy_asset('img/placeholder.jpg') }}" alt="" class="media-preview">
                                         <div class="caption-overflow">
                                             <span>
                                                 <a href="{{ $val['originalImageURL'] }}" class="btn border-white text-white btn-flat btn-icon btn-rounded ml-5" target="_blank"><i class="icon-link2"></i></a>

@@ -22,10 +22,10 @@
 <body>
 @yield('content')
 <script src="{{  legacy_asset('js/assets/js/plugins/loaders/pace.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/core/libraries/jquery.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/core/libraries/bootstrap.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/core/libraries/bootstrap.min.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/loaders/blockui.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/core/app.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/core/app.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/forms/selects/bootstrap_multiselect.js') }}"></script>

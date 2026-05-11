@@ -41,7 +41,7 @@
                                             <a href="#" title="{{'Load a different image.'}}"
                                                 onclick="document.getElementById('captcha').src = '{{ url('logins/securimage') }}/' + Math.random(); return false;">
                                                 <i class="icon-refresh">
-                                                    <img src="{{ asset('img/reset-btn.png') }}" alt="Reload"
+                                                    <img src="{{ legacy_asset('img/reset-btn.png') }}" alt="Reload"
                                                         class="reload_img">
                                                 </i>
                                             </a>

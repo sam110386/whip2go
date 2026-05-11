@@ -1,7 +1,10 @@
 <?php
 
-use App\Http\Controllers\Legacy\HomesController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Legacy\HomesController;
+use App\Http\Controllers\Legacy\PagesController;
+use App\Http\Controllers\Legacy\LegacyDispatcherController;
+use App\Http\Middleware\VerifyCsrfToken;
 
 /*
 |--------------------------------------------------------------------------
@@ -13,31 +16,28 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "web" middleware group. Make something great!
 |
 */
-
-Route::get('/', function () {
-    // Route to Cake-like login landing for parity during migration.
-    return redirect('/logins/index');
-});
+Route::get('/', fn() => redirect('/logins/index'));
 
 // Cake static aliases
-Route::match(['get', 'post'], '/aboutus', [\App\Http\Controllers\Legacy\HomesController::class, 'driveitawayaboutus']);
-Route::match(['get', 'post'], '/contactus', [\App\Http\Controllers\Legacy\HomesController::class, 'contactus']);
-Route::match(['get', 'post'], '/drivers', [\App\Http\Controllers\Legacy\HomesController::class, 'driveitawaydrivers']);
-Route::match(['get', 'post'], '/dealers', [\App\Http\Controllers\Legacy\HomesController::class, 'driveitawaydealers']);
-Route::match(['get', 'post'], '/featured', [\App\Http\Controllers\Legacy\HomesController::class, 'featured']);
-Route::match(['get', 'post'], '/driveitaway', [\App\Http\Controllers\Legacy\HomesController::class, 'driveitaway']);
-Route::match(['get', 'post'], '/press-kit-facts-about-driveItAway', [\App\Http\Controllers\Legacy\HomesController::class, 'press_kit_facts_about_driveItAway']);
-Route::match(['get', 'post'], '/leadership-and-company-mission', [\App\Http\Controllers\Legacy\HomesController::class, 'leadership_and_company_mission']);
-Route::match(['get', 'post'], '/publications-blog-industry-videos', [\App\Http\Controllers\Legacy\HomesController::class, 'publications_blog_industry_videos']);
-Route::match(['get', 'post'], '/event-industry-presentation', [\App\Http\Controllers\Legacy\HomesController::class, 'event_industry_presentation']);
-Route::match(['get', 'post'], '/press-releases-and-news', [\App\Http\Controllers\Legacy\HomesController::class, 'press_releases_and_news']);
-Route::match(['get', 'post'], '/app-terms', [\App\Http\Controllers\Legacy\HomesController::class, 'terms']);
-Route::match(['get', 'post'], '/app-privacy-policy', [\App\Http\Controllers\Legacy\HomesController::class, 'privacy']);
-Route::match(['get', 'post'], '/nada2019', [\App\Http\Controllers\Legacy\HomesController::class, 'nada'])->name('legacy.nada');
-Route::match(['get', 'post'], '/mobile-faq', [\App\Http\Controllers\Legacy\PagesController::class, 'mobilefaq']);
-Route::match(['get', 'post'], '/telematics', [\App\Http\Controllers\Legacy\PagesController::class, 'telematics']);
-Route::get('/admin', fn () => redirect('/admin/admins/login'));
-Route::get('/admin/admins', fn () => redirect('/admin/admins/login'));
+Route::match(['get', 'post'], '/aboutus', [HomesController::class, 'driveitawayaboutus']);
+Route::match(['get', 'post'], '/contactus', [HomesController::class, 'contactus']);
+Route::match(['get', 'post'], '/drivers', [HomesController::class, 'driveitawaydrivers']);
+Route::match(['get', 'post'], '/dealers', [HomesController::class, 'driveitawaydealers']);
+Route::match(['get', 'post'], '/featured', [HomesController::class, 'featured']);
+Route::match(['get', 'post'], '/driveitaway', [HomesController::class, 'driveitaway']);
+Route::match(['get', 'post'], '/press-kit-facts-about-driveItAway', [HomesController::class, 'press_kit_facts_about_driveItAway']);
+Route::match(['get', 'post'], '/leadership-and-company-mission', [HomesController::class, 'leadership_and_company_mission']);
+Route::match(['get', 'post'], '/publications-blog-industry-videos', [HomesController::class, 'publications_blog_industry_videos']);
+Route::match(['get', 'post'], '/event-industry-presentation', [HomesController::class, 'event_industry_presentation']);
+Route::match(['get', 'post'], '/press-releases-and-news', [HomesController::class, 'press_releases_and_news']);
+Route::match(['get', 'post'], '/app-terms', [HomesController::class, 'terms']);
+Route::match(['get', 'post'], '/app-privacy-policy', [HomesController::class, 'privacy']);
+Route::match(['get', 'post'], '/nada2019', [HomesController::class, 'nada'])->name('legacy.nada');
+Route::match(['get', 'post'], '/mobile-faq', [PagesController::class, 'mobilefaq']);
+Route::match(['get', 'post'], '/telematics', [PagesController::class, 'telematics']);
+
+Route::get('/admin', fn() => redirect('/admin/admins/login'));
+Route::get('/admin/admins', fn() => redirect('/admin/admins/login'));
 
 // Cake redirect parity
 Route::redirect('/pages', 'https://www.driveitaway.com', 301);
@@ -52,9 +52,7 @@ Route::redirect('/logins/forgotpassword', '/logins/forgotPassword', 301);
 Route::redirect('/telematics_subscriptions/page', '/telematics', 301);
 
 // Cake redirect parity (used after login)
-Route::get('/users/dashboard', function () {
-    return redirect('/dashboard/index', 301);
-});
+Route::get('/users/dashboard', fn() => redirect('/dashboard/index', 301));
 
 // Cake single-segment marketing URLs (`app/Config/routes.php`) — must register before `/{controller}/{action}`.
 Route::match(['get', 'post'], '/contactus', [HomesController::class, 'contactus']);
@@ -73,51 +71,70 @@ Route::get('/app-terms', [HomesController::class, 'terms']);
 Route::get('/app-privacy-policy', [HomesController::class, 'privacy']);
 
 // --------------------------------------------------------------------------
+// Admin › Report module — dynamic dispatcher routes.
+// Mirrors the /admin/{controller}/{action} pattern but for the Report sub-namespace:
+//   /admin/report/{controller}/{action}        → Admin\Report\{Studly}Controller
+//   /admin/report/{controller}/{action}/{path} → same, with extra path params
+// --------------------------------------------------------------------------
+Route::any('/admin/report/{controller}/{action}', [LegacyDispatcherController::class, 'dispatchAdminReport'])
+    ->where('controller', '[A-Za-z0-9_]+')
+    ->where('action', '[A-Za-z0-9_]+')
+    ->middleware(['legacy.admin.session'])
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
+Route::any('/admin/report/{controller}/{action}/{path}', [LegacyDispatcherController::class, 'dispatchAdminReportWithPath'])
+    ->where('controller', '[A-Za-z0-9_]+')
+    ->where('action', '[A-Za-z0-9_]+')
+    ->where('path', '.*')
+    ->middleware(['legacy.admin.session'])
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
+// --------------------------------------------------------------------------
 // Cake-like dispatcher routes (incremental controller porting).
 // Supports only 2-segment routes for now:
 // - /{controller}/{action}
 // - /admin/{controller}/{action}
 // --------------------------------------------------------------------------
-Route::any('/admin/{controller}/{action}', [\App\Http\Controllers\Legacy\LegacyDispatcherController::class, 'dispatchAdmin'])
+Route::any('/admin/{controller}/{action}', [LegacyDispatcherController::class, 'dispatchAdmin'])
     ->where('controller', '[A-Za-z0-9_]+')
     ->where('action', '[A-Za-z0-9_]+')
     ->middleware(['legacy.admin.session'])
-    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
-Route::any('/admin/{controller}/{action}/{path}', [\App\Http\Controllers\Legacy\LegacyDispatcherController::class, 'dispatchAdminWithPath'])
+Route::any('/admin/{controller}/{action}/{path}', [LegacyDispatcherController::class, 'dispatchAdminWithPath'])
     ->where('controller', '[A-Za-z0-9_]+')
     ->where('action', '[A-Za-z0-9_]+')
     ->where('path', '.*')
     ->middleware(['legacy.admin.session'])
-    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
-Route::any('/{controller}/{action}', [\App\Http\Controllers\Legacy\LegacyDispatcherController::class, 'dispatch'])
+Route::any('/{controller}/{action}', [LegacyDispatcherController::class, 'dispatch'])
     ->where('controller', '[A-Za-z0-9_]+')
     ->where('action', '[A-Za-z0-9_]+')
-    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
-Route::any('/{controller}/{action}/{path}', [\App\Http\Controllers\Legacy\LegacyDispatcherController::class, 'dispatchWithPath'])
+Route::any('/{controller}/{action}/{path}', [LegacyDispatcherController::class, 'dispatchWithPath'])
     ->where('controller', '[A-Za-z0-9_]+')
     ->where('action', '[A-Za-z0-9_]+')
     ->where('path', '.*')
-    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
 // Cloud prefix routes.
 // Cake uses `/cloud/...` as a prefix that toggles session behavior;
 // for now we route to the legacy controller set and port controllers incrementally.
 Route::any('/cloud/{controller}/{action}', function (\Illuminate\Http\Request $request, string $controller, string $action) {
-    return app(\App\Http\Controllers\Legacy\LegacyDispatcherController::class)
+    return app(LegacyDispatcherController::class)
         ->dispatchWithPrefix($request, 'cloud', $controller, $action);
 })->where('controller', '[A-Za-z0-9_]+')
-  ->where('action', '[A-Za-z0-9_]+')
-  ->middleware(['legacy.admin.cloud.session'])
-  ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+    ->where('action', '[A-Za-z0-9_]+')
+    ->middleware(['legacy.admin.cloud.session'])
+    ->withoutMiddleware([VerifyCsrfToken::class]);
 
 Route::any('/cloud/{controller}/{action}/{path}', function (\Illuminate\Http\Request $request, string $controller, string $action, string $path) {
-    return app(\App\Http\Controllers\Legacy\LegacyDispatcherController::class)
+    return app(LegacyDispatcherController::class)
         ->dispatchWithPrefixAndPath($request, 'cloud', $controller, $action, $path);
 })->where('controller', '[A-Za-z0-9_]+')
-  ->where('action', '[A-Za-z0-9_]+')
-  ->where('path', '.*')
-  ->middleware(['legacy.admin.cloud.session'])
-  ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
+    ->where('action', '[A-Za-z0-9_]+')
+    ->where('path', '.*')
+    ->middleware(['legacy.admin.cloud.session'])
+    ->withoutMiddleware([VerifyCsrfToken::class]);

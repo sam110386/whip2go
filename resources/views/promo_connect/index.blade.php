@@ -7,15 +7,15 @@
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="stylesheet" href="{{ asset('css/theme2/bootstrap.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/core.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/components.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/driveitawaystyle.css') }}">
-    <script src="{{ asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>
-    <script src="{{ asset('js/assets/js/plugins/loaders/blockui.min.js') }}"></script>
-    <script src="{{ asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
-    <script src="{{ asset('js/jquery.validate.js') }}"></script>
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/core.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/components.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/colors.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/driveitawaystyle.css') }}">
+    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/loaders/blockui.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/jquery.validate.js') }}"></script>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overscroll-behavior: none; }
         * { box-sizing: border-box; }

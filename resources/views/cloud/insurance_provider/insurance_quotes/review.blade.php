@@ -26,7 +26,7 @@
                 
                 @if(!empty($providers))
                     <div class="col-lg-12">
-                        <img src="{{ asset('img/insurance_providers/lincoln-insurance-logo-blue.webp') }}" class="img-responsive mb-3">
+                        <img src="{{ legacy_asset('img/insurance_providers/lincoln-insurance-logo-blue.webp') }}" class="img-responsive mb-3">
                     </div>
                     @if(in_array('25/50/25', $providers))
                     <!-- Basic start here -->
@@ -104,7 +104,7 @@
                     @endif
                 @else
                     <div class="col-lg-12">
-                        <img src="{{ asset('img/DriveitawayBluelogo.png') }}" class="img-responsive">
+                        <img src="{{ legacy_asset('img/DriveitawayBluelogo.png') }}" class="img-responsive">
                     </div>
                     
                     <h4 class="text-center">Our team will be in touch shortly with insurance options. Stay tuned!</h4>   

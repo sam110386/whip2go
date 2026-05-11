@@ -4,8 +4,8 @@
 
 @section('content')
 <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.api_key', '') }}&libraries=places"></script>
-<link rel="stylesheet" href="{{ asset('css/select2.css') }}" />
-<script src="{{ asset('js/select2.js') }}"></script>
+<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}" />
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
 <script type="text/javascript">
     jQuery(document).ready(function() {
         jQuery("#VehicleAvailabilityDate").datepicker({
@@ -552,10 +552,10 @@
     <input type="hidden" name="Vehicle[id]" value="{{ $vehicle['id'] ?? '' }}" />
 </form>
 
-<script src="{{ asset('js/plugins/uploaders/sortable.min.js') }}"></script>
-<script src="{{ asset('js/plugins/uploaders/fileinput.min.js') }}"></script>
-<script src="{{ asset('js/plugins/forms/selects/bootstrap_select.min.js') }}"></script>
-<script src="{{ asset('Vehicle/js/vehiclevariant.js') }}"></script>
+<script src="{{ legacy_asset('js/plugins/uploaders/sortable.min.js') }}"></script>
+<script src="{{ legacy_asset('js/plugins/uploaders/fileinput.min.js') }}"></script>
+<script src="{{ legacy_asset('js/plugins/forms/selects/bootstrap_select.min.js') }}"></script>
+<script src="{{ legacy_asset('Vehicle/js/vehiclevariant.js') }}"></script>
 
 <!-- Modal -->
 <div class="modelsidebar modal fade right" id="modelsidebar" tabindex="-1" role="dialog">
@@ -648,7 +648,7 @@
 </script>
 
 @if(!empty($vehicle['id']))
-    <script src="{{ asset('js/plugins/media/cropper.js') }}"></script>
+    <script src="{{ legacy_asset('js/plugins/media/cropper.js') }}"></script>
     <!-- Modal -->
     <div id="cropModal" class="modal fade" role="dialog">
         <div class="modal-dialog">

@@ -50,8 +50,8 @@
     <input type="hidden" name="InsurancePayer[order_deposit_rule_id]" value="{{ $recordid }}" />
     </form>
 </div>
-<script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
-<script src="{{ asset('assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
 <script type="text/javascript">
     $(document).ready(function(){
     $('#InsurancePayerDeclarationDoc').fileinput({

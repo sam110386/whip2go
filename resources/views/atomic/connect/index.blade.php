@@ -3,11 +3,11 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
-    <link rel="stylesheet" href="{{ asset('css/theme2/bootstrap.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/core.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/components.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/driveitawaystyle.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/core.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/components.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/colors.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/driveitawaystyle.css') }}">
 </head>
 <body class="text-center">
     <input type="hidden" value="{{ $userid }}" id="userToken" />
@@ -42,7 +42,7 @@
         </div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.3/jquery.min.js"></script>
-    <script src="{{ asset('Atomic/js/atomic.js') }}"></script>
+    <script src="{{ legacy_asset('Atomic/js/atomic.js') }}"></script>
     <script type="text/javascript">
     (function($) {
         let recordid = '';

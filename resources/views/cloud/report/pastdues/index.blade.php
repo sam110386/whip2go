@@ -53,5 +53,5 @@
         </div>
     </div>
 </div>
-<script src="{{ asset('js/report/report.js') }}"></script>
+<script src="{{ legacy_asset('js/report/report.js') }}"></script>
 @endsection

@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
 @section('content')
-<script src="{{ asset('assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
 
 <script type="text/javascript">
     jQuery(document).ready(function() {

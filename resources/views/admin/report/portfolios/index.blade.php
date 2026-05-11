@@ -1,8 +1,8 @@
 @extends('admin.layouts.app')
 @section('title', 'Fleet - P&L')
 @section('content')
-<script src="{{ asset('js/report/papaparser.js') }}"></script>
-<script src="{{ asset('js/report/excellentexport.js') }}"></script>
+<script src="{{ legacy_asset('js/report/papaparser.js') }}"></script>
+<script src="{{ legacy_asset('js/report/excellentexport.js') }}"></script>
 <script src="{{ legacy_asset('js/select2.js') }}"></script>
 <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 <script type="text/javascript">

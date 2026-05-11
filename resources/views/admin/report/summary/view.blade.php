@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 @section('title', 'Dealer - Reports')
 @section('content')
-<script src="{{ asset('js/assets/js/plugins/visualization/echarts/echarts.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/visualization/echarts/echarts.js') }}"></script>
 <script type="text/javascript">
     jQuery(document).ready(function() {
 
@@ -79,10 +79,10 @@ $(function () {
 
 require(
     [
-        @json(asset('js/assets/js/plugins/visualization/echarts/echarts.js')),
-        @json(asset('js/assets/js/plugins/visualization/echarts/theme/limitless.js')),
-        @json(asset('js/assets/js/plugins/visualization/echarts/chart/pie.js')),
-        @json(asset('js/assets/js/plugins/visualization/echarts/chart/funnel.js'))
+        @json(legacy_asset('js/assets/js/plugins/visualization/echarts/echarts.js')),
+        @json(legacy_asset('js/assets/js/plugins/visualization/echarts/theme/limitless.js')),
+        @json(legacy_asset('js/assets/js/plugins/visualization/echarts/chart/pie.js')),
+        @json(legacy_asset('js/assets/js/plugins/visualization/echarts/chart/funnel.js'))
     ],
 
 

@@ -72,7 +72,7 @@
 
 @push('scripts')
     <script src="{{ legacy_asset('UserNote/js/usernote.js') }}"></script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
     <script type="text/javascript">
         function AddNewNote(userid) {
             $.ajax({

@@ -4,21 +4,13 @@ namespace App\Http\Controllers\Admin\Report;
 
 use App\Http\Controllers\Admin\Report\Concerns\UsesReportPageLimit;
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Services\Legacy\Common;
+use App\Http\Controllers\Traits\ReportTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PastduesController extends LegacyAppController
 {
-    use UsesReportPageLimit;
-
-    protected Common $common;
-
-    public function __construct(Common $common)
-    {
-        parent::__construct();
-        $this->common = $common;
-    }
+    use ReportTrait, UsesReportPageLimit;
 
     public function index(Request $request)
     {
@@ -108,6 +100,8 @@ class PastduesController extends LegacyAppController
             return $redirect;
         }
 
+        // return $this->_details($request);
+
         $id = $request->input('order');
         $csorder = [];
         $subOrders = [[]];
@@ -122,7 +116,7 @@ class PastduesController extends LegacyAppController
         $OrderDepositRule = [];
         $totalDiaFee = 0;
 
-        if (! empty($id)) {
+        if (!empty($id)) {
             $orderRow = DB::table('cs_orders')->where('id', $id)->first();
             if ($orderRow) {
                 $userRow = DB::table('users')->where('id', $orderRow->renter_id)->first();
@@ -157,11 +151,26 @@ class PastduesController extends LegacyAppController
                     ->selectRaw('SUM(discount) as discount')
                     ->first();
 
-                $subOrders = [array_merge(array_fill_keys([
-                    'rent', 'dia_fee', 'tax', 'initial_fee', 'initial_fee_tax', 'extra_mileage_fee',
-                    'lateness_fee', 'damage_fee', 'uncleanness_fee', 'insurance_amt', 'dia_insu',
-                    'toll', 'pending_toll', 'end_odometer', 'initial_discount', 'discount',
-                ], 0), (array) $agg)];
+                $subOrders = [
+                    array_merge(array_fill_keys([
+                        'rent',
+                        'dia_fee',
+                        'tax',
+                        'initial_fee',
+                        'initial_fee_tax',
+                        'extra_mileage_fee',
+                        'lateness_fee',
+                        'damage_fee',
+                        'uncleanness_fee',
+                        'insurance_amt',
+                        'dia_insu',
+                        'toll',
+                        'pending_toll',
+                        'end_odometer',
+                        'initial_discount',
+                        'discount',
+                    ], 0), (array) $agg)
+                ];
 
                 $lastOrder = $csorder;
                 if ((int) ($csorder['CsOrder']['status'] ?? 0) === 3) {
@@ -172,7 +181,7 @@ class PastduesController extends LegacyAppController
                 }
 
                 $realBookingId = (int) $csorder['CsOrder']['id'];
-                if (! empty($csorder['CsOrder']['parent_id'])) {
+                if (!empty($csorder['CsOrder']['parent_id'])) {
                     $realBookingId = (int) $csorder['CsOrder']['parent_id'];
                 }
 
@@ -190,7 +199,7 @@ class PastduesController extends LegacyAppController
                 $Siblingbookings = array_keys($Siblingbooking);
 
                 $revRow = DB::table('rev_settings')->where('user_id', $lastOrder['CsOrder']['user_id'] ?? 0)->first();
-                $revshare = ($revRow && ! empty($revRow->rental_rev)) ? $revRow->rental_rev : config('legacy.OWNER_PART', 85);
+                $revshare = ($revRow && !empty($revRow->rental_rev)) ? $revRow->rental_rev : config('legacy.OWNER_PART', 85);
                 $diAFee = (100 - (float) $revshare * 1);
 
                 $payments = DB::table('cs_order_payments')
@@ -198,7 +207,7 @@ class PastduesController extends LegacyAppController
                     ->where('status', 1)
                     ->select('id', 'rent', 'amount', 'tax', 'dia_fee', 'type', 'charged_at')
                     ->get()
-                    ->map(fn ($p) => ['CsOrderPayment' => (array) $p])
+                    ->map(fn($p) => ['CsOrderPayment' => (array) $p])
                     ->all();
 
                 $totalPaid = $paidInitialFee = $totalGrandPaid = $totalDiaFee = 0;
@@ -217,10 +226,10 @@ class PastduesController extends LegacyAppController
                 $downpaymentPaid = $totalPaid + $paidInitialFee;
 
                 $extlogs = $this->getExtLogs($Siblingbookings);
-                $calculation = ! empty($OrderDepositRule['OrderDepositRule']['calculation'])
+                $calculation = !empty($OrderDepositRule['OrderDepositRule']['calculation'])
                     ? json_decode((string) $OrderDepositRule['OrderDepositRule']['calculation'], true) : [];
                 if (isset($OrderDepositRule['OrderDepositRule']['insurance_payer'])) {
-                    $insurance_payer = $this->common->getInsurancePayer((int) $OrderDepositRule['OrderDepositRule']['insurance_payer']);
+                    $insurance_payer = $this->commonService->getInsurancePayer((int) $OrderDepositRule['OrderDepositRule']['insurance_payer']);
                 } else {
                     $insurance_payer = '';
                 }

@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Fleet - P&L')
 @section('content')
-<script src="{{ asset('js/report/papaparser.js') }}"></script>
-<script src="{{ asset('js/report/excellentexport.js') }}"></script>
+<script src="{{ legacy_asset('js/report/papaparser.js') }}"></script>
+<script src="{{ legacy_asset('js/report/excellentexport.js') }}"></script>
 <script type="text/javascript">
     jQuery(document).ready(function() {
         jQuery("body").addClass('sidebar-xs');

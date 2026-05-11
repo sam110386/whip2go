@@ -140,7 +140,7 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('Lead/js/admin_lead.js') }}"></script>
+    <script src="{{ legacy_asset('Lead/js/admin_lead.js') }}"></script>
     <script type="text/javascript">
         jQuery(document).ready(function() {
             jQuery('#SearchDateFrom').datepicker({ dateFormat: 'mm/dd/yy' });

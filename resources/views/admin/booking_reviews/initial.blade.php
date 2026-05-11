@@ -111,7 +111,7 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
 <script>
     $(function() {
         $(".fileinputajax").fileinput({

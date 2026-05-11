@@ -3,7 +3,7 @@
 @section('title', $listTitle ?? 'Add CC Details')
 
 @push('scripts')
-    <script src="{{ asset('js/assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/forms/inputs/formatter.min.js') }}"></script>
     <script>
         $(document).ready(function() {
             $('#UserCcTokenCreditCardNumber').formatter({

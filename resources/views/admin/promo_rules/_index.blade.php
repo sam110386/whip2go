@@ -14,9 +14,9 @@
             <td>{{ $rule->id }}</td>
             <td>
                 @if($rule->status)
-                    @php $img = '<img src="'.asset('img/green2.jpg').'" border="0" alt="Active" />'; $showStatus = ' Deactivate'; $status = 0; @endphp
+                    @php $img = '<img src="'.legacy_asset('img/green2.jpg').'" border="0" alt="Active" />'; $showStatus = ' Deactivate'; $status = 0; @endphp
                 @else
-                    @php $img = '<img src="'.asset('img/red3.jpg').'" border="0" alt="Inactive" />'; $showStatus = ' Activate'; $status = 1; @endphp
+                    @php $img = '<img src="'.legacy_asset('img/red3.jpg').'" border="0" alt="Inactive" />'; $showStatus = ' Activate'; $status = 1; @endphp
                 @endif
                 <span id="active">
                     <a href="{{ url('/admin/promo_rules/changeStatus/' . base64_encode($rule->id) . '/' . $status) }}"

@@ -38,6 +38,7 @@ class BookingsController extends LegacyAppController
             return redirect('/admin/linked_bookings/index');
         }
 
+        $limit = (int) $request->input('Record.limit', 100);
         $sort = $request->get('sort', 'id');
         $direction = $request->get('direction', 'desc');
 
@@ -57,13 +58,14 @@ class BookingsController extends LegacyAppController
             ])
             ->whereNotIn('cs_orders.status', [2, 3])
             ->orderBy("cs_orders.$sort", $direction)
-            ->paginate(100);
+            ->paginate($limit)
+            ->withQueryString();
 
         if ($request->ajax()) {
-            return response()->view('admin.bookings.elements.booking', ['tripLog' => $tripLog]);
+            return response()->view('admin.bookings.elements.booking', ['tripLog' => $tripLog, 'limit' => $limit]);
         }
 
-        return view('admin.bookings.index', ['tripLog' => $tripLog]);
+        return view('admin.bookings.index', ['tripLog' => $tripLog, 'limit' => $limit]);
     }
 
     /**
@@ -399,7 +401,9 @@ class BookingsController extends LegacyAppController
 
     public function overdue(Request $request)
     {
-        $trips = DB::table('cs_orders as o')
+        $limit = (int) $request->input('Record.limit', 100);
+
+        $tripLog = DB::table('cs_orders as o')
             ->where('o.status', 1)
             ->whereNotNull('o.end_datetime')
             ->where('o.end_datetime', '<', now()->toDateTimeString())
@@ -407,10 +411,10 @@ class BookingsController extends LegacyAppController
             ->leftJoin('users as driver', 'driver.id', '=', 'o.renter_id')
             ->select(['o.*', 'owner.first_name as owner_first_name', 'owner.last_name as owner_last_name', 'driver.first_name as driver_first_name', 'driver.last_name as driver_last_name'])
             ->orderByDesc('o.id')
-            ->paginate(100)
+            ->paginate($limit)
             ->withQueryString();
 
-        return view('admin.bookings.index', ['trips' => $trips]);
+        return view('admin.bookings.index', ['tripLog' => $tripLog, 'limit' => $limit]);
     }
 
     public function retryinsurancefee(Request $request): JsonResponse

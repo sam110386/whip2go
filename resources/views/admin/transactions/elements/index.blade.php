@@ -13,7 +13,7 @@
 @endphp
 
 @if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
-    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50, 'positon' => "top"])
+    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50, 'position' => "top"])
 @endif
 
 <table class="table table-responsive" style="width:100%;">

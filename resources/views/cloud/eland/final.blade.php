@@ -37,9 +37,9 @@
         </fieldset>
     </form>
 </div>
-<script src="{{ asset('assets/js/plugins/forms/wizards/stepy.min.js') }}"></script>
-<script src="{{ asset('assets/js/plugins/forms/selects/select2.min.js') }}"></script>
-<script src="{{ asset('assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
-<script src="{{ asset('js/jquery.maskedinput.js') }}"></script>
-<script src="{{ asset('eland/js/script.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/wizards/stepy.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/selects/select2.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
+<script src="{{ legacy_asset('js/jquery.maskedinput.js') }}"></script>
+<script src="{{ legacy_asset('eland/js/script.js') }}"></script>
 @endsection

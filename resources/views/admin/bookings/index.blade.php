@@ -37,26 +37,18 @@
 @endsection
 
 @push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
 @endpush
 
 @push('scripts')
     <script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
     <script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
-    <script src="{{ legacy_asset('MeasureOne/js/functions.js') }}"></script>
-    <script src="{{ legacy_asset('Insurance/js/insurance.js') }}"></script>
-    <script src="{{ legacy_asset('Insurance/js/driverfinancedquote.js') }}"></script>
-    <script src="{{ legacy_asset('Intercom/js/intercom.js') }}"></script>
-    <script src="{{ legacy_asset('OrderNote/js/order_note.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/measureone/functions.js') }}"></script>
+    <script src="{{ legacy_asset('js/insurance/insurance.js') }}"></script>
+    <script src="{{ legacy_asset('js/insurance/driverfinancedquote.js') }}"></script>
+    <script src="{{ legacy_asset('js/intercom/intercom.js') }}"></script>
+    <script src="{{ legacy_asset('js/ordernote/order_note.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function () {
 
@@ -101,5 +93,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+
 @endpush

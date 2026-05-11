@@ -16,7 +16,7 @@
                         <table class="table table-bordered">
                             <tr>
                                 <td>
-                                    <img src="{{ asset('img/arrow.gif') }}" />
+                                    <img src="{{ legacy_asset('img/arrow.gif') }}" />
                                 </td>
                                 <td class="heading-text" style="padding-top:10px;">
                                     {{ 'Welcome to Admin Panel' }}

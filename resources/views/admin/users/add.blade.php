@@ -360,7 +360,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('files/userdocs/' . ($user?->license_doc_1 ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('files/userdocs/' . ($user?->license_doc_1 ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -382,7 +382,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('files/userdocs/' . ($user?->license_doc_2 ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('files/userdocs/' . ($user?->license_doc_2 ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -404,7 +404,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -549,7 +549,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('files/userdocs/' . ($user?->representative_sign ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('files/userdocs/' . ($user?->representative_sign ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -573,7 +573,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>

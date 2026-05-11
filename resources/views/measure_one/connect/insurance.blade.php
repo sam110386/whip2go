@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
-    <link rel="stylesheet" href="{{ asset('css/theme2/bootstrap.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/core.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/icons/icomoon/styles.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/components.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/theme2/colors.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/driveitawaystyle.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/core.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/icons/icomoon/styles.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/components.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/theme2/colors.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/driveitawaystyle.css') }}">
     <style type="text/css">
         .icons-list a[data-action]:after {
             font-size: 30px;
