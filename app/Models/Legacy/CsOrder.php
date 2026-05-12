@@ -118,6 +118,11 @@ class CsOrder extends LegacyModel
         return $this->belongsTo(User::class, 'renter_id');
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'renter_id');
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(CsOrderPayment::class, 'cs_order_id');
@@ -126,5 +131,10 @@ class CsOrder extends LegacyModel
     public function depositRule(): HasOne
     {
         return $this->hasOne(OrderDepositRule::class, 'cs_order_id');
+    }
+
+    public function orderExtlogs()
+    {
+        return $this->hasMany(OrderExtlog::class, 'cs_order_id');
     }
 }

@@ -2,8 +2,11 @@
 
 namespace App\Models\Legacy;
 
+use App\Models\Legacy\User;
+
 class OrderExtlog extends LegacyModel
 {
+    protected $table = 'cs_order_extlogs';
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = null;
@@ -17,5 +20,9 @@ class OrderExtlog extends LegacyModel
         'admin_count',
         'created',
     ];
-    protected $table = 'cs_order_extlogs';
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner', 'id');
+    }
 }
