@@ -25,4 +25,8 @@ class OrderExtlog extends LegacyModel
     {
         return $this->belongsTo(User::class, 'owner', 'id');
     }
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'cs_order_id', 'id');
+    }
 }

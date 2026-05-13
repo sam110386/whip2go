@@ -100,7 +100,7 @@
 
 @endsection
 
-@push('css')
+@push('styles')
     <style type="text/css">
         tbody tr{cursor: pointer;}
     </style>

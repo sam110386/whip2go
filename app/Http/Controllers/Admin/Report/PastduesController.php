@@ -3,11 +3,12 @@
 namespace App\Http\Controllers\Admin\Report;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Http\Controllers\Traits\ReportTrait;
 use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\OrderExtlog;
+
 
 class PastduesController extends LegacyAppController
 {
@@ -66,40 +67,23 @@ class PastduesController extends LegacyAppController
             return $redirect;
         }
 
-        $order = $request->input('order');
-        $all = $request->boolean('all');
-
-        $query = DB::table('cs_order_extlogs as OrderExtlog')
-            ->leftJoin('users as Owner', 'Owner.id', '=', 'OrderExtlog.owner')
-            ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'OrderExtlog.cs_order_id')
-            ->select('OrderExtlog.*', 'Owner.first_name as __owner_fn', 'Owner.last_name as __owner_ln', 'CsOrder.increment_id as __increment_id')
-            ->orderByDesc('OrderExtlog.id');
+        $orderId = $request->input('order');
+        $all = $request->has('all') ? $request->input('all') : false;
+        $orderIds = [$orderId];
 
         if ($all) {
-            $orders = DB::table('cs_orders')
-                ->where('id', $order)
-                ->orWhere('parent_id', $order)
-                ->pluck('id');
-            $query->whereIn('OrderExtlog.cs_order_id', $orders);
-        } else {
-            $query->where('OrderExtlog.cs_order_id', $order);
+            $orderIds = CsOrder::where('id', $orderId)
+                ->orWhere('parent_id', $orderId)
+                ->pluck('id')
+                ->toArray();
         }
 
-        $lists = $query->get()->map(function ($r) {
-            $a = (array) $r;
-            $incrementId = $a['__increment_id'] ?? '';
-            $ownerFn = $a['__owner_fn'] ?? '';
-            $ownerLn = $a['__owner_ln'] ?? '';
-            unset($a['__increment_id'], $a['__owner_fn'], $a['__owner_ln']);
+        $lists = OrderExtlog::with(['owner', 'csOrder'])
+            ->whereIn('cs_order_id', $orderIds)
+            ->orderBy('id', 'DESC')
+            ->get();
 
-            return [
-                'OrderExtlog' => $a,
-                'Owner' => ['first_name' => $ownerFn, 'last_name' => $ownerLn],
-                'CsOrder' => ['increment_id' => $incrementId],
-            ];
-        })->all();
-
-        return view('admin.report.pastdues.logs', compact('lists'));
+        return view('report.pastdues.logs', compact('lists'));
     }
 
     public function details(Request $request)

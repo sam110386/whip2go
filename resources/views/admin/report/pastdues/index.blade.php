@@ -2,7 +2,7 @@
 @section('title', 'Past Due - Reports')
 
 
-@push('css')
+@push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 @endpush
 
@@ -30,7 +30,7 @@
     </div>
 
     <div class="panel">
-        <form method="POST" action="{{ url('/admin/report/pastdues') }}" class="form-horizontal">
+        <form method="POST" action="{{ url('/admin/report/pastdues/index') }}" class="form-horizontal">
             @csrf
             <div class="panel-body">
                 <div class="col-md-2">

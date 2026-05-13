@@ -2,69 +2,62 @@
 
 namespace App\Services\Legacy\Report;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\ReportQueue;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\ReportCustomer;
 
 class ReportCustomerlibService
 {
-    protected ReportCustomerService $reportCustomer;
 
-    public function __construct(ReportCustomerService $reportCustomer)
-    {
-        $this->reportCustomer = $reportCustomer;
-    }
-
-    public function saveReportQueue(?int $orderId = null): void
+    public function saveReportQueue($orderId = null)
     {
         if (empty($orderId)) {
             return;
         }
 
-        DB::statement(
-            'INSERT IGNORE INTO report_queues (order_id, created, updated) VALUES (?, NOW(), NOW())',
-            [$orderId]
-        );
+        ReportQueue::insertOrIgnore([
+            'order_id' => $orderId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return;
     }
 
-    public function processQueue(): void
+    public function processQueue()
     {
-        $queues = DB::table('report_queues')
-            ->orderBy('id')
+        $queues = ReportQueue::orderBy('id', 'asc')
             ->limit(10)
             ->pluck('order_id', 'id');
 
         if ($queues->isEmpty()) {
-            DB::statement('TRUNCATE report_queues');
-
+            ReportQueue::truncate();
             return;
         }
 
         foreach ($queues as $queueId => $orderId) {
-            $booking = DB::table('cs_orders')
-                ->where('id', $orderId)
-                ->select('id', 'parent_id')
-                ->first();
+            $booking = CsOrder::select('id', 'parent_id')->find($orderId);
 
-            $orderId = ($booking !== null && ! empty($booking->parent_id))
-                ? (int) $booking->parent_id
-                : (int) $orderId;
+            if ($booking && $booking->parent_id) {
+                $orderId = $booking->parent_id;
+            }
 
-            $exists = DB::table('report_customers')
-                ->where('cs_order_id', $orderId)
-                ->value('id');
+            $exists = ReportCustomer::where('cs_order_id', $orderId)->first(['id']);
 
             if ($exists) {
-                $this->reportCustomer->refreshReport((int) $exists);
+                ReportCustomer::refreshReport($exists->id);
             } else {
-                $this->reportCustomer->createReport($orderId);
-                $record = DB::table('report_customers')
-                    ->where('cs_order_id', $orderId)
-                    ->value('id');
+                ReportCustomer::createReport($orderId);
+                $record = ReportCustomer::orderBy('id', 'desc')->first(['id']);
+
                 if ($record) {
-                    $this->reportCustomer->refreshReport((int) $record);
+                    ReportCustomer::refreshReport($record->id);
                 }
             }
 
-            DB::table('report_queues')->where('id', $queueId)->delete();
+            ReportQueue::destroy($queueId);
         }
+
+        return;
     }
 }

@@ -31,9 +31,10 @@
 
     @php
         $isHtml = $column['html'] ?? false;
+        $class = $column['class'] ?? '';
     @endphp
 
-    <th valign="top" style="{{ $style }}">
+    <th valign="top" class="{{ $class }}" style="{{ $style }}">
         @if ($sortable)
             <a href="{{ $url }}" class="sort-link {{ $isSorted ? 'active-sort' : '' }}">
                 @if($isHtml) {!! $title !!} @else {{ $title }} @endif {!! $icon !!}

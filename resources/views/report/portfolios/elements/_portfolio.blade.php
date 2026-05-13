@@ -7,10 +7,42 @@
     $rev_share = $rev_share ?? 0;
     $rental_rev = $rental_rev ?? 0;
 @endphp
+
+
 <table width="100%" id="portfolio" cellpadding="0" cellspacing="0" class="table  table-responsive panel">
     <thead>
         <tr>
-            <th>{{ 'Vehicle' }}</th>
+            @include('partials.dispacher.sortable_header', ['columns' => [
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                    ['title' => 'Vehicle', 'sortable' => false],
+                ]])
+            </tr>
+
             <th>{{ 'Rental Days' }}</th>
             <th>{{ 'Fleet Days' }}</th>
             <th>{{ 'Distance' }}</th>
@@ -53,11 +85,11 @@
                 $VehicleDepriciationData = $portfolioSvc->getVehicleDepriciationReport($vehicle['Vehicle']['id']);
                 $regularRow .= '<td>' . e($vehicle['Vehicle']['vehicle_name'] ?? '') . '</td>';
                 $regularRow .= '<td>' . ($Earnnings['totaldays'] ?? '');
-                $totaldays += (int)($Earnnings['totaldays'] ?? 0);
+                $totaldays += (int) ($Earnnings['totaldays'] ?? 0);
                 $regularRow .= '</td>';
                 $regularRow .= '<td>' . ($VehicleDepriciationData['fleet_days'] ?? '') . '</td>';
                 $regularRow .= '<td>' . ($Earnnings['miles'] ?? '');
-                $mileage += (int)($Earnnings['miles'] ?? 0);
+                $mileage += (int) ($Earnnings['miles'] ?? 0);
                 $regularRow .= '</td>';
                 $rent = sprintf('%0.2f', (($Earnnings['total_collected'] ?? 0) - ($Earnnings['emf_collected'] ?? 0) - ($Earnnings['total_tax_collected'] ?? 0)));
                 $regularRow .= '<td>' . $rent . '</td>';
@@ -68,11 +100,11 @@
                 $earning = ((float) $rent + (float) $emf);
                 $regularRow .= '<td class="danger">' . $earning . '</td>';
                 $regularRow .= '<td>' . sprintf('%0.2f', ($Earnnings['write_down_allocation'] ?? 0)) . '</td>';
-                $write_down_allocation += (float)($Earnnings['write_down_allocation'] ?? 0);
+                $write_down_allocation += (float) ($Earnnings['write_down_allocation'] ?? 0);
                 $regularRow .= '<td>' . sprintf('%0.2f', ($Earnnings['finance_allocation'] ?? 0)) . '</td>';
-                $finance_allocation += (float)($Earnnings['finance_allocation'] ?? 0);
+                $finance_allocation += (float) ($Earnnings['finance_allocation'] ?? 0);
                 $regularRow .= '<td>' . sprintf('%0.2f', ($Earnnings['maintenance_allocation'] ?? 0)) . '</td>';
-                $maintenance_allocation += (float)($Earnnings['maintenance_allocation'] ?? 0);
+                $maintenance_allocation += (float) ($Earnnings['maintenance_allocation'] ?? 0);
                 if ($taxIncluded) {
                     $calculatedDiaFee = sprintf('%0.2f', (($Earnnings['total_billed'] ?? 0) * (100 - $rental_rev) / 100));
                 } else {
@@ -81,7 +113,7 @@
                 $totalCalculatedDiaFee += (float) $calculatedDiaFee;
                 $regularRow .= '<td>' . $calculatedDiaFee . '</td>';
                 $regularRow .= '<td>' . sprintf('%0.2f', ($Earnnings['disposition_fee'] ?? 0)) . '</td>';
-                $disposition_fee += (float)($Earnnings['disposition_fee'] ?? 0);
+                $disposition_fee += (float) ($Earnnings['disposition_fee'] ?? 0);
                 $totalRentalDia = sprintf(
                     '%0.2f',
                     (($Earnnings['write_down_allocation'] ?? 0) + ($Earnnings['finance_allocation'] ?? 0) + ($Earnnings['maintenance_allocation'] ?? 0) + (float) $calculatedDiaFee + ($Earnnings['disposition_fee'] ?? 0))
@@ -89,15 +121,15 @@
                 $regularRow .= '<td class="danger">' . $totalRentalDia . '</td>';
                 $totalRentalDiaPart += (float) $totalRentalDia;
                 $regularRow .= '<td>' . ($VehicleDepriciationData['depreciation'] ?? '') . '</td>';
-                $depreciation += (float)($VehicleDepriciationData['depreciation'] ?? 0);
+                $depreciation += (float) ($VehicleDepriciationData['depreciation'] ?? 0);
                 $regularRow .= '<td>' . ($VehicleDepriciationData['financing'] ?? '') . '</td>';
-                $financecost += (float)($VehicleDepriciationData['financing'] ?? 0);
+                $financecost += (float) ($VehicleDepriciationData['financing'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['bodydamage'] ?? '') . '</td>';
-                $bodydamage += (float)($expenses['bodydamage'] ?? 0);
+                $bodydamage += (float) ($expenses['bodydamage'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['mechdamage'] ?? '') . '</td>';
-                $mechdamage += (float)($expenses['mechdamage'] ?? 0);
+                $mechdamage += (float) ($expenses['mechdamage'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['maintenance'] ?? '') . '</td>';
-                $maintenance += (float)($expenses['maintenance'] ?? 0);
+                $maintenance += (float) ($expenses['maintenance'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['toll'] ?? '') . '</td>';
                 $toll += ($expenses['toll'] ?? 0);
                 $uncollectedInsu = sprintf('%0.2f', (($Earnnings['calculated_insurance'] ?? 0) - ($Earnnings['insurance_by_dealer'] ?? 0) - ($Earnnings['insurance_by_renter'] ?? 0)));
@@ -107,7 +139,7 @@
                 $regularRow .= '<td>' . $diaFee . '</td>';
                 $totalDiaFee += (float) $diaFee;
                 $regularRow .= '<td>' . sprintf('%0.2f', ($Earnnings['stripe_fee'] ?? 0)) . '</td>';
-                $totalMiscFee += (float)($Earnnings['stripe_fee'] ?? 0);
+                $totalMiscFee += (float) ($Earnnings['stripe_fee'] ?? 0);
                 $totalexp = sprintf(
                     '%0.2f',
                     ($VehicleDepriciationData['financing'] ?? 0)

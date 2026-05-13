@@ -1,4 +1,7 @@
-@php $defaultTz = session('default_timezone', config('app.timezone')); @endphp
+@php 
+    $defaultTz = session('default_timezone', config('app.timezone')); 
+@endphp
+
 <div class="item">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
@@ -15,26 +18,26 @@
             @foreach ($lists as $list)
                 <tr>
                     <td style="text-align:center;">
-                        {{ $list['CsOrder']['increment_id'] ?? '' }}
+                        {{ $list?->csOrder?->increment_id ?? '' }}
                     </td>
                     <td style="text-align:center;">
                         @php
-                            $exd = $list['OrderExtlog']['ext_date'] ?? '';
+                            $exd = $list->ext_date ?? '';
                             echo ($exd != '' && $exd != '0000-00-00 00:00:00') ? \Carbon\Carbon::parse($exd)->timezone($defaultTz)->format('m/d/Y h:i A') : '--';
                         @endphp
                     </td>
                     <td style="text-align:center;">
-                        {{ $list['OrderExtlog']['note'] ?? '-' }}
+                        {{ $list->note ?? '-' }}
                     </td>
                     <td style="text-align:center;">
-                        {{ ($list['Owner']['first_name'] ?? '') . ' ' . ($list['Owner']['last_name'] ?? '') }}
+                        {{ ($list->owner->first_name ?? '') . ' ' . ($list->owner->last_name ?? '') }}
                     </td>
                     <td style="text-align:center;">
-                        {{ ($list['OrderExtlog']['admin_count'] ?? 0) == 0 ? 'Yes' : 'No' }}
+                        {{ ($list->admin_count ?? 0) == 0 ? 'Yes' : 'No' }}
                     </td>
                     <td style="text-align:center;">
                         @php
-                            $crd = $list['OrderExtlog']['created'] ?? '';
+                            $crd = $list->created ?? '';
                             echo ($crd != '' && $crd != '0000-00-00 00:00:00') ? \Carbon\Carbon::parse($crd)->timezone($defaultTz)->format('m/d/Y h:i A') : '--';
                         @endphp
                     </td>
