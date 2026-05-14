@@ -28,7 +28,7 @@ class ReportHelper
             ->count();
     }
 
-    public static function getVehicleDepreciation($vehicle)
+    public static function getVehicleDepriciation($vehicle)
     {
         $commonService = new CommonService();
         $createdAt = data_get($vehicle, 'created');

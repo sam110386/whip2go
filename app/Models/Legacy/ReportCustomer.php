@@ -62,6 +62,16 @@ class ReportCustomer extends LegacyModel
         'updated',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'renter_id', 'id');
+    }
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id', 'id');
+    }
+
     public static function refreshReport($reportId)
     {
         $report = self::findOrFail($reportId);

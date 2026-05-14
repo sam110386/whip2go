@@ -19,9 +19,9 @@ class LegacyAppController extends Controller
     protected bool $shouldLoadLegacyModules = true;
     protected $commonService;
 
-    public function __construct(CommonService $commonService)
+    public function __construct()
     {
-        $this->commonService = $commonService;
+        $this->commonService = new CommonService();
         ViewFacade::share('commonService', $this->commonService);
 
         if ($this->shouldLoadLegacyModules) {

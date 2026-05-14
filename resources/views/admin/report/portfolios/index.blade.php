@@ -11,7 +11,7 @@
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Fleet </span> Productivity
+                    <span class="text-semibold">Fleet </span> - P&L
                 </h4>
             </div>
         </div>
@@ -61,13 +61,11 @@
                     }
                 </style>
             @else
-                <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <tr>
-                            <td colspan="7" class="text-center">No record found</td>
-                        </tr>
-                    </table>
-                </div>
+                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
+                    <tr>
+                        <td colspan="7" class="text-center">No record found</td>
+                    </tr>
+                </table>
             @endif
         </div>
     </div>

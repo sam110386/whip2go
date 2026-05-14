@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin\Report;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\RevSetting;
 
