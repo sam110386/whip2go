@@ -18,6 +18,7 @@ class LegacyAppController extends Controller
 {
     protected bool $shouldLoadLegacyModules = true;
     protected $commonService;
+    protected int $recordsPerPage = 50;
 
     public function __construct()
     {

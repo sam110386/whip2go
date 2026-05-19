@@ -6,7 +6,7 @@ use App\Models\Legacy\LegacyModel;
 
 class SummaryReport extends LegacyModel
 {
-     
+
     protected $table = 'summary_reports';
 
     protected $fillable = [
@@ -66,4 +66,9 @@ class SummaryReport extends LegacyModel
         'date_to',
         'processed',
     ];
+
+    public function revSetting()
+    {
+        return $this->hasOne(RevSetting::class, 'user_id', 'user_id');
+    }
 }

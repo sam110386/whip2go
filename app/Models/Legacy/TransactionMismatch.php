@@ -4,7 +4,7 @@ namespace App\Models\Legacy;
 
 use App\Models\Legacy\LegacyModel;
 
-class TransactionMismatche extends LegacyModel
+class TransactionMismatch extends LegacyModel
 {
      
     protected $table = 'transaction_mismatches';

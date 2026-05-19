@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Vehicle Revenue - Report')
+@section('title', $title ?? 'Vehicle Revenue - Report')
 
 @php
     $datefrom ??= '';
@@ -10,6 +10,15 @@
 @endphp
 
 @section('content')
+
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+            </div>
+        </div>
+    </div>
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -27,48 +36,39 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="POST" action="{{ url('admin/report/revenue-reports') }}" class="form-horizontal">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="POST"
+                action="{{ url('admin/report/revenue_reports/index') }}" class="form-horizontal">
                 @csrf
                 <div class="row">
-                    <div class="col-md-12">
-                        <div class="col-md-2">
-                            Date from :
-                            <input type="text" name="Search[datefrom]" id="SearchDatefrom" class="date form-control" value="{{ $datefrom }}" placeholder="Date from">
-                        </div>
-                        <div class="col-md-2">
-                            Date to :
-                            <input type="text" name="Search[dateto]" id="SearchDateto" class="date form-control" value="{{ $dateto }}" placeholder="Date to">
-                        </div>
-                        <div class="col-md-2">
-                            Dealer :
-                            <input type="text" name="Search[dealerid]" id="SearchDealerid" class="form-control" style="width:100%;" value="{{ $dealerid }}" placeholder="Dealers">
-                        </div>
-                        <div class="col-md-2">
-                            Vehicle :
-                            <input type="text" name="Search[vehicleid]" id="SearchVehicleid" class="form-control" style="width:100%;" value="{{ $vehicleid }}" placeholder="Vehicle">
-                        </div>
-                        <div class="col-md-2">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="refresh" value="refresh" class="btn btn-warning" alt="Refresh Report">Refresh Report</button>
-                        </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[datefrom]" id="SearchDatefrom" class="date form-control"
+                            value="{{ $datefrom }}" placeholder="Date from">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[dateto]" id="SearchDateto" class="date form-control"
+                            value="{{ $dateto }}" placeholder="Date to">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[dealerid]" id="SearchDealerid" style="width:100%;"
+                            value="{{ $dealerid }}" placeholder="Dealers">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[vehicleid]" id="SearchVehicleid" style="width:100%;"
+                            value="{{ $vehicleid }}" placeholder="Vehicle">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" name="refresh" value="refresh" class="btn btn-warning" alt="Refresh Report">
+                            Refresh Report
+                        </button>
                     </div>
                 </div>
             </form>
-
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.report.elements._revenue_report')
-            </div>
-
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content">
-
-            </div>
+    <div class="panel">
+        <div style="width:100%; overflow: visible;" id="postsPaging" class="panel-body">
+            @include('admin.report.revenue_reports.elements._revenue_report')
         </div>
     </div>
 
@@ -76,21 +76,11 @@
 
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
 @endpush
 
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+
     <script type="text/javascript">
         function format(item) {
             return item.tag;
@@ -196,18 +186,18 @@
                 if (typeof historyUrl === 'undefined') {
                     historyUrl = url;
                 }
-                $('#listing').css('opacity', '0.5');
+                $('#postsPaging').css('opacity', '0.5');
 
                 $.ajax({
                     url: url,
                     type: "GET",
                     success: function (data) {
-                        $('#listing').html(data);
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').html(data);
+                        $('#postsPaging').css('opacity', '1');
                         window.history.pushState(null, null, historyUrl);
                     },
                     error: function (xhr) {
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').css('opacity', '1');
                         console.error('AJAX Load Error:', xhr);
                     }
                 });
