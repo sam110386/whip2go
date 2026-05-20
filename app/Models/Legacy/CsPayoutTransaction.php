@@ -34,4 +34,9 @@ class CsPayoutTransaction extends LegacyModel
         'id',
     ];
 
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'cs_order_id', 'id');
+    }
+
 }

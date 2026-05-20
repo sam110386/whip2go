@@ -6,141 +6,95 @@ use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\CsPayout;
+use App\Models\Legacy\CsPayoutTransaction;
 
 class PayoutsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
-    /** @see \App\Services\Legacy\Common::getPayoutTypeValue() */
-    private static function payoutTypeLabels(): array
-    {
-        return [
-            1 => 'Deposit',
-            2 => 'Usage Transaction',
-            3 => 'Initial Fee',
-            4 => 'Insurance Fee',
-            5 => 'Cancelation fee',
-            6 => 'Toll Fee',
-            7 => 'Customer Balance Charge',
-            8 => 'Toll Violation',
-            9 => 'Red Light Violation',
-            10 => 'Parking Violation',
-            11 => 'Refund Balance',
-            12 => 'Driver Credit,',
-            13 => 'Geotab Monthly Fee',
-            14 => 'DIA Insurance Fee',
-            15 => 'Credit Card Chargebacks',
-            16 => 'Extra Usage Fee',
-            17 => 'Car Damage Fee',
-            18 => 'Hazardous Driving Fee',
-            19 => 'Ext/Late Fee',
-            20 => 'Vehicle Insurance Penalty',
-            21 => 'Credit Deposit to Virtual Card',
-        ];
-    }
-
-    /**
-     * Cake PayoutsController::admin_index
-     */
     public function index(Request $request)
     {
-        if ($request->isMethod('POST') && (string)$request->input('search') === 'EXPORT') {
-            return redirect()->back()->with('error', 'CSV export is not ported yet; use Cake admin or add export here.');
+
+        if ($request->input('search') === 'EXPORT') {
+            return $this->adminExport($request);
         }
 
-        $listtype = trim((string)($request->query('listtype', $request->input('Search.listtype', ''))));
-        $dateFrom = trim((string)$this->payoutSearch($request, 'date_from'));
-        $dateTo = trim((string)$this->payoutSearch($request, 'date_to'));
-        $payoutId = trim((string)$this->payoutSearch($request, 'payout_id'));
-        $userId = trim((string)$this->payoutSearch($request, 'user_id'));
+        $title = "Payouts";
+        $sessionLimitName = "payouts_limit";
+        $dateFrom = $request->input('Search.date_from') ?? $request->input('date_from');
+        $dateTo = $request->input('Search.date_to') ?? $request->input('date_to');
+        $listType = $request->input('Search.listtype') ?? $request->input('listtype');
+        $payoutId = $request->input('Search.payout_id') ?? $request->input('payout_id');
+        $userId = $request->input('Search.user_id') ?? $request->input('user_id');
 
-        if ($request->isMethod('POST') && $request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
-            if ($lim > 0 && $lim <= 500) {
-                session(['admin_payouts_limit' => $lim]);
-            }
-        }
-        $limit = (int)session('admin_payouts_limit', 50);
-        if ($limit < 1) {
-            $limit = 50;
-        }
 
-        $paymentTypeValue = self::payoutTypeLabels();
-        $batchMode = ($listtype === '');
-
-        if ($batchMode) {
-            $query = DB::table('cs_payouts as p');
-            if ($dateFrom !== '') {
-                try {
-                    $df = Carbon::parse($dateFrom)->startOfDay()->toDateTimeString();
-                    $query->where('p.processed_on', '>=', $df);
-                } catch (\Throwable $e) {
-                }
-            }
-            if ($dateTo !== '') {
-                try {
-                    $dt = Carbon::parse($dateTo)->endOfDay()->toDateTimeString();
-                    $query->where('p.processed_on', '<=', $dt);
-                } catch (\Throwable $e) {
-                }
-            }
-            if ($payoutId !== '') {
-                $query->where('p.id', (int)$payoutId);
-            }
-            if ($userId !== '') {
-                $query->where('p.user_id', (int)$userId);
-            }
-            $payoutlists = $query->select('p.*')->orderByDesc('p.processed_on')->paginate($limit)->withQueryString();
+        if ($request->filled('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            $request->session()->put($sessionLimitName, $limit);
         } else {
-            $query = DB::table('cs_payout_transactions as pt')
-                ->where('pt.status', 1)
-                ->leftJoin('cs_orders as o', 'o.id', '=', 'pt.cs_order_id')
-                ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
-                ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
-                ->select([
-                    'pt.*',
-                    'o.id as order_table_id',
-                    'o.increment_id',
-                    'o.start_datetime',
-                    'v.vehicle_name',
-                    'renter.first_name as renter_first_name',
-                    'renter.last_name as renter_last_name',
-                ])
-                ->orderByDesc('pt.id');
-            if ($userId !== '') {
-                $query->where('pt.user_id', (int)$userId);
+            $limit = $request->session()->get($sessionLimitName, $this->recordsPerPage);
+        }
+
+        if (empty($listType)) {
+
+            if (!empty($dateFrom) && empty($dateTo)) {
+                $dateTo = Carbon::now()->format('Y-m-d');
             }
-            $payoutlists = $query->paginate($limit)->withQueryString();
+
+            $payoutLists = CsPayout::query()
+                ->when($dateFrom, function ($query, $dateFrom) {
+                    $query->where('processed_on', '>=', Carbon::parse($dateFrom)->toDateTimeString());
+                })
+                ->when($dateTo, function ($query, $dateTo) {
+                    $query->where('processed_on', '<=', Carbon::parse($dateTo)->toDateTimeString());
+                })
+                ->when($payoutId, function ($query, $payoutId) {
+                    $query->where('id', $payoutId);
+                })
+                ->when($userId, function ($query, $userId) {
+                    $query->where('user_id', $userId);
+                })
+                ->orderBy('processed_on', 'desc')
+                ->paginate($limit);
+
+        } else {
+            $payoutLists = CsPayoutTransaction::query()
+                ->with([
+                    'csOrder:id,vehicle_id,renter_id,increment_id',
+                    'csOrder.vehicle:id,vehicle_name',
+                    'csOrder.renter:id,first_name,last_name'
+                ])
+                ->where('status', 1)
+                ->when($userId, function ($query, $userId) {
+                    $query->where('user_id', $userId);
+                })
+                ->orderBy('id', 'desc')
+                ->paginate($limit);
         }
 
-        if ($request->ajax()) {
-            return response()->view('admin.payouts.listing', [
-                'payoutlists' => $payoutlists,
-                'batchMode' => $batchMode,
-                'paymentTypeValue' => $paymentTypeValue,
-                'listtype' => $listtype,
-            ]);
-        }
-
-        return view('admin.payouts.index', [
-            'payoutlists' => $payoutlists,
-            'batchMode' => $batchMode,
-            'paymentTypeValue' => $paymentTypeValue,
+        $viewData = [
+            'title' => $title,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
+            'listtype' => $listType,
             'payout_id' => $payoutId,
             'user_id' => $userId,
-            'listtype' => $listtype,
             'limit' => $limit,
-        ]);
+            'refundTypeValue' => $this->commonService->getRefundType(),
+            'paymentTypeValue' => $this->commonService->getPayoutTypeValue(1),
+            'payoutlists' => $payoutLists,
+        ];
+
+        if ($request->ajax()) {
+            return view('admin.payouts.partials.payout_table', $viewData);
+        }
+
+        return view('admin.payouts.index', $viewData);
     }
 
-    /**
-     * Cake PayoutsController::admin_transactions (POST payoutid)
-     */
+
     public function transactions(Request $request)
     {
-        $payoutId = (int)$request->input('payoutid');
+        $payoutId = (int) $request->input('payoutid');
         if ($payoutId <= 0) {
             return response('Invalid payout', 400);
         }
@@ -172,11 +126,11 @@ class PayoutsController extends LegacyAppController
     {
         $v = $request->input('Search.' . $key);
         if ($v !== null && $v !== '') {
-            return (string)$v;
+            return (string) $v;
         }
 
         $q = $request->query($key);
 
-        return $q === null ? '' : (string)$q;
+        return $q === null ? '' : (string) $q;
     }
 }
