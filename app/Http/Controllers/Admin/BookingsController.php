@@ -11,7 +11,7 @@ use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\User;
 use App\Models\Legacy\CsOrderPayment;
-use App\Models\Legacy\CsOrderDepositRule;
+use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\OrderExtlog;
 use App\Models\Legacy\CsTwilioOrder;
 use App\Models\Legacy\CsSetting;
@@ -340,7 +340,7 @@ class BookingsController extends LegacyAppController
         $autorenewEndDate = (string) $request->input('Text.autorenewenddate', '');
         $renewButDontCharge = (int) $request->input('Text.renew_but_dont_charge', 0);
 
-        $depositRule = CsOrderDepositRule::where('cs_order_id', $orderId)
+        $depositRule = OrderDepositRule::where('cs_order_id', $orderId)
             ->orWhere('cs_order_id', (int) ($order->parent_id ?? 0))
             ->first();
 
@@ -850,12 +850,12 @@ class BookingsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Invalid booking id']);
         }
 
-        $depositRule = CsOrderDepositRule::where('cs_order_id', $orderId)->first();
+        $depositRule = OrderDepositRule::where('cs_order_id', $orderId)->first();
 
         if (!$depositRule) {
             $parentId = (int) CsOrder::where('id', $orderId)->value('parent_id');
             if ($parentId > 0) {
-                $depositRule = CsOrderDepositRule::where('cs_order_id', $parentId)->first();
+                $depositRule = OrderDepositRule::where('cs_order_id', $parentId)->first();
             }
         }
 
@@ -906,7 +906,7 @@ class BookingsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Invalid deposit rule id']);
         }
 
-        $rule = CsOrderDepositRule::where('id', $ruleId)->first();
+        $rule = OrderDepositRule::where('id', $ruleId)->first();
         if (!$rule) {
             return response()->json(['status' => false, 'message' => 'Deposit rule not found']);
         }
@@ -955,7 +955,7 @@ class BookingsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Invalid deposit rule id']);
         }
 
-        $rule = CsOrderDepositRule::where('id', $ruleId)->first();
+        $rule = OrderDepositRule::where('id', $ruleId)->first();
         if (!$rule) {
             return response()->json(['status' => false, 'message' => 'Deposit rule not found']);
         }
@@ -1344,7 +1344,7 @@ class BookingsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Order not found']);
         }
 
-        $depositRule = CsOrderDepositRule::where('cs_order_id', $orderId)
+        $depositRule = OrderDepositRule::where('cs_order_id', $orderId)
             ->orWhere('cs_order_id', (int) ($order->parent_id ?? 0))
             ->first();
 
@@ -1378,7 +1378,7 @@ class BookingsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Order not found']);
         }
 
-        $depositRule = CsOrderDepositRule::where('cs_order_id', $orderId)
+        $depositRule = OrderDepositRule::where('cs_order_id', $orderId)
             ->orWhere('cs_order_id', (int) ($order->parent_id ?? 0))
             ->first();
 

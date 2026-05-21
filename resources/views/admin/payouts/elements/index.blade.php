@@ -1,3 +1,7 @@
+@php
+    $fmtMoney = fn($v) => number_format((float) $v, 2);
+@endphp
+
 @include('partials.dispacher.paging_box', ['paginator' => $payoutlists, 'limit' => $limit ?? 25, 'position' => 'top'])
 
 @if (empty($listtype))
@@ -19,12 +23,12 @@
                 <tr>
                     <td>{{ $payoutlist->id }}</td>
                     <td>{{ $payoutlist->amount }}</td>
-                    <td>{{ $payoutlist->processed_on }}</td>
+                    <td>{{ \Carbon\Carbon::parse($payoutlist->processed_on)->format('m/d/Y') }}</td>
                     <td>{{ $payoutlist->transaction_id }}</td>
                     <td>
-                        <button type="button" class="btn btn-default btn-xs" onclick="getTransactions({{$payoutlist->id }})" title="Associated transactions">
+                        <a  href="javascript:void(0)" onclick="getTransactions({{$payoutlist->id }})" title="Associated transactions">
                             <i class='icon-coin-dollar'></i>
-                        </button>
+                        </a>
                     </td>
                 </tr>
                 @empty
@@ -59,7 +63,6 @@
                         $refund = (float)($payoutlist->refund ?? 0);
                         $amt = (float)($payoutlist->amount ?? 0);
                         $stripe = (float)($payoutlist->stripe_amt ?? 0);
-                        $fmtMoney = fn ($v) => number_format((float)$v, 2);
                         $showAmt = $refund > 0 ? '-' . $fmtMoney($refund) : $fmtMoney($amt);
                         $misc = $refund > 0 ? '-' : ($stripe > 0 ? $fmtMoney($amt - $stripe) : '0.00');
                         $net = $refund > 0 ? '-' . $fmtMoney($refund) : ($stripe > 0 ? $fmtMoney($stripe) : $fmtMoney($amt));
@@ -70,13 +73,13 @@
                             {{ $payoutlist?->csOrder?->increment_id ?? '' }}
                         </td>
                         <td class="text-center">
-                            {{ $payoutlist?->csOrder?->vehicle->vehicle_name ?? '' }}
+                            {{ $payoutlist?->csOrder?->vehicle?->vehicle_name ?? '' }}
                         </td>
                         <td class="text-center">
                             {{ trim(($payoutlist?->csOrder?->renter?->first_name ?? '') . ' ' . ($payoutlist?->csOrder?->renter?->last_name ?? '')) }}
                         </td>
                         <td class="text-center">
-                            {{ $paymentTypeValue($payoutlist->type) }}
+                            {{ $paymentTypeValue[$payoutlist->type] }}
                         </td>
                         <td class="text-center">
                             {{ $showAmt }}
@@ -88,7 +91,7 @@
                             {{ $net }}
                         </td>
                         <td class="text-center">
-                            {{ $payoutlist->created }}
+                            {{ \Carbon\Carbon::parse($payoutlist->created)->format('Y-m-d h:i A') }}
                         </td>
                         <td>
                             @if (!empty($payoutlist?->csOrder?->id))

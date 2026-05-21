@@ -46,4 +46,25 @@ class CsOrderPayment extends LegacyModel
     {
         return $this->belongsTo(CsOrder::class, 'cs_order_id');
     }
+
+
+    public static function getActiveRentalTransaction($orderId)
+    {
+        return static::select([
+            'id',
+            'amount',
+            'transaction_id',
+            'rent',
+            'tax',
+            'dia_fee',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderId)
+            ->where('type', 2)
+            ->where('status', 1)
+            ->get()
+            ->keyBy('id');
+    }
 }

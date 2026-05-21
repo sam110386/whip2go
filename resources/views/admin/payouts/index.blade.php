@@ -33,7 +33,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                @if ($listtype)
+                @if (empty($listtype))
                     <a href="{{ url('admin/payouts/index?listtype=all') }}" class="btn btn-success">
                         Show All
                     </a>
@@ -156,7 +156,6 @@
             });
 
             $(document).on('submit', '#frmSearchadmin', function (e) {
-                e.preventDefault();
                 var form = $(this);
                 var isClearFilter = false;
 
@@ -165,7 +164,12 @@
                     if (btn.attr('name') === 'ClearFilter') {
                         isClearFilter = true;
                     }
+                    if (btn.val() === 'EXPORT') {
+                        return; // Let standard form submission download the CSV
+                    }
                 }
+
+                e.preventDefault();
 
                 if (isClearFilter) {
                     form[0].reset();
@@ -209,21 +213,22 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
-
-            function getTransactions(payoutid) {
-                if (typeof jQuery.blockUI === 'function') {
-                    jQuery.blockUI({ message: '<h1>Just a moment...</h1>' });
-                }
-                jQuery.post("{{ url('admin/payouts/transactions') }}", { payoutid: payoutid }, function (data) {
-                    $("#plaidModal .modal-content").html(data);
-                    $("#plaidModal").modal('show').find('.modal-dialog').css('width', '800px');
-                }).done(function () {
-                    if (typeof jQuery.unblockUI === 'function') {
-                        jQuery.unblockUI();
-                    }
-                });
-                return false;
-            }
         });
+
+        function getTransactions(payoutid) {
+            if (typeof jQuery.blockUI === 'function') {
+                jQuery.blockUI({ message: '<h1>Just a moment...</h1>' });
+            }
+            jQuery.post("{{ url('admin/payouts/transactions') }}", { payoutid: payoutid }, function (data) {
+                $("#plaidModal .modal-content").html(data);
+                $("#plaidModal").modal('show').find('.modal-dialog').css('width', '800px');
+            }).done(function () {
+                if (typeof jQuery.unblockUI === 'function') {
+                    jQuery.unblockUI();
+                }
+            });
+            return false;
+        }
+
     </script>
 @endpush

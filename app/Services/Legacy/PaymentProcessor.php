@@ -4,6 +4,16 @@ namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Services\Legacy\StripeClient;
+use App\Models\Legacy\CsPaymentLog;
+use App\Models\Legacy\CsOrderPayment;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\CsPayoutTransaction;
+use App\Models\Legacy\CsSetting;
+use App\Models\Legacy\CsWallet;
+use App\Models\Legacy\User;
+
+
 
 class PaymentProcessor
 {
@@ -17,13 +27,565 @@ class PaymentProcessor
         $this->_mode = config('services.stripe.mode');
     }
 
-    private function stripe()
+    private function createConnectAccountToken($customertoken, $stripe_account)
     {
-        $this->Stripe = new \App\Services\Legacy\StripeClient($this->_secret, $this->_mode);
-        return $this->Stripe;
+        return $this->Stripe->createCardToken(['customer' => $customertoken], ["stripe_account" => $stripe_account]);
     }
 
-    // ─── DB Helper: Payment Log ───
+    public function addNewCard($dataValues, $cust_id = '')
+    {
+        $return = [
+            'status' => 'error',
+            'authcode' => '',
+            'message' => 'Required inputs are missing'
+        ];
+
+        $dataValues->credit_card_number = preg_replace("/[^0-9]/", "", $dataValues->credit_card_number ?? '');
+
+        if (empty($dataValues->credit_card_number) || empty($dataValues->cvv ?? '') || empty($dataValues->expiration ?? '')) {
+            return $return;
+        }
+
+        $ccexpdate = explode("/", $dataValues->expiration ?? '');
+
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
+
+        $result = $this->Stripe->createCardToken([
+            "card" => [
+                "number" => $dataValues->credit_card_number,
+                "exp_month" => $ccexpdate[0] ?? '',
+                "exp_year" => $ccexpdate[1] ?? '',
+                "cvc" => $dataValues->cvv ?? '',
+                "name" => $dataValues->card_holder_name ?? '',
+                "address_zip" => $dataValues->zip ?? '',
+                "address_city" => $dataValues->city ?? '',
+                "address_state" => $dataValues->state ?? '',
+                "address_country" => ($dataValues->country ?? '') != '' ? $dataValues->country : 'US',
+                "address_line1" => $dataValues->address ?? '',
+            ],
+        ]);
+
+        if (!isset($result['status']) || $result['status'] != 'success') {
+            $return['message'] = $result['msg'] ?? ($result['message'] ?? 'Card token creation failed');
+            return $return;
+        }
+
+        if (!empty($cust_id)) {
+            $result2 = $this->Stripe->addCardToCustomer($cust_id, $result['token'], ["name" => $dataValues->card_holder_name]);
+            if (isset($result2['status']) && $result2['status'] == 'success') {
+                $return['status'] = 'success';
+                $return['stripe_token'] = $cust_id;
+                $return['card_id'] = $result2['stripe_id'];
+                $return['card_funding'] = $result['card_funding'];
+            } else {
+                $return['message'] = $result2;
+            }
+            return $return;
+        }
+
+        $result1 = $this->Stripe->customerCreate(["stripeToken" => $result['token']]);
+
+        if (isset($result1['status']) && $result1['status'] == 'success') {
+            $return['status'] = 'success';
+            $return['stripe_token'] = $result1['stripe_id'];
+            $return['card_id'] = $result['card_id'];
+            $return['card_funding'] = $result['card_funding'];
+        } else {
+            $return['message'] = $result1;
+        }
+
+        return $return;
+    }
+
+    public function addCardToCustomer($cust_id, $card_id, $opt = [])
+    {
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
+        return $this->Stripe->addCardToCustomer($cust_id, $card_id, $opt);
+    }
+
+    public function makeCardDefault($cust_id, $card_id)
+    {
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
+        return $this->Stripe->makeCardDefault($cust_id, ["default_source" => $card_id]);
+    }
+
+    public function deleteCustomerCard($cust_id, $card_id)
+    {
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
+        return $this->Stripe->deleteCustomerCard($cust_id, $card_id);
+    }
+
+    public function customerDelete($cust_id)
+    {
+        $return = ['status' => 'error', 'message' => 'Required inputs are missing'];
+
+        if (empty($cust_id)) {
+            return $return;
+        }
+
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
+        $this->Stripe->customerDelete(['cust_id' => $cust_id]);
+        return true;
+    }
+
+    public function getdealerourcekey($userid)
+    {
+        $sourcekeydetails = User::where('id', $userid)->first(['stripe_key', 'currency']);
+        return $sourcekeydetails ?? '';
+    }
+
+    public function checkAndProcessForMobile($renterid, $owner_id, $priceRulesAmt = [])
+    {
+        if (empty($priceRulesAmt)) {
+            return ['status' => 'error', 'message' => 'Payment Details not saved', 'payment_id' => ''];
+        }
+
+        $usrData = $this->getCustomer($renterid);
+
+        $return = [
+            'rent' => $priceRulesAmt['time_fee'],
+            'tax' => $priceRulesAmt['tax'],
+            'dia_fee' => $priceRulesAmt['dia_fee'],
+            'deposit' => $priceRulesAmt['deposit_amt'],
+            'deposit_type' => $priceRulesAmt['deposit_type'],
+            'status' => 'success',
+            'deposit_auth' => '',
+            'transaction_id' => '',
+            'renter_id' => $renterid,
+            'user_id' => $owner_id,
+            'message' => 'Sorry, one of payment get failed',
+            'insurance_amt' => 0,
+            'insurance_transaction_id' => '',
+            'emf_transaction_id' => '',
+            'initial_fee' => $priceRulesAmt['initial_fee'],
+            'initial_fee_tax' => $priceRulesAmt['initial_fee_tax'],
+            'dpa_status' => 0,
+            'insu_status' => 0,
+            'payment_status' => 0,
+            'infee_status' => 0,
+            'emf_status' => 0,
+            'currency' => $priceRulesAmt['currency'],
+        ];
+
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
+
+        if ($priceRulesAmt['deposit_amt'] > 0 && ($priceRulesAmt['deposit_event'] == 'P' || $priceRulesAmt['deposit_event'] == 'D')) {
+            $result = CsWallet::chargeFromWallet($renterid, $priceRulesAmt['deposit_amt'], $priceRulesAmt['deposit_amt'] . ' Deposit amount from checkAndProcessForMobile', 1);
+
+            if ($result['status']) {
+                $return['deposit'] = $priceRulesAmt['deposit_amt'];
+                $return['deposit_auth'] = $result['transactions'];
+                $return['message'] = 'success';
+                $return['dpa_status'] = 1;
+                $return['deposit_type'] = "C";
+            } else {
+                $result = $this->Stripe->charge([
+                    "amount" => $priceRulesAmt['deposit_amt'],
+                    "currency" => $priceRulesAmt['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => ($priceRulesAmt['deposit_type'] == 'P') ? false : true,
+                    "description" => "DIA Deposit",
+                    "statement_descriptor" => "DIA Deposit",
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ]);
+                if (isset($result['status']) && $result['status'] == 'success') {
+                    $return['deposit'] = $priceRulesAmt['deposit_amt'];
+                    $return['deposit_auth'] = $result['stripe_id'];
+                    $return['message'] = 'success';
+                    $return['dpa_status'] = 1;
+                } else {
+                    $return['message'] = $result;
+                    $return['status'] = 'error';
+                    $return['dpa_status'] = 2;
+                }
+            }
+        }
+
+        if ($return['status'] == 'success' && $priceRulesAmt['initial_fee'] > 0 && $priceRulesAmt['initial_event'] == 'P') {
+            $initialfeeresult = $this->walletChargeFromWallet($renterid, ($priceRulesAmt['initial_fee'] + $priceRulesAmt['initial_fee_tax']), $priceRulesAmt['initial_fee'] . ' initial fee amount from checkAndProcessForMobile', 3);
+            if ($initialfeeresult['status']) {
+                $return['status'] = 'success';
+                $return['initial_fee_id'] = $initialfeeresult['transactions'];
+                $return['initial_fee_tax'] = $priceRulesAmt['initial_fee_tax'];
+                $return['infee_status'] = 1;
+            } else {
+                $initialfeeObj = [
+                    "amount" => ($priceRulesAmt['initial_fee'] + $priceRulesAmt['initial_fee_tax']),
+                    "currency" => $priceRulesAmt['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA Initial Fee",
+                    "statement_descriptor" => "DIA Initial Fee",
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ];
+                $initialfeeresult = $this->Stripe->charge($initialfeeObj);
+                if (isset($initialfeeresult['status']) && $initialfeeresult['status'] == 'success') {
+                    $return['status'] = 'success';
+                    $return['initial_fee_id'] = $initialfeeresult['stripe_id'];
+                    $return['initial_fee'] = $priceRulesAmt['initial_fee'];
+                    $return['initial_fee_tax'] = $priceRulesAmt['initial_fee_tax'];
+                    $return['infee_status'] = 1;
+                } else {
+                    $return['infee_status'] = 2;
+                }
+            }
+        }
+
+        if ($return['status'] == 'success' && $priceRulesAmt['time_fee'] > 0 && $priceRulesAmt['charge_rent_event'] == 'P') {
+            $Rentresult = $this->walletChargeFromWallet($renterid, ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']), ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']) . ' rental fee amount from checkAndProcessForMobile', 2);
+            if ($Rentresult['status']) {
+                $return['transaction_id'] = $Rentresult['transactions'];
+                $return['payment_status'] = 1;
+            } else {
+                $RentObj = [
+                    "amount" => ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']),
+                    "currency" => $priceRulesAmt['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA CAR",
+                    "statement_descriptor" => "DIA CAR",
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ];
+                $Rentresult = $this->Stripe->charge($RentObj);
+                if (isset($Rentresult['status']) && $Rentresult['status'] == 'success') {
+                    $return['transaction_id'] = $Rentresult['stripe_id'];
+                    $return['rental_amt'] = ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']);
+                    $return['payment_status'] = 1;
+                } else {
+                    $return['payment_status'] = 2;
+                }
+            }
+        }
+
+        if ($return['status'] == 'success' && ($priceRulesAmt['extra_mileage_fee'] ?? 0) > 0 && $priceRulesAmt['charge_rent_event'] == 'P') {
+            $extra_mileage_fee = ($priceRulesAmt['extra_mileage_fee'] + ($priceRulesAmt['emf_tax'] ?? 0));
+            $Rentresult = $this->walletChargeFromWallet($renterid, $extra_mileage_fee, $extra_mileage_fee . ' emf fee amount from checkAndProcessForMobile', 16);
+            if ($Rentresult['status']) {
+                $return['emf_transaction_id'] = $Rentresult['transactions'];
+                $return['emf_status'] = 1;
+            } else {
+                $RentObj = [
+                    "amount" => $extra_mileage_fee,
+                    "currency" => $priceRulesAmt['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA EMF",
+                    "statement_descriptor" => "DIA EMF",
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ];
+                $Rentresult = $this->Stripe->charge($RentObj);
+                if (isset($Rentresult['status']) && $Rentresult['status'] == 'success') {
+                    $return['emf_transaction_id'] = $Rentresult['stripe_id'];
+                    $return['emf_fee'] = $extra_mileage_fee;
+                    $return['emf_status'] = 1;
+                } else {
+                    $return['emf_status'] = 2;
+                }
+            }
+        }
+
+        if ($return['status'] == 'success' && $priceRulesAmt['insurance_amt'] > 0 && $priceRulesAmt['insurance_event'] == 'P') {
+            if (($priceRulesAmt['insurance_payer'] ?? 0) == 1) {
+                $CsSetting = DB::table('cs_settings')->where('user_id', $owner_id)->first(['max_stripe_balance']);
+                $return = $this->chargeInsuranceFromDealer($return, $priceRulesAmt['insurance_amt'], $owner_id, "", $CsSetting ? (array) $CsSetting : []);
+            } else {
+                $insuresult = $this->walletChargeFromWallet($renterid, $priceRulesAmt['insurance_amt'], $priceRulesAmt['insurance_amt'] . ' insurance fee amount from checkAndProcessForMobile', 4);
+                if ($insuresult['status']) {
+                    $return['insurance_transaction_id'] = $insuresult['transactions'];
+                    $return['insurance_amt'] = $priceRulesAmt['insurance_amt'];
+                    $return['insu_status'] = 1;
+                    $return['insu_payerid'] = $renterid;
+                } else {
+                    $stripe_token = $usrData['UserCcToken']['stripe_token'];
+                    $insuresult = $this->Stripe->charge([
+                        "amount" => $priceRulesAmt['insurance_amt'],
+                        "currency" => $priceRulesAmt['currency'],
+                        "stripeCustomer" => $stripe_token,
+                        "capture" => true,
+                        "description" => (($priceRulesAmt['insurance_payer'] ?? 0) == 1) ? "DIA Insurance Paid By Dealer" : "DIA Insurance",
+                        "statement_descriptor" => "DIA INS&FEES",
+                        "metadata" => ["payer_id" => $usrData['User']['id']],
+                    ]);
+                    if (isset($insuresult['status']) && $insuresult['status'] == 'success') {
+                        $return['insurance_transaction_id'] = $insuresult['stripe_id'];
+                        $return['insurance_amt'] = $priceRulesAmt['insurance_amt'];
+                        $return['insu_status'] = 1;
+                        $return['insu_payerid'] = $renterid;
+                    } else {
+                        $return['insu_status'] = 2;
+                    }
+                }
+            }
+        }
+        return $return;
+    }
+
+    private function ChargeAmountDeposit($usrData, $CsOrder, $return, $DepositRule, $error)
+    {
+        if ($CsOrder['CsOrder']['dpa_status'] == 0 && $CsOrder['CsOrder']['deposit'] > 0 && $DepositRule['deposit_event'] == 'S') {
+            $result = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], $CsOrder['CsOrder']['deposit'], $CsOrder['CsOrder']['deposit'] . ' deposit amount from ChargeAmount', $CsOrder['CsOrder']['id'], 1);
+            if ($result['status']) {
+                $return['deposit'] = $CsOrder['CsOrder']['deposit'];
+                $return['deposit_auth'] = $result['transactions'];
+                $return['dpa_status'] = 1;
+                if ($result['pending']) {
+                    $subresult = $this->Stripe->charge([
+                        "amount" => $result['pending'],
+                        "currency" => $CsOrder['CsOrder']['currency'],
+                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                        "capture" => true,
+                        "description" => "DIA Deposit",
+                        "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                        "metadata" => ["payer_id" => $usrData['User']['id']],
+                    ]);
+                    if (isset($subresult['status']) && $subresult['status'] == 'success') {
+                        $return['deposit_auth'][] = ["amt" => $result['pending'], "transaction_id" => $subresult['stripe_id'], "source" => 'card'];
+                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $result['pending'], "transaction_id" => $subresult['stripe_id'], "status" => 1]);
+                    } else {
+                        $return['dpa_status'] = 2;
+                        $error = true;
+                        $return['message'] = $subresult;
+                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $result['pending'], "note" => $subresult, "status" => 2]);
+                    }
+                }
+            } else {
+                $result = $this->Stripe->charge([
+                    "amount" => $CsOrder['CsOrder']['deposit'],
+                    "currency" => $CsOrder['CsOrder']['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => ($DepositRule['deposit_type'] == "P") ? false : true,
+                    "description" => "DIA Deposit",
+                    "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ]);
+                if (isset($result['status']) && $result['status'] == 'success') {
+                    $return['deposit'] = $CsOrder['CsOrder']['deposit'];
+                    $return['deposit_auth'] = $result['stripe_id'];
+                    $return['dpa_status'] = 1;
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $CsOrder['CsOrder']['deposit'], "transaction_id" => $result['stripe_id'], "status" => 1]);
+                } else {
+                    $error = true;
+                    $return['dpa_status'] = 2;
+                    $return['message'] = $result;
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $CsOrder['CsOrder']['deposit'], "note" => $result, "status" => 2]);
+                }
+            }
+        }
+        return [$error, $return];
+    }
+
+    private function ChargeAmountInitialFee($usrData, $CsOrder, $return, $error)
+    {
+        if ($CsOrder['CsOrder']['infee_status'] == 0 && ($CsOrder['CsOrder']['initial_fee'] > 0 || $CsOrder['CsOrder']['initial_fee_tax'] > 0) && $error) {
+            $return['infee_status'] = 2;
+        }
+        if ($CsOrder['CsOrder']['initial_fee'] == 0 && $CsOrder['CsOrder']['initial_fee_tax']) {
+            $return['infee_status'] = 1;
+        }
+        if (!$error && $CsOrder['CsOrder']['infee_status'] == 0 && $CsOrder['CsOrder']['initial_fee'] > 0 && $CsOrder['CsOrder']['initial_event'] == 'S') {
+            $initialfeeresult = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], ($CsOrder['CsOrder']['initial_fee'] + $CsOrder['CsOrder']['initial_fee_tax']), $CsOrder['CsOrder']['initial_fee'] . ' initial fee amount from ChargeAmount', $CsOrder['CsOrder']['id'], 3);
+            if ($initialfeeresult['status']) {
+                $return['initial_fee'] = $CsOrder['CsOrder']['initial_fee'];
+                $return['initial_fee_tax'] = $CsOrder['CsOrder']['initial_fee_tax'];
+                $return['initial_fee_id'] = $initialfeeresult['transactions'];
+                $return['infee_status'] = 1;
+                if ($initialfeeresult['pending'] > 0) {
+                    $subinitialfeeresult = $this->Stripe->charge([
+                        "amount" => $initialfeeresult['pending'],
+                        "currency" => $CsOrder['CsOrder']['currency'],
+                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                        "capture" => true,
+                        "description" => "DIA Initial Fee",
+                        "statement_descriptor" => "DIA InitialFee " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                        "metadata" => ["payer_id" => $usrData['User']['id']],
+                    ]);
+                    if (isset($subinitialfeeresult['status']) && $subinitialfeeresult['status'] == 'success') {
+                        $return['initial_fee_id'][] = ["amt" => $initialfeeresult['pending'], "transaction_id" => $subinitialfeeresult['stripe_id'], "source" => 'card'];
+                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $initialfeeresult['pending'], "transaction_id" => $subinitialfeeresult['stripe_id'], "status" => 1]);
+                    } else {
+                        $return['infee_status'] = 2;
+                        $error = true;
+                        $return['message'] = $subinitialfeeresult;
+                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $initialfeeresult['pending'], "note" => $subinitialfeeresult, "status" => 2]);
+                    }
+                }
+            } else {
+                $initialfeeOj = [
+                    "amount" => ($CsOrder['CsOrder']['initial_fee'] + $CsOrder['CsOrder']['initial_fee_tax']),
+                    "currency" => $CsOrder['CsOrder']['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA Initial Fee",
+                    "statement_descriptor" => "DIA InitialFee " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ];
+                $initialfeeresult = $this->Stripe->charge($initialfeeOj);
+                if (isset($initialfeeresult['status']) && $initialfeeresult['status'] == 'success') {
+                    $return['initial_fee'] = $CsOrder['CsOrder']['initial_fee'];
+                    $return['initial_fee_tax'] = $CsOrder['CsOrder']['initial_fee_tax'];
+                    $return['initial_fee_id'] = $initialfeeresult['stripe_id'];
+                    $return['infee_status'] = 1;
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $CsOrder['CsOrder']['initial_fee'], "transaction_id" => $initialfeeresult['stripe_id'], "status" => 1]);
+                } else {
+                    $error = true;
+                    $return['message'] = $initialfeeresult;
+                    $return['infee_status'] = 2;
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $CsOrder['CsOrder']['initial_fee'], "note" => $initialfeeresult, "status" => 2]);
+                }
+            }
+        }
+        return [$error, $return];
+    }
+
+    private function ChargeAmountInsuranceFee($usrData, $CsOrder, $return, $DepositRule, $error)
+    {
+        if ($CsOrder['CsOrder']['insu_status'] == 0 && $CsOrder['CsOrder']['insurance_amt'] > 0 && $error) {
+            $return['insu_status'] = 2;
+        }
+        if ($CsOrder['CsOrder']['insurance_amt'] == 0) {
+            $return['insu_status'] = 1;
+            return [$error, $return];
+        }
+        if ($error || $DepositRule['insurance_event'] != 'S') {
+            return [$error, $return];
+        }
+        $newamt = $CsOrder['CsOrder']['insurance_amt'];
+        $PrePaidInsu = $this->getTotalInsurance($CsOrder['CsOrder']['id']);
+        $amt = $newamt - $PrePaidInsu;
+        if ($amt == 0 || $amt < 0) {
+            $return['insu_status'] = 1;
+            return [$error, $return];
+        }
+        if ($CsOrder['CsOrder']['insurance_payer'] == 1) {
+            $CsSetting = DB::table('cs_settings')->where('user_id', $CsOrder['CsOrder']['user_id'])->first(['max_stripe_balance']);
+            $return = $this->chargeInsuranceFromDealer($return, $amt, $CsOrder['CsOrder']['user_id'], date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])), $CsSetting ? (array) $CsSetting : [], $CsOrder['CsOrder']['id']);
+            return [$error, $return];
+        }
+        $insuresult = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], $amt, $amt . ' insurance fee from ChargeAmountInsuranceFee', $CsOrder['CsOrder']['id'], 4);
+        if ($insuresult['status']) {
+            $return['insurance_transaction_id'] = $insuresult['transactions'];
+            $return['insurance_amt'] = $amt;
+            $return['insu_status'] = 1;
+            $return['insu_payerid'] = $CsOrder['CsOrder']['renter_id'];
+            if ($insuresult['pending'] > 0) {
+                $subinsuresult = $this->Stripe->charge([
+                    "amount" => $insuresult['pending'],
+                    "currency" => $CsOrder['CsOrder']['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA Insurance",
+                    "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ]);
+                if (isset($subinsuresult['status']) && $subinsuresult['status'] == 'success') {
+                    $return['insurance_transaction_id'][] = ["amt" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "source" => 'card'];
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "status" => 1]);
+                } else {
+                    $return['insu_status'] = 2;
+                    $error = true;
+                    $return['message'] = $subinsuresult;
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $insuresult['pending'], "note" => $subinsuresult, "status" => 2]);
+                }
+            }
+        } else {
+            $insuresult = $this->Stripe->charge([
+                "amount" => $amt,
+                "currency" => $CsOrder['CsOrder']['currency'],
+                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                "capture" => true,
+                "description" => ($CsOrder['CsOrder']['insurance_payer'] == 1) ? "DIA Insurance Paid By Dealer" : "DIA Insurance",
+                "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                "metadata" => ["payer_id" => $usrData['User']['id']],
+            ]);
+            if (isset($insuresult['status']) && $insuresult['status'] == 'success') {
+                $return['insurance_transaction_id'] = $insuresult['stripe_id'];
+                $return['insurance_amt'] = $amt;
+                $return['insu_status'] = 1;
+                $return['insu_payerid'] = $CsOrder['CsOrder']['renter_id'];
+                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $amt, "transaction_id" => $insuresult['stripe_id'], "status" => 1]);
+            } else {
+                $return['insu_status'] = 2;
+                $error = true;
+                $return['message'] = $insuresult;
+                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $amt, "note" => $insuresult, "status" => 2]);
+            }
+        }
+        return [$error, $return];
+    }
+
+    private function ChargeAmountRental($usrData, $CsOrder, $return, $DepositRule, $error)
+    {
+        if ($CsOrder['CsOrder']['payment_status'] == 0 && $CsOrder['CsOrder']['rent'] > 0 && $error) {
+            $return['payment_status'] = 2;
+        }
+        $paidData = $this->getTotalRentalTax($CsOrder['CsOrder']['id']);
+        $TotalRentPaid = sprintf('%0.2f', ($paidData['rent'] + $paidData['tax'] + $paidData['dia_fee']));
+        $TotalRentOp = sprintf('%0.2f', ($CsOrder['CsOrder']['rent'] + $CsOrder['CsOrder']['tax'] + $CsOrder['CsOrder']['dia_fee']));
+        $totalRent = sprintf('%0.2f', ($TotalRentOp - $TotalRentPaid));
+        if ($totalRent == 0 || $totalRent < 0) {
+            $return['payment_status'] = 1;
+            return [$error, $return];
+        }
+        if ($error || $DepositRule['charge_rent_event'] != 'S') {
+            return [$error, $return];
+        }
+        $rentresult = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], $totalRent, $totalRent . ' rental amount from ChargeAmount', $CsOrder['CsOrder']['id'], 2);
+        if ($rentresult['status']) {
+            $return['transaction_id'] = $rentresult['transactions'];
+            $return['payment_status'] = 1;
+            if ($rentresult['pending'] > 0) {
+                $subrentresult = $this->Stripe->charge([
+                    "amount" => $rentresult['pending'],
+                    "currency" => $CsOrder['CsOrder']['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA CAR",
+                    "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                    "metadata" => ["payer_id" => $usrData['User']['id']],
+                ]);
+                if (isset($subrentresult['status']) && $subrentresult['status'] == 'success') {
+                    $return['transaction_id'][] = ["amt" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "source" => 'card'];
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "status" => 1]);
+                } else {
+                    $return['payment_status'] = 2;
+                    $error = true;
+                    $return['message'] = $subrentresult;
+                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $rentresult['pending'], "note" => $subrentresult, "status" => 2]);
+                }
+            }
+        } else {
+            $rentresult = $this->Stripe->charge([
+                "amount" => $totalRent,
+                "currency" => $CsOrder['CsOrder']['currency'],
+                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                "capture" => true,
+                "description" => "DIA CAR",
+                "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
+                "metadata" => ["payer_id" => $usrData['User']['id']],
+            ]);
+            if (isset($rentresult['status']) && $rentresult['status'] == 'success') {
+                $return['transaction_id'] = $rentresult['stripe_id'];
+                $return['payment_status'] = 1;
+                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $totalRent, "transaction_id" => $rentresult['stripe_id'], "status" => 1]);
+            } else {
+                $error = true;
+                $return['message'] = $rentresult;
+                $return['payment_status'] = 2;
+                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $totalRent, "note" => $rentresult, "status" => 2]);
+            }
+        }
+        return [$error, $return];
+    }
+
+
+
+
+
+
+
+
+
+
 
     private function savePaymentLogRecord($data)
     {
@@ -76,13 +638,6 @@ class PaymentProcessor
     {
         return DB::table('cs_order_payments')
             ->where('cs_order_id', $orderId)->where('type', 4)->where('status', 1)
-            ->get()->map(fn($r) => (array) $r)->toArray();
-    }
-
-    private function getActiveRentalTransaction($orderId)
-    {
-        return DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)->where('type', 2)->where('status', 1)
             ->get()->map(fn($r) => (array) $r)->toArray();
     }
 
@@ -180,7 +735,9 @@ class PaymentProcessor
     {
         return DB::table('cs_order_payments')
             ->where('cs_order_id', $orderId)->where('type', 1)->where('status', 1)
-            ->where(function ($q) { $q->whereNull('cs_transfer')->orWhere('cs_transfer', 0); })
+            ->where(function ($q) {
+                $q->whereNull('cs_transfer')->orWhere('cs_transfer', 0);
+            })
             ->get()->map(fn($r) => (array) $r)->toArray();
     }
 
@@ -223,68 +780,104 @@ class PaymentProcessor
     private function saveDepositTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId, $type = 'C')
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
-            'amount' => $amount, 'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 1, 'txntype' => $type, 'status' => 1,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
+            'amount' => $amount,
+            'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
+            'type' => 1,
+            'txntype' => $type,
+            'status' => 1,
         ]);
     }
 
     private function saveInsuranceTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId, $payerId = null)
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
-            'amount' => $amount, 'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 4, 'status' => 1, 'payer_id' => $payerId,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
+            'amount' => $amount,
+            'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
+            'type' => 4,
+            'status' => 1,
+            'payer_id' => $payerId,
         ]);
     }
 
     private function saveRentalTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId, $tax = 0, $diaFee = 0)
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
-            'amount' => $amount, 'rent' => $amount,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
+            'amount' => $amount,
+            'rent' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 2, 'status' => 1, 'tax' => $tax, 'dia_fee' => $diaFee,
+            'type' => 2,
+            'status' => 1,
+            'tax' => $tax,
+            'dia_fee' => $diaFee,
         ]);
     }
 
     private function saveInitialFeeTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId, $tax = 0)
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
-            'amount' => $amount, 'rent' => $amount - $tax,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
+            'amount' => $amount,
+            'rent' => $amount - $tax,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 3, 'status' => 1, 'tax' => $tax,
+            'type' => 3,
+            'status' => 1,
+            'tax' => $tax,
         ]);
     }
 
     private function saveEmfTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId, $tax = 0)
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
-            'amount' => $amount, 'rent' => $amount,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
+            'amount' => $amount,
+            'rent' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 16, 'status' => 1, 'tax' => $tax,
+            'type' => 16,
+            'status' => 1,
+            'tax' => $tax,
         ]);
     }
 
     private function saveDiaInsuranceTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId, $payerId = null)
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
             'amount' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 14, 'status' => 1, 'payer_id' => $payerId,
+            'type' => 14,
+            'status' => 1,
+            'payer_id' => $payerId,
         ]);
     }
 
     private function saveLateFeeTransactionRecord($orderId, $currency, $renterId, $amount, $transactionId)
     {
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $currency, 'renter_id' => $renterId,
-            'amount' => $amount, 'rent' => $amount,
+            'cs_order_id' => $orderId,
+            'currency' => $currency,
+            'renter_id' => $renterId,
+            'amount' => $amount,
+            'rent' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 19, 'status' => 1, 'tax' => 0, 'dia_fee' => 0,
+            'type' => 19,
+            'status' => 1,
+            'tax' => 0,
+            'dia_fee' => 0,
         ]);
     }
 
@@ -292,11 +885,13 @@ class PaymentProcessor
     {
         $order = DB::table('cs_orders')->where('id', $orderId)->first(['currency', 'renter_id']);
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $order->currency ?? 'USD',
+            'cs_order_id' => $orderId,
+            'currency' => $order->currency ?? 'USD',
             'renter_id' => $order->renter_id ?? 0,
             'amount' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 6, 'status' => 1,
+            'type' => 6,
+            'status' => 1,
         ]);
     }
 
@@ -304,11 +899,13 @@ class PaymentProcessor
     {
         $order = DB::table('cs_orders')->where('id', $orderId)->first(['currency', 'renter_id']);
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $order->currency ?? 'USD',
+            'cs_order_id' => $orderId,
+            'currency' => $order->currency ?? 'USD',
             'renter_id' => $order->renter_id ?? 0,
             'amount' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => $typeId, 'status' => 1,
+            'type' => $typeId,
+            'status' => 1,
         ]);
     }
 
@@ -316,11 +913,13 @@ class PaymentProcessor
     {
         $order = DB::table('cs_orders')->where('id', $orderId)->first(['currency', 'renter_id']);
         $this->insertOrderPayment([
-            'cs_order_id' => $orderId, 'currency' => $order->currency ?? 'USD',
+            'cs_order_id' => $orderId,
+            'currency' => $order->currency ?? 'USD',
             'renter_id' => $order->renter_id ?? 0,
             'amount' => $amount,
             'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'type' => 7, 'status' => 1,
+            'type' => 7,
+            'status' => 1,
         ]);
     }
 
@@ -445,12 +1044,17 @@ class PaymentProcessor
         }
         if ($balance >= $amount) {
             DB::table('cs_wallets')->where('user_id', $userId)->update([
-                'balance' => DB::raw("balance - {$amount}"), 'updated' => now(),
+                'balance' => DB::raw("balance - {$amount}"),
+                'updated' => now(),
             ]);
             $txnId = DB::table('cs_wallet_transactions')->insertGetId([
-                'user_id' => $userId, 'amount' => $amount, 'type' => 'debit',
-                'payment_type' => $type, 'description' => $description,
-                'cs_order_id' => $orderId, 'created' => now(),
+                'user_id' => $userId,
+                'amount' => $amount,
+                'type' => 'debit',
+                'payment_type' => $type,
+                'description' => $description,
+                'cs_order_id' => $orderId,
+                'created' => now(),
             ]);
             return [
                 'status' => true,
@@ -470,12 +1074,17 @@ class PaymentProcessor
         $chargeAmt = min($balance, $amount);
         $pending = sprintf('%0.2f', $amount - $chargeAmt);
         DB::table('cs_wallets')->where('user_id', $userId)->update([
-            'balance' => DB::raw("balance - {$chargeAmt}"), 'updated' => now(),
+            'balance' => DB::raw("balance - {$chargeAmt}"),
+            'updated' => now(),
         ]);
         $txnId = DB::table('cs_wallet_transactions')->insertGetId([
-            'user_id' => $userId, 'amount' => $chargeAmt, 'type' => 'debit',
-            'payment_type' => $type, 'description' => $description,
-            'cs_order_id' => $orderId, 'created' => now(),
+            'user_id' => $userId,
+            'amount' => $chargeAmt,
+            'type' => 'debit',
+            'payment_type' => $type,
+            'description' => $description,
+            'cs_order_id' => $orderId,
+            'created' => now(),
         ]);
         return [
             'status' => true,
@@ -486,8 +1095,9 @@ class PaymentProcessor
 
     private function walletAddBalance($amount, $userId, $transactionId, $description, $orderId, $chargedAt = null)
     {
-        if ($amount <= 0) return;
-        
+        if ($amount <= 0)
+            return;
+
         $wallet = DB::table('cs_wallets')->where('user_id', $userId)->first();
         if (!$wallet) {
             DB::table('cs_wallets')->insert([
@@ -503,110 +1113,18 @@ class PaymentProcessor
         }
 
         DB::table('cs_wallet_transactions')->insert([
-            'user_id' => $userId, 'amount' => $amount, 'type' => 'credit',
-            'description' => $description, 'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
-            'cs_order_id' => $orderId, 'charged_at' => $chargedAt, 'created' => now(),
+            'user_id' => $userId,
+            'amount' => $amount,
+            'type' => 'credit',
+            'description' => $description,
+            'transaction_id' => is_array($transactionId) ? json_encode($transactionId) : $transactionId,
+            'cs_order_id' => $orderId,
+            'charged_at' => $chargedAt,
+            'created' => now(),
         ]);
     }
 
-    // ─── Stripe Connect Token ───
 
-    private function createConnectAccountToken($customertoken, $stripe_account)
-    {
-        return $this->Stripe->createCardToken(['customer' => $customertoken], ["stripe_account" => $stripe_account]);
-    }
-
-    // ═══════════════════════════════════════════
-    // CARD MANAGEMENT
-    // ═══════════════════════════════════════════
-
-    public function addNewCard($dataValues, $cust_id = '')
-    {
-        $return = ['status' => 'error', 'authcode' => '', 'message' => 'Required inputs are missing'];
-        $dataValues->credit_card_number = preg_replace("/[^0-9]/", "", $dataValues->credit_card_number ?? '');
-        if (empty($dataValues->credit_card_number) || empty($dataValues->cvv ?? '') || empty($dataValues->expiration ?? '')) {
-            return $return;
-        }
-        $ccexpdate = explode("/", $dataValues->expiration ?? '');
-        $this->stripe();
-        $result = $this->Stripe->createCardToken([
-            "card" => [
-                "number" => $dataValues->credit_card_number,
-                "exp_month" => $ccexpdate[0] ?? '',
-                "exp_year" => $ccexpdate[1] ?? '',
-                "cvc" => $dataValues->cvv ?? '',
-                "name" => $dataValues->card_holder_name ?? '',
-                "address_zip" => $dataValues->zip ?? '',
-                "address_city" => $dataValues->city ?? '',
-                "address_state" => $dataValues->state ?? '',
-                "address_country" => ($dataValues->country ?? '') != '' ? $dataValues->country : 'US',
-                "address_line1" => $dataValues->address ?? '',
-            ],
-        ]);
-        if (!isset($result['status']) || $result['status'] != 'success') {
-            $return['message'] = $result['msg'] ?? ($result['message'] ?? 'Card token creation failed');
-            return $return;
-        }
-        if (!empty($cust_id)) {
-            $result2 = $this->Stripe->addCardToCustomer($cust_id, $result['token'], ["name" => $dataValues->card_holder_name]);
-            if (isset($result2['status']) && $result2['status'] == 'success') {
-                $return['status'] = 'success';
-                $return['stripe_token'] = $cust_id;
-                $return['card_id'] = $result2['stripe_id'];
-                $return['card_funding'] = $result['card_funding'];
-            } else {
-                $return['message'] = $result2;
-            }
-            return $return;
-        }
-        $result1 = $this->Stripe->customerCreate(["stripeToken" => $result['token']]);
-        if (isset($result1['status']) && $result1['status'] == 'success') {
-            $return['status'] = 'success';
-            $return['stripe_token'] = $result1['stripe_id'];
-            $return['card_id'] = $result['card_id'];
-            $return['card_funding'] = $result['card_funding'];
-        } else {
-            $return['message'] = $result1;
-        }
-        return $return;
-    }
-
-    public function addCardToCustomer($cust_id, $card_id, $opt = [])
-    {
-        $this->stripe();
-        return $this->Stripe->addCardToCustomer($cust_id, $card_id, $opt);
-    }
-
-    public function makeCardDefault($cust_id, $card_id)
-    {
-        $this->stripe();
-        return $this->Stripe->makeCardDefault($cust_id, ["default_source" => $card_id]);
-    }
-
-    public function deleteCustomerCard($cust_id, $card_id)
-    {
-        $this->stripe();
-        return $this->Stripe->deleteCustomerCard($cust_id, $card_id);
-    }
-
-    public function customerDelete($cust_id)
-    {
-        $return = ['status' => 'error', 'message' => 'Required inputs are missing'];
-        if (empty($cust_id)) return $return;
-        $this->stripe();
-        $this->Stripe->customerDelete(['cust_id' => $cust_id]);
-        return true;
-    }
-
-    // ═══════════════════════════════════════════
-    // CUSTOMER / DEALER LOOKUPS
-    // ═══════════════════════════════════════════
-
-    public function getdealerourcekey($userid)
-    {
-        $row = DB::table('users')->where('id', $userid)->first(['stripe_key', 'currency']);
-        return $row ? (array) $row : '';
-    }
 
     public function getCustomer($customerid, $cc_token_id = '')
     {
@@ -636,7 +1154,8 @@ class PaymentProcessor
                 if (($usrData['UserCcToken']['stripe_token'] ?? '') == 'HTICH' || ($usrData['UserCcToken']['card_funding'] ?? '') == 'fake') {
                     $dealerid = config($usrData['UserCcToken']['stripe_token']);
                     $dealer = DB::table('users')->where('id', $dealerid)->first(['id', 'stripe_key', 'currency']);
-                    if (empty($dealer)) return [];
+                    if (empty($dealer))
+                        return [];
                     $usrData['UserCcToken']['stripe_token'] = $dealer->stripe_key;
                     $usrData['UserCcToken']['is_dealer'] = 1;
                     $usrData['User']['id'] = $dealer->id;
@@ -662,7 +1181,7 @@ class PaymentProcessor
             $return[$dia ? 'dia_insu_status' : 'insu_status'] = 2;
             return $return;
         }
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $insuresult = $this->Stripe->charge([
             "amount" => $amt,
             "currency" => $stripeKey['currency'] ?? 'USD',
@@ -694,400 +1213,8 @@ class PaymentProcessor
         return $return;
     }
 
-    // ═══════════════════════════════════════════
-    // BOOKING CREATE: checkAndProcessForMobile
-    // ═══════════════════════════════════════════
 
-    public function checkAndProcessForMobile($renterid, $owner_id, $priceRulesAmt = [])
-    {
-        if (empty($priceRulesAmt)) {
-            return ['status' => 'error', 'message' => 'Payment Details not saved', 'payment_id' => ''];
-        }
-        $usrData = $this->getCustomer($renterid);
-        $return = [
-            'rent' => $priceRulesAmt['time_fee'], 'tax' => $priceRulesAmt['tax'],
-            'dia_fee' => $priceRulesAmt['dia_fee'], 'deposit' => $priceRulesAmt['deposit_amt'],
-            'deposit_type' => $priceRulesAmt['deposit_type'], 'status' => 'success',
-            'deposit_auth' => '', 'transaction_id' => '', 'renter_id' => $renterid,
-            'user_id' => $owner_id, 'message' => 'Sorry, one of payment get failed',
-            'insurance_amt' => 0, 'insurance_transaction_id' => '', 'emf_transaction_id' => '',
-            'initial_fee' => $priceRulesAmt['initial_fee'],
-            'initial_fee_tax' => $priceRulesAmt['initial_fee_tax'],
-            'dpa_status' => 0, 'insu_status' => 0, 'payment_status' => 0,
-            'infee_status' => 0, 'emf_status' => 0, 'currency' => $priceRulesAmt['currency'],
-        ];
-        $this->stripe();
 
-        if ($priceRulesAmt['deposit_amt'] > 0 && ($priceRulesAmt['deposit_event'] == 'P' || $priceRulesAmt['deposit_event'] == 'D')) {
-            $result = $this->walletChargeFromWallet($renterid, $priceRulesAmt['deposit_amt'], $priceRulesAmt['deposit_amt'] . ' Deposit amount from checkAndProcessForMobile', 1);
-            if ($result['status']) {
-                $return['deposit'] = $priceRulesAmt['deposit_amt'];
-                $return['deposit_auth'] = $result['transactions'];
-                $return['message'] = 'success';
-                $return['dpa_status'] = 1;
-                $return['deposit_type'] = "C";
-            } else {
-                $result = $this->Stripe->charge([
-                    "amount" => $priceRulesAmt['deposit_amt'], "currency" => $priceRulesAmt['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => ($priceRulesAmt['deposit_type'] == 'P') ? false : true,
-                    "description" => "DIA Deposit", "statement_descriptor" => "DIA Deposit",
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ]);
-                if (isset($result['status']) && $result['status'] == 'success') {
-                    $return['deposit'] = $priceRulesAmt['deposit_amt'];
-                    $return['deposit_auth'] = $result['stripe_id'];
-                    $return['message'] = 'success';
-                    $return['dpa_status'] = 1;
-                } else {
-                    $return['message'] = $result;
-                    $return['status'] = 'error';
-                    $return['dpa_status'] = 2;
-                }
-            }
-        }
-
-        if ($return['status'] == 'success' && $priceRulesAmt['initial_fee'] > 0 && $priceRulesAmt['initial_event'] == 'P') {
-            $initialfeeresult = $this->walletChargeFromWallet($renterid, ($priceRulesAmt['initial_fee'] + $priceRulesAmt['initial_fee_tax']), $priceRulesAmt['initial_fee'] . ' initial fee amount from checkAndProcessForMobile', 3);
-            if ($initialfeeresult['status']) {
-                $return['status'] = 'success';
-                $return['initial_fee_id'] = $initialfeeresult['transactions'];
-                $return['initial_fee_tax'] = $priceRulesAmt['initial_fee_tax'];
-                $return['infee_status'] = 1;
-            } else {
-                $initialfeeObj = [
-                    "amount" => ($priceRulesAmt['initial_fee'] + $priceRulesAmt['initial_fee_tax']),
-                    "currency" => $priceRulesAmt['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA Initial Fee",
-                    "statement_descriptor" => "DIA Initial Fee",
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ];
-                $initialfeeresult = $this->Stripe->charge($initialfeeObj);
-                if (isset($initialfeeresult['status']) && $initialfeeresult['status'] == 'success') {
-                    $return['status'] = 'success';
-                    $return['initial_fee_id'] = $initialfeeresult['stripe_id'];
-                    $return['initial_fee'] = $priceRulesAmt['initial_fee'];
-                    $return['initial_fee_tax'] = $priceRulesAmt['initial_fee_tax'];
-                    $return['infee_status'] = 1;
-                } else {
-                    $return['infee_status'] = 2;
-                }
-            }
-        }
-
-        if ($return['status'] == 'success' && $priceRulesAmt['time_fee'] > 0 && $priceRulesAmt['charge_rent_event'] == 'P') {
-            $Rentresult = $this->walletChargeFromWallet($renterid, ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']), ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']) . ' rental fee amount from checkAndProcessForMobile', 2);
-            if ($Rentresult['status']) {
-                $return['transaction_id'] = $Rentresult['transactions'];
-                $return['payment_status'] = 1;
-            } else {
-                $RentObj = [
-                    "amount" => ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']),
-                    "currency" => $priceRulesAmt['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA CAR", "statement_descriptor" => "DIA CAR",
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ];
-                $Rentresult = $this->Stripe->charge($RentObj);
-                if (isset($Rentresult['status']) && $Rentresult['status'] == 'success') {
-                    $return['transaction_id'] = $Rentresult['stripe_id'];
-                    $return['rental_amt'] = ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']);
-                    $return['payment_status'] = 1;
-                } else {
-                    $return['payment_status'] = 2;
-                }
-            }
-        }
-
-        if ($return['status'] == 'success' && ($priceRulesAmt['extra_mileage_fee'] ?? 0) > 0 && $priceRulesAmt['charge_rent_event'] == 'P') {
-            $extra_mileage_fee = ($priceRulesAmt['extra_mileage_fee'] + ($priceRulesAmt['emf_tax'] ?? 0));
-            $Rentresult = $this->walletChargeFromWallet($renterid, $extra_mileage_fee, $extra_mileage_fee . ' emf fee amount from checkAndProcessForMobile', 16);
-            if ($Rentresult['status']) {
-                $return['emf_transaction_id'] = $Rentresult['transactions'];
-                $return['emf_status'] = 1;
-            } else {
-                $RentObj = [
-                    "amount" => $extra_mileage_fee, "currency" => $priceRulesAmt['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA EMF", "statement_descriptor" => "DIA EMF",
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ];
-                $Rentresult = $this->Stripe->charge($RentObj);
-                if (isset($Rentresult['status']) && $Rentresult['status'] == 'success') {
-                    $return['emf_transaction_id'] = $Rentresult['stripe_id'];
-                    $return['emf_fee'] = $extra_mileage_fee;
-                    $return['emf_status'] = 1;
-                } else {
-                    $return['emf_status'] = 2;
-                }
-            }
-        }
-
-        if ($return['status'] == 'success' && $priceRulesAmt['insurance_amt'] > 0 && $priceRulesAmt['insurance_event'] == 'P') {
-            if (($priceRulesAmt['insurance_payer'] ?? 0) == 1) {
-                $CsSetting = DB::table('cs_settings')->where('user_id', $owner_id)->first(['max_stripe_balance']);
-                $return = $this->chargeInsuranceFromDealer($return, $priceRulesAmt['insurance_amt'], $owner_id, "", $CsSetting ? (array) $CsSetting : []);
-            } else {
-                $insuresult = $this->walletChargeFromWallet($renterid, $priceRulesAmt['insurance_amt'], $priceRulesAmt['insurance_amt'] . ' insurance fee amount from checkAndProcessForMobile', 4);
-                if ($insuresult['status']) {
-                    $return['insurance_transaction_id'] = $insuresult['transactions'];
-                    $return['insurance_amt'] = $priceRulesAmt['insurance_amt'];
-                    $return['insu_status'] = 1;
-                    $return['insu_payerid'] = $renterid;
-                } else {
-                    $stripe_token = $usrData['UserCcToken']['stripe_token'];
-                    $insuresult = $this->Stripe->charge([
-                        "amount" => $priceRulesAmt['insurance_amt'], "currency" => $priceRulesAmt['currency'],
-                        "stripeCustomer" => $stripe_token, "capture" => true,
-                        "description" => (($priceRulesAmt['insurance_payer'] ?? 0) == 1) ? "DIA Insurance Paid By Dealer" : "DIA Insurance",
-                        "statement_descriptor" => "DIA INS&FEES",
-                        "metadata" => ["payer_id" => $usrData['User']['id']],
-                    ]);
-                    if (isset($insuresult['status']) && $insuresult['status'] == 'success') {
-                        $return['insurance_transaction_id'] = $insuresult['stripe_id'];
-                        $return['insurance_amt'] = $priceRulesAmt['insurance_amt'];
-                        $return['insu_status'] = 1;
-                        $return['insu_payerid'] = $renterid;
-                    } else {
-                        $return['insu_status'] = 2;
-                    }
-                }
-            }
-        }
-        return $return;
-    }
-
-    // ═══════════════════════════════════════════
-    // CHARGE AMOUNT (Booking Start Event)
-    // ═══════════════════════════════════════════
-
-    private function ChargeAmountDeposit($usrData, $CsOrder, $return, $DepositRule, $error)
-    {
-        if ($CsOrder['CsOrder']['dpa_status'] == 0 && $CsOrder['CsOrder']['deposit'] > 0 && $DepositRule['deposit_event'] == 'S') {
-            $result = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], $CsOrder['CsOrder']['deposit'], $CsOrder['CsOrder']['deposit'] . ' deposit amount from ChargeAmount', $CsOrder['CsOrder']['id'], 1);
-            if ($result['status']) {
-                $return['deposit'] = $CsOrder['CsOrder']['deposit'];
-                $return['deposit_auth'] = $result['transactions'];
-                $return['dpa_status'] = 1;
-                if ($result['pending']) {
-                    $subresult = $this->Stripe->charge([
-                        "amount" => $result['pending'], "currency" => $CsOrder['CsOrder']['currency'],
-                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                        "description" => "DIA Deposit",
-                        "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                        "metadata" => ["payer_id" => $usrData['User']['id']],
-                    ]);
-                    if (isset($subresult['status']) && $subresult['status'] == 'success') {
-                        $return['deposit_auth'][] = ["amt" => $result['pending'], "transaction_id" => $subresult['stripe_id'], "source" => 'card'];
-                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $result['pending'], "transaction_id" => $subresult['stripe_id'], "status" => 1]);
-                    } else {
-                        $return['dpa_status'] = 2; $error = true; $return['message'] = $subresult;
-                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $result['pending'], "note" => $subresult, "status" => 2]);
-                    }
-                }
-            } else {
-                $result = $this->Stripe->charge([
-                    "amount" => $CsOrder['CsOrder']['deposit'], "currency" => $CsOrder['CsOrder']['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => ($DepositRule['deposit_type'] == "P") ? false : true,
-                    "description" => "DIA Deposit",
-                    "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ]);
-                if (isset($result['status']) && $result['status'] == 'success') {
-                    $return['deposit'] = $CsOrder['CsOrder']['deposit'];
-                    $return['deposit_auth'] = $result['stripe_id'];
-                    $return['dpa_status'] = 1;
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $CsOrder['CsOrder']['deposit'], "transaction_id" => $result['stripe_id'], "status" => 1]);
-                } else {
-                    $error = true; $return['dpa_status'] = 2; $return['message'] = $result;
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 1, "amount" => $CsOrder['CsOrder']['deposit'], "note" => $result, "status" => 2]);
-                }
-            }
-        }
-        return [$error, $return];
-    }
-
-    private function ChargeAmountInitialFee($usrData, $CsOrder, $return, $error)
-    {
-        if ($CsOrder['CsOrder']['infee_status'] == 0 && ($CsOrder['CsOrder']['initial_fee'] > 0 || $CsOrder['CsOrder']['initial_fee_tax'] > 0) && $error) {
-            $return['infee_status'] = 2;
-        }
-        if ($CsOrder['CsOrder']['initial_fee'] == 0 && $CsOrder['CsOrder']['initial_fee_tax']) {
-            $return['infee_status'] = 1;
-        }
-        if (!$error && $CsOrder['CsOrder']['infee_status'] == 0 && $CsOrder['CsOrder']['initial_fee'] > 0 && $CsOrder['CsOrder']['initial_event'] == 'S') {
-            $initialfeeresult = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], ($CsOrder['CsOrder']['initial_fee'] + $CsOrder['CsOrder']['initial_fee_tax']), $CsOrder['CsOrder']['initial_fee'] . ' initial fee amount from ChargeAmount', $CsOrder['CsOrder']['id'], 3);
-            if ($initialfeeresult['status']) {
-                $return['initial_fee'] = $CsOrder['CsOrder']['initial_fee'];
-                $return['initial_fee_tax'] = $CsOrder['CsOrder']['initial_fee_tax'];
-                $return['initial_fee_id'] = $initialfeeresult['transactions'];
-                $return['infee_status'] = 1;
-                if ($initialfeeresult['pending'] > 0) {
-                    $subinitialfeeresult = $this->Stripe->charge([
-                        "amount" => $initialfeeresult['pending'], "currency" => $CsOrder['CsOrder']['currency'],
-                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                        "description" => "DIA Initial Fee",
-                        "statement_descriptor" => "DIA InitialFee " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                        "metadata" => ["payer_id" => $usrData['User']['id']],
-                    ]);
-                    if (isset($subinitialfeeresult['status']) && $subinitialfeeresult['status'] == 'success') {
-                        $return['initial_fee_id'][] = ["amt" => $initialfeeresult['pending'], "transaction_id" => $subinitialfeeresult['stripe_id'], "source" => 'card'];
-                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $initialfeeresult['pending'], "transaction_id" => $subinitialfeeresult['stripe_id'], "status" => 1]);
-                    } else {
-                        $return['infee_status'] = 2; $error = true; $return['message'] = $subinitialfeeresult;
-                        $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $initialfeeresult['pending'], "note" => $subinitialfeeresult, "status" => 2]);
-                    }
-                }
-            } else {
-                $initialfeeOj = [
-                    "amount" => ($CsOrder['CsOrder']['initial_fee'] + $CsOrder['CsOrder']['initial_fee_tax']),
-                    "currency" => $CsOrder['CsOrder']['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                    "description" => "DIA Initial Fee",
-                    "statement_descriptor" => "DIA InitialFee " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ];
-                $initialfeeresult = $this->Stripe->charge($initialfeeOj);
-                if (isset($initialfeeresult['status']) && $initialfeeresult['status'] == 'success') {
-                    $return['initial_fee'] = $CsOrder['CsOrder']['initial_fee'];
-                    $return['initial_fee_tax'] = $CsOrder['CsOrder']['initial_fee_tax'];
-                    $return['initial_fee_id'] = $initialfeeresult['stripe_id'];
-                    $return['infee_status'] = 1;
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $CsOrder['CsOrder']['initial_fee'], "transaction_id" => $initialfeeresult['stripe_id'], "status" => 1]);
-                } else {
-                    $error = true; $return['message'] = $initialfeeresult; $return['infee_status'] = 2;
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 15, "amount" => $CsOrder['CsOrder']['initial_fee'], "note" => $initialfeeresult, "status" => 2]);
-                }
-            }
-        }
-        return [$error, $return];
-    }
-
-    private function ChargeAmountInsuranceFee($usrData, $CsOrder, $return, $DepositRule, $error)
-    {
-        if ($CsOrder['CsOrder']['insu_status'] == 0 && $CsOrder['CsOrder']['insurance_amt'] > 0 && $error) {
-            $return['insu_status'] = 2;
-        }
-        if ($CsOrder['CsOrder']['insurance_amt'] == 0) {
-            $return['insu_status'] = 1;
-            return [$error, $return];
-        }
-        if ($error || $DepositRule['insurance_event'] != 'S') {
-            return [$error, $return];
-        }
-        $newamt = $CsOrder['CsOrder']['insurance_amt'];
-        $PrePaidInsu = $this->getTotalInsurance($CsOrder['CsOrder']['id']);
-        $amt = $newamt - $PrePaidInsu;
-        if ($amt == 0 || $amt < 0) {
-            $return['insu_status'] = 1;
-            return [$error, $return];
-        }
-        if ($CsOrder['CsOrder']['insurance_payer'] == 1) {
-            $CsSetting = DB::table('cs_settings')->where('user_id', $CsOrder['CsOrder']['user_id'])->first(['max_stripe_balance']);
-            $return = $this->chargeInsuranceFromDealer($return, $amt, $CsOrder['CsOrder']['user_id'], date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])), $CsSetting ? (array) $CsSetting : [], $CsOrder['CsOrder']['id']);
-            return [$error, $return];
-        }
-        $insuresult = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], $amt, $amt . ' insurance fee from ChargeAmountInsuranceFee', $CsOrder['CsOrder']['id'], 4);
-        if ($insuresult['status']) {
-            $return['insurance_transaction_id'] = $insuresult['transactions'];
-            $return['insurance_amt'] = $amt;
-            $return['insu_status'] = 1;
-            $return['insu_payerid'] = $CsOrder['CsOrder']['renter_id'];
-            if ($insuresult['pending'] > 0) {
-                $subinsuresult = $this->Stripe->charge([
-                    "amount" => $insuresult['pending'], "currency" => $CsOrder['CsOrder']['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                    "description" => "DIA Insurance",
-                    "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ]);
-                if (isset($subinsuresult['status']) && $subinsuresult['status'] == 'success') {
-                    $return['insurance_transaction_id'][] = ["amt" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "source" => 'card'];
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "status" => 1]);
-                } else {
-                    $return['insu_status'] = 2; $error = true; $return['message'] = $subinsuresult;
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $insuresult['pending'], "note" => $subinsuresult, "status" => 2]);
-                }
-            }
-        } else {
-            $insuresult = $this->Stripe->charge([
-                "amount" => $amt, "currency" => $CsOrder['CsOrder']['currency'],
-                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                "description" => ($CsOrder['CsOrder']['insurance_payer'] == 1) ? "DIA Insurance Paid By Dealer" : "DIA Insurance",
-                "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                "metadata" => ["payer_id" => $usrData['User']['id']],
-            ]);
-            if (isset($insuresult['status']) && $insuresult['status'] == 'success') {
-                $return['insurance_transaction_id'] = $insuresult['stripe_id'];
-                $return['insurance_amt'] = $amt;
-                $return['insu_status'] = 1;
-                $return['insu_payerid'] = $CsOrder['CsOrder']['renter_id'];
-                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $amt, "transaction_id" => $insuresult['stripe_id'], "status" => 1]);
-            } else {
-                $return['insu_status'] = 2; $error = true; $return['message'] = $insuresult;
-                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 10, "amount" => $amt, "note" => $insuresult, "status" => 2]);
-            }
-        }
-        return [$error, $return];
-    }
-
-    private function ChargeAmountRental($usrData, $CsOrder, $return, $DepositRule, $error)
-    {
-        if ($CsOrder['CsOrder']['payment_status'] == 0 && $CsOrder['CsOrder']['rent'] > 0 && $error) {
-            $return['payment_status'] = 2;
-        }
-        $paidData = $this->getTotalRentalTax($CsOrder['CsOrder']['id']);
-        $TotalRentPaid = sprintf('%0.2f', ($paidData['rent'] + $paidData['tax'] + $paidData['dia_fee']));
-        $TotalRentOp = sprintf('%0.2f', ($CsOrder['CsOrder']['rent'] + $CsOrder['CsOrder']['tax'] + $CsOrder['CsOrder']['dia_fee']));
-        $totalRent = sprintf('%0.2f', ($TotalRentOp - $TotalRentPaid));
-        if ($totalRent == 0 || $totalRent < 0) {
-            $return['payment_status'] = 1;
-            return [$error, $return];
-        }
-        if ($error || $DepositRule['charge_rent_event'] != 'S') {
-            return [$error, $return];
-        }
-        $rentresult = $this->walletChargePartialFromWallet($CsOrder['CsOrder']['renter_id'], $totalRent, $totalRent . ' rental amount from ChargeAmount', $CsOrder['CsOrder']['id'], 2);
-        if ($rentresult['status']) {
-            $return['transaction_id'] = $rentresult['transactions'];
-            $return['payment_status'] = 1;
-            if ($rentresult['pending'] > 0) {
-                $subrentresult = $this->Stripe->charge([
-                    "amount" => $rentresult['pending'], "currency" => $CsOrder['CsOrder']['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                    "description" => "DIA CAR",
-                    "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                    "metadata" => ["payer_id" => $usrData['User']['id']],
-                ]);
-                if (isset($subrentresult['status']) && $subrentresult['status'] == 'success') {
-                    $return['transaction_id'][] = ["amt" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "source" => 'card'];
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "status" => 1]);
-                } else {
-                    $return['payment_status'] = 2; $error = true; $return['message'] = $subrentresult;
-                    $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $rentresult['pending'], "note" => $subrentresult, "status" => 2]);
-                }
-            }
-        } else {
-            $rentresult = $this->Stripe->charge([
-                "amount" => $totalRent, "currency" => $CsOrder['CsOrder']['currency'],
-                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                "description" => "DIA CAR",
-                "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
-                "metadata" => ["payer_id" => $usrData['User']['id']],
-            ]);
-            if (isset($rentresult['status']) && $rentresult['status'] == 'success') {
-                $return['transaction_id'] = $rentresult['stripe_id'];
-                $return['payment_status'] = 1;
-                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $totalRent, "transaction_id" => $rentresult['stripe_id'], "status" => 1]);
-            } else {
-                $error = true; $return['message'] = $rentresult; $return['payment_status'] = 2;
-                $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 5, "amount" => $totalRent, "note" => $rentresult, "status" => 2]);
-            }
-        }
-        return [$error, $return];
-    }
 
     private function ChargeAmountEmf($usrData, $CsOrder, $return, $DepositRule, $error)
     {
@@ -1105,8 +1232,10 @@ class PaymentProcessor
                 $return['emf_status'] = 1;
                 if ($rentresult['pending'] > 0) {
                     $subrentresult = $this->Stripe->charge([
-                        "amount" => $rentresult['pending'], "currency" => $CsOrder['CsOrder']['currency'],
-                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                        "amount" => $rentresult['pending'],
+                        "currency" => $CsOrder['CsOrder']['currency'],
+                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                        "capture" => true,
                         "description" => "DIA EMF",
                         "statement_descriptor" => "DIA EMF " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
                         "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -1115,14 +1244,18 @@ class PaymentProcessor
                         $return['emf_transaction_id'][] = ["amt" => $rentresult['pending'], "emf_transaction_id" => $subrentresult['stripe_id'], "source" => 'card'];
                         $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 27, "amount" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "status" => 1]);
                     } else {
-                        $return['emf_status'] = 2; $error = true; $return['message'] = $subrentresult;
+                        $return['emf_status'] = 2;
+                        $error = true;
+                        $return['message'] = $subrentresult;
                         $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 27, "amount" => $rentresult['pending'], "note" => $subrentresult, "status" => 2]);
                     }
                 }
             } else {
                 $rentresult = $this->Stripe->charge([
-                    "amount" => $totalRent, "currency" => $CsOrder['CsOrder']['currency'],
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                    "amount" => $totalRent,
+                    "currency" => $CsOrder['CsOrder']['currency'],
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
                     "description" => "DIA EMF",
                     "statement_descriptor" => "DIA EMF " . date('mdy', strtotime($CsOrder['CsOrder']['start_datetime'])),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -1132,7 +1265,9 @@ class PaymentProcessor
                     $return['emf_status'] = 1;
                     $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 27, "amount" => $totalRent, "transaction_id" => $rentresult['stripe_id'], "status" => 1]);
                 } else {
-                    $return['message'] = $rentresult; $return['emf_status'] = 2; $error = true;
+                    $return['message'] = $rentresult;
+                    $return['emf_status'] = 2;
+                    $error = true;
                     $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 27, "amount" => $totalRent, "note" => $rentresult, "status" => 2]);
                 }
             }
@@ -1143,7 +1278,7 @@ class PaymentProcessor
     public function ChargeAmount($CsOrder, $DepositRule)
     {
         $usrData = $this->getCustomer($CsOrder['CsOrder']['renter_id'], $CsOrder['CsOrder']['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['currency' => $CsOrder['CsOrder']['currency'], 'deposit' => $CsOrder['CsOrder']['deposit'], 'deposit_type' => $DepositRule['deposit_type'], 'status' => 'error', 'deposit_auth' => '', 'transaction_id' => '', 'message' => 'Sorry, one of payment get failed'];
         $error = false;
         list($error, $return) = $this->ChargeAmountDeposit($usrData, $CsOrder, $return, $DepositRule, $error);
@@ -1747,7 +1882,7 @@ class PaymentProcessor
             }
             $refundamount = 0;
             $pendingtax = $refundTax;
-            $rentals = $this->getActiveRentalTransaction($CsOrderTemp['CsOrder']['id']);
+            $rentals = CsOrderPayment::getActiveRentalTransaction($CsOrderTemp['CsOrder']['id']);
 
             foreach ($rentals as $rental) {
                 if (!$refundableAmt) {
@@ -2129,7 +2264,7 @@ class PaymentProcessor
     public function ChargeCancelAmount($CsOrder, $cancellation_fee)
     {
         $usrData = $this->getCustomer($CsOrder['CsOrder']['renter_id'], $CsOrder['CsOrder']['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
 
         if ($CsOrder['CsOrder']['dpa_status'] == 1 && ($CsOrder['CsOrder']['deposit'] > 0)) {
@@ -2171,7 +2306,7 @@ class PaymentProcessor
         }
 
         if ($CsOrder['CsOrder']['payment_status'] == 1 && ($CsOrder['CsOrder']['rent'] > 0)) {
-            $payments = $this->getActiveRentalTransaction($CsOrder['CsOrder']['id']);
+            $payments = CsOrderPayment::getActiveRentalTransaction($CsOrder['CsOrder']['id']);
             foreach ($payments as $payment) {
                 $this->walletAddBalance($payment['amount'], $CsOrder['CsOrder']['renter_id'], $payment['transaction_id'], $payment['amount'] . " rental refund from cancel booking", $CsOrder['CsOrder']['id'], $payment['charged_at']);
                 $this->updateOrderPayments(['status' => 2], ['id' => $payment['id']]);
@@ -2245,7 +2380,7 @@ class PaymentProcessor
             $return['status'] = 'error';
             return $return;
         }
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $PaymentError = false;
 
         list($return, $PaymentError) = $this->ChargeRental($CsOrder, $return, $usrData, $CsOrderTemp, $PaymentError);
@@ -2281,7 +2416,7 @@ class PaymentProcessor
             $return['status'] = 'error';
             return $return;
         }
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $PaymentError = false;
 
         list($return, $PaymentError) = $this->chargeInitialFee($CsOrder, $return, $usrData, $PaymentError);
@@ -2309,14 +2444,21 @@ class PaymentProcessor
         $OrderObj = $this->findOrderById($CsOrderId);
         $startDate = $OrderObj['CsOrder']['start_datetime'] ?? '';
         $usrData = $this->getCustomer($renterid, $cc_token_id);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = [
-            'rent' => $priceRulesAmt['time_fee'], 'tax' => $priceRulesAmt['tax'],
-            'dia_fee' => $priceRulesAmt['dia_fee'], 'extra_mileage_fee' => $priceRulesAmt['extra_mileage_fee'] ?? 0,
-            'status' => 'success', 'transaction_id' => '', 'renter_id' => $renterid,
-            'user_id' => $owner_id, 'message' => 'success',
-            'insurance_amt' => $priceRulesAmt['insurance_amt'], 'insurance_transaction_id' => '',
-            'initial_fee' => 0, 'currency' => $OrderObj['CsOrder']['currency'] ?? 'USD',
+            'rent' => $priceRulesAmt['time_fee'],
+            'tax' => $priceRulesAmt['tax'],
+            'dia_fee' => $priceRulesAmt['dia_fee'],
+            'extra_mileage_fee' => $priceRulesAmt['extra_mileage_fee'] ?? 0,
+            'status' => 'success',
+            'transaction_id' => '',
+            'renter_id' => $renterid,
+            'user_id' => $owner_id,
+            'message' => 'success',
+            'insurance_amt' => $priceRulesAmt['insurance_amt'],
+            'insurance_transaction_id' => '',
+            'initial_fee' => 0,
+            'currency' => $OrderObj['CsOrder']['currency'] ?? 'USD',
         ];
         $preDeposits = $this->getTotalDeposit($preOrderId);
         $error = false;
@@ -2335,7 +2477,8 @@ class PaymentProcessor
         } else {
             if ($priceRulesAmt['deposit_amt'] > 0 && ($priceRulesAmt['deposit_event'] == 'P' || $priceRulesAmt['deposit_event'] == 'S')) {
                 $result = $this->Stripe->charge([
-                    "amount" => $priceRulesAmt['deposit_amt'], "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
+                    "amount" => $priceRulesAmt['deposit_amt'],
+                    "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
                     "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
                     "capture" => ($priceRulesAmt['deposit_type'] == 'P') ? false : true,
                     "description" => "DIA Deposit",
@@ -2367,36 +2510,49 @@ class PaymentProcessor
                 $return['payment_status'] = 1;
                 if ($Rentresult['pending'] > 0) {
                     $SubRentresult = $this->Stripe->charge([
-                        "amount" => $Rentresult['pending'], "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
-                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                        "description" => "DIA CAR", "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
+                        "amount" => $Rentresult['pending'],
+                        "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
+                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                        "capture" => true,
+                        "description" => "DIA CAR",
+                        "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
                         "metadata" => ["payer_id" => $usrData['User']['id']],
                     ]);
                     if (isset($SubRentresult['status']) && $SubRentresult['status'] == 'success') {
                         $return['transaction_id'][] = ["amt" => $Rentresult['pending'], "transaction_id" => $SubRentresult['stripe_id'], "source" => 'card'];
                         $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 5, "amount" => $Rentresult['pending'], "transaction_id" => $SubRentresult['stripe_id'], "status" => 1]);
                     } else {
-                        $return['message'] = $SubRentresult; $return['payment_status'] = 2; $error = true;
+                        $return['message'] = $SubRentresult;
+                        $return['payment_status'] = 2;
+                        $error = true;
                         $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 5, "amount" => $Rentresult['pending'], "note" => $SubRentresult, "status" => 2]);
                     }
                 }
             } else {
                 $Rentresult = $this->Stripe->charge([
-                    "amount" => $totalRent, "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                    "description" => "DIA CAR", "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
+                    "amount" => $totalRent,
+                    "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
+                    "description" => "DIA CAR",
+                    "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
                 ]);
                 if (isset($Rentresult['status']) && $Rentresult['status'] == 'success') {
-                    $return['transaction_id'] = $Rentresult['stripe_id']; $return['payment_status'] = 1;
+                    $return['transaction_id'] = $Rentresult['stripe_id'];
+                    $return['payment_status'] = 1;
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 5, "amount" => $totalRent, "transaction_id" => $Rentresult['stripe_id'], "status" => 1]);
                 } else {
-                    $error = true; $return['message'] = $Rentresult; $return['payment_status'] = 2;
+                    $error = true;
+                    $return['message'] = $Rentresult;
+                    $return['payment_status'] = 2;
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 5, "amount" => $totalRent, "note" => $Rentresult, "status" => 2]);
                 }
             }
         }
-        if ($priceRulesAmt['insurance_amt'] > 0) { $return['insu_status'] = 2; }
+        if ($priceRulesAmt['insurance_amt'] > 0) {
+            $return['insu_status'] = 2;
+        }
         if (!$error && $priceRulesAmt['insurance_amt'] > 0 && ($priceRulesAmt['insurance_event'] == 'P' || $priceRulesAmt['insurance_event'] == 'S')) {
             $CsSetting = DB::table('cs_settings')->where('user_id', $owner_id)->first(['max_stripe_balance']);
             if (($priceRulesAmt['insurance_payer'] ?? 0) == 1) {
@@ -2410,39 +2566,50 @@ class PaymentProcessor
                     $return['insu_status'] = 1;
                     if ($insuresult['pending'] > 0) {
                         $subinsuresult = $this->Stripe->charge([
-                            "amount" => $insuresult['pending'], "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
-                            "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
-                            "description" => "DIA INS&FEES", "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
+                            "amount" => $insuresult['pending'],
+                            "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
+                            "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                            "capture" => true,
+                            "description" => "DIA INS&FEES",
+                            "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
                             "metadata" => ["payer_id" => $usrData['User']['id']],
                         ]);
                         if (isset($subinsuresult['status']) && $subinsuresult['status'] == 'success') {
                             $return['insurance_transaction_id'][] = ["amt" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "source" => 'card'];
                             $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 10, "amount" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "status" => 1]);
                         } else {
-                            $error = true; $return['insu_status'] = 2;
+                            $error = true;
+                            $return['insu_status'] = 2;
                             $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 10, "amount" => $insuresult['pending'], "note" => $subinsuresult, "status" => 2]);
                         }
                     }
                 } else {
                     $insuresult = $this->Stripe->charge([
-                        "amount" => $priceRulesAmt['insurance_amt'], "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
-                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                        "amount" => $priceRulesAmt['insurance_amt'],
+                        "currency" => $OrderObj['CsOrder']['currency'] ?? 'USD',
+                        "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                        "capture" => true,
                         "description" => (($priceRulesAmt['insurance_payer'] ?? 0) == 1) ? "DIA INS&FEES Paid By Dealer" : "DIA INS&FEES",
                         "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
                         "metadata" => ["payer_id" => $usrData['User']['id']],
                     ]);
                     if (isset($insuresult['status']) && $insuresult['status'] == 'success') {
                         $return['insurance_transaction_id'] = $insuresult['stripe_id'];
-                        $return['insurance_amt'] = $priceRulesAmt['insurance_amt']; $return['insu_status'] = 1;
+                        $return['insurance_amt'] = $priceRulesAmt['insurance_amt'];
+                        $return['insu_status'] = 1;
                         $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 10, "amount" => $priceRulesAmt['insurance_amt'], "transaction_id" => $insuresult['stripe_id'], "status" => 1]);
                     } else {
-                        $return['insu_status'] = 2; $error = true;
+                        $return['insu_status'] = 2;
+                        $error = true;
                         $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 10, "amount" => $priceRulesAmt['insurance_amt'], "note" => $insuresult, "status" => 2]);
                     }
                 }
             }
         }
-        if ($priceRulesAmt['insurance_amt'] == 0) { $return['insu_status'] = 1; $return['insurance_amt'] = 0; }
+        if ($priceRulesAmt['insurance_amt'] == 0) {
+            $return['insu_status'] = 1;
+            $return['insurance_amt'] = 0;
+        }
         $return['status'] = !$error ? 'success' : "error";
         return $this->savePaymentDetails($priceRulesAmt, $return, $CsOrderId, $owner_id);
     }
@@ -2492,32 +2659,49 @@ class PaymentProcessor
 
     public function rentRefundtotal($CsOrder, $refundToStripe = false)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have any rental transaction to refund.'];
-        $rentals = $this->getActiveRentalTransaction($CsOrder['CsOrder']['id']);
+        $rentals = CsOrderPayment::getActiveRentalTransaction($CsOrder->id);
+
         foreach ($rentals as $rental) {
-            $cstransfertxn = $this->getActivePayoutTransactions($CsOrder['CsOrder']['id'], $rental['id']);
+            $cstransfertxn = CsPayoutTransaction::getActivePayoutTransactions($CsOrder->id, $rental->id);
             $reverse = true;
+
             if (!empty($cstransfertxn)) {
-                $transfrResp = $this->Stripe->reverseTransfer($cstransfertxn['transfer_id']);
+                $transfrResp = $this->Stripe->reverseTransfer($cstransfertxn->transfer_id);
+
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
-                    $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
+                    CsPayoutTransaction::saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn->amount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
-            if ($refundToStripe) {
-                $return = $this->Stripe->refund(["charge" => $rental['transaction_id'], "amount" => $rental['amount']]);
-            } else {
-                $this->walletAddBalance($rental['amount'], $CsOrder['CsOrder']['renter_id'], $rental['transaction_id'], "refund rentRefundtotal for booking", $CsOrder['CsOrder']['id'], $rental['charged_at']);
-                $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+
+            if (!$reverse) {
+                return $return;
             }
-            if ($return['status'] !== 'success') { return $return; }
+
+            if ($refundToStripe) {
+                $return = $this->Stripe->refund([
+                    "charge" => $rental->transaction_id,
+                    "amount" => $rental->amount
+                ]);
+            } else {
+                CsWallet::addBalance($rental->amount, $CsOrder->renter_id, $rental->transaction_id, "refund rentRefundtotal for booking", $CsOrder->id, $rental->charged_at);
+                $return['status'] = 'success';
+                $return['message'] = "Your request successfully processed";
+            }
+
+            if ($return['status'] !== 'success') {
+                return $return;
+            }
+
             $this->updateOrderPayments(['status' => 2], ['id' => $rental['id']]);
             $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 7, "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "status" => 1, 'refundtransactionid' => ""]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "source" => ($refundToStripe ? 'stripe' : 'wallet'), 'type' => 2, 'charged_at' => $rental['charged_at']]);
         }
+
         return $return;
     }
 
@@ -2527,15 +2711,19 @@ class PaymentProcessor
 
     public function refundBalanceAmount($needtorefund, $CsOrderId, $refundabletax, $refandablediafee, $renterid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid value'];
-        if ($needtorefund <= 0) { return $return; }
-        $rentals = $this->getActiveRentalTransaction($CsOrderId);
+        if ($needtorefund <= 0) {
+            return $return;
+        }
+        $rentals = CsOrderPayment::getActiveRentalTransaction($CsOrderId);
         $pendingtax = $refundabletax;
         $pendingdiafee = $refandablediafee;
         $refundamount = 0;
         foreach ($rentals as $rental) {
-            if (!$needtorefund) { return $return; }
+            if (!$needtorefund) {
+                return $return;
+            }
             $totalRefundAmount = 0;
             if ($rental['amount'] <= $needtorefund) {
                 $totalRefundAmount = $refundamount = $rental['amount'];
@@ -2548,7 +2736,8 @@ class PaymentProcessor
                 $totalRefundAmount += $refundabletax;
                 $refundabletax = 0;
             } else {
-                $refundabletax = 0; $pendingtax = 0;
+                $refundabletax = 0;
+                $pendingtax = 0;
                 $totalRefundAmount += $rental['tax'];
             }
             if (($rental['dia_fee'] ?? 0) >= $refandablediafee) {
@@ -2556,7 +2745,8 @@ class PaymentProcessor
                 $totalRefundAmount += $refandablediafee;
                 $refandablediafee = 0;
             } else {
-                $refandablediafee = 0; $pendingdiafee = 0;
+                $refandablediafee = 0;
+                $pendingdiafee = 0;
                 $totalRefundAmount += ($rental['dia_fee'] ?? 0);
             }
             $dealerAmt = 0;
@@ -2574,12 +2764,16 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($totalRefundAmount, $renterid, $rental['transaction_id'], "refund refundBalanceAmount for booking", $CsOrderId, $rental['charged_at']);
-            $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+            $return['status'] = 'success';
+            $return['message'] = "Your request successfully processed";
             if ($totalRefundAmount < $rental['amount']) {
                 $this->updateOrderPayments(['status' => 1, 'amount' => ($rental['amount'] - $totalRefundAmount), 'rent' => ($rental['amount'] - $totalRefundAmount), 'tax' => $pendingtax, "dia_fee" => $pendingdiafee, 'dealer_amt' => $dealerAmt], ['id' => $rental['id']]);
             } else {
@@ -2601,16 +2795,19 @@ class PaymentProcessor
         $CsOrder = $this->findOrderById($CsOrderId);
         $startDate = $CsOrder['CsOrder']['start_datetime'] ?? '';
         $currency = $CsOrder['CsOrder']['currency'] ?? 'USD';
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $currency];
         $rentresult = $this->walletChargePartialFromWallet($renterid, $amount, $amount . ' partial rental amount from chargeBalanceAmount', $CsOrderId, 2);
         if ($rentresult['status']) {
-            $return['status'] = 'success'; $return['transaction_id'] = $rentresult['transactions'];
+            $return['status'] = 'success';
+            $return['transaction_id'] = $rentresult['transactions'];
             $return['message'] = 'Your request processed successfully';
             if ($rentresult['pending'] > 0) {
                 $subrentresult = $this->Stripe->charge([
-                    "amount" => $rentresult['pending'], "currency" => $currency,
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                    "amount" => $rentresult['pending'],
+                    "currency" => $currency,
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
                     "description" => "DIA Partial Rental",
                     "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -2620,7 +2817,8 @@ class PaymentProcessor
                     $this->saveRentalTransactionRecord($CsOrderId, $currency, $renterid, $rentresult['pending'], $subrentresult['stripe_id'], $tax, $dia_fee);
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 9, "amount" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "status" => 1]);
                 } else {
-                    $return['message'] = $rentresult; $return['status'] = 'error';
+                    $return['message'] = $rentresult;
+                    $return['status'] = 'error';
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 9, "amount" => $rentresult['pending'], "note" => $subrentresult, "status" => 2]);
                 }
             }
@@ -2629,14 +2827,17 @@ class PaymentProcessor
             }
         } else {
             $rentresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
-                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                "amount" => $amount,
+                "currency" => $currency,
+                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                "capture" => true,
                 "description" => "DIA Partial Rental",
                 "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
             ]);
             if (isset($rentresult['status']) && $rentresult['status'] == 'success') {
-                $return['status'] = 'success'; $return['transaction_id'] = $rentresult['stripe_id'];
+                $return['status'] = 'success';
+                $return['transaction_id'] = $rentresult['stripe_id'];
                 $return['message'] = 'Your request processed successfully';
                 $this->saveRentalTransactionRecord($CsOrderId, $currency, $renterid, $amount, $rentresult['stripe_id'], $tax, $dia_fee);
                 $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 9, "amount" => $amount, "transaction_id" => $rentresult['stripe_id'], "status" => 1]);
@@ -2654,7 +2855,7 @@ class PaymentProcessor
 
     public function insuranceRefund($CsOrder, $refundToStripe = false)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have anything to refund'];
         $insurances = $this->getActiveInsuranceTransaction($CsOrder['CsOrder']['id']);
         foreach ($insurances as $insurance) {
@@ -2665,10 +2866,13 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             if ($refundToStripe) {
                 $return = $this->Stripe->refund(["charge" => $insurance['transaction_id'], "amount" => $insurance['amount']]);
             } else {
@@ -2677,9 +2881,12 @@ class PaymentProcessor
                 } else {
                     $this->walletAddBalance($insurance['amount'], $CsOrder['CsOrder']['renter_id'], $insurance['transaction_id'], "refund insuranceRefund for booking", $CsOrder['CsOrder']['id'], $insurance['charged_at']);
                 }
-                $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+                $return['status'] = 'success';
+                $return['message'] = "Your request successfully processed";
             }
-            if ($return['status'] !== 'success') { return $return; }
+            if ($return['status'] !== 'success') {
+                return $return;
+            }
             $this->updateOrderPayments(['status' => 2], ['id' => $insurance['id']]);
             $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 11, "amount" => $insurance['amount'], "transaction_id" => $insurance['transaction_id'], "status" => 1, 'refundtransactionid' => ""]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $insurance['amount'], "transaction_id" => $insurance['transaction_id'], "source" => ($refundToStripe ? 'stripe' : 'wallet'), 'type' => 4, 'charged_at' => $insurance['charged_at']]);
@@ -2693,14 +2900,22 @@ class PaymentProcessor
 
     public function refundBalanceInsurance($needToRefund, $CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Amount must be greater than $1'];
-        if ($needToRefund < 1) { return $return; }
+        if ($needToRefund < 1) {
+            return $return;
+        }
         $insurances = $this->getActiveInsuranceTransaction($CsOrder['id']);
         $amount = 0;
         foreach ($insurances as $insurance) {
-            if (!$needToRefund) { return $return; }
-            if ($insurance['amount'] <= $needToRefund) { $amount = $insurance['amount']; } else { $amount = $needToRefund; }
+            if (!$needToRefund) {
+                return $return;
+            }
+            if ($insurance['amount'] <= $needToRefund) {
+                $amount = $insurance['amount'];
+            } else {
+                $amount = $needToRefund;
+            }
             $needToRefund = sprintf('%0.2f', ($needToRefund - $amount));
             $dealerAmt = 0;
             $cstransfertxn = $this->getActivePayoutTransactions($CsOrder['id'], $insurance['id']);
@@ -2717,16 +2932,20 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             if (!empty($insurance['payer_id'])) {
                 $this->walletAddBalance($amount, $insurance['payer_id'], $insurance['transaction_id'], "refund refundBalanceInsurance for booking", $CsOrder['id'], $insurance['charged_at']);
             } else {
                 $this->walletAddBalance($amount, $CsOrder['renter_id'], $insurance['transaction_id'], "refund refundBalanceInsurance for booking", $CsOrder['id'], $insurance['charged_at']);
             }
-            $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+            $return['status'] = 'success';
+            $return['message'] = "Your request successfully processed";
             if ($amount < $insurance['amount']) {
                 $this->updateOrderPayments(['status' => 1, 'amount' => ($insurance['amount'] - $amount), 'dealer_amt' => $dealerAmt], ['id' => $insurance['id']]);
             } else {
@@ -2748,7 +2967,7 @@ class PaymentProcessor
         $CsOrderId = $CsOrder['id'];
         $owner_id = $CsOrder['user_id'];
         $usrData = $this->getCustomer($renterid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $startDate = $CsOrder['start_datetime'] ?? '';
         $currency = $CsOrder['currency'] ?? 'USD';
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
@@ -2766,11 +2985,15 @@ class PaymentProcessor
         $insuresult = $this->walletChargePartialFromWallet($renterid, $amount, $amount . ' insurance fee from chargeBalanceInsurance', $CsOrderId, 4);
         if ($insuresult['status']) {
             $return['transaction_id'] = $insuresult['transactions'];
-            $return['insurance_amt'] = $amount; $return['insu_status'] = 1; $return['status'] = 'success';
+            $return['insurance_amt'] = $amount;
+            $return['insu_status'] = 1;
+            $return['status'] = 'success';
             if ($insuresult['pending'] > 0) {
                 $subinsuresult = $this->Stripe->charge([
-                    "amount" => $insuresult['pending'], "currency" => $currency,
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                    "amount" => $insuresult['pending'],
+                    "currency" => $currency,
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
                     "description" => "DIA INS&FEES",
                     "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -2779,21 +3002,25 @@ class PaymentProcessor
                     $return['transaction_id'][] = ["amt" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "source" => 'card'];
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 10, "amount" => $insuresult['pending'], "transaction_id" => $subinsuresult['stripe_id'], "status" => 1]);
                 } else {
-                    $return['message'] = $subinsuresult; $return['status'] = 'error';
+                    $return['message'] = $subinsuresult;
+                    $return['status'] = 'error';
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 10, "amount" => $insuresult['pending'], "note" => $subinsuresult, "status" => 2]);
                 }
             }
             $this->saveInsuranceTransactionRecord($CsOrderId, $currency, $renterid, $amount, $return['transaction_id'], $renterid);
         } else {
             $rentresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
-                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                "amount" => $amount,
+                "currency" => $currency,
+                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                "capture" => true,
                 "description" => (($insurancePayer['insurance_payer'] ?? 0) == 1) ? "DIA Partial Insurance By Dealer" : "DIA INS&FEES",
                 "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
             ]);
             if (isset($rentresult['status']) && $rentresult['status'] == 'success') {
-                $return['status'] = 'success'; $return['transaction_id'] = $rentresult['stripe_id'];
+                $return['status'] = 'success';
+                $return['transaction_id'] = $rentresult['stripe_id'];
                 $return['message'] = 'Your request processed successfully';
                 $this->saveInsuranceTransactionRecord($CsOrderId, $currency, $renterid, $amount, $rentresult['stripe_id'], $renterid);
                 $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 14, "amount" => $amount, "transaction_id" => $rentresult['stripe_id'], "status" => 1]);
@@ -2811,12 +3038,16 @@ class PaymentProcessor
 
     public function depositRefund($CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, this booking dont have any deposit'];
         $totalDeposit = $this->getTotalDeposit($CsOrder['CsOrder']['id']);
-        if ($totalDeposit <= 0) { return $return; }
+        if ($totalDeposit <= 0) {
+            return $return;
+        }
         $alldeposits = $this->getActiveDepositTransaction($CsOrder['CsOrder']['id']);
-        if (empty($alldeposits)) { return $return; }
+        if (empty($alldeposits)) {
+            return $return;
+        }
         foreach ($alldeposits as $alldeposit) {
             $dealerAmt = 0;
             $cstransfertxn = $this->getActivePayoutTransactions($CsOrder['CsOrder']['id'], $alldeposit['id']);
@@ -2826,12 +3057,16 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($alldeposit['amount'], $CsOrder['CsOrder']['renter_id'], $alldeposit['transaction_id'], "refund depositRefund for booking", $CsOrder['CsOrder']['id'], $alldeposit['charged_at']);
-            $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+            $return['status'] = 'success';
+            $return['message'] = "Your request successfully processed";
             $this->updateOrderPayments(['status' => 2, "dealer_amt" => $dealerAmt], ['id' => $alldeposit['id']]);
             $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 3, "amount" => $CsOrder['CsOrder']['deposit'] ?? $alldeposit['amount'], "transaction_id" => $alldeposit['transaction_id'], "status" => 1, 'refundtransactionid' => ""]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $alldeposit['amount'], "transaction_id" => $alldeposit['transaction_id'], "source" => 'wallet', 'type' => 1, 'charged_at' => $alldeposit['charged_at']]);
@@ -2845,16 +3080,26 @@ class PaymentProcessor
 
     public function refundBalanceDeposit($needToRefund, $CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Refund amount must be greater than 0'];
-        if ($needToRefund <= 0) { return $return; }
+        if ($needToRefund <= 0) {
+            return $return;
+        }
         $return['message'] = "Sorry, no deposit found for this order";
         $alldeposits = $this->getActiveDepositTransaction($CsOrder['id']);
-        if (empty($alldeposits)) { return $return; }
+        if (empty($alldeposits)) {
+            return $return;
+        }
         $amount = 0;
         foreach ($alldeposits as $alldeposit) {
-            if (!$needToRefund) { return $return; }
-            if ($alldeposit['amount'] <= $needToRefund) { $amount = $alldeposit['amount']; } else { $amount = $needToRefund; }
+            if (!$needToRefund) {
+                return $return;
+            }
+            if ($alldeposit['amount'] <= $needToRefund) {
+                $amount = $alldeposit['amount'];
+            } else {
+                $amount = $needToRefund;
+            }
             $needToRefund = sprintf('%0.2f', ($needToRefund - $amount));
             $dealerAmt = 0;
             $cstransfertxn = $this->getActivePayoutTransactions($CsOrder['id'], $alldeposit['id']);
@@ -2871,12 +3116,16 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($amount, $CsOrder['renter_id'], $alldeposit['transaction_id'], "refund refundBalanceDeposit for booking", $CsOrder['id'], $alldeposit['charged_at']);
-            $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+            $return['status'] = 'success';
+            $return['message'] = "Your request successfully processed";
             if ($amount < $alldeposit['amount']) {
                 $this->updateOrderPayments(['status' => 1, 'amount' => ($alldeposit['amount'] - $amount), "dealer_amt" => $dealerAmt], ['id' => $alldeposit['id']]);
             } else {
@@ -2895,19 +3144,22 @@ class PaymentProcessor
     public function chargeBalanceDeposit($amount, $renterid, $CsOrderId)
     {
         $usrData = $this->getCustomer($renterid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $CsOrder = $this->findOrderById($CsOrderId);
         $startDate = $CsOrder['CsOrder']['start_datetime'] ?? '';
         $currency = $CsOrder['CsOrder']['currency'] ?? 'USD';
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
         $rentresult = $this->walletChargePartialFromWallet($renterid, $amount, $amount . ' balance amount from chargeBalanceDeposit', $CsOrderId, 1);
         if ($rentresult['status']) {
-            $return['status'] = 'success'; $return['transaction_id'] = $rentresult['transactions'];
+            $return['status'] = 'success';
+            $return['transaction_id'] = $rentresult['transactions'];
             $return['message'] = 'Your request processed successfully';
             if ($rentresult['pending'] > 0) {
                 $subrentresult = $this->Stripe->charge([
-                    "amount" => $rentresult['pending'], "currency" => $currency,
-                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                    "amount" => $rentresult['pending'],
+                    "currency" => $currency,
+                    "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                    "capture" => true,
                     "description" => "DIA Partial Deposit",
                     "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -2917,7 +3169,8 @@ class PaymentProcessor
                     $this->saveDepositTransactionRecord($CsOrderId, $currency, $renterid, $rentresult['pending'], $subrentresult['stripe_id'], 'C');
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 20, "amount" => $rentresult['pending'], "transaction_id" => $subrentresult['stripe_id'], "status" => 1]);
                 } else {
-                    $return['message'] = $subrentresult; $return['status'] = 'error';
+                    $return['message'] = $subrentresult;
+                    $return['status'] = 'error';
                     $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 20, "amount" => $rentresult['pending'], "note" => $subrentresult, "status" => 1]);
                 }
             }
@@ -2926,14 +3179,17 @@ class PaymentProcessor
             }
         } else {
             $rentresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
-                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'], "capture" => true,
+                "amount" => $amount,
+                "currency" => $currency,
+                "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
+                "capture" => true,
                 "description" => "DIA Partial Deposit",
                 "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
             ]);
             if (isset($rentresult['status']) && $rentresult['status'] == 'success') {
-                $return['status'] = 'success'; $return['transaction_id'] = $rentresult['stripe_id'];
+                $return['status'] = 'success';
+                $return['transaction_id'] = $rentresult['stripe_id'];
                 $return['message'] = 'Your request processed successfully';
                 $this->saveDepositTransactionRecord($CsOrderId, $currency, $renterid, $amount, $rentresult['stripe_id'], 'C');
                 $this->savePaymentLogRecord(["orderid" => $CsOrderId, "type" => 20, "amount" => $amount, "transaction_id" => $rentresult['stripe_id'], "status" => 1]);
@@ -2951,9 +3207,11 @@ class PaymentProcessor
 
     public function initialfeeRefund($CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
-        if (($CsOrder['CsOrder']['infee_status'] ?? 0) != 1) { return $return; }
+        if (($CsOrder['CsOrder']['infee_status'] ?? 0) != 1) {
+            return $return;
+        }
         $return['message'] = 'Sorry, you dont have any rental transaction to refund.';
         $rentals = $this->getActiveInitialFeeTransaction($CsOrder['CsOrder']['id']);
         foreach ($rentals as $rental) {
@@ -2964,12 +3222,16 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($rental['amount'], $CsOrder['CsOrder']['renter_id'], $rental['transaction_id'], "refund initialfeeRefund for booking", $CsOrder['CsOrder']['id'], $rental['charged_at']);
-            $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+            $return['status'] = 'success';
+            $return['message'] = "Your request successfully processed";
             $this->updateOrderPayments(['status' => 2, "dealer_amt" => 0], ['id' => $rental['id']]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "source" => 'wallet', 'type' => 3]);
         }
@@ -2982,14 +3244,18 @@ class PaymentProcessor
 
     public function refundBalanceInitialfee($needtorefund, $refundTax, $CsOrderId, $renterid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid value'];
-        if ($needtorefund <= 0) { return $return; }
+        if ($needtorefund <= 0) {
+            return $return;
+        }
         $rentals = $this->getActiveInitialFeeTransaction($CsOrderId);
         $refundamount = 0;
         $pendingtax = $refundTax;
         foreach ($rentals as $rental) {
-            if (!$needtorefund) { return $return; }
+            if (!$needtorefund) {
+                return $return;
+            }
             if ($rental['amount'] <= $needtorefund) {
                 $refundamount = $rental['amount'];
             } elseif ($rental['amount'] > $needtorefund) {
@@ -2999,7 +3265,8 @@ class PaymentProcessor
                 $pendingtax = ($rental['tax'] ?? 0) - $refundTax;
                 $refundTax = 0;
             } else {
-                $refundTax = 0; $pendingtax = 0;
+                $refundTax = 0;
+                $pendingtax = 0;
             }
             $needtorefund = $needtorefund - $refundamount;
             $dealerAmt = 0;
@@ -3017,12 +3284,16 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($refundamount, $renterid, $rental['transaction_id'], "refund refundBalanceInitialfee for booking", $CsOrderId, $rental['charged_at']);
-            $return['status'] = 'success'; $return['message'] = "Your request successfully processed";
+            $return['status'] = 'success';
+            $return['message'] = "Your request successfully processed";
             if ($refundamount < $rental['amount']) {
                 $this->updateOrderPayments(['status' => 1, 'amount' => ($rental['amount'] - $refundamount), 'rent' => ($rental['amount'] - $refundamount - $pendingtax), 'tax' => $pendingtax, "dealer_amt" => $dealerAmt], ['id' => $rental['id']]);
             } else {
@@ -3041,7 +3312,7 @@ class PaymentProcessor
     public function retryInsurance($amount, $CsOrder)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $startDate = $CsOrder['start_datetime'];
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $CsOrder['currency']];
 
@@ -3113,7 +3384,7 @@ class PaymentProcessor
     public function retryDiaInsurance($amount, $CsOrder)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $startDate = $CsOrder['start_datetime'];
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $CsOrder['currency']];
         $owner_id = $CsOrder['user_id'];
@@ -3188,7 +3459,7 @@ class PaymentProcessor
     public function retryInitialfee($amount, $CsOrder, $pndingTax = 0)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $startDate = $CsOrder['start_datetime'];
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $CsOrder['currency']];
 
@@ -3249,7 +3520,7 @@ class PaymentProcessor
     public function retryDeposit($amount, $CsOrder, $deposit_type)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
         $startDate = $CsOrder['start_datetime'];
 
@@ -3291,7 +3562,7 @@ class PaymentProcessor
     public function retryRental($rent, $tax, $dia_fee, $CsOrder)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $CsOrder['currency']];
         $startDate = $CsOrder['start_datetime'];
         $amount = sprintf('%0.2f', ($rent + $tax + $dia_fee));
@@ -3352,7 +3623,7 @@ class PaymentProcessor
     public function retryEmf($emf, $tax, $CsOrder)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $CsOrder['currency']];
         $startDate = $CsOrder['start_datetime'];
         $amount = sprintf('%0.2f', ($emf + $tax));
@@ -3412,7 +3683,7 @@ class PaymentProcessor
     public function retryTollfee($amount, $CsOrder)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
 
         $rentresult = $this->walletChargePartialFromWallet($CsOrder['renter_id'], $amount, $amount . ' toll amount from retryTollfee', $CsOrder['id'], 6);
@@ -3468,7 +3739,7 @@ class PaymentProcessor
     public function retryLatefee($amt, $CsOrder)
     {
         $usrData = $this->getCustomer($CsOrder['renter_id'], $CsOrder['cc_token_id']);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'currency' => $CsOrder['currency']];
         $startDate = $CsOrder['start_datetime'];
 
@@ -3540,7 +3811,7 @@ class PaymentProcessor
     public function chargeTollfee($amount, $renterid, $CsOrderId, $cc_token_id, $owner_id)
     {
         $usrData = $this->getCustomer($renterid, $cc_token_id);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed', 'pending' => 0];
         $rentresult = $this->walletChargePartialFromWallet($renterid, $amount, $amount . ' toll amount from chargeTollfee', $CsOrderId, 6);
         if ($rentresult['status']) {
@@ -3642,7 +3913,7 @@ class PaymentProcessor
 
     public function transferDepositToDealer($amount, $CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Amount must be valid value'];
         if ($amount <= 0) {
             return $return;
@@ -3710,13 +3981,13 @@ class PaymentProcessor
 
     public function createLoginLink($stripekey)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->createLoginLink($stripekey);
     }
 
     public function transferToDealer($options)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $resp = $this->Stripe->transferToDealer($options);
         if (is_array($resp) && isset($resp['id'])) {
             return ['status' => 'success', 'result' => $resp];
@@ -3726,31 +3997,31 @@ class PaymentProcessor
 
     public function retrieveTransfer($transferid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->retrieveTransfer($transferid);
     }
 
     public function retriveBalanceTransaction($options, $stripe_account)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->retriveBalanceTransaction($options, $stripe_account);
     }
 
     public function retriveBalanceTransactionDetails($id, $opt = [])
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->retriveBalanceTransactionDetails($id, $opt);
     }
 
     public function retrivePayout($options, $stripe_account)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->retrivePayout($options, $stripe_account);
     }
 
     public function createPayout($params = [], $options = [])
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $resp = $this->Stripe->createPayout($params, $options);
         if (is_array($resp) && isset($resp['id'])) {
             return ['status' => 'success', 'result' => $resp];
@@ -3765,7 +4036,7 @@ class PaymentProcessor
     public function chargeCustomerBalance($amount, $renterid, $CsOrderId, $ownerId)
     {
         $usrData = $this->getCustomer($renterid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Something went wrong'];
         $rentresult = $this->walletChargeFromWallet($renterid, $amount, $amount . ' balance amount from chargeCustomerBalance', 7, $CsOrderId);
         if ($rentresult['status']) {
@@ -3808,7 +4079,7 @@ class PaymentProcessor
             $usrData = $this->getCustomer($renterid);
             $token = $usrData['UserCcToken']['stripe_token'];
         }
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Something went wrong'];
         $rentresult = $this->walletChargeFromWallet($renterid, $amount, $amount . ' TDK amount from chargeTDKBalance', $typeid, $CsOrderId);
         if ($rentresult['status']) {
@@ -3851,7 +4122,7 @@ class PaymentProcessor
     public function chargeMiscBalance($amount, $renterid, $CsOrderId, $typeid)
     {
         $usrData = $this->getCustomer($renterid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Something went wrong'];
         $rentresult = $this->walletChargeFromWallet($renterid, $amount, $amount . ' Misc amount from chargeMiscBalance', $typeid, $CsOrderId);
         if ($rentresult['status']) {
@@ -3897,7 +4168,7 @@ class PaymentProcessor
             $return['message'] = "Sorry, dealer dont have enough balance";
             return $return;
         }
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $result = $this->Stripe->charge([
             "amount" => $amt,
             "currency" => $stripeKey['currency'] ?? 'USD',
@@ -3928,7 +4199,7 @@ class PaymentProcessor
         if (empty($stripeKey)) {
             $stripeKey = $this->getdealerourcekey($ownerid)['stripe_key'] ?? '';
         }
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $result = $this->Stripe->retrieveBalance([
             "stripe_account" => $stripeKey,
         ]);
@@ -3948,13 +4219,13 @@ class PaymentProcessor
 
     public function accountRetrieve($accountId)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->accountRetrieve($accountId);
     }
 
     public function updateConnectedAccount($accountId, $options)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->accountUpdate($accountId, $options);
     }
 
@@ -3965,7 +4236,7 @@ class PaymentProcessor
     public function chargeAmtToUser($amt, $ownerid, $statement = '', $currency = '', $cc_token_id = '')
     {
         $usrData = $this->getCustomer($ownerid, $cc_token_id);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Something went wrong', 'currency' => (!empty($currency) ? $currency : ($usrData['User']['currency'] ?? 'USD'))];
         if (empty($usrData['UserCcToken']['stripe_token'])) {
             return $return;
@@ -3997,7 +4268,7 @@ class PaymentProcessor
 
     public function chargeAmt($amt, $stripe_token, $statement = '', $currency = 'USD', $type = 34)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Something went wrong'];
         if (empty($stripe_token)) {
             return $return;
@@ -4027,7 +4298,7 @@ class PaymentProcessor
 
     public function refundWalletBalance($amt, $transactionid, $orderid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid'];
         if ($amt <= 0) {
             return $return;
@@ -4052,7 +4323,7 @@ class PaymentProcessor
 
     public function chargeRetrieve($data, $options = [])
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->chargeRetrieve($data, $options);
     }
 
@@ -4062,7 +4333,7 @@ class PaymentProcessor
 
     public function DealerFullReverse($orderTransfer)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, transaction details are missing'];
         $cstransfertxn = $orderTransfer['CsPayoutTransaction'] ?? [];
         if (empty($cstransfertxn)) {
@@ -4085,7 +4356,7 @@ class PaymentProcessor
 
     public function DealerPartialReverse($needToRefund, $CsOrderId, $type = 2)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Refundable amount must be valid value'];
         if ($needToRefund <= 0) {
             return $return;
@@ -4124,7 +4395,7 @@ class PaymentProcessor
 
     public function DealerReverseForCredit($cstransfertxn, $amount)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, transaction details are missing'];
         if (empty($cstransfertxn)) {
             return $return;
@@ -4145,7 +4416,7 @@ class PaymentProcessor
 
     public function ExchangeRate()
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->ExchangeRate();
     }
 
@@ -4157,7 +4428,7 @@ class PaymentProcessor
     {
         $usrData = $this->getCustomer($CsOrder['renter_id']);
         $startDate = $CsOrder['start_datetime'] ?? date('Y-m-d H:i:s');
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
         $rentresult = $this->walletChargePartialFromWallet($CsOrder['renter_id'], $amount, $amount . ' partial rental amount from chargeBalanceEmf', $CsOrder['id'], 2);
         if ($rentresult['status']) {
@@ -4217,7 +4488,7 @@ class PaymentProcessor
     {
         $usrData = $this->getCustomer($CsOrder['renter_id']);
         $startDate = $CsOrder['start_datetime'] ?? date('Y-m-d H:i:s');
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
 
         if (($CsOrder['insurance_payer'] ?? 0) == 1) {
@@ -4320,14 +4591,20 @@ class PaymentProcessor
         }
         $usrData = $this->getCustomer($renterid);
         $return = [
-            'deposit' => $priceRulesAmt['deposit_amt'], 'deposit_type' => 'P',
-            'status' => 'success', 'deposit_auth' => '', 'renter_id' => $renterid,
-            'user_id' => $owner_id, 'message' => 'Sorry, one of payment get failed',
+            'deposit' => $priceRulesAmt['deposit_amt'],
+            'deposit_type' => 'P',
+            'status' => 'success',
+            'deposit_auth' => '',
+            'renter_id' => $renterid,
+            'user_id' => $owner_id,
+            'message' => 'Sorry, one of payment get failed',
             'initial_fee' => $priceRulesAmt['initial_fee'],
             'initial_fee_tax' => $priceRulesAmt['initial_fee_tax'],
-            'infee_status' => 0, 'infee_type' => 'P', 'currency' => $currency,
+            'infee_status' => 0,
+            'infee_type' => 'P',
+            'currency' => $currency,
         ];
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $DepositFromWallet = ['status' => false];
 
         if ($priceRulesAmt['deposit_amt'] > 0 && $priceRulesAmt['deposit_event'] == 'P') {
@@ -4419,7 +4696,7 @@ class PaymentProcessor
         $order = $this->findOrderById($orderid);
         $startDate = $order['CsOrder']['start_datetime'] ?? now()->toDateTimeString();
         $allPayments = $this->getAllOrderPayments($orderid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
 
         foreach ($allPayments as $allPayment) {
             $type = $allPayment['CsOrderPayment']['type'];
@@ -4452,7 +4729,7 @@ class PaymentProcessor
             return ['status' => 'error', 'message' => 'Sorry, booking id is missing'];
         }
         $allPayments = $this->getAllOrderPayments($orderid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
 
         foreach ($allPayments as $allPayment) {
             $result = $this->Stripe->refund(["charge" => $allPayment['CsOrderPayment']['transaction_id']]);
@@ -4473,7 +4750,7 @@ class PaymentProcessor
         if (!empty($transaction)) {
             $order = $this->findOrderById($orderid);
             $startDate = $order['CsOrder']['start_datetime'] ?? now()->toDateTimeString();
-            $this->stripe();
+            $this->Stripe = new StripeClient($this->_secret, $this->_mode);
 
             if (isset($transaction['transaction_id'])) {
                 $transactions = [0 => $transaction];
@@ -4559,7 +4836,7 @@ class PaymentProcessor
     {
         $result = [];
         if (!empty($transaction)) {
-            $this->stripe();
+            $this->Stripe = new StripeClient($this->_secret, $this->_mode);
             $result = $this->Stripe->refund(["charge" => $transaction['transaction_id']]);
         }
         return ['status' => 'success', 'message' => 'Payment released successfully', 'result' => $result];
@@ -4584,7 +4861,7 @@ class PaymentProcessor
         $owner_id = $opt['VehicleReservation']['user_id'];
         $OrderId = $opt['VehicleReservation']['id'];
         $usrData = $this->getCustomer($renterid, '');
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $startDate = $opt['VehicleReservation']['start_datetime'];
         $currency = $opt['Owner']['currency'] ?? 'USD';
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
@@ -4598,10 +4875,16 @@ class PaymentProcessor
                 $return['transaction_id'] = $return['insurance_transaction_id'] ?? '';
                 $return['message'] = 'Your request processed successfully';
                 DB::table('cs_reservation_payments')->insert([
-                    'cs_order_id' => $OrderId, 'type' => 4, 'amount' => $amount,
+                    'cs_order_id' => $OrderId,
+                    'type' => 4,
+                    'amount' => $amount,
                     'transaction_id' => is_array($return['transaction_id']) ? json_encode($return['transaction_id']) : $return['transaction_id'],
-                    'txntype' => 'C', 'payer_id' => $owner_id, 'currency' => $currency,
-                    'status' => 1, 'created' => now(), 'modified' => now(),
+                    'txntype' => 'C',
+                    'payer_id' => $owner_id,
+                    'currency' => $currency,
+                    'status' => 1,
+                    'created' => now(),
+                    'modified' => now(),
                 ]);
             }
             return $return;
@@ -4615,9 +4898,11 @@ class PaymentProcessor
             $return['status'] = 'success';
             if ($insuresult['pending'] > 0) {
                 $subinsuresult = $this->Stripe->charge([
-                    "amount" => $insuresult['pending'], "currency" => $currency,
+                    "amount" => $insuresult['pending'],
+                    "currency" => $currency,
                     "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA INS&FEES",
+                    "capture" => true,
+                    "description" => "DIA INS&FEES",
                     "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
                 ]);
@@ -4629,16 +4914,24 @@ class PaymentProcessor
                 }
             }
             DB::table('cs_reservation_payments')->insert([
-                'cs_order_id' => $OrderId, 'type' => 4, 'amount' => $amount,
+                'cs_order_id' => $OrderId,
+                'type' => 4,
+                'amount' => $amount,
                 'transaction_id' => is_array($return['transaction_id']) ? json_encode($return['transaction_id']) : $return['transaction_id'],
-                'txntype' => 'C', 'payer_id' => $renterid, 'currency' => $currency,
-                'status' => 1, 'created' => now(), 'modified' => now(),
+                'txntype' => 'C',
+                'payer_id' => $renterid,
+                'currency' => $currency,
+                'status' => 1,
+                'created' => now(),
+                'modified' => now(),
             ]);
         } else {
             $stripe_token = $usrData['UserCcToken']['stripe_token'];
             $rentresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
-                "stripeCustomer" => $stripe_token, "capture" => true,
+                "amount" => $amount,
+                "currency" => $currency,
+                "stripeCustomer" => $stripe_token,
+                "capture" => true,
                 "description" => (($opt['OrderDepositRule']['insurance_payer'] ?? 0) == 1) ? "DIA INS&FEES  By Dealer" : "DIA INS&FEES ",
                 "statement_descriptor" => "DIA INS&FEES " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -4648,10 +4941,16 @@ class PaymentProcessor
                 $return['transaction_id'] = $rentresult['stripe_id'];
                 $return['message'] = 'Your request processed successfully';
                 DB::table('cs_reservation_payments')->insert([
-                    'cs_order_id' => $OrderId, 'type' => 4, 'amount' => $amount,
+                    'cs_order_id' => $OrderId,
+                    'type' => 4,
+                    'amount' => $amount,
                     'transaction_id' => $rentresult['stripe_id'],
-                    'txntype' => 'C', 'payer_id' => $renterid, 'currency' => $currency,
-                    'status' => 1, 'created' => now(), 'modified' => now(),
+                    'txntype' => 'C',
+                    'payer_id' => $renterid,
+                    'currency' => $currency,
+                    'status' => 1,
+                    'created' => now(),
+                    'modified' => now(),
                 ]);
             } else {
                 $return['message'] = $rentresult;
@@ -4672,7 +4971,7 @@ class PaymentProcessor
         $renterid = $opt['renter_id'];
         $OrderId = $opt['id'];
         $usrData = $this->getCustomer($renterid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment got failed'];
         $startDate = $opt['start_datetime'];
         $amount = sprintf('%0.2f', ($rent + $tax + $dia_fee));
@@ -4701,19 +5000,29 @@ class PaymentProcessor
             $return['message'] = 'Success';
             if ($Rentresult['pending'] > 0) {
                 $SubRentresult = $this->Stripe->charge([
-                    "amount" => sprintf('%0.2f', $Rentresult['pending']), "currency" => $currency,
+                    "amount" => sprintf('%0.2f', $Rentresult['pending']),
+                    "currency" => $currency,
                     "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA CAR",
+                    "capture" => true,
+                    "description" => "DIA CAR",
                     "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
                 ]);
                 if (isset($SubRentresult['status']) && $SubRentresult['status'] == 'success') {
                     $return['transaction_id'] = ["amt" => $Rentresult['pending'], "transaction_id" => $SubRentresult['stripe_id'], "source" => 'card'];
                     DB::table('cs_reservation_payments')->insert([
-                        'cs_order_id' => $OrderId, 'type' => 2, 'amount' => $Rentresult['pending'],
-                        'rent' => $Rentresult['pending'], 'tax' => $tax, 'dia_fee' => $dia_fee,
-                        'transaction_id' => $SubRentresult['stripe_id'], 'txntype' => 'C',
-                        'currency' => $currency, 'status' => 1, 'created' => now(), 'modified' => now(),
+                        'cs_order_id' => $OrderId,
+                        'type' => 2,
+                        'amount' => $Rentresult['pending'],
+                        'rent' => $Rentresult['pending'],
+                        'tax' => $tax,
+                        'dia_fee' => $dia_fee,
+                        'transaction_id' => $SubRentresult['stripe_id'],
+                        'txntype' => 'C',
+                        'currency' => $currency,
+                        'status' => 1,
+                        'created' => now(),
+                        'modified' => now(),
                     ]);
                 } else {
                     $return['message'] = $SubRentresult;
@@ -4721,17 +5030,26 @@ class PaymentProcessor
                 }
             }
             DB::table('cs_reservation_payments')->insert([
-                'cs_order_id' => $OrderId, 'type' => 2, 'amount' => ($amount - $Rentresult['pending']),
-                'rent' => ($amount - $Rentresult['pending']), 'tax' => $tax, 'dia_fee' => $dia_fee,
+                'cs_order_id' => $OrderId,
+                'type' => 2,
+                'amount' => ($amount - $Rentresult['pending']),
+                'rent' => ($amount - $Rentresult['pending']),
+                'tax' => $tax,
+                'dia_fee' => $dia_fee,
                 'transaction_id' => is_array($Rentresult['transactions']) ? json_encode($Rentresult['transactions']) : $Rentresult['transactions'],
-                'txntype' => 'C', 'currency' => $currency, 'status' => 1,
-                'created' => now(), 'modified' => now(),
+                'txntype' => 'C',
+                'currency' => $currency,
+                'status' => 1,
+                'created' => now(),
+                'modified' => now(),
             ]);
         } else {
             $Rentresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
+                "amount" => $amount,
+                "currency" => $currency,
                 "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                "capture" => true, "description" => "DIA CAR",
+                "capture" => true,
+                "description" => "DIA CAR",
                 "statement_descriptor" => "DIA CAR " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
             ]);
@@ -4740,10 +5058,18 @@ class PaymentProcessor
                 $return['transaction_id'] = $Rentresult['stripe_id'];
                 $return['message'] = 'Success';
                 DB::table('cs_reservation_payments')->insert([
-                    'cs_order_id' => $OrderId, 'type' => 2, 'amount' => $amount,
-                    'rent' => $amount, 'tax' => $tax, 'dia_fee' => $dia_fee,
-                    'transaction_id' => $Rentresult['stripe_id'], 'txntype' => 'C',
-                    'currency' => $currency, 'status' => 1, 'created' => now(), 'modified' => now(),
+                    'cs_order_id' => $OrderId,
+                    'type' => 2,
+                    'amount' => $amount,
+                    'rent' => $amount,
+                    'tax' => $tax,
+                    'dia_fee' => $dia_fee,
+                    'transaction_id' => $Rentresult['stripe_id'],
+                    'txntype' => 'C',
+                    'currency' => $currency,
+                    'status' => 1,
+                    'created' => now(),
+                    'modified' => now(),
                 ]);
             } else {
                 $return['message'] = $Rentresult;
@@ -4761,7 +5087,7 @@ class PaymentProcessor
         $renterid = $opt['VehicleReservation']['renter_id'];
         $OrderId = $opt['VehicleReservation']['id'];
         $usrData = $this->getCustomer($renterid, '');
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $startDate = $opt['VehicleReservation']['start_datetime'];
         $currency = $opt['Owner']['currency'] ?? 'USD';
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment get failed'];
@@ -4774,9 +5100,11 @@ class PaymentProcessor
             $return['status'] = 'success';
             if ($diaresult['pending'] > 0) {
                 $subdeporesult = $this->Stripe->charge([
-                    "amount" => $diaresult['pending'], "currency" => $currency,
+                    "amount" => $diaresult['pending'],
+                    "currency" => $currency,
                     "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA Deposit",
+                    "capture" => true,
+                    "description" => "DIA Deposit",
                     "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
                 ]);
@@ -4788,16 +5116,24 @@ class PaymentProcessor
                 }
             }
             DB::table('cs_reservation_payments')->insert([
-                'cs_order_id' => $OrderId, 'type' => 1, 'amount' => $amount,
+                'cs_order_id' => $OrderId,
+                'type' => 1,
+                'amount' => $amount,
                 'transaction_id' => is_array($return['transaction_id']) ? json_encode($return['transaction_id']) : $return['transaction_id'],
-                'txntype' => 'C', 'payer_id' => $renterid, 'currency' => $currency,
-                'status' => 1, 'created' => now(), 'modified' => now(),
+                'txntype' => 'C',
+                'payer_id' => $renterid,
+                'currency' => $currency,
+                'status' => 1,
+                'created' => now(),
+                'modified' => now(),
             ]);
         } else {
             $stripe_token = $usrData['UserCcToken']['stripe_token'];
             $diaresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
-                "stripeCustomer" => $stripe_token, "capture" => true,
+                "amount" => $amount,
+                "currency" => $currency,
+                "stripeCustomer" => $stripe_token,
+                "capture" => true,
                 "description" => "DIA Deposit",
                 "statement_descriptor" => "DIA Deposit " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
@@ -4807,10 +5143,16 @@ class PaymentProcessor
                 $return['transaction_id'] = $diaresult['stripe_id'];
                 $return['message'] = 'Your request processed successfully';
                 DB::table('cs_reservation_payments')->insert([
-                    'cs_order_id' => $OrderId, 'type' => 1, 'amount' => $amount,
+                    'cs_order_id' => $OrderId,
+                    'type' => 1,
+                    'amount' => $amount,
                     'transaction_id' => $diaresult['stripe_id'],
-                    'txntype' => 'C', 'payer_id' => $renterid, 'currency' => $currency,
-                    'status' => 1, 'created' => now(), 'modified' => now(),
+                    'txntype' => 'C',
+                    'payer_id' => $renterid,
+                    'currency' => $currency,
+                    'status' => 1,
+                    'created' => now(),
+                    'modified' => now(),
                 ]);
             } else {
                 $return['message'] = $diaresult;
@@ -4830,7 +5172,7 @@ class PaymentProcessor
         $renterid = $opt['renter_id'];
         $OrderId = $opt['id'];
         $usrData = $this->getCustomer($renterid);
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, one of payment got failed'];
         $startDate = $opt['start_datetime'];
         $amount = sprintf('%0.2f', ($amount + $tax));
@@ -4842,19 +5184,27 @@ class PaymentProcessor
             $return['message'] = 'Success';
             if ($Rentresult['pending'] > 0) {
                 $SubRentresult = $this->Stripe->charge([
-                    "amount" => sprintf('%0.2f', $Rentresult['pending']), "currency" => $currency,
+                    "amount" => sprintf('%0.2f', $Rentresult['pending']),
+                    "currency" => $currency,
                     "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                    "capture" => true, "description" => "DIA Initial Fee",
+                    "capture" => true,
+                    "description" => "DIA Initial Fee",
                     "statement_descriptor" => "DIA InitialFee " . date('mdy', strtotime($startDate)),
                     "metadata" => ["payer_id" => $usrData['User']['id']],
                 ]);
                 if (isset($SubRentresult['status']) && $SubRentresult['status'] == 'success') {
                     $return['transaction_id'] = ["amt" => $Rentresult['pending'], "transaction_id" => $SubRentresult['stripe_id'], "source" => 'card'];
                     DB::table('cs_reservation_payments')->insert([
-                        'cs_order_id' => $OrderId, 'type' => 3, 'amount' => $Rentresult['pending'],
-                        'tax' => $tax, 'transaction_id' => $SubRentresult['stripe_id'],
-                        'txntype' => 'C', 'currency' => $currency,
-                        'status' => 1, 'created' => now(), 'modified' => now(),
+                        'cs_order_id' => $OrderId,
+                        'type' => 3,
+                        'amount' => $Rentresult['pending'],
+                        'tax' => $tax,
+                        'transaction_id' => $SubRentresult['stripe_id'],
+                        'txntype' => 'C',
+                        'currency' => $currency,
+                        'status' => 1,
+                        'created' => now(),
+                        'modified' => now(),
                     ]);
                 } else {
                     $return['message'] = $SubRentresult;
@@ -4862,17 +5212,24 @@ class PaymentProcessor
                 }
             }
             DB::table('cs_reservation_payments')->insert([
-                'cs_order_id' => $OrderId, 'type' => 3, 'amount' => ($amount - $Rentresult['pending']),
+                'cs_order_id' => $OrderId,
+                'type' => 3,
+                'amount' => ($amount - $Rentresult['pending']),
                 'tax' => $tax,
                 'transaction_id' => is_array($Rentresult['transactions']) ? json_encode($Rentresult['transactions']) : $Rentresult['transactions'],
-                'txntype' => 'C', 'currency' => $currency,
-                'status' => 1, 'created' => now(), 'modified' => now(),
+                'txntype' => 'C',
+                'currency' => $currency,
+                'status' => 1,
+                'created' => now(),
+                'modified' => now(),
             ]);
         } else {
             $Rentresult = $this->Stripe->charge([
-                "amount" => $amount, "currency" => $currency,
+                "amount" => $amount,
+                "currency" => $currency,
                 "stripeCustomer" => $usrData['UserCcToken']['stripe_token'],
-                "capture" => true, "description" => "DIA Initial Fee",
+                "capture" => true,
+                "description" => "DIA Initial Fee",
                 "statement_descriptor" => "DIA InitialFee " . date('mdy', strtotime($startDate)),
                 "metadata" => ["payer_id" => $usrData['User']['id']],
             ]);
@@ -4881,10 +5238,16 @@ class PaymentProcessor
                 $return['transaction_id'] = $Rentresult['stripe_id'];
                 $return['message'] = 'Success';
                 DB::table('cs_reservation_payments')->insert([
-                    'cs_order_id' => $OrderId, 'type' => 3, 'amount' => $amount,
-                    'tax' => $tax, 'transaction_id' => $Rentresult['stripe_id'],
-                    'txntype' => 'C', 'currency' => $currency,
-                    'status' => 1, 'created' => now(), 'modified' => now(),
+                    'cs_order_id' => $OrderId,
+                    'type' => 3,
+                    'amount' => $amount,
+                    'tax' => $tax,
+                    'transaction_id' => $Rentresult['stripe_id'],
+                    'txntype' => 'C',
+                    'currency' => $currency,
+                    'status' => 1,
+                    'created' => now(),
+                    'modified' => now(),
                 ]);
             } else {
                 $return['message'] = $Rentresult;
@@ -4908,7 +5271,7 @@ class PaymentProcessor
 
     public function emfRefundtotal($CsOrder, $refundToStripe = false)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have any rental  transaction to refund.'];
         $rentals = $this->getActiveEmfTransaction($CsOrder['CsOrder']['id']);
 
@@ -4925,7 +5288,9 @@ class PaymentProcessor
                     $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             if ($refundToStripe) {
                 $return = $this->Stripe->refund(["charge" => $rental['transaction_id'], "amount" => $rental['amount']]);
             } else {
@@ -4933,7 +5298,9 @@ class PaymentProcessor
                 $return['status'] = 'success';
                 $return['message'] = "Your request successfully processed";
             }
-            if ($return['status'] !== 'success') { return $return; }
+            if ($return['status'] !== 'success') {
+                return $return;
+            }
             $this->updateOrderPayments(['status' => 2, "dealer_amt" => 0], ['id' => $rental['id']]);
             $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 27, "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "status" => 1, 'refundtransactionid' => ""]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "source" => ($refundToStripe ? 'stripe' : 'wallet'), 'type' => 16, 'charged_at' => $rental['charged_at']]);
@@ -4947,14 +5314,18 @@ class PaymentProcessor
 
     public function refundBalanceEmf($needtorefund, $CsOrderId, $refundabletax, $renterid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid value'];
-        if ($needtorefund <= 0) { return $return; }
+        if ($needtorefund <= 0) {
+            return $return;
+        }
         $rentals = $this->getActiveEmfTransaction($CsOrderId);
         $pendingtax = $refundabletax;
         $refundamount = 0;
         foreach ($rentals as $rental) {
-            if (!$needtorefund) { return $return; }
+            if (!$needtorefund) {
+                return $return;
+            }
             $totalRefundAmount = 0;
             if ($rental['amount'] <= $needtorefund) {
                 $totalRefundAmount = $refundamount = $rental['amount'];
@@ -4986,10 +5357,13 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($totalRefundAmount, $renterid, $rental['transaction_id'], "refund refundBalanceEmf for booking", $CsOrderId, $rental['charged_at']);
             $return['status'] = 'success';
             $return['message'] = "Your request successfully processed";
@@ -5010,7 +5384,7 @@ class PaymentProcessor
 
     public function lateFeeRefundtotal($CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have any rental  transaction to refund.'];
         $rentals = $this->getActiveLateFeeTransaction($CsOrder['CsOrder']['id']);
 
@@ -5023,10 +5397,13 @@ class PaymentProcessor
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                     DB::table('cs_payout_transactions')->where('id', $cstransfertxn['id'])->update(['status' => 2, 'modified' => now()]);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($rental['amount'], $CsOrder['CsOrder']['renter_id'], $rental['transaction_id'], "refund lateFeeRefundtotal for booking", $CsOrder['CsOrder']['id'], $rental['charged_at']);
             $return['status'] = 'success';
             $return['message'] = "Your request successfully processed";
@@ -5043,13 +5420,17 @@ class PaymentProcessor
 
     public function refundBalanceLateFee($needtorefund, $CsOrderId, $renterid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid value'];
-        if ($needtorefund <= 0) { return $return; }
+        if ($needtorefund <= 0) {
+            return $return;
+        }
         $rentals = $this->getActiveLateFeeTransaction($CsOrderId);
         $refundamount = 0;
         foreach ($rentals as $rental) {
-            if (!$needtorefund) { return $return; }
+            if (!$needtorefund) {
+                return $return;
+            }
             if ($rental['amount'] <= $needtorefund) {
                 $refundamount = $rental['amount'];
             } elseif ($rental['amount'] > $needtorefund) {
@@ -5071,10 +5452,13 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($refundamount, $renterid, $rental['transaction_id'], "refund refundBalanceLateFee for booking", $CsOrderId, $rental['charged_at']);
             $return['status'] = 'success';
             $return['message'] = "Your request successfully processed";
@@ -5095,7 +5479,7 @@ class PaymentProcessor
 
     public function diainsuRefundtotal($CsOrder)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have any rental  transaction to refund.'];
         $rentals = $this->getActiveDiaInsuranceTransaction($CsOrder['CsOrder']['id']);
 
@@ -5108,10 +5492,13 @@ class PaymentProcessor
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                     DB::table('cs_payout_transactions')->where('id', $cstransfertxn['id'])->update(['status' => 2, 'modified' => now()]);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
 
             if (($rental['payer_id'] ?? null) == ($CsOrder['CsOrder']['user_id'] ?? null)) {
                 $result = $this->Stripe->refund(["charge" => $rental['transaction_id']]);
@@ -5137,13 +5524,17 @@ class PaymentProcessor
 
     public function refundBalanceDiainsu($needtorefund, $CsOrderId, $renterid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid value'];
-        if ($needtorefund <= 0) { return $return; }
+        if ($needtorefund <= 0) {
+            return $return;
+        }
         $rentals = $this->getActiveDiaInsuranceTransaction($CsOrderId);
         $refundamount = 0;
         foreach ($rentals as $rental) {
-            if (!$needtorefund) { return $return; }
+            if (!$needtorefund) {
+                return $return;
+            }
             if ($rental['amount'] <= $needtorefund) {
                 $refundamount = $rental['amount'];
             } elseif ($rental['amount'] > $needtorefund) {
@@ -5165,10 +5556,13 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             if (!empty($rental['payer_id']) && $rental['payer_id'] != $renterid) {
                 $result = $this->Stripe->refund(["charge" => $rental['transaction_id']]);
                 if (isset($result['status']) && $result['status'] == 'success') {
@@ -5197,7 +5591,7 @@ class PaymentProcessor
 
     public function tollRefundtotal($CsOrder, $refundToStripe = false)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have any rental  transaction to refund.'];
         $rentals = $this->getActiveTollTransaction($CsOrder['CsOrder']['id']);
 
@@ -5210,10 +5604,13 @@ class PaymentProcessor
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                     DB::table('cs_payout_transactions')->where('id', $cstransfertxn['id'])->update(['status' => 2, 'modified' => now()]);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             if ($refundToStripe) {
                 $return = $this->Stripe->refund(["charge" => $rental['transaction_id'], "amount" => $rental['amount']]);
             } else {
@@ -5221,7 +5618,9 @@ class PaymentProcessor
                 $return['status'] = 'success';
                 $return['message'] = "Your request successfully processed";
             }
-            if ($return['status'] !== 'success') { return $return; }
+            if ($return['status'] !== 'success') {
+                return $return;
+            }
             $this->updateOrderPayments(['status' => 2, "dealer_amt" => 0], ['id' => $rental['id']]);
             $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 37, "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "status" => 1, 'refundtransactionid' => ""]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $rental['amount'], "transaction_id" => $rental['transaction_id'], "source" => ($refundToStripe ? 'stripe' : 'wallet'), 'type' => 6, 'charged_at' => $rental['charged_at']]);
@@ -5235,13 +5634,17 @@ class PaymentProcessor
 
     public function refundBalanceToll($needtorefund, $CsOrderId, $renterid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, amount must be valid value'];
-        if ($needtorefund <= 0) { return $return; }
+        if ($needtorefund <= 0) {
+            return $return;
+        }
         $rentals = $this->getActiveTollTransaction($CsOrderId);
         $refundamount = 0;
         foreach ($rentals as $rental) {
-            if (!$needtorefund) { return $return; }
+            if (!$needtorefund) {
+                return $return;
+            }
             if ($rental['amount'] <= $needtorefund) {
                 $refundamount = $rental['amount'];
             } elseif ($rental['amount'] > $needtorefund) {
@@ -5263,10 +5666,13 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $reversableAmount, $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             $this->walletAddBalance($refundamount, $renterid, $rental['transaction_id'], "refund refundBalanceToll for booking", $CsOrderId, $rental['charged_at']);
             $return['status'] = 'success';
             $return['message'] = "Your request successfully processed";
@@ -5289,9 +5695,11 @@ class PaymentProcessor
     {
         $usrData = $this->getCustomer($payer);
         $stripe_token = $usrData['UserCcToken']['stripe_token'] ?? '';
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Something went wrong'];
-        if (empty($stripe_token)) { return $return; }
+        if (empty($stripe_token)) {
+            return $return;
+        }
         $result = $this->Stripe->charge([
             "amount" => $amt,
             "currency" => $currency,
@@ -5320,7 +5728,7 @@ class PaymentProcessor
     public function RefundAuthorizePayment($transaction, $type = 36)
     {
         if (!empty($transaction)) {
-            $this->stripe();
+            $this->Stripe = new StripeClient($this->_secret, $this->_mode);
             $result = $this->Stripe->refund(["charge" => $transaction['transaction_id']]);
             if (isset($result['status']) && $result['status'] == 'success') {
                 return ['status' => 'success', 'message' => 'Payment released successfully', 'result' => $result];
@@ -5337,7 +5745,7 @@ class PaymentProcessor
     public function UberPaymentCaptureOnly($transaction, $statement = '')
     {
         if (!empty($transaction)) {
-            $this->stripe();
+            $this->Stripe = new StripeClient($this->_secret, $this->_mode);
             $result = $this->Stripe->capture([
                 "auth_token" => $transaction['transaction_id'],
                 "statement_descriptor" => !empty($statement) ? $statement . date('mdy') : "DIA Uber " . date('mdy'),
@@ -5357,7 +5765,7 @@ class PaymentProcessor
 
     public function updateAccount($accountid)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $options = [
             'tos_acceptance' => ['service_agreement' => 'recipient'],
             'capabilities' => ['transfers' => ['requested' => true]],
@@ -5409,7 +5817,7 @@ class PaymentProcessor
 
     public function deailerPaidInsuranceRefund($CsOrder, $refundToStripe = false)
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         $return = ['status' => 'error', 'message' => 'Sorry, you dont have anything to refund'];
         $insurances = DB::table('cs_order_payments')
             ->where('cs_order_id', $CsOrder['CsOrder']['id'])
@@ -5429,10 +5837,13 @@ class PaymentProcessor
                 if (isset($transfrResp['status']) && $transfrResp['status'] == 'success') {
                     $this->saveRefundPayoutTransactions($cstransfertxn, $cstransfertxn['amount'], $transfrResp['result']);
                 } else {
-                    $reverse = false; $return['message'] = $transfrResp;
+                    $reverse = false;
+                    $return['message'] = $transfrResp;
                 }
             }
-            if (!$reverse) { return $return; }
+            if (!$reverse) {
+                return $return;
+            }
             if ($refundToStripe) {
                 $return = $this->Stripe->refund(["charge" => $insurance['transaction_id'], "amount" => $insurance['amount']]);
             } else {
@@ -5444,7 +5855,9 @@ class PaymentProcessor
                 $return['status'] = 'success';
                 $return['message'] = "Your request successfully processed";
             }
-            if ($return['status'] !== 'success') { return $return; }
+            if ($return['status'] !== 'success') {
+                return $return;
+            }
             $this->updateOrderPayments(['status' => 2], ['id' => $insurance['id']]);
             $this->savePaymentLogRecord(["orderid" => $CsOrder['CsOrder']['id'], "type" => 11, "amount" => $insurance['amount'], "transaction_id" => $insurance['transaction_id'], "status" => 1, 'refundtransactionid' => ""]);
             \App\Services\Legacy\ReportPayment::saveWalletRefund(["orderid" => $CsOrder['CsOrder']['id'], "amount" => $insurance['amount'], "transaction_id" => $insurance['transaction_id'], "source" => ($refundToStripe ? 'stripe' : 'wallet'), 'type' => 4, 'charged_at' => $insurance['charged_at'] ?? null]);
@@ -5458,7 +5871,7 @@ class PaymentProcessor
 
     public function createPaymentIntent($opt = [])
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->createPaymentIntent($opt);
     }
 
@@ -5468,7 +5881,7 @@ class PaymentProcessor
 
     public function chargePaymentIntent($intent, $opt = [])
     {
-        $this->stripe();
+        $this->Stripe = new StripeClient($this->_secret, $this->_mode);
         return $this->Stripe->chargePaymentIntent($intent, $opt);
     }
 
