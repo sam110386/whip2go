@@ -114,4 +114,9 @@ return [
         'apiKey' => env('LEGACY_TINYURL_API_KEY', ''),
     ],
 
+    'intercom' => [
+        'access_token' => env('INTERCOM_ACCESS_TOKEN'),
+        'admin_id' => env('INTERCOM_ADMIN_ID'),
+    ],
+
 ];
