@@ -8,8 +8,8 @@
     $renterid ??= '';
     $fieldname ??= '';
     $status_type ??= '';
-    $dateFrom ??= '';
-    $dateTo ??= '';
+    $date_from ??= '';
+    $date_to ??= '';
     $status ??= '';
     $limit ??= 50;
     $search_in ??= [
@@ -42,7 +42,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal" method="GET"
+            <form id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal" method="POST"
                 action="{{ url('admin/reports/index') }}">
                 <fieldset class="content-group">
                     <div class="col-md-2">
@@ -72,11 +72,11 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <input type="text" name="Search[date_from]" class="form-control" value="{{ $dateFrom }}"
+                        <input type="text" name="Search[date_from]" class="form-control" value="{{ $date_from }}"
                             placeholder="Date Range From" id="SearchDateFrom">
                     </div>
                     <div class="col-md-2">
-                        <input type="text" name="Search[date_to]" class="form-control" value="{{ $dateTo }}"
+                        <input type="text" name="Search[date_to]" class="form-control" value="{{ $date_to }}"
                             placeholder="Date Range To" id="SearchDateTo">
                     </div>
                 </fieldset>
@@ -85,18 +85,18 @@
                         <input type="text" id="SearchRenterId" name="Search[renter_id]" class="" style="width:100%;"
                             value="{{ $renterid }}" placeholder="Customer..">
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-2">
                         <button type="submit" value="SEARCH" name="search" class="btn btn-primary" alt="SEARCH">
                             SEARCH
                         </button>
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-2">
                         <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
                             alt="Clear Filter">
                             Clear Filter
                         </button>
                     </div>
-                    <div class="col-md-1">
+                    <div class="col-md-2">
                         <button type="submit" name="search" value="EXPORT" class="btn btn-primary" alt="EXPORT">
                             <i class="icon-file-excel"></i>
                             EXPORT
@@ -219,12 +219,25 @@
             });
 
             $(document).on('submit', '#frmSearchadmin', function (e) {
+                var submitter = e.originalEvent && e.originalEvent.submitter;
+                if (!submitter) {
+                    submitter = document.activeElement;
+                }
+
+                if (submitter) {
+                    var btn = $(submitter);
+                    var btnVal = btn.val();
+                    if (btnVal && btnVal.toUpperCase() === 'EXPORT') {
+                        return; // Let standard form submission download the CSV
+                    }
+                }
+
                 e.preventDefault();
                 var form = $(this);
                 var isClearFilter = false;
 
-                if (e.originalEvent && e.originalEvent.submitter) {
-                    var btn = $(e.originalEvent.submitter);
+                if (submitter) {
+                    var btn = $(submitter);
                     if (btn.attr('name') === 'ClearFilter') {
                         isClearFilter = true;
                     }

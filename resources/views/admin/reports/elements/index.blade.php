@@ -84,7 +84,7 @@
             </td>
 
             <td onclick="{{ $openTripDetails }}">
-                {{ trim(($r->renter_first_name ?? '') . ' ' . ($r->renter_last_name ?? '')) }}
+                {{ trim(($r?->user?->first_name ?? '') . ' ' . ($r?->user?->last_name ?? '')) }}
             </td>
 
             <td onclick="{{ $openTripDetails }}">

@@ -1,61 +1,69 @@
 @foreach ($subbookinglists as $k => $trip)
     @php
-    $openTripDetails = "openTripDetails('" . base64_encode($trip['CsOrder']['id']) . "')";
+        $openTripDetails = "openTripDetails('" . base64_encode($trip['id']) . "')";
     @endphp
     <tr class="child_{{ $booking_id }}" style="background: rgb(225, 245, 254);">
         <td></td>
-
         <td onclick="{{ $openTripDetails }}">
-            {{ $booking_id == $trip['CsOrder']['id'] ? $trip['CsOrder']['increment_id'] . '-0' : $trip['CsOrder']['increment_id'] }}
+            {{ $booking_id == $trip->id ? $trip->increment_id . '-0' : $trip->increment_id }}
         </td>
-
         <td onclick="{{ $openTripDetails }}">
-            @if ($trip['CsOrder']['status'] == 3)
+            @if ($trip->status == 3)
                 Completed
-            @elseif ($trip['CsOrder']['status'] == 2)
+            @elseif ($trip->status == 2)
                 Canceled
             @else
                 Incomplete
             @endif
         </td>
-        <td onclick="inspektScanReport({{ $trip['CsOrder']['id'] }});" class="">
+        <td onclick="inspektScanReport({{ $trip->id }});" class="">
             <span class="btn-link text-blue">
-                {{ $trip['CsOrder']['vehicle_name'] }}
+                {{ $trip->vehicle_name }}
             </span>
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ !empty($trip['CsOrder']['start_datetime']) && strpos($trip['CsOrder']['start_datetime'], '0000') !== 0 ? \Carbon\Carbon::parse($trip['CsOrder']['start_datetime'])->timezone($trip['CsOrder']['timezone'] ?? config('app.timezone'))->format("m/d/Y h:i A") : '--' }}
+            {{ !empty($trip->start_datetime) && strpos($trip->start_datetime, '0000') !== 0 ? \Carbon\Carbon::parse($trip->start_datetime)->timezone($trip->timezone ?? config('app.timezone'))->format("m/d/Y h:i A") : '--' }}
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ !empty($trip['CsOrder']['end_datetime']) && strpos($trip['CsOrder']['end_datetime'], '0000') !== 0 ? \Carbon\Carbon::parse($trip['CsOrder']['end_datetime'])->timezone($trip['CsOrder']['timezone'] ?? config('app.timezone'))->format("m/d/Y h:i A") : '--' }}
+            {{ !empty($trip->end_datetime) && strpos($trip->end_datetime, '0000') !== 0 ? \Carbon\Carbon::parse($trip->end_datetime)->timezone($trip->timezone ?? config('app.timezone'))->format("m/d/Y h:i A") : '--' }}
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ \App\Support\PortfolioSupport::daysBetweenDates($trip['CsOrder']['start_datetime'], $trip['CsOrder']['end_datetime']) }}
+            {{ $commonService->days_between_dates($trip->start_datetime, $trip->end_datetime) }}
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ $trip['User']['first_name'] . ' ' . $trip['User']['last_name'] }}
+            {{ $trip?->user?->first_name . ' ' . $trip?->user?->last_name }}
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ $trip['CsOrder']['status'] == 3 ? $trip['CsOrder']['end_odometer'] - $trip['CsOrder']['start_odometer'] : 0 }}
+            {{ $trip->status == 3 ? $trip->end_odometer - $trip->start_odometer : 0 }}
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ (float)$trip['CsOrder']['rent'] + (float)$trip['CsOrder']['initial_fee'] + (float)$trip['CsOrder']['extra_mileage_fee'] + (float)$trip['CsOrder']['damage_fee'] + (float)$trip['CsOrder']['lateness_fee'] + (float)$trip['CsOrder']['uncleanness_fee'] }}
+            {{ (float) $trip->rent + (float) $trip->initial_fee + (float) $trip->extra_mileage_fee + (float) $trip->damage_fee + (float) $trip->lateness_fee + (float) $trip->uncleanness_fee }}
         </td>
 
         <td onclick="{{ $openTripDetails }}">
-            {{ (float)$trip['CsOrder']['insurance_amt'] + (float)$trip['CsOrder']['dia_insu'] }}
+            {{ (float) $trip->insurance_amt + (float) $trip->dia_insu }}
         </td>
         <td onclick="{{ $openTripDetails }}">
-            {{ (float)$trip['CsOrder']['toll'] + (float)$trip['CsOrder']['pending_toll'] }}
+            {{ (float) $trip->toll + (float) $trip->pending_toll }}
         </td>
 
         <td>
-            @if ($trip['CsOrder']['status'] == 3)
-                <a href="javascript:void(0)" title="Review Images" onclick="reviewimages('{{ base64_encode($trip['CsOrder']['id']) }}')"><i class='icon-clipboard3'></i></a>
+            @if ($trip->status == 3)
+                <a href="javascript:void(0)" title="Review Images" onclick="reviewimages('{{ base64_encode($trip->id) }}')">
+                    <i class='icon-clipboard3'></i>
+                </a>
             @endif
-            <a href="javascript:void(0)" title="Download Doc" onclick="return downloadBookingDoc('{{ base64_encode($trip['CsOrder']['id']) }}');"><i class=" icon-file-pdf"></i></a>
-            <a href="javascript:void(0)" title="Download Payment Receipt" onclick="return loadPaymentsPopup('{{ base64_encode($trip['CsOrder']['id']) }}');"><i class=" icon-download"></i></a>
-            <a href="javascript:void(0)" title="Inspeck Scan report" onclick="return inspektScanReport('{{ $trip['CsOrder']['id'] }}');"><i class="icon-magazine"></i></a>
+            <a href="javascript:void(0)" title="Download Doc"
+                onclick="return downloadBookingDoc('{{ base64_encode($trip->id) }}');">
+                <i class=" icon-file-pdf"></i>
+            </a>
+            <a href="javascript:void(0)" title="Download Payment Receipt"
+                onclick="return loadPaymentsPopup('{{ base64_encode($trip->id) }}');">
+                <i class=" icon-download"></i>
+            </a>
+            <a href="javascript:void(0)" title="Inspeck Scan report" onclick="return inspektScanReport('{{ $trip->id }}');">
+                <i class="icon-magazine"></i>
+            </a>
         </td>
     </tr>
 @endforeach

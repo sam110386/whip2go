@@ -1,37 +1,45 @@
-<div class="row">
-    <div class="col-sm-12">
-        <div class="panel panel-default">
-            <div class="panel-heading"><h6 class="panel-title">Payments</h6></div>
-            <div class="table-responsive">
-                <table class="table table-striped table-bordered text-center">
+<div class="modal-header">
+    <button type="button" class="close" data-dismiss="modal">&times;</button>
+</div>
+
+<div class="modal-body">
+    <div class="row form-horizontal">
+        @if (!empty($payments))
+            <div class="col-md-12">
+                <legend>Payment Reciept</legend>
+                <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table  table-responsive">
                     <thead>
                         <tr>
-                            <th class="text-center">#</th>
-                            <th class="text-center">Amount($)</th>
-                            <th class="text-center">Type</th>
-                            <th class="text-center">Payment Source</th>
-                            <th class="text-center">Time</th>
+                            <th align="left">#</th>
+                            <th align="left">Amount</th>
+                            <th align="left">Type</th>
+                            <th align="left"></th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (!empty($payments) && count($payments) > 0)
-                            @foreach ($payments as $payment)
-                                <tr>
-                                    <td>{{ $payment->id ?? '' }}</td>
-                                    <td>{{ $payment->amount ?? '' }}</td>
-                                    <td>{{ $paymentTypeValue[$payment->type] ?? '' }}</td>
-                                    <td>{{ ($payment->pay_type ?? 0) == 1 ? "Card" : "Bank Account" }}</td>
-                                    <td>{{ !empty($payment->charged_at) && strpos($payment->charged_at, '0000') !== 0 ? \Carbon\Carbon::parse($payment->charged_at)->timezone($payment->timezone ?? config('app.timezone'))->format("m/d/Y h:i A") : '--' }}</td>
-                                </tr>
-                            @endforeach
-                        @else
+                        @php
+                            $i = 1;
+                        @endphp
+                        @foreach ($payments as $payment)
                             <tr>
-                                <td colspan="5">Sorry, no record found</td>
+                                <td>{{ $i++ }}</td>
+                                <td>{{ $payment->amount ?? '' }}</td>
+                                <td>{{ $paymentTypeValue[$payment->type] ?? '' }}</td>
+                                <td>
+                                    <a href="javascript:;"
+                                        onclick="return getPaymentReceipt('{{ base64_encode($payment->id) }}')">
+                                        <i class="icon-image2 icon-2x"></i>
+                                    </a>
+                                </td>
                             </tr>
-                        @endif
+                        @endforeach
                     </tbody>
                 </table>
             </div>
-        </div>
+        @else
+            <div class="form-group">
+                Sorry, You are not authorize user.
+            </div>
+        @endif
     </div>
 </div>

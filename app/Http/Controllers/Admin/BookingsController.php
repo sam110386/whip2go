@@ -22,6 +22,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Session;
+use Carbon\Carbon;
 
 class BookingsController extends LegacyAppController
 {
@@ -401,20 +403,52 @@ class BookingsController extends LegacyAppController
 
     public function overdue(Request $request)
     {
-        $limit = (int) $request->input('Record.limit', 100);
+        $sessionLimitName = "admin_overdue_limit";
 
-        $tripLog = DB::table('cs_orders as o')
-            ->where('o.status', 1)
-            ->whereNotNull('o.end_datetime')
-            ->where('o.end_datetime', '<', now()->toDateTimeString())
-            ->leftJoin('users as owner', 'owner.id', '=', 'o.user_id')
-            ->leftJoin('users as driver', 'driver.id', '=', 'o.renter_id')
-            ->select(['o.*', 'owner.first_name as owner_first_name', 'owner.last_name as owner_last_name', 'driver.first_name as driver_first_name', 'driver.last_name as driver_last_name'])
-            ->orderByDesc('o.id')
-            ->paginate($limit)
-            ->withQueryString();
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            Session::put($sessionLimitName, $limit);
+        } else {
+            $limit = Session::get($sessionLimitName, $this->recordsPerPage ?? 50);
+        }
 
-        return view('admin.bookings.index', ['tripLog' => $tripLog, 'limit' => $limit]);
+        $query = CsOrder::select('cs_orders.*', 'vehicles.passtime_status')
+            ->selectRaw('DATEDIFF(CURDATE(), cs_orders.start_datetime) as due_days')
+            ->leftJoin('vehicles', 'vehicles.id', '=', 'cs_orders.vehicle_id')
+            ->where('cs_orders.status', 1)
+            ->where(function ($q) {
+                $q->where('cs_orders.end_datetime', '<', Carbon::now())
+                    ->orWhere('cs_orders.payment_status', 2)
+                    ->orWhere('cs_orders.insu_status', 2)
+                    ->orWhere('cs_orders.dpa_status', 2)
+                    ->orWhere('cs_orders.infee_status', 2)
+                    ->orWhere('cs_orders.dia_insu_status', 2)
+                    ->orWhere(function ($subQ) {
+                        $subQ->where('cs_orders.payment_status', 0)
+                            ->where('cs_orders.rent', '>', 0);
+                    })
+                    ->orWhere(function ($subQ) {
+                        $subQ->where('cs_orders.infee_status', 0)
+                            ->where('cs_orders.initial_fee', '>', 0);
+                    });
+            });
+
+        $query->with([
+            'orderExtlogs' => function ($relation) {
+                $relation->orderBy('id', 'DESC')->limit(1);
+            }
+        ]);
+
+        $bookings = $query->orderBy('due_days', 'DESC')
+            ->paginate($limit);
+
+        $request->merge(['Record' => ['limit' => $limit]]);
+
+        if ($request->ajax()) {
+            return view('admin.bookings.elements.overdue', ['tripLog' => $bookings, 'limit' => $limit]);
+        }
+
+        return view('admin.bookings.overdue', ['tripLog' => $bookings, 'limit' => $limit]);
     }
 
     public function retryinsurancefee(Request $request): JsonResponse

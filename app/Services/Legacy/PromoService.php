@@ -3,6 +3,7 @@
 namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\PromoTerm;
 
 class PromoService
 {
@@ -292,18 +293,18 @@ class PromoService
 
     public function getUserPromo($userid)
     {
-        if (!empty($userid)) {
-            $promoTerm = DB::table('promo_terms')
-                ->join('promotion_rules', 'promotion_rules.id', '=', 'promo_terms.promo_rule_id')
-                ->where('promo_terms.user_id', $userid)
-                ->where('promotion_rules.status', 1)
-                ->select('promotion_rules.*', 'promo_terms.id as promo_term_id')
-                ->first();
-
-            return $promoTerm ?: false;
+        if (empty($userid)) {
+            return false;
         }
 
-        return false;
+        $promoTerm = PromoTerm::where('user_id', $userid)
+            ->whereHas('promotionRule', function ($query) {
+                $query->where('status', 1);
+            })
+            ->with('promotionRule')
+            ->first();
+
+        return $promoTerm ?: false;
     }
 
     public function applyPromoIdToUser($promoid, $userid): array

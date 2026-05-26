@@ -17,4 +17,9 @@ class PromoTerm extends Model
         'status',
         'created',
     ];
+
+    public function promotionRule()
+    {
+        return $this->belongsTo(PromotionRule::class, 'promo_rule_id');
+    }
 }

@@ -9,6 +9,9 @@ use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\DepositTemplate;
 use App\Models\Legacy\CsVehicleExpense;
 
+/**
+ * Port of CakePHP app/Plugin/Report/Lib/Portfolio.php
+ */
 class PortfolioService
 {
     public function getVehiclePortfolio($vehicleId)
