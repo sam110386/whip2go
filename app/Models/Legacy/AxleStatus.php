@@ -4,7 +4,7 @@ namespace App\Models\Legacy;
 
 use App\Models\Legacy\LegacyModel;
 
-class AxleStatu extends LegacyModel
+class AxleStatus extends LegacyModel
 {
     public $timestamps = true;
     const CREATED_AT = 'created';

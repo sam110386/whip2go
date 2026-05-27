@@ -78,4 +78,13 @@ class OrderDepositRule extends LegacyModel
     {
         return $this->belongsTo(VehicleReservation::class, 'vehicle_reservation_id');
     }
+
+    public function axleStatus()
+    {
+        return $this->hasOne(AxleStatus::class, 'order_id', 'id');
+    }
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'cs_order_id', 'id');
+    }
 }

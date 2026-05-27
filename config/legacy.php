@@ -119,4 +119,10 @@ return [
         'admin_id' => env('INTERCOM_ADMIN_ID'),
     ],
 
+    'axle' => [
+        'x-client_id' => env('AXLE_API_ID', ''),
+        'x-client_secret' => env('AXLE_API_SECRET', ''),
+        'api_host' => env('AXLE_API_HOST', 'https://api.axle.insure'),
+    ],
+
 ];

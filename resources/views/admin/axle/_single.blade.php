@@ -25,7 +25,7 @@
             </a>
             <ul class="dropdown-menu dropdown-menu-solid pull-right">
                 @if ((empty($record->axle_status) || in_array($axleStatus, [0, 3])) || (empty($record->account_id) && empty($record->policy)))
-                    <li><a href="{{ config('app.url') }}admin/axle/axledocs/connect/{{ $record->order_deposit_rule_id }}" title="Connect to Axle" class="btn btn-success" target="_blank">Connect to Axle <i class="icon-arrow-resize7 position-right"></i></a></li>
+                    <li><a href="{{ config('app.url') }}admin/axledocs/connect/{{ $record->order_deposit_rule_id }}" title="Connect to Axle" class="btn btn-success" target="_blank">Connect to Axle <i class="icon-arrow-resize7 position-right"></i></a></li>
                 @endif
                 @if (empty($record->axle_status) || in_array($axleStatus, [1, 2, 4]))
                     <li><a href="javascript:;" onclick="axlePolicyDisconnect('{{ $record->order_id }}')" title="Disconnect" class="btn btn-danger" target="_blank">Disconnect<i class="icon-trash position-right"></i></a></li>

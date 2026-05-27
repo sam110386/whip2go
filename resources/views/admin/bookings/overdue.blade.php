@@ -1,10 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', $title ?? 'Axle Connected Insurance Report')
-
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('css/axle/axle.css') }}">
-@endpush
+@section('title', $title ?? 'Rental Overdue Orders')
 
 @section('content')
     <div id="myModal" class="modal fade" role="dialog">
@@ -19,7 +15,7 @@
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Insurance</span> - Connections
+                    <span class="text-semibold">Past Due</span> - Rental Orders
                 </h4>
             </div>
         </div>
@@ -31,16 +27,19 @@
 
     <div class="panel">
         <div class="panel-body">
-            <div style="width:100%; overflow: visible;" id="listing">
-                @include('admin.axle.elements._index')
+            <div id="listing">
+                <div style="width:100%; overflow: visible;" id="listing">
+                    @include('admin.bookings.elements.overdue')
+                </div>
             </div>
         </div>
     </div>
-
 @endsection
 
 @push('scripts')
-    <script src="{{ legacy_asset('js/axle/axle.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/report/report.js') }}"></script>
 
     <script type="text/javascript">
         $(document).ready(function () {
@@ -53,33 +52,10 @@
                 }
             });
 
-            $(document).on('submit', '#frmSearchadmin', function (e) {
-                e.preventDefault();
-                var form = $(this);
-                var isClearFilter = false;
-
-                if (e.originalEvent && e.originalEvent.submitter) {
-                    var btn = $(e.originalEvent.submitter);
-                    if (btn.attr('name') === 'ClearFilter') {
-                        isClearFilter = true;
-                    }
-                }
-
-                if (isClearFilter) {
-                    form[0].reset();
-                    var baseUrl = form.attr('action');
-                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
-                } else {
-                    var formData = form.serialize();
-                    var url = form.attr('action') + '?' + formData;
-                    loadListing(url);
-                }
-            });
-
             $(document).on('change', '.ajax-limit', function (e) {
                 e.preventDefault();
                 var form = $(this).closest('form');
-                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
+                var url = window.location.pathname + '?' + form.serialize();
                 loadListing(url);
             });
 
@@ -109,4 +85,5 @@
             };
         });
     </script>
+
 @endpush

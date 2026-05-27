@@ -404,6 +404,7 @@ class BookingsController extends LegacyAppController
     public function overdue(Request $request)
     {
         $sessionLimitName = "admin_overdue_limit";
+        $title = "Rental Overdue Orders";
 
         if ($request->has('Record.limit')) {
             $limit = $request->input('Record.limit');
@@ -445,10 +446,10 @@ class BookingsController extends LegacyAppController
         $request->merge(['Record' => ['limit' => $limit]]);
 
         if ($request->ajax()) {
-            return view('admin.bookings.elements.overdue', ['tripLog' => $bookings, 'limit' => $limit]);
+            return view('admin.bookings.elements.overdue', ['title' => $title, 'tripLog' => $bookings, 'limit' => $limit]);
         }
 
-        return view('admin.bookings.overdue', ['tripLog' => $bookings, 'limit' => $limit]);
+        return view('admin.bookings.overdue', ['title' => $title, 'tripLog' => $bookings, 'limit' => $limit]);
     }
 
     public function retryinsurancefee(Request $request): JsonResponse

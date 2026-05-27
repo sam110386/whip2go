@@ -28,9 +28,9 @@
                     ['title' => 'Action', 'sortable' => false, 'style' => 'text-align:center;']
                 ]
             ])
- </tr>
+        </tr>
     </thead>
-<tbody>
+    <tbody>
         @forelse ($tripLog as $trip)
             @php
                 $class = $commonService->checkAutoRenew($trip->renter_id, $trip->end_datetime);

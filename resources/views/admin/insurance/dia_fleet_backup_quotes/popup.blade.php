@@ -111,7 +111,7 @@
                 <div class="form-group">
                     <div class="col-lg-12 control-label text-center">
                         @if (empty($orderDepositRuleObj['AxleStatus']) || ($orderDepositRuleObj['AxleStatus']['axle_status'] ?? 0) == 0)
-                            <a href="{{ config('app.url') }}/admin/axle/axledocs/connect/{{ $orderDepositRuleObj['OrderDepositRule']['id'] }}" title="Connect to Axle" class="btn btn-success" target="_blank">Connect to Axle <i class="icon-arrow-resize7 position-right"></i></a>
+                            <a href="{{ config('app.url') }}/admin/axledocs/connect/{{ $orderDepositRuleObj['OrderDepositRule']['id'] }}" title="Connect to Axle" class="btn btn-success" target="_blank">Connect to Axle <i class="icon-arrow-resize7 position-right"></i></a>
                         @endif
                         @if (($orderDepositRuleObj['AxleStatus']['axle_status'] ?? 0) != 0)
                             <a href="javascript:;" class="btn btn-success" onclick="getAxlePolicyDetails({{ $orderDepositRuleObj['OrderDepositRule']['id'] }},'statementModal')">Connected <i class="icon-connection position-right"></i></a>

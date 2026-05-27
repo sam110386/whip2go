@@ -47,43 +47,49 @@ class BookingReviewsController extends LegacyAppController
         return '/admin/booking_reviews';
     }
 
-    /**
-     * Admin UI uses {@see ensureAdminSession()}; Cloud controller overrides to {@see ensureCloudAdminSession()}.
-     */
-    protected function bookingReviewGuard(): ?RedirectResponse
-    {
-        return $this->ensureAdminSession();
-    }
 
     public function nonreview(Request $request)
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $limit = $this->resolveNonreviewLimit($request, 'booking_reviews_limit');
-        $sort = (string) $request->input('sort', 'id');
-        $direction = strtolower((string) $request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $query = $this->nonreviewOrdersQuery(null, $sort, $direction);
-        $nonreviews = $query->paginate($limit)->withQueryString();
+        $title = "Review Waiting Orders";
+        $sessLimitName = "admin_booking_reviews_limit";
+
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            session([$sessLimitName => $limit]);
+        } elseif (session()->has($sessLimitName)) {
+            $limit = session($sessLimitName);
+        } else {
+            $limit = $this->recordsPerPage ?? 50;
+        }
+
+        $nonreviews = CsOrder::with('vehicle:id,vehicle_unique_id')
+            ->where('status', 3)
+            ->where('review_status', 0)
+            ->where('auto_renew', 0)
+            ->orderBy('id', 'DESC')
+            ->paginate($limit);
 
         if ($request->ajax()) {
-            return view('admin.booking_reviews._nonreview_table', [
+            return view('admin.booking_reviews.elements.nonreview', [
                 'nonreviews' => $nonreviews,
-                'basePath' => $this->bookingReviewsBasePath(),
+                'limit' => $limit
             ]);
         }
 
         return view('admin.booking_reviews.nonreview', [
+            'title' => $title,
             'nonreviews' => $nonreviews,
-            'limit' => $limit,
-            'basePath' => $this->bookingReviewsBasePath(),
+            'limit' => $limit
         ]);
     }
 
     public function initial(Request $request, $orderid = null)
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
@@ -123,7 +129,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function finalreview(Request $request, $orderid = null)
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
@@ -237,7 +243,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function reservationreview(Request $request, $orderid = null)
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
@@ -294,7 +300,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function saveImage(Request $request): JsonResponse
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
@@ -303,7 +309,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function deleteImage(Request $request): JsonResponse
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['success' => false, 'key' => ''], 401);
         }
 
@@ -312,7 +318,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function settlefinaldamage(Request $request): JsonResponse
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized']);
         }
 
@@ -415,7 +421,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function reviewimages(Request $request, $orderid = null): Response
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response('Unauthorized', 401);
         }
 
@@ -437,7 +443,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function reviewpopup(Request $request): Response
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response('Unauthorized', 401);
         }
 
@@ -448,7 +454,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function reopenbookingpopup(Request $request): Response
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response('Unauthorized', 401);
         }
 
@@ -469,7 +475,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function reopenbooking(Request $request): JsonResponse
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized']);
         }
 
@@ -518,7 +524,7 @@ class BookingReviewsController extends LegacyAppController
 
     public function pullVehicleOdometer(Request $request): JsonResponse
     {
-        if ($redirect = $this->bookingReviewGuard()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []]);
         }
 
@@ -563,7 +569,12 @@ class BookingReviewsController extends LegacyAppController
         $q->select([
             'o.*',
             'v.vehicle_unique_id',
-            'o.insurance_amt', 'o.initial_fee', 'o.insu_status', 'o.infee_status', 'o.payment_status', 'o.dpa_status',
+            'o.insurance_amt',
+            'o.initial_fee',
+            'o.insu_status',
+            'o.infee_status',
+            'o.payment_status',
+            'o.dpa_status',
             DB::raw("TRIM(CONCAT(COALESCE(renter.first_name,''),' ',COALESCE(renter.last_name,''))) as renter_name"),
         ]);
 
