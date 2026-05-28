@@ -164,20 +164,19 @@ class AxledocsController extends LegacyAppController
             $axleStatusObj = AxleStatus::where('order_id', $orderid)->first();
             $axleStatusArr = $axleStatusObj ? $axleStatusObj->toArray() : [];
 
-
             if (!empty($axleStatusObj) && !empty($axleStatusObj->policy) && $axleStatusObj->type == 'axle') {
                 $axleObj = (new AxleService())->fetchPolicyDetails($axleStatusObj->access_token, $axleStatusObj->policy);
 
                 if (!($axleObj['success'] ?? false) && $axleStatusObj->axle_status != 0) {
-                    $axleStatusArr['axle_status'] = 3;
+                    $axleStatusObj->axle_status = 3;
                 }
 
                 if (($axleObj['success'] ?? false) && $axleStatusObj->axle_status != 0) {
-                    $axleStatusArr['axle_status'] = ($axleObj['data']['isActive'] ?? false) == true ? 2 : 3;
+                    $axleStatusObj->axle_status = ($axleObj['data']['isActive'] ?? false) == true ? 2 : 3;
                 }
 
                 if ($axleObj['success'] ?? false) {
-                    $axleStatusArr['policy_details'] = json_encode([
+                    $axleStatusObj->policy_details = json_encode([
                         'policy_number' => $axleObj['data']['policyNumber'] ?? '',
                         'provider' => $axleObj['data']['carrier'] ?? '',
                         'start_date' => date('Y-m-d H:i:s', strtotime($axleObj['data']['effectiveDate'] ?? 'now')),
@@ -186,27 +185,26 @@ class AxledocsController extends LegacyAppController
                     ]);
                 }
 
-                DB::table('axle_status')->where('id', $axleStatusObj->id)->update([
-                    'axle_status' => $axleStatusArr['axle_status'],
-                    'policy_details' => $axleStatusArr['policy_details'] ?? null,
-                ]);
+                $axleStatusObj->save();
 
-                if ($axleStatusArr['axle_status'] != 0) {
-                    $this->convertBookingInsuranceTypeIfPolicyExpired($axleObj['data'] ?? [], $axleStatusArr);
+                if ($axleStatusObj->axle_status != 0) {
+                    $this->_convertBookingInsuranceTypeIfPolicyExpired($axleObj['data'] ?? [], $axleStatusArr);
                 }
             }
 
             if (!empty($axleStatusObj) && !empty($axleStatusObj->policy) && $axleStatusObj->type == 'measureone') {
-                $transactionId = !empty($axleStatusObj->access_token) ? $axleStatusObj->access_token : '';
+                $transactionId = $axleStatusObj->access_token ?? '';
                 $policyStatus = (new MeasureOneService())->getInsuranceDetails(["transaction_id" => $transactionId]);
                 $insuranceDetails = [];
+
                 if (!$policyStatus['status']) {
-                    $axleStatusArr['axle_status'] = 3;
+                    $axleStatusObj->axle_status = 3;
                 }
+
                 if ($policyStatus['status'] && ($policyStatus['result']['processing_status'] ?? '') == "COMPLETED") {
                     $insuranceDetails = $this->insuranceDetails($axleStatusObj->policy, $policyStatus['result']['insurance_details'] ?? []);
-                    $axleStatusArr['axle_status'] = ($policyStatus['result']['insurance_details']['status'] ?? '') == 'ACTIVE' ? 2 : 3;
-                    $axleStatusArr['policy_details'] = json_encode([
+                    $axleStatusObj->axle_status = ($policyStatus['result']['insurance_details']['status'] ?? '') == 'ACTIVE' ? 2 : 3;
+                    $axleStatusObj->policy_details = json_encode([
                         'policy_number' => $insuranceDetails['policy_number'] ?? '',
                         'provider' => $insuranceDetails['insurance_provider']['name'] ?? '',
                         'start_date' => isset($insuranceDetails['coverage_period']['start_date']) ? date('Y-m-d H:i:s', $insuranceDetails['coverage_period']['start_date'] / 1000) : '',
@@ -214,19 +212,20 @@ class AxledocsController extends LegacyAppController
                         'premium' => $insuranceDetails['premium_amount']['amount'] ?? '',
                     ]);
                 }
-                DB::table('axle_status')->where('id', $axleStatusObj->id)->update([
-                    'axle_status' => $axleStatusArr['axle_status'],
-                    'policy_details' => $axleStatusArr['policy_details'] ?? null,
-                ]);
-                if ($axleStatusArr['axle_status'] != 0 && !empty($insuranceDetails)) {
+
+                $axleStatusObj->save();
+
+                if ($axleStatusObj->axle_status != 0 && !empty($insuranceDetails)) {
                     $this->validateInsurance($insuranceDetails, $axleStatusArr);
                 }
+
                 $axleObj['data'] = $insuranceDetails;
                 $axleObj['success'] = true;
             }
 
             $return['html'] = view('admin.axle._policy', compact('axleObj'))->render();
         }
+
         return response()->json($return);
     }
 

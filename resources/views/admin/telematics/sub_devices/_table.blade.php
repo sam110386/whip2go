@@ -41,7 +41,7 @@
                     <td style="text-align:center;">{{ $list->device_name }}</td>
                     <td style="text-align:center;">{{ $list->gps_serialno }}</td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" title="Edit" onclick="addDevice('{{ base64_encode($subid) }}','{{ base64_encode($list->id) }}')"><i class="glyphicon glyphicon-edit"></i></a>
+                        <a href="javascript:void(0)" title="Edit" onclick="addDevice('{{ base64_encode($subid) }}','{{ base64_encode($list->id) }}')"><i class="glyphicon glyphicon-edit"></i></a>
                         <a href="/admin/telematics/sub_devices/remove/{{ base64_encode($list->id) }}" title="Remove" onclick="return confirm('Are you sure you want to delete this record?')"><i class="glyphicon glyphicon-trash"></i></a>
                     </td>
                 </tr>

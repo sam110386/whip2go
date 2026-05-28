@@ -60,7 +60,7 @@
                     Vehicle : {{ $booking['Vehicle']['year'] }} {{ $booking['Vehicle']['make'] }} {{ $booking['Vehicle']['model'] }}
                 </div>
                 <div class="col-lg-6 col-sm-12 text-center text-bold">
-                    VIN : <a href="javascript:;" onclick="copyToClipboard('{{ $booking['Vehicle']['vin_no'] }}')">{{ $booking['Vehicle']['vin_no'] }} <i class="icon-copy4"></i></a>
+                    VIN : <a href="javascript:void(0)" onclick="copyToClipboard('{{ $booking['Vehicle']['vin_no'] }}')">{{ $booking['Vehicle']['vin_no'] }} <i class="icon-copy4"></i></a>
                 </div>
                 <div class="col-lg-6 col-sm-12 text-center">
                     <p><em>Once you've gotten a quote, please copy the quote number and submit a screenshot of the final cost of the policy in the section below.</em></p>

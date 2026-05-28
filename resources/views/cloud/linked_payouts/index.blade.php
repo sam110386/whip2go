@@ -123,7 +123,7 @@
                                 <td>{{ $p->processed_on }}</td>
                                 <td>{{ number_format((float) ($p->amount ?? 0), 2) }}</td>
                                 <td>
-                                    <a href="javascript:;" onclick="return getTransactions({{ (int) $p->id }})" class="btn btn-default btn-xs">Transactions</a>
+                                    <a href="javascript:void(0)" onclick="return getTransactions({{ (int) $p->id }})" class="btn btn-default btn-xs">Transactions</a>
                                 </td>
                             </tr>
                         @empty

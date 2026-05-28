@@ -62,7 +62,7 @@ function featuredVehicleAddAttribute_More(v) {
                 <div class="col-lg-6">\
                 <input name="data[FeaturedVehicle][attribute]['+elem+']" class="required form-control alphanumericwithspace" placeholder="Like Color, Trim..." type="text">\
                 </div>\
-            <div class="col-lg-4"><a href="javascript:;" onclick="featuredVehicleAddAttribute_More(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+            <div class="col-lg-4"><a href="javascript:void(0)" onclick="featuredVehicleAddAttribute_More(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
         $("#VehicleAttributes").append(element);
     } else {
         $("#VehicleAttributes #ele-" + elem).remove();

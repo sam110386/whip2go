@@ -17,7 +17,7 @@
             <td>{{ $term->email }}</td>
             <td>{{ \Carbon\Carbon::parse($term->created)->format('Y-m-d') }}</td>
             <td class="action">
-                <a href="javascript:;" title="Delete" onclick="return removePromo('{{ $term->id }}');"><i class="icon-trash"></i></a>
+                <a href="javascript:void(0)" title="Delete" onclick="return removePromo('{{ $term->id }}');"><i class="icon-trash"></i></a>
             </td>
         </tr>
     @endforeach

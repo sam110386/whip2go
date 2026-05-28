@@ -113,7 +113,7 @@
                 '<input id="VehicleLocation' + elem + 'Lng" name="VehicleLocation[' + elem + '][lng]" class="form-control" value="" type="hidden">' +
                 '<input name="VehicleLocation[' + elem + '][id]" class="form-control" value="" type="hidden">' +
                 '</div>' +
-                '<div class="col-lg-1"><a href="javascript:;" onclick="address_more(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                '<div class="col-lg-1"><a href="javascript:void(0)" onclick="address_more(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
             $("#address_more").append(element);
             initiategplace();
         } else {
@@ -398,7 +398,7 @@
                                 <input id="VehicleLocation0Lng" name="VehicleLocation[0][lng]" type="hidden" value="" />
                                 <input name="VehicleLocation[0][id]" type="hidden" value="" />
                             </div>
-                            <div class="col-lg-1"><a href="javascript:;" onclick="address_more(true)"><i class="icon-plus-circle2 icon-2x"></i></a></div>
+                            <div class="col-lg-1"><a href="javascript:void(0)" onclick="address_more(true)"><i class="icon-plus-circle2 icon-2x"></i></a></div>
                         </div>
                     @else
                         @foreach($vehicleLocations as $k => $location)
@@ -411,9 +411,9 @@
                                     <input name="VehicleLocation[{{ $k }}][id]" type="hidden" value="{{ $location['id'] }}" />
                                 </div>
                                 @if($k === 0)
-                                    <div class="col-lg-1"><a href="javascript:;" onclick="address_more(true)"><i class="icon-plus-circle2 icon-2x"></i></a></div>
+                                    <div class="col-lg-1"><a href="javascript:void(0)" onclick="address_more(true)"><i class="icon-plus-circle2 icon-2x"></i></a></div>
                                 @else
-                                    <div class="col-lg-1"><a href="javascript:;" onclick="address_more(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div>
+                                    <div class="col-lg-1"><a href="javascript:void(0)" onclick="address_more(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div>
                                 @endif
                             </div>
                         @endforeach

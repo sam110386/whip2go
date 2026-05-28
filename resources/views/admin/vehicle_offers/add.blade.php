@@ -208,7 +208,7 @@
                                     value="{{ !in_array($offerData->duration ?? 7, [1, 2, 3, 4, 5, 6, 7, 14, 30]) ? $offerData->duration : '' }}">
                                 <em>Please note new duration will be only applied on auto renew event</em>
                             </div>
-                            <div class="col-lg-1"><a href="javascript:;" onclick="duration_opt(true)"><i
+                            <div class="col-lg-1"><a href="javascript:void(0)" onclick="duration_opt(true)"><i
                                         class="icon-plus-circle2 icon-2x"></i></a></div>
                         </div>
 
@@ -230,7 +230,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <div class="col-lg-1"><a href="javascript:;" onclick="duration_opt(false)"><i
+                                    <div class="col-lg-1"><a href="javascript:void(0)" onclick="duration_opt(false)"><i
                                                 class="icon-minus-circle2 icon-2x"></i></a></div>
                                 </div>
                             @endforeach
@@ -282,10 +282,10 @@
                                     </div>
                                     <div class="col-lg-1">
                                         @if($loop->first)
-                                            <a href="javascript:;" onclick="deposit_opt(true)"><i
+                                            <a href="javascript:void(0)" onclick="deposit_opt(true)"><i
                                                     class="icon-plus-circle2 icon-2x"></i></a>
                                         @else
-                                            <a href="javascript:;" onclick="deposit_opt(false)"><i
+                                            <a href="javascript:void(0)" onclick="deposit_opt(false)"><i
                                                     class="icon-minus-circle2 icon-2x"></i></a>
                                         @endif
                                     </div>
@@ -305,7 +305,7 @@
                                         <input name="VehicleOffer[deposit_opt][1][amount]" type="text" class="form-control"
                                             value="0">
                                     </div>
-                                    <div class="col-lg-1"><a href="javascript:;" onclick="deposit_opt(true)"><i
+                                    <div class="col-lg-1"><a href="javascript:void(0)" onclick="deposit_opt(true)"><i
                                                 class="icon-plus-circle2 icon-2x"></i></a></div>
                                 </div>
                             @endif
@@ -337,10 +337,10 @@
                                     </div>
                                     <div class="col-lg-1">
                                         @if($loop->first)
-                                            <a href="javascript:;" onclick="initialfee_opt(true)"><i
+                                            <a href="javascript:void(0)" onclick="initialfee_opt(true)"><i
                                                     class="icon-plus-circle2 icon-2x"></i></a>
                                         @else
-                                            <a href="javascript:;" onclick="initialfee_opt(false)"><i
+                                            <a href="javascript:void(0)" onclick="initialfee_opt(false)"><i
                                                     class="icon-minus-circle2 icon-2x"></i></a>
                                         @endif
                                     </div>
@@ -360,7 +360,7 @@
                                         <input name="VehicleOffer[initial_fee_opt][1][amount]" type="text" class="form-control"
                                             value="0">
                                     </div>
-                                    <div class="col-lg-1"><a href="javascript:;" onclick="initialfee_opt(true)"><i
+                                    <div class="col-lg-1"><a href="javascript:void(0)" onclick="initialfee_opt(true)"><i
                                                 class="icon-plus-circle2 icon-2x"></i></a></div>
                                 </div>
                             @endif

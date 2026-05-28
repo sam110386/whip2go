@@ -55,7 +55,7 @@
                 <td style="padding:6px;">
                     <a href="/admin/transactions/updatetransaction/{{ $oid }}" title="Payment Details"><i class="glyphicon glyphicon-edit"></i></a>
                     &nbsp;
-                    <a href="javascript:;" onclick="Updateenddatetime('{{ $oid }}')" title="Update Actual End Date Time"><i class="glyphicon glyphicon-time"></i></a>
+                    <a href="javascript:void(0)" onclick="Updateenddatetime('{{ $oid }}')" title="Update Actual End Date Time"><i class="glyphicon glyphicon-time"></i></a>
                 </td>
             </tr>
         @empty

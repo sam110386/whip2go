@@ -16,7 +16,7 @@
                     <a href="{{ url('admin/airwallex_credits/issue', $userid) }}" class="btn btn-danger pull-left mr-5">Credit Deposit to Virtual Card</a>
                     <a href="{{ url('admin/wallet/diacredit', $userid) }}" class="btn btn-danger pull-left mr-5">Add DIA Credits</a>
                 @endif
-                <a href="javascript:;" class="btn btn-success left-margin" onclick="chargePartialAmtPopup('{{ $userid }}')">Charge Partial Amount</a>
+                <a href="javascript:void(0)" class="btn btn-success left-margin" onclick="chargePartialAmtPopup('{{ $userid }}')">Charge Partial Amount</a>
                 @if(!empty($is_dealer))
                     <a href="{{ url('admin/wallet/updatebalance', $userid) }}" class="btn btn-success pull-left mr-5">Update Balance</a>
                 @else

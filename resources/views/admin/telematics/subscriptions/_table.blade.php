@@ -53,7 +53,7 @@
                     <td style="text-align:center;">
                         <a href="/admin/telematics/sub_devices/index/{{ base64_encode($list->id) }}"
                             title="Manage Attached Devices"><i class="icon-cabinet"></i></a>
-                        <a href="javascript:;" title="Payments" onclick="openPayments('{{ base64_encode($list->id) }}')"><i
+                        <a href="javascript:void(0)" title="Payments" onclick="openPayments('{{ base64_encode($list->id) }}')"><i
                                 class="icon-coin-dollar"></i></a>
                     </td>
                 </tr>

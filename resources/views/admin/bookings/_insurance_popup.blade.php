@@ -11,19 +11,19 @@
                 <div class="form-group">
                     <label class="col-lg-8 control-label">Insurance Card :</label>
                     <div class="col-lg-2">
-                        <a href="javascript:;" onclick="return getinsurancedoc('{{ base64_encode((string)($Lease['CsOrder']['id'] ?? 0)) }}')"><i class="icon-magazine icon-2x"></i></a>
+                        <a href="javascript:void(0)" onclick="return getinsurancedoc('{{ base64_encode((string)($Lease['CsOrder']['id'] ?? 0)) }}')"><i class="icon-magazine icon-2x"></i></a>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-8 control-label">Rental Agreement :</label>
                     <div class="col-lg-4">
-                        <a href="javascript:;" onclick="return getagreement('{{ base64_encode((string)($Lease['CsOrder']['id'] ?? 0)) }}')"><i class="icon-file-pdf icon-2x"></i></a>
+                        <a href="javascript:void(0)" onclick="return getagreement('{{ base64_encode((string)($Lease['CsOrder']['id'] ?? 0)) }}')"><i class="icon-file-pdf icon-2x"></i></a>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-8 control-label">Insurance Declaration Doc :</label>
                     <div class="col-lg-4">
-                        <a href="javascript:;" onclick="return getDeclarationDoc('{{ base64_encode((string)($Lease['CsOrder']['id'] ?? 0)) }}')"><i class="icon-magazine icon-2x"></i></a>
+                        <a href="javascript:void(0)" onclick="return getDeclarationDoc('{{ base64_encode((string)($Lease['CsOrder']['id'] ?? 0)) }}')"><i class="icon-magazine icon-2x"></i></a>
                     </div>
                 </div>
             </div>

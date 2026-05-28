@@ -84,7 +84,7 @@
                     <td style="text-align:center;">{{ $list->transferred - $list->insurance }}</td>
                     <td style="text-align:center;">{{ $list->pending }}</td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" title="Refresh" onclick="customerReportRefresh({{ $list->id }})"><i class="glyphicon glyphicon-refresh"></i></a>
+                        <a href="javascript:void(0)" title="Refresh" onclick="customerReportRefresh({{ $list->id }})"><i class="glyphicon glyphicon-refresh"></i></a>
                     </td>
                 </tr>
             @endforeach

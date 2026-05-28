@@ -14,7 +14,7 @@
             </div>
             <div class="heading-elements">
                 <a href="/admin/telematics_subscriptions/index" class="btn btn-primary">Back</a>
-                <a href="javascript:;" class="btn btn-danger" onclick="addDevice('{{ base64_encode($subid) }}')">Add New</a>
+                <a href="javascript:void(0)" class="btn btn-danger" onclick="addDevice('{{ base64_encode($subid) }}')">Add New</a>
             </div>
         </div>
     </div>

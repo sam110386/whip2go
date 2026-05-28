@@ -19,7 +19,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="javascript:;" class="btn btn-primary" onclick="AddNewNote({{ $userid }})">
+                <a href="javascript:void(0)" class="btn btn-primary" onclick="AddNewNote({{ $userid }})">
                     {{ 'Add New Note' }}
                 </a>
             </div>

@@ -33,7 +33,7 @@
                         {{ $list->orderExtlogs->first()?->note ?? '-' }}
                     </td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" onclick="ShowPastDueLogs({{ $list->id ?? 0 }})">
+                        <a href="javascript:void(0)" onclick="ShowPastDueLogs({{ $list->id ?? 0 }})">
                         {{ \App\Helpers\Legacy\ReportHelper::getExtCount($list->id ?? 0) }}
                     </a>
                     </td>

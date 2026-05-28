@@ -26,7 +26,7 @@
                                 <td>{{ $payment->amount ?? '' }}</td>
                                 <td>{{ $paymentTypeValue[$payment->type] ?? '' }}</td>
                                 <td>
-                                    <a href="javascript:;"
+                                    <a href="javascript:void(0)"
                                         onclick="return getPaymentReceipt('{{ base64_encode($payment->id) }}')">
                                         <i class="icon-image2 icon-2x"></i>
                                     </a>

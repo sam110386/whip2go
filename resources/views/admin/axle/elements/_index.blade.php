@@ -81,7 +81,7 @@
 
                             @if (empty($trip->axle_status) || in_array($trip->axle_status, [1, 2, 4]))
                                 <li {{ $trip->axle_status }}>
-                                    <a href="javascript:;" onclick="axlePolicyDisconnect('{{ $trip->order_id }}')"
+                                    <a href="javascript:void(0)" onclick="axlePolicyDisconnect('{{ $trip->order_id }}')"
                                         title="Disconnect" class="btn btn-danger" target="_blank">
                                         Disconnect
                                         <i class="icon-trash position-right"></i>
@@ -91,7 +91,7 @@
 
                             @if (!empty($trip->account_id) && empty($trip->policy))
                                 <li>
-                                    <a href="javascript:;" onclick="getAxleAccountDetails('{{ $trip->order_id }}')"
+                                    <a href="javascript:void(0)" onclick="getAxleAccountDetails('{{ $trip->order_id }}')"
                                         title="Pull Policy Details" class="btn btn-info">
                                         Account Details
                                         <i class="icon-spinner4 position-right"></i>
@@ -101,7 +101,7 @@
 
                             @if (!empty($trip->policy) && in_array($trip->axle_status, [2, 4, 5, 6]))
                                 <li>
-                                    <a href="javascript:;" onclick="getAxlePolicyDetails('{{ $trip->order_id }}')"
+                                    <a href="javascript:void(0)" onclick="getAxlePolicyDetails('{{ $trip->order_id }}')"
                                         title="Pull Policy Details" class="btn btn-info">
                                         Policy Details
                                         <i class="icon-spinner4 position-right"></i>
@@ -111,7 +111,7 @@
 
                             @if (!empty($trip->policy))
                                 <li>
-                                    <a href="javascript:;" onclick="axlePolicyDetailsPopup('{{ $trip->order_id }}')"
+                                    <a href="javascript:void(0)" onclick="axlePolicyDetailsPopup('{{ $trip->order_id }}')"
                                         title="Policy Checklist" class="btn btn-warning">
                                         Checklist
                                         <i class="icon-pencil7 position-right"></i>

@@ -26,7 +26,7 @@
                     <ul class="dropdown-menu dropdown-menu-right">
                         <li><a href="{{ url('admin/driver_credit/records/credit') }}">Direct To Driver</a></li>
                         <li class="divider"></li>
-                        <li><a href="javascript:;" onclick="openBooking()">To Booking</a></li>
+                        <li><a href="javascript:void(0)" onclick="openBooking()">To Booking</a></li>
                     </ul>
                 </div>
             </div>

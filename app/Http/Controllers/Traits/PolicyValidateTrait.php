@@ -4,14 +4,15 @@ namespace App\Http\Controllers\Traits;
 
 use App\Services\Legacy\AxleService;
 use Illuminate\Support\Facades\DB;
+use App\Services\Legacy\IntercomClient;
 
 trait PolicyValidateTrait
 {
-    private function convertBookingInsuranceTypeIfPolicyExpired(array $policy = [], array $AxleStatus = []): void
+    private function _convertBookingInsuranceTypeIfPolicyExpired(array $policy = [], array $AxleStatus = []): void
     {
         $checklists = AxleService::$rules;
 
-        $orderDepositRule = DB::table('order_deposit_rules as OrderDepositRule')
+        $orderDepositRule = DB::table('cs_order_deposit_rules as OrderDepositRule')
             ->leftJoin('cs_orders as CsOrder', function ($join) {
                 $join->whereIn('CsOrder.status', [0, 1])
                     ->where(function ($q) {
@@ -32,7 +33,11 @@ trait PolicyValidateTrait
         $checklists['vin']['policy_text'] = "VIN dont match";
 
         foreach ($properties as $property) {
-            if (strtolower($property['type']) === 'vehicle' && isset($property['data']['vin']) && strtoupper($orderDepositRule->vin_no ?? '') == strtoupper($property['data']['vin'])) {
+            if (
+                strtolower($property['type']) === 'vehicle' &&
+                isset($property['data']['vin']) &&
+                strtoupper($orderDepositRule->vin_no ?? '') == strtoupper($property['data']['vin'])
+            ) {
                 $propertyId = $property['id'];
                 $checklists['vin']['policy_text'] = strtoupper($property['data']['vin']);
                 $vinActive = true;
@@ -42,14 +47,17 @@ trait PolicyValidateTrait
         }
 
         $thirdParties = $policy['thirdParties'] ?? [];
+
         foreach ($thirdParties as $thirdParty) {
             $name = preg_replace("/[^a-zA-Z]/", '', strtolower($thirdParty['name'] ?? ''));
             $isDia = in_array($name, ['dialeasingllc', 'driveitawayinc', 'driveitaway', 'dialeasing']);
+
             if (strtolower($thirdParty['type']) === 'lienholder' && $propertyId == $thirdParty['property']) {
                 $checklists['lienholder']['policy_text'] = $thirdParty['name'];
                 $lienholderActive = $isDia;
                 $checklists['lienholder']['accepted'] = $lienholderActive;
             }
+
             if (strtolower($thirdParty['type']) === 'lessor' && $propertyId == $thirdParty['property']) {
                 $checklists['lessor']['policy_text'] = $thirdParty['name'];
                 $lessorActive = $isDia;
@@ -58,6 +66,7 @@ trait PolicyValidateTrait
         }
 
         $coverages = $policy['coverages'] ?? [];
+
         foreach ($coverages as $coverage) {
             if (strtolower($coverage['code'] ?? '') === 'comp' && $propertyId == ($coverage['property'] ?? '')) {
                 $checklists['compreshensive']['policy_text'] = $coverage['deductible'];
@@ -84,15 +93,19 @@ trait PolicyValidateTrait
 
         if (!$policyActive) {
             $AxleStatus['axle_status'] = 4;
+
             if (($orderDepositRule->insurance_payer ?? 0) == 7) {
                 $AxleStatus['expired_on'] = date('Y-m-d', strtotime($policy['expirationDate'] ?? date('Y-m-d')));
             }
         }
+
         if (($policy['isActive'] ?? false) != true) {
             $policyActive = false;
+
             if (($orderDepositRule->insurance_payer ?? 0) == 7) {
                 $AxleStatus['expired_on'] = date('Y-m-d', strtotime($policy['expirationDate'] ?? date('Y-m-d')));
             }
+
             $AxleStatus['axle_status'] = 3;
         }
 
@@ -104,25 +117,48 @@ trait PolicyValidateTrait
                 'expired_on' => $AxleStatus['expired_on'] ?? null,
             ]);
 
-            if (empty($orderDepositRule)) return;
-            if (($orderDepositRule->insurance_payer ?? 0) != 7) return;
+            if (empty($orderDepositRule)) {
+                return;
+            }
 
-            $depositRule = DB::table('deposit_rules')->where('vehicle_id', $orderDepositRule->vehicle_id)->select('insurance_fee', 'emf_insu')->first();
-            if (empty($depositRule)) return;
+            if (($orderDepositRule->insurance_payer ?? 0) != 7) {
+                return;
+            }
 
-            [$insuranceFee, $diaInsu] = $this->getInsurance($orderDepositRule->miles ?? 0, $orderDepositRule, $depositRule);
+            $depositRule = DB::table('deposit_rules')
+                ->where('vehicle_id', $orderDepositRule->vehicle_id)
+                ->select('insurance_fee', 'emf_insu')
+                ->first();
+
+            if (empty($depositRule)) {
+                return;
+            }
+
+            [$insuranceFee, $diaInsu] = $this->_getInsurance($orderDepositRule->miles, $orderDepositRule, $depositRule);
 
             $checklists['insurance_old']['insurance_payer'] = $orderDepositRule->insurance_payer;
             $checklists['insurance_old']['insurance_rate'] = $orderDepositRule->insurance ?? 0;
             $checklists['emfinsurance_old']['insurance_rate'] = $orderDepositRule->emf_insu_rate ?? 0;
 
-            DB::table('order_deposit_rules')->where('id', $orderDepositRule->id)->update([
-                'insurance' => $insuranceFee, 'emf_insu_rate' => $diaInsu,
+            DB::table('cs_order_deposit_rules')->where('id', $orderDepositRule->id)->update([
+                'insurance' => $insuranceFee,
+                'emf_insu_rate' => $diaInsu,
             ]);
 
             $checklists['insurance_new']['insurance_payer'] = 0;
             $checklists['insurance_new']['insurance_rate'] = $insuranceFee;
             $checklists['emfinsurance_new']['insurance_rate'] = $diaInsu;
+
+            (new IntercomClient())->createEvents([
+                "event_name" => "insurance_type_changed",
+                "created_at" => time(),
+                "external_id" => $orderDepositRule->renter_id,
+                "user_id" => $orderDepositRule->renter_id,
+                "metadata" => [
+                    "insurance_rate" => $insuranceFee,
+                    "dia_insu" => $diaInsu
+                ]
+            ]);
 
             $extra = json_decode(!empty($AxleStatus['extra']) ? $AxleStatus['extra'] : '{}', true);
             DB::table('axle_status')->where('id', $AxleStatus['id'])->update([
@@ -132,8 +168,14 @@ trait PolicyValidateTrait
             if ($AxleStatus['axle_status'] == 3) {
                 $oldTicket = DB::table('cs_vehicle_issues')
                     ->where('vehicle_id', $orderDepositRule->vehicle_id)
-                    ->where('type', 10)->where('status', '!=', 3)->first();
-                if (!empty($oldTicket)) return;
+                    ->where('type', 10)
+                    ->where('status', '!=', 3)
+                    ->first();
+
+                if (!empty($oldTicket)) {
+                    return;
+                }
+
                 DB::table('cs_vehicle_issues')->insert([
                     'user_id' => $orderDepositRule->user_id,
                     'vehicle_id' => $orderDepositRule->vehicle_id,
@@ -145,7 +187,7 @@ trait PolicyValidateTrait
         }
     }
 
-    private function getInsurance($milesOptions, $vehicleData, $depositRule): array
+    private function _getInsurance($milesOptions, $vehicleData, $depositRule): array
     {
         $allowedMiles = $vehicleData->allowed_miles ?? 0;
         $diaInsu = $depositRule->emf_insu ?: 0;

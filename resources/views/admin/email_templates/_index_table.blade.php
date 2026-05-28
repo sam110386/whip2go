@@ -24,7 +24,7 @@
                 <thead>
                     <tr>
                         @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['title' => '<input type="checkbox" id="selectall" onclick="toggleAll(this)"/>', 'sortable' => false, 'style' => 'width:28px;'],
+                            ['title' => '<input type="checkbox" id="selectall" onclick="toggleAll(this)"/>', 'sortable' => false, 'style' => 'width:28px;', 'html' => true],
                             ['title' => 'Title', 'field' => 'head_title'],
                             ['title' => 'Subject', 'field' => 'subject'],
                             ['title' => 'Type', 'field' => 'type'],

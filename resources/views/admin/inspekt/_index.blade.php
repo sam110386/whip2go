@@ -18,7 +18,7 @@
                 <td>{{ $statusFlags[$list->status] ?? 'N/A' }}</td>
                 <td>{{ $list->created }}</td>
                 <td>
-                    <a href="javascript:;" title="View Report" onclick="loadReportDetail('{{ $list->case_id }}')"><i class="icon-magazine icon-2x" title="View Report"></i></a>
+                    <a href="javascript:void(0)" title="View Report" onclick="loadReportDetail('{{ $list->case_id }}')"><i class="icon-magazine icon-2x" title="View Report"></i></a>
                 </td>
             </tr>
         @endforeach

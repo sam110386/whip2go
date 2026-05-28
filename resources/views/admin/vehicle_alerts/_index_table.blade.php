@@ -37,7 +37,7 @@
                     </td>
                     <td style="text-align:center;">{{ $alert->note }}</td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" title="Delete Record" onclick="DeleteVehicleAlert('{{ $alert->id }}')"><i class="icon-trash"></i></a>
+                        <a href="javascript:void(0)" title="Delete Record" onclick="DeleteVehicleAlert('{{ $alert->id }}')"><i class="icon-trash"></i></a>
                     </td>
                 </tr>
             @endforeach

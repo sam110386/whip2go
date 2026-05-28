@@ -93,7 +93,7 @@
     {{ sprintf('%0.2f', $list->pending ?? 0) }}
 </td>
 <td style="text-align:center;">
-    <a href="javascript:;" title="Refresh" onclick="AdmincustomerReportRefresh({{ $list->id ?? 0 }})">
+    <a href="javascript:void(0)" title="Refresh" onclick="AdmincustomerReportRefresh({{ $list->id ?? 0 }})">
         <i class="glyphicon glyphicon-refresh"></i>
     </a>
 </td>

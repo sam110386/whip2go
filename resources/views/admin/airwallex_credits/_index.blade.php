@@ -32,7 +32,7 @@
                         <i class="icon-cog7"></i><span class="caret"></span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-solid pull-right">
-                        <li><a href="javascript:;" class="btn btn-warning">Dummy <i class="icon-pencil7 position-right"></i></a></li>
+                        <li><a href="javascript:void(0)" class="btn btn-warning">Dummy <i class="icon-pencil7 position-right"></i></a></li>
                     </ul>
                 </span>
             </td>

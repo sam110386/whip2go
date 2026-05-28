@@ -5,7 +5,7 @@
 
     <div class="panel-body">
         <div class="heading-elements">
-            <a href="javascript:;" onclick="OpenBoyiByDIAPopUp('{{ $bookingid }}')" class="btn btn-success">New</a>
+            <a href="javascript:void(0)" onclick="OpenBoyiByDIAPopUp('{{ $bookingid }}')" class="btn btn-success">New</a>
         </div>
         <legend class="text-size-large text-bold">BYOI By DIA:</legend>
         
@@ -27,8 +27,8 @@
                     <td>{{ $quote['InsuranceQuote']['daily_rate'] }}</td>
                     <td>{{ $quote['InsuranceQuote']['total_limit'] }}</td>
                     <td>
-                        <a href="javascript:;" onclick="OpenBoyiByDIAPopUp('{{ $bookingid }}','{{ $quote['InsuranceQuote']['id'] }}')"><i class="icon-pencil"></i></a>
-                        <a href="javascript:;" onclick="DeleteBoyiByDIAPopUp('{{ $bookingid }}','{{ $quote['InsuranceQuote']['id'] }}')"><i class="icon-trash"></i></a>
+                        <a href="javascript:void(0)" onclick="OpenBoyiByDIAPopUp('{{ $bookingid }}','{{ $quote['InsuranceQuote']['id'] }}')"><i class="icon-pencil"></i></a>
+                        <a href="javascript:void(0)" onclick="DeleteBoyiByDIAPopUp('{{ $bookingid }}','{{ $quote['InsuranceQuote']['id'] }}')"><i class="icon-trash"></i></a>
                     </td>
                 </tr>
                 @endforeach

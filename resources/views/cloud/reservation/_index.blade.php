@@ -14,10 +14,10 @@
         @forelse($bookings as $trip)
         <tr id="tripRow{{ $trip->id }}">
             <td style="text-align:center;">{{ $trip->id }}</td>
-            <td style="text-align:center;"><a href="javascript:;" onclick="return false;">{{ $trip->vehicle_name }}</a></td>
+            <td style="text-align:center;"><a href="javascript:void(0)" onclick="return false;">{{ $trip->vehicle_name }}</a></td>
             <td style="text-align:center;">{{ \Carbon\Carbon::parse($trip->start_datetime)->format('Y-m-d h:i A') }}</td>
             <td style="text-align:center;">{{ $trip->renter_first_name }} {{ $trip->renter_last_name }}</td>
-            <td style="text-align:center;"><a href="javascript:;" onclick="return false;">{{ $trip->vin_no }}</a></td>
+            <td style="text-align:center;"><a href="javascript:void(0)" onclick="return false;">{{ $trip->vin_no }}</a></td>
             <td class="text-left">
                 <a href="javascript:void(0)" class="text" title="Status Checklist" onclick="return loadPickupChecklistPopup('{{ base64_encode($trip->id) }}');">Checklist</a>
             </td>

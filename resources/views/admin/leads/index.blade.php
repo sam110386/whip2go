@@ -122,7 +122,7 @@
                                         </a>
                                     @endif
                                     &nbsp;
-                                    <a href="javascript:;" onclick="refreshLead('{{ base64_encode($lead->id) }}')">
+                                    <a href="javascript:void(0)" onclick="refreshLead('{{ base64_encode($lead->id) }}')">
                                         <i class="icon-spinner9"></i>
                                     </a>
                                 </td>

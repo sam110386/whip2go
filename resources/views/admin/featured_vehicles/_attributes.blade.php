@@ -10,7 +10,7 @@
                             <div class="col-lg-6">
                                 <input type="text" name="FeaturedVehicle[attribute][1]" class="required form-control alphanumericwithspace" placeholder="Like Color, Trim..." />
                             </div>
-                            <div class="col-lg-4"><a href="javascript:;" onclick="featuredVehicleAddAttribute_More(true)"><i class="icon-plus-circle2 icon-2x"></i></a></div>
+                            <div class="col-lg-4"><a href="javascript:void(0)" onclick="featuredVehicleAddAttribute_More(true)"><i class="icon-plus-circle2 icon-2x"></i></a></div>
                         </div>
                     </div>
                 </div>

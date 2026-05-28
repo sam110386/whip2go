@@ -33,7 +33,7 @@
                         {{ data_get($list, 'OrderExtlog.0.note') ?: '-' }}
                     </td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" onclick="CloudShowPastDueLogs({{ $list['CsOrder']['id'] ?? 0 }})">{{ $portfolioSvc->getExtCount($list['CsOrder']['id'] ?? 0) }}</a>
+                        <a href="javascript:void(0)" onclick="CloudShowPastDueLogs({{ $list['CsOrder']['id'] ?? 0 }})">{{ $portfolioSvc->getExtCount($list['CsOrder']['id'] ?? 0) }}</a>
                     </td>
                     <td style="text-align:center;">
                         {{ $portfolioSvc->getExtParentWithSiblingCount((!empty($list['CsOrder']['parent_id']) ? $list['CsOrder']['parent_id'] : ($list['CsOrder']['id'] ?? 0))) }}

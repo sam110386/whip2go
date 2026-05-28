@@ -10,13 +10,13 @@
 <td valign="top">{{ $vehcile->model }}</td>
 <td valign="top">{{ $vehcile->cab_type }}</td>
 <td align="center" valign="bottom">
-    <a href="javascript:;" onclick="loadVehicleStatus('{{ base64_encode((string)$vehcile->id) }}')">
+    <a href="javascript:void(0)" onclick="loadVehicleStatus('{{ base64_encode((string)$vehcile->id) }}')">
         <img src="{{ (int)$vehcile->status === 1 ? '/img/green2.jpg' : '/img/red3.jpg' }}" alt="Status" title="Status">
     </a>
 </td>
 <td>{{ $vehicleStatuses[(string)((int)$vehcile->status)] ?? 'Active' }}</td>
 <td align="center" valign="bottom">
-    <a href="javascript:;" onclick="changePasstimeVehicleStatus('{{ base64_encode((string)$vehcile->id) }}','{{ (int)$vehcile->passtime_status === 1 ? 'inactive' : 'active' }}')">
+    <a href="javascript:void(0)" onclick="changePasstimeVehicleStatus('{{ base64_encode((string)$vehcile->id) }}','{{ (int)$vehcile->passtime_status === 1 ? 'inactive' : 'active' }}')">
         <img src="{{ (int)$vehcile->passtime_status === 1 ? '/img/green2.jpg' : '/img/red3.jpg' }}" alt="Status" title="Status">
     </a>
 </td>

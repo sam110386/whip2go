@@ -16,7 +16,7 @@
                 <legend class="text-size-large text-bold">Signed Documents:</legend>
                 @foreach($envelopObj['envelope_documents'] as $document)
                     <div class="form-group">
-                        <label class="col-lg-5 control-label"><a href="javascript:;" onclick="PullDocusignSignedDocument('{{ $docusign_envelope_id }}','{{ $document['document_id'] }}','{{ $OrderDepositRuleId }}','{{ $document['name'] }}')" >{{ $document['name'] }}</a></label>
+                        <label class="col-lg-5 control-label"><a href="javascript:void(0)" onclick="PullDocusignSignedDocument('{{ $docusign_envelope_id }}','{{ $document['document_id'] }}','{{ $OrderDepositRuleId }}','{{ $document['name'] }}')" >{{ $document['name'] }}</a></label>
                     </div>
                 @endforeach
                 </form>

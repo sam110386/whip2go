@@ -116,7 +116,7 @@
 
                                 @case(3)
                                 @case(4)
-                                    <a href="javascript:;">
+                                    <a href="javascript:void(0)">
                                         <i class="icon-blocked"></i>
                                     </a>
                                 @break

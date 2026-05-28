@@ -38,7 +38,7 @@
                                 &nbsp;<a href="{{ url('/admin/leads/add/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
                                 &nbsp;<a href="{{ url('/admin/leads/delete/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-trash"></i></a>
                             @endif
-                            &nbsp;<a href="javascript:;" onclick="refreshLead('{{ base64_encode($lead->id) }}')"><i class="icon-spinner9"></i></a>
+                            &nbsp;<a href="javascript:void(0)" onclick="refreshLead('{{ base64_encode($lead->id) }}')"><i class="icon-spinner9"></i></a>
                         </td>
                     </tr>
                 @endforeach

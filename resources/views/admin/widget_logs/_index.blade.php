@@ -4,7 +4,7 @@
         @if($paging['prevPage'])
             <li><a href="{{ url('/admin/widget_logs?page=' . ($paging['page'] - 1)) }}">Previous</a></li>
         @else
-            <li class="disabled"><a href="javascript:;">Previous</a></li>
+            <li class="disabled"><a href="javascript:void(0)">Previous</a></li>
         @endif
         @for($i = 1; $i <= $paging['pageCount']; $i++)
             <li class="{{ $i == $paging['page'] ? 'active' : '' }}"><a href="{{ url('/admin/widget_logs?page=' . $i) }}">{{ $i }}</a></li>
@@ -12,7 +12,7 @@
         @if($paging['nextPage'])
             <li><a href="{{ url('/admin/widget_logs?page=' . ($paging['page'] + 1)) }}">Next</a></li>
         @else
-            <li class="disabled"><a href="javascript:;">Next</a></li>
+            <li class="disabled"><a href="javascript:void(0)">Next</a></li>
         @endif
     </ul>
 </section>
@@ -37,8 +37,8 @@
                         {{ $file['date'] }}
                     </td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" title="View Record" onclick="WidgetLogView('{{ $file['filename'] }}')"><i class="glyphicon glyphicon-zoom-in"></i></a>
-                        <a href="javascript:;" title="Delete Record" onclick="WidgetLogDelete('{{ $file['filename'] }}')"><i class="icon-trash"></i></a>
+                        <a href="javascript:void(0)" title="View Record" onclick="WidgetLogView('{{ $file['filename'] }}')"><i class="glyphicon glyphicon-zoom-in"></i></a>
+                        <a href="javascript:void(0)" title="Delete Record" onclick="WidgetLogDelete('{{ $file['filename'] }}')"><i class="icon-trash"></i></a>
                     </td>
                 </tr>
             @endforeach
@@ -52,7 +52,7 @@
         @if($paging['prevPage'])
             <li><a href="{{ url('/admin/widget_logs?page=' . ($paging['page'] - 1)) }}">Previous</a></li>
         @else
-            <li class="disabled"><a href="javascript:;">Previous</a></li>
+            <li class="disabled"><a href="javascript:void(0)">Previous</a></li>
         @endif
         @for($i = 1; $i <= $paging['pageCount']; $i++)
             <li class="{{ $i == $paging['page'] ? 'active' : '' }}"><a href="{{ url('/admin/widget_logs?page=' . $i) }}">{{ $i }}</a></li>
@@ -60,7 +60,7 @@
         @if($paging['nextPage'])
             <li><a href="{{ url('/admin/widget_logs?page=' . ($paging['page'] + 1)) }}">Next</a></li>
         @else
-            <li class="disabled"><a href="javascript:;">Next</a></li>
+            <li class="disabled"><a href="javascript:void(0)">Next</a></li>
         @endif
     </ul>
 </section>

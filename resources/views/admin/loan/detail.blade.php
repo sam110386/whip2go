@@ -38,13 +38,13 @@
                             <div class="form-group">
                                 <label class="col-lg-4 control-label">Income Stated :</label>
                                 <div class="col-lg-8 control-label">
-                                    <a href="javascript:;" id="statedIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->income ?? 0 }}</a>
+                                    <a href="javascript:void(0)" id="statedIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->income ?? 0 }}</a>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label class="col-lg-4 control-label">Income Proven :</label>
                                 <div class="col-lg-8 control-label">
-                                    <a href="javascript:;" id="provenIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->provenincome ?? 0 }}</a>
+                                    <a href="javascript:void(0)" id="provenIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->provenincome ?? 0 }}</a>
                                 </div>
                             </div>
                             <div class="form-group">

@@ -163,7 +163,18 @@ class Vehicle extends LegacyModel
         return $this->hasOne(DepositRule::class, 'vehicle_id');
     }
 
-    public function expenses() {
+    public function expenses()
+    {
         return $this->hasMany(CsVehicleExpense::class, 'vehicle_id');
+    }
+
+    public function csSetting(): BelongsTo
+    {
+        return $this->belongsTo(CsSetting::class, 'user_id', 'user_id');
+    }
+    
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

@@ -42,7 +42,7 @@
                     <td style="text-align:center;">{{ $list->amt }}</td>
                     <td style="text-align:center;">{{ $list->txn_id }}</td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" title="Refresh"><i class="glyphicon glyphicon-refresh"></i></a>
+                        <a href="javascript:void(0)" title="Refresh"><i class="glyphicon glyphicon-refresh"></i></a>
                     </td>
                 </tr>
             @endforeach

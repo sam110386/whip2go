@@ -57,15 +57,15 @@
                             <td>{{ $reportlib->getPaymentTypeAction($trip->type, $trip->rtype, $trip->source) }}</td>
                             <td>
                                 @if(!empty($trip->increment_id))
-                                    <a href="javascript:;" onclick="bookingDetail({{ $trip->cs_order_id }})">{{ $trip->increment_id }}</a>
+                                    <a href="javascript:void(0)" onclick="bookingDetail({{ $trip->cs_order_id }})">{{ $trip->increment_id }}</a>
                                 @endif
                             </td>
                             <td>
                                 @if(!empty($trip->transaction_id))
                                     @if($trip->type == 12)
-                                        <a href="javascript:;" onclick="payoutDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
+                                        <a href="javascript:void(0)" onclick="payoutDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
                                     @else
-                                        <a href="javascript:;" onclick="transactionDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
+                                        <a href="javascript:void(0)" onclick="transactionDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
                                     @endif
                                 @endif
                             </td>
