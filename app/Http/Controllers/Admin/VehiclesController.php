@@ -21,11 +21,17 @@ use App\Services\Legacy\Colors;
 use App\Models\Legacy\DynamicFare;
 use App\Services\Legacy\Free2MoveService;
 use App\Http\Controllers\Traits\VehiclesTrait;
+use App\Http\Controllers\Traits\VehicleLocationTrait;
 use App\Http\Controllers\Legacy\LegacyAppController;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class VehiclesController extends LegacyAppController
 {
-    use VehiclesTrait;
+    protected $imageSize = 2097152;
+    protected $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf'];
+
+    use VehiclesTrait, VehicleLocationTrait;
     public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -198,45 +204,79 @@ class VehiclesController extends LegacyAppController
                 }
             }
 
-            return view('admin.vehicles.form', compact('title', 'vehicleData', 'colors'));
+            return view('admin.vehicles.add', ['listTitle' => $title, 'vehicle' => $vehicleData, 'colorOptions' => $colors]);
         }
 
-        $validatedData = $request->validated();
-        $vehicleData = $validatedData['Vehicle'] ?? [];
-        $vehicleData['cab_type'] = $vehicleData['cab_type'] ?? 'Regular Sedan';
-        $vehicleData['status'] = 1;
-        $vehicleData['rent_opt'] = "";
+        $allowedSize = $this->commonService->FileSizeInBytes(ini_get('upload_max_filesize'));
+        $allowedSizeInKb = $allowedSize / 1024;
+        $extensionString = implode(', ', $this->allowedExtensions);
 
-        if (($vehicleData['fare_type'] ?? '') === 'D') {
-            $vehicleData['day_rent'] = 0;
+        $validatedData = $request->validate([
+            'Vehicle.vehicle_name' => 'bail|required|string',
+            'Vehicle.vin_no' => 'bail|required|unique:vehicles,vin_no' . ($vehicleId ? ',' . $vehicleId : ''),
+            'Vehicle.user_id' => 'bail|required|integer',
+
+            // --- Image File Inputs ---
+            'registration_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
+            'insurance_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
+            'inspection_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
+        ], [
+            'Vehicle.vehicle_name.required' => 'Please enter the Vehicle Name.',
+            'Vehicle.vin_no.required' => 'Please enter VIN number.',
+            'Vehicle.vin_no.unique' => 'Entered VIN number already registered.',
+            'Vehicle.user_id.required' => 'Please enter Vehicle owner Id.',
+
+            // Custom error messages for images (Optional, but gives you clean errors)
+            'registration_image.mimes' => 'Registration image must be a valid file type (' . $extensionString . ').',
+            'registration_image.max' => 'Registration image size cannot exceed ' . round($allowedSizeInKb / 1024, 2) . 'MB.',
+            'insurance_image.mimes' => 'Insurance image must be a valid file type.',
+            'insurance_image.max' => 'Insurance image size is too large.',
+            'inspection_image.mimes' => 'Inspection image must be a valid file type.',
+            'inspection_image.max' => 'Inspection image size is too large.',
+        ]);
+
+        $vehicleData = array_merge($request->input('Vehicle', []), $validatedData['Vehicle'] ?? []);
+        $vehicleData['cab_type'] ??= 'Regular Sedan';
+        $dateFields = [
+            'insurance_policy_exp_date',
+            'inspection_exp_date',
+            'state_insp_exp_date',
+            'reg_name_exp_date',
+            'reg_name_date'
+        ];
+
+        foreach ($dateFields as $field) {
+            if (!empty($vehicleData[$field])) {
+                $vehicleData[$field] = Carbon::createFromFormat('m/d/Y', $vehicleData[$field])->format('Y-m-d');
+            }
+        }
+
+        if (!empty($vehicleData['availability_date'])) {
+            $vehicleData['availability_date'] = Carbon::parse($vehicleData['availability_date'])->format('Y-m-d');
         }
 
         $yearPart = !empty($vehicleData['year']) ? substr($vehicleData['year'], -2) . '-' : '';
         $makePart = !empty($vehicleData['make']) ? Str::slug($vehicleData['make'], '_') . '-' : '';
         $modelPart = !empty($vehicleData['model']) ? Str::slug($vehicleData['model'], '_') : '';
         $vinPart = !empty($vehicleData['vin_no']) ? '-' . substr($vehicleData['vin_no'], -6) : '';
-        $vehicleData['vehicle_name'] = $yearPart . $makePart . $modelPart . $vinPart;
 
+        $vehicleData['vehicle_name'] = "{$yearPart}{$makePart}{$modelPart}{$vinPart}";
         $vehicleData['rate'] = (float) preg_replace("/[^0-9,.]/", "", $vehicleData['rate'] ?? 0);
-        $vehicleData['vin_no'] = strtoupper($vehicleData['vin_no'] ?? '');
+        $vehicleData['status'] = 1;
+        $vehicleData['rent_opt'] = "";
+
+        if (($vehicleData['fare_type']) === 'D') {
+            $vehicleData['day_rent'] = 0;
+        }
+
         $vehicleData['vehicleCostInclRecon'] = (float) ($vehicleData['vehicleCostInclRecon'] ?? 0);
         $vehicleData['kbbnadaWholesaleBook'] = (float) ($vehicleData['kbbnadaWholesaleBook'] ?? 0);
         $vehicleData['doors'] = (int) ($vehicleData['doors'] ?? 0);
         $vehicleData['total_mileage'] = (int) ($vehicleData['total_mileage'] ?? 0);
         $vehicleData['allowed_miles'] = (float) ($vehicleData['allowed_miles'] ?? 0);
+        $vehicleData['rate'] = (float) ($vehicleData['rate'] ?? 0);
         $vehicleData['day_rent'] = (float) ($vehicleData['day_rent'] ?? 0);
-
-        $dateFields = ['insurance_policy_exp_date', 'inspection_exp_date', 'state_insp_exp_date', 'reg_name_exp_date', 'reg_name_date'];
-
-        foreach ($dateFields as $field) {
-            if (!empty($vehicleData[$field])) {
-                $vehicleData[$field] = \Carbon\Carbon::createFromFormat('m/d/Y', $vehicleData[$field])->format('Y-m-d');
-            }
-        }
-
-        if (!empty($vehicleData['availability_date'])) {
-            $vehicleData['availability_date'] = \Carbon\Carbon::parse($vehicleData['availability_date'])->format('Y-m-d');
-        }
+        $vehicleData['vin_no'] = strtoupper($vehicleData['vin_no'] ?? '');
 
         $vehicle = Vehicle::updateOrCreate(['id' => $vehicleId], $vehicleData);
 
@@ -251,10 +291,12 @@ class VehiclesController extends LegacyAppController
         foreach ($imageFields as $field) {
             if ($request->hasFile($field)) {
                 $file = $request->file($field);
-                $extension = strtolower($file->getClientOriginalExtension());
-                $fileName = 'vehi_' . $vehicle->id . '_' . str_replace('_image', '', $field) . '.' . $extension;
-                $file->storeAs('public/img/custom/vehicle_photo', $fileName);
-                $imageUpdateData[$field] = $fileName;
+                $suffix = str_replace('_image', '', $field);
+                $extension = $file->getClientOriginalExtension();
+                $filename = "vehi_{$$vehicle->id}_{$suffix}.{$extension}";
+                $destinationPath = public_path('img/custom/vehicle_photo');
+                $file->move($destinationPath, $filename);
+                $imageUpdateData[$field] = $filename;
             }
         }
 
@@ -272,19 +314,18 @@ class VehiclesController extends LegacyAppController
             ];
 
             DynamicFare::calculateDynamicFare($farePayload, 1);
-        } elseif ($vehicle->fare_type === 'L') {
+        }
+
+        if ($vehicle->fare_type === 'L') {
             Free2MoveService::fetchDynamicFare($vehicle->id, 1);
         }
 
-        if (!empty($validatedData['VehicleLocation'])) {
-            $vehicle->locations()->delete();
-            foreach ($validatedData['VehicleLocation'] as $location) {
-                $vehicle->locations()->create($location);
-            }
+        if ($request->has('VehicleLocation')) {
+            $this->saveVehicleLocation($request->input('VehicleLocation'), $vehicle->id);
         }
 
         if (!$vehicleId) {
-            return redirect('admin/vehicles/add' . base64_encode($vehicle->id))->with('success', 'Vehicle data saved successfully');
+            return redirect('admin/vehicles/add/' . base64_encode($vehicle->id))->with('success', 'Vehicle data saved successfully');
         }
 
         return redirect('admin/vehicles/index')->with('success', 'Vehicle data updated successfully');
