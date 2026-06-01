@@ -12,33 +12,51 @@ use Illuminate\Support\Facades\Log;
 trait VehiclesTrait
 {
 
-    protected function handleUpload($file, $vehicleid)
+    protected function handleUpload($file, $vehicleId)
     {
+        if (!$file->isValid()) {
+            return ['error' => 'Upload Error: ' . $file->getErrorMessage()];
+        }
+
+        $size = $file->getSize();
+
+        if ($size === 0) {
+            return ['error' => 'File is empty.'];
+        }
+
+        $maxServerSize = $file->getMaxFilesize();
+
+        if ($size > $maxServerSize) {
+            return ['error' => 'File is too large for the server configuration.', 'preventRetry' => true];
+        }
+
+        $fileFormat = strtolower($file->getClientOriginalExtension());
         $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf'];
-        $fileformat = $file->getClientOriginalExtension();
 
-        if (!in_array(strtolower($fileformat), $allowedExtensions)) {
-            return ['error' => 'File has an invalid extension.'];
+        if (!in_array($fileFormat, $allowedExtensions)) {
+            return ['error' => 'File has an invalid extension, it should be one of ' . implode(', ', $allowedExtensions) . '.'];
         }
 
-        $imageCount = VehicleImage::where('vehicle_id', $vehicleid)->count() + 1;
-        $filename = 'vehi_' . $vehicleid . '_' . $imageCount . '.' . $fileformat;
+        $imageCount = VehicleImage::where('vehicle_id', $vehicleId)->count();
+        $imageCount++;
+        $newFileName = "vehi_{$vehicleId}_{$imageCount}.{$fileFormat}";
+        $targetDir = 'img/custom/vehicle_photo';
+        $uploadSuccess = $file->move(public_path($targetDir), $newFileName);
 
-        $destinationPath = public_path('img/custom/vehicle_photo');
-        if (!file_exists($destinationPath)) {
-            mkdir($destinationPath, 0755, true);
-        }
-
-        if ($file->move($destinationPath, $filename)) {
-            $newImage = VehicleImage::create([
-                'filename' => $filename,
-                'vehicle_id' => $vehicleid,
-                'iorder' => $imageCount
+        if ($uploadSuccess) {
+            $vehicleImage = VehicleImage::create([
+                'vehicle_id' => $vehicleId,
+                'filename' => $newFileName,
+                'iorder' => $imageCount,
             ]);
-            return ['success' => true, "key" => $newImage->id];
+
+            return [
+                'success' => true,
+                'key' => $vehicleImage->id
+            ];
         }
 
-        return ['error' => 'Could not save uploaded file.'];
+        return ['error' => 'Could not save uploaded file. The upload was cancelled, or server error encountered'];
     }
 
     protected function _getVehicleGps($vehicle_id, $type)

@@ -3,18 +3,49 @@
 @section('title', $listTitle ?? 'Vehicle')
 
 @php
-    use App\Support\VehicleAdminSave;
-    $du = $owner?->distance_unit ?? 'MI';
-    $formBase = $vehicleFormActionBase ?? '/admin/vehicles/add';
-    $returnUrl = $returnListUrl ?? '/admin/vehicles/index';
-    $showDealerPicker = !$vehicle && empty($lockedDealerId ?? null);
-    $locations = $vehicle?->locations ?? collect();
+    $locations = data_get($vehicle, 'locations', collect());
+    $vehicleImages = data_get($vehicle, 'images', collect());
     $availabilityOptions = $commonService->getAvailabilityOptions();
     $financingOptions = $commonService->getVehicleFinancing();
+    $states = $commonService->getStates();
+    $canadaStates = $commonService->getCanadaStates();
+
+    $initialPreview = [];
+    $initialPreviewConfig = [];
+
+    foreach ($vehicleImages as $img) {
+        $isRemote = data_get($img, 'remote', false);
+        $filename = data_get($img, 'filename');
+
+        $initialPreview[] = $isRemote ? $filename : legacy_asset('img/custom/vehicle_photo/' . $filename);
+
+        $config = [
+            'filename' => $filename,
+            'key' => (int) data_get($img, 'id'),
+            'width' => '120px',
+            'downloadUrl' => false,
+            'iorder' => data_get($img, 'iorder')
+        ];
+
+        if (!$isRemote) {
+            $config['caption'] = $filename;
+            $config['class'] = 'cropme';
+        }
+
+        $initialPreviewConfig[] = $config;
+    }
+
 @endphp
 
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+
+    <style type="text/css">
+        .krajee-default.file-preview-frame .kv-file-content {
+            width: 210px;
+            height: 160px;
+        }
+    </style>
 @endpush
 
 @push('head_scripts')
@@ -25,8 +56,9 @@
 @section('content')
 
     <form
-        action="{{!empty($vehicle->id) ? url('admin/vehicles/add' . base64_encode($vehicle->id)) : url('/admin/vehicles/add')}}"
-        method="POST" enctype="multipart/form-data" id="vehicleAdminForm" name="vehicleAdminForm" class="form-horizontal">
+        action="{{!empty(data_get($vehicle, 'id')) ? url('admin/vehicles/add' . base64_encode(data_get($vehicle, 'id'))) : url('/admin/vehicles/add')}}"
+        method="POST" enctype="multipart/form-data" id="VehicleAdminAddForm" name="VehicleAdminAddForm"
+        class="form-horizontal">
         @csrf
 
         <div class="page-header">
@@ -39,15 +71,19 @@
                 </div>
                 <div class="heading-elements">
                     <div class="heading-btn-group">
-                        @if (!empty($vehicle->id) && ($vehicle?->csSetting?->passtime === 'smartcar' || $vehicle?->csSetting?->gps_provider === 'smartcar'))
-                            <a href="{{ url('admin/smart_cars/connect' . base64_encode($vehicle->user_id)) }}" class="btn"
+                        @if (
+                                !empty(data_get($vehicle, 'id')) &&
+                                (data_get($vehicle, 'csSetting.passtime') === 'smartcar' || data_get($vehicle, 'csSetting.gps_provider') === 'smartcar')
+                            )
+                            <a href="{{ url('admin/smart_cars/connect' . base64_encode(data_get($vehicle, 'user_id'))) }}"
+                                class="btn"
                                 onclick="window.open($(this).attr('href'), 'DriveItAway', 'scrollbars=no,resizable=no,status=no,location=no,toolbar=no,menubar=no,width=0,height=0,left=-1000,top=-1000'); return false;">
                                 Connect EV to Smart Car
                             </a>
                         @endif
 
                         <button type="submit" class="btn">
-                            {{ !empty($vehicle->id) ? 'Update' : 'Save' }}
+                            {{ !empty(data_get($vehicle, 'id')) ? 'Update' : 'Save' }}
                         </button>
                         <button type="submit" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicles/index')">
                             Return
@@ -65,7 +101,7 @@
             <div class="item">
                 <div class="panel-body">
                     <legend class="text-size-large text-bold">1. Details</legend>
-                    @if (!empty($vehicle->id))
+                    @if (!empty(data_get($vehicle, 'id')))
                         <input type="hidden" name="Vehicle[id]" value="{{ data_get($vehicle, 'id') }}">
                     @else
                         <div class="form-group">
@@ -147,7 +183,7 @@
                             VIN Number:<font class="requiredField">*</font>
                         </label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[vin_no]" maxlength="100"
+                            <input type="text" name="Vehicle[vin_no]" id="VehicleVinNo" maxlength="100"
                                 class="form-control required text-uppercase" required
                                 value="{{ old('Vehicle.vin_no', data_get($vehicle, 'vin_no')) }}">
                         </div>
@@ -158,7 +194,7 @@
                             Make :<font class="requiredField">*</font>
                         </label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[make]" class="required form-control" required
+                            <input type="text" name="Vehicle[make]" id="VehicleMake" class="required form-control" required
                                 value="{{ old('Vehicle.make', data_get($vehicle, 'make')) }}" maxlength="100"
                                 placeholder="Make">
                         </div>
@@ -169,8 +205,8 @@
                             Model :<font class="requiredField">*</font>
                         </label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[model]" class="required form-control" required
-                                value="{{ old('Vehicle.model', data_get($vehicle, 'model')) }}" maxlength="100"
+                            <input type="text" name="Vehicle[model]" id="VehicleModel" class="required form-control"
+                                required value="{{ old('Vehicle.model', data_get($vehicle, 'model')) }}" maxlength="100"
                                 placeholder="Model">
                         </div>
                     </div>
@@ -180,7 +216,7 @@
                             Year :
                         </label>
                         <div class="col-lg-8">
-                            <select name="Vehicle[year]" class="form-control">
+                            <select name="Vehicle[year]" id="VehicleYearYear" class="form-control">
                                 @php
                                     $currentYear = date('Y');
                                     $startYear = $currentYear + 1; // maxYear: current year + 1
@@ -189,7 +225,7 @@
                                 @endphp
 
                                 @for ($year = $startYear; $year >= $endYear; $year--)
-                                    <option value="{{ $year }}" {{ $selectedYear == $year ? 'selected' : '' }}>
+                                    <option value="{{ $year }}" @selected($selectedYear == $year)>
                                         {{ $year }}
                                     </option>
                                 @endfor
@@ -216,7 +252,7 @@
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Transmission Type :</label>
                         <div class="col-lg-8">
-                            <select name="Vehicle[transmition_type]" class="form-control">
+                            <select name="Vehicle[transmition_type]" id="VehicleTransmitionType" class="form-control">
                                 <option value="M" @selected(old('Vehicle.transmition_type', data_get($vehicle, 'transmition_type', 'M')) === 'M')>
                                     Manual
                                 </option>
@@ -473,11 +509,15 @@
                     <legend class="text-size-large text-bold">4.Vehicle Address</legend>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Show all locations :</label>
+                        <label class="col-lg-3 control-label">Show all locations :</label>
                         <div class="col-lg-8">
                             <select name="Vehicle[multi_location]" class="form-control">
-                                <option value="0" @selected((int) old('Vehicle.multi_location', data_get($vehicle, 'multi_location', 0)) === 0)>No</option>
-                                <option value="1" @selected((int) old('Vehicle.multi_location', data_get($vehicle, 'multi_location', 0)) === 1)>Yes</option>
+                                <option value="0" @selected((int) old('Vehicle.multi_location', data_get($vehicle, 'multi_location', 0)) === 0)>
+                                    No
+                                </option>
+                                <option value="1" @selected((int) old('Vehicle.multi_location', data_get($vehicle, 'multi_location', 0)) === 1)>
+                                    Yes
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -485,7 +525,7 @@
                     <div id="address_more">
                         @if ($locations->isEmpty())
                             <div class="form-group" id="ele-0">
-                                <label class="col-lg-4 control-label">Address 1 :</label>
+                                <label class="col-lg-3 control-label">Address 1 :</label>
                                 <div class="col-lg-8">
                                     <input name="VehicleLocation[0][address]" class="required geocodeinput form-control"
                                         placeholder="Vehicle Address" value="" type="text">
@@ -494,14 +534,15 @@
                                     <input name="VehicleLocation[0][id]" type="hidden">
                                 </div>
                                 <div class="col-lg-1">
-                                    <a href="javascript:;" onclick="address_more(true)"><i
-                                            class="icon-plus-circle2 icon-2x"></i></a>
+                                    <a href="javascript:void(0)" onclick="address_more(true)">
+                                        <i class="icon-plus-circle2 icon-2x"></i>
+                                    </a>
                                 </div>
                             </div>
                         @else
                             @foreach ($locations as $k => $location)
                                 <div class="form-group" id="ele-{{ $k }}">
-                                    <label class="col-lg-4 control-label">Address {{ $k + 1 }} :</label>
+                                    <label class="col-lg-3 control-label">Address {{ $k + 1 }} :</label>
                                     <div class="col-lg-8">
                                         <input name="VehicleLocation[{{ $k }}][address]" class="required geocodeinput form-control"
                                             placeholder="Vehicle Address"
@@ -518,13 +559,15 @@
                                     </div>
                                     @if ($k === 0)
                                         <div class="col-lg-1">
-                                            <a href="javascript:;" onclick="address_more(true)"><i
-                                                    class="icon-plus-circle2 icon-2x"></i></a>
+                                            <a href="javascript:void(0)" onclick="address_more(true)">
+                                                <i class="icon-plus-circle2 icon-2x"></i>
+                                            </a>
                                         </div>
                                     @else
                                         <div class="col-lg-1">
-                                            <a href="javascript:;" onclick="address_more(false)"><i
-                                                    class="icon-minus-circle2 icon-2x"></i></a>
+                                            <a href="javascript:void(0)" onclick="address_more(false)">
+                                                <i class="icon-minus-circle2 icon-2x"></i>
+                                            </a>
                                         </div>
                                     @endif
                                 </div>
@@ -535,57 +578,74 @@
             </div>
 
             <div class="item">
-                <div class="panel-heading">
-                    <h5 class="panel-title">5. Documentation</h5>
-                </div>
                 <div class="panel-body">
+                    <legend class="text-size-large text-bold">5. Documentation</legend>
+
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Registered name :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[registered_name]" class="form-control"
-                                value="{{ old('Vehicle.registered_name', data_get($vehicle, 'registered_name')) }}">
+                                value="{{ old('Vehicle.registered_name', data_get($vehicle, 'registered_name')) }}"
+                                maxlength="100">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Plate :</label>
+                        <label class="col-lg-4 control-label">Plate Number :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[plate_number]" class="form-control"
-                                value="{{ old('Vehicle.plate_number', data_get($vehicle, 'plate_number')) }}">
+                                value="{{ old('Vehicle.plate_number', data_get($vehicle, 'plate_number')) }}"
+                                placeholder="Plate #" maxlength="25">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Registered state (abbr) :</label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[registered_state]" maxlength="3" class="form-control"
-                                value="{{ old('Vehicle.registered_state', data_get($vehicle, 'registered_state', 'NY')) }}">
+                            <select name="Vehicle[registered_state]" id="registered_state" class="form-control">
+                                <optgroup label="United States">
+                                    @foreach($states as $key => $value)
+                                        <option value="{{ $key }}" {{ old('registered_state', data_get($vehicle, 'registered_state')) == $key ? 'selected' : '' }}>
+                                            {{ $value }}
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+
+                                <optgroup label="Canada">
+                                    @foreach($canadaStates as $key => $value)
+                                        <option value="{{ $key }}" {{ old('registered_state', data_get($vehicle, 'registered_state')) == $key ? 'selected' : '' }}>
+                                            {{ $value }}
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            </select>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Registration date :</label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[reg_name_date]" class="form-control reg_name_date"
-                                placeholder="m/d/Y"
-                                value="{{ old('Vehicle.reg_name_date', VehicleAdminSave::formatDateInput(data_get($vehicle, 'reg_name_date'))) }}">
+                            <input type="text" name="Vehicle[reg_name_date]" class="date form-control reg_name_date"
+                                value="{{ old('Vehicle.reg_name_date', data_get($vehicle, 'reg_name_date')) }}">
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Registration exp. :</label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[reg_name_exp_date]" class="form-control reg_name_exp_date"
-                                placeholder="m/d/Y"
-                                value="{{ old('Vehicle.reg_name_exp_date', VehicleAdminSave::formatDateInput(data_get($vehicle, 'reg_name_exp_date'))) }}">
+                            <input type="text" name="Vehicle[reg_name_exp_date]" class="date form-control reg_name_exp_date"
+                                value="{{ old('Vehicle.reg_name_exp_date', data_get($vehicle, 'reg_name_exp_date')) }}">
                         </div>
                     </div>
+
+                    <legend class="text-size-small text-semibold">Insurance Details</legend>
 
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Insurance company :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[insurance_company]" class="form-control"
-                                value="{{ old('Vehicle.insurance_company', data_get($vehicle, 'insurance_company')) }}">
+                                value="{{ old('Vehicle.insurance_company', data_get($vehicle, 'insurance_company')) }}"
+                                maxlength="100">
                         </div>
                     </div>
 
@@ -593,71 +653,76 @@
                         <label class="col-lg-4 control-label">Policy # :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[insurance_policy_no]" class="form-control"
-                                value="{{ old('Vehicle.insurance_policy_no', data_get($vehicle, 'insurance_policy_no')) }}">
+                                value="{{ old('Vehicle.insurance_policy_no', data_get($vehicle, 'insurance_policy_no')) }}"
+                                maxlength="100">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Policy begin :</label>
+                        <label class="col-lg-4 control-label">Begin Date :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[insurance_policy_date]"
-                                class="form-control insurance_policy_date" placeholder="m/d/Y"
+                                class="form-control date insurance_policy_date"
                                 value="{{ old('Vehicle.insurance_policy_date', data_get($vehicle, 'insurance_policy_date')) }}">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Policy expiration :</label>
+                        <label class="col-lg-4 control-label">Expiration Date :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[insurance_policy_exp_date]"
-                                class="form-control insurance_policy_exp_date" placeholder="m/d/Y"
-                                value="{{ old('Vehicle.insurance_policy_exp_date', VehicleAdminSave::formatDateInput(data_get($vehicle, 'insurance_policy_exp_date'))) }}">
+                                class="form-control date insurance_policy_exp_date"
+                                value="{{ old('Vehicle.insurance_policy_exp_date', data_get($vehicle, 'insurance_policy_exp_date')) }}">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Inspection expiration :</label>
+                        <label class="col-lg-4 control-label">Inspection Expiration Date :</label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[inspection_exp_date]" class="form-control inspection_exp_date"
-                                placeholder="m/d/Y"
-                                value="{{ old('Vehicle.inspection_exp_date', VehicleAdminSave::formatDateInput(data_get($vehicle, 'inspection_exp_date'))) }}">
+                            <input type="text" name="Vehicle[inspection_exp_date]"
+                                class="form-control date inspection_exp_date"
+                                value="{{ old('Vehicle.inspection_exp_date', data_get($vehicle, 'inspection_exp_date')) }}">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">State inspection exp. :</label>
+                        <label class="col-lg-4 control-label">State Inspection Exp. Date :</label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[state_insp_exp_date]" class="form-control state_insp_exp_date"
-                                placeholder="m/d/Y"
-                                value="{{ old('Vehicle.state_insp_exp_date', VehicleAdminSave::formatDateInput(data_get($vehicle, 'state_insp_exp_date'))) }}">
+                            <input type="text" name="Vehicle[state_insp_exp_date]"
+                                class="form-control date state_insp_exp_date"
+                                value="{{ old('Vehicle.state_insp_exp_date', data_get($vehicle, 'state_insp_exp_date')) }}">
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="item">
-                <div class="panel-heading">
-                    <h5 class="panel-title">6. Pricing</h5>
-                </div>
                 <div class="panel-body">
+                    <legend class="text-size-large text-bold">6. Pricing</legend>
+
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Pricing style :<font class="requiredField">*</font></label>
+                        <label class="col-lg-4 control-label">
+                            Pricing style :<font class="requiredField">*</font>
+                        </label>
                         <div class="col-lg-8">
                             <select name="Vehicle[fare_type]" id="VehicleFareType" class="form-control required">
                                 <option value="S" @selected(old('Vehicle.fare_type', data_get($vehicle, 'fare_type', 'S')) === 'S')>
-                                    Static</option>
+                                    Static
+                                </option>
                                 <option value="D" @selected(old('Vehicle.fare_type', data_get($vehicle, 'fare_type')) === 'D')>
                                     Dynamic
                                 </option>
                                 <option value="L" @selected(old('Vehicle.fare_type', data_get($vehicle, 'fare_type')) === 'L')>
-                                    Lease
-                                    Plus</option>
+                                    Lease Plus
+                                </option>
                             </select>
                         </div>
                     </div>
 
                     <div class="form-group" id="pricingUnitBlk">
-                        <label class="col-lg-4 control-label">Pricing Unit :<font class="requiredField">*</font></label>
+                        <label class="col-lg-4 control-label">
+                            Pricing Unit :<font class="requiredField">*</font>
+                        </label>
                         <div class="col-lg-8">
                             @php
                                 $curRental = old('Vehicle.rental', data_get($vehicle, 'rate', 0) > 0 ? 'hr' : 'day');
@@ -671,24 +736,26 @@
                         </div>
                     </div>
 
-                    <div class="form-group" id="rateBlk"
-                        style="display: {{ (old('Vehicle.fare_type', data_get($vehicle, 'fare_type', 'S')) === 'S' && $curRental === 'hr') ? 'block' : 'none' }}">
-                        <label class="col-lg-4 control-label">Rate (per hour) :<font class="requiredField">*</font></label>
+                    <div class="form-group" id="hrblk" {{ old('Vehicle.rate', data_get($vehicle, 'rate')) == 0 ? 'style=display:none' : '' }}>
+                        <label class="col-lg-4 control-label">
+                            Rate (per hour) :<font class="requiredField">*</font>
+                        </label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[rate]" id="VehicleRate" class="form-control required digits"
-                                value="{{ old('Vehicle.rate', data_get($vehicle, 'rate')) }}">
+                                value="{{ old('Vehicle.rate', data_get($vehicle, 'rate')) }}" maxlength="15">
                         </div>
                     </div>
-
-                    <div class="form-group" id="dayBlk"
-                        style="display: {{ (old('Vehicle.fare_type', data_get($vehicle, 'fare_type', 'S')) === 'S' && $curRental === 'day') ? 'block' : 'none' }}">
-                        <label class="col-lg-4 control-label">Day rent :<font class="requiredField">*</font></label>
+                    <div class="form-group" id="dayblk" {{ (old('Vehicle.rate', data_get($vehicle, 'rate')) !== null && old('day_rent', data_get($vehicle, 'day_rent')) == 0) ? 'style=display:none' : '' }}>
+                        <label class="col-lg-4 control-label">
+                            Day rent :<font class="requiredField">*</font>
+                        </label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[day_rent]" id="VehicleDayRent"
                                 class="form-control required number"
-                                value="{{ old('Vehicle.day_rent', data_get($vehicle, 'day_rent')) }}">
-                            <span class="help-block">Min/Max Rent Per Day (if you setup this then flat amount per day will
-                                be applied)</span>
+                                value="{{ old('Vehicle.day_rent', data_get($vehicle, 'day_rent')) }}" maxlength="10">
+                            <span class="help-block">
+                                Min/Max Rent Per Day (if you setup this then flat amount per day will be applied)
+                            </span>
                         </div>
                     </div>
 
@@ -696,14 +763,18 @@
                         <label class="col-lg-4 control-label">Authorize payment :</label>
                         <div class="col-lg-8">
                             <select name="Vehicle[auth_require]" class="form-control">
-                                <option value="0" @selected((int) old('Vehicle.auth_require', data_get($vehicle, 'auth_require', 0)) === 0)>Disable</option>
-                                <option value="1" @selected((int) old('Vehicle.auth_require', data_get($vehicle, 'auth_require', 0)) === 1)>Enable</option>
+                                <option value="0" @selected((int) old('Vehicle.auth_require', data_get($vehicle, 'auth_require', 0)) === 0)>
+                                    Disable
+                                </option>
+                                <option value="1" @selected((int) old('Vehicle.auth_require', data_get($vehicle, 'auth_require', 0)) === 1)>
+                                    Enable
+                                </option>
                             </select>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">MSRP (homenet) :</label>
+                        <label class="col-lg-4 control-label">MSRP :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[homenet_msrp]" class="form-control"
                                 value="{{ old('Vehicle.homenet_msrp', data_get($vehicle, 'homenet_msrp')) }}">
@@ -711,23 +782,27 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Dealer selling price (msrp) :</label>
+                        <label class="col-lg-4 control-label">
+                            Dealer Selling Price :<font class="requiredField">*</font>
+                        </label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[msrp]" class="form-control"
+                            <input type="text" name="Vehicle[msrp]" class="form-control required"
                                 value="{{ old('Vehicle.msrp', data_get($vehicle, 'msrp')) }}">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Listed selling price (premium) :</label>
+                        <label class="col-lg-4 control-label">
+                            Listed Selling Price :<font class="requiredField">*</font>
+                        </label>
                         <div class="col-lg-8">
-                            <input type="text" name="Vehicle[premium_msrp]" class="form-control"
+                            <input type="text" name="Vehicle[premium_msrp]" class="form-control number required"
                                 value="{{ old('Vehicle.premium_msrp', data_get($vehicle, 'premium_msrp')) }}">
                         </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">Vehicle cost incl. recon :</label>
+                        <label class="col-lg-4 control-label">Vehicle Cost Incl Recon :</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[vehicleCostInclRecon]" class="form-control"
                                 value="{{ old('Vehicle.vehicleCostInclRecon', data_get($vehicle, 'vehicleCostInclRecon')) }}">
@@ -735,7 +810,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="col-lg-4 control-label">KBB/NADA wholesale :</label>
+                        <label class="col-lg-4 control-label">Kbbnada Wholesale Book:</label>
                         <div class="col-lg-8">
                             <input type="text" name="Vehicle[kbbnadaWholesaleBook]" class="form-control"
                                 value="{{ old('Vehicle.kbbnadaWholesaleBook', data_get($vehicle, 'kbbnadaWholesaleBook')) }}">
@@ -743,171 +818,145 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            @php
-                $initialPreview = [];
-                $initialPreviewConfig = [];
-                if (!empty($vehicle?->id) && $vehicle->images) {
-                    foreach ($vehicle->images as $img) {
-                        if ($img->remote) {
-                            $initialPreview[] = $img->filename;
-                            $initialPreviewConfig[] = [
-                                'filename' => $img->filename,
-                                'key' => (int) $img->id,
-                                'width' => '120px',
-                                'downloadUrl' => false,
-                                'iorder' => $img->iorder
-                            ];
-                        } else {
-                            $initialPreview[] = legacy_site_url() . 'img/custom/vehicle_photo/' . $img->filename;
-                            $initialPreviewConfig[] = [
-                                'caption' => $img->filename,
-                                'filename' => $img->filename,
-                                'key' => (int) $img->id,
-                                'width' => '120px',
-                                'downloadUrl' => false,
-                                'iorder' => $img->iorder,
-                                'class' => 'cropme'
-                            ];
-                        }
-                    }
-                }
-            @endphp
+        <div class="panel">
+            <div class="panel-body">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <legend class="text-size-large text-bold">7. Upload Documents</legend>
 
-            <div class="panel panel-flat">
-                <div class="panel-heading">
-                    <h5 class="panel-title">7. Upload Documents</h5>
-                </div>
-                <div class="panel-body">
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label text-semibold">Registration Doc:</label>
-                        <div class="col-lg-8">
-                            @if (!empty($vehicle?->registration_image))
-                                @php
-                                    $regExt = strtolower(pathinfo($vehicle->registration_image, PATHINFO_EXTENSION));
-                                @endphp
-                                <div style="margin-bottom:10px;">
-                                    @if (in_array($regExt, ['doc', 'docx', 'pdf']))
-                                        <iframe height="150px" width="150px"
-                                            src="{{ legacy_site_url() }}img/custom/vehicle_photo/{{ $vehicle->registration_image }}"></iframe>
-                                    @else
-                                        <img height="150px" width="150px"
-                                            src="{{ legacy_site_url() }}img/custom/vehicle_photo/{{ $vehicle->registration_image }}" />
-                                    @endif
-                                </div>
-                            @endif
-                            <input type="file" class="form-control" name="registration_image" id="VehicleRegistrationImage"
-                                data-show-preview="false" data-show-upload="false">
-                            <span class="help-block">Please upload registration doc. (MAX File Size
-                                {{ ini_get('upload_max_filesize') }})</span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label text-semibold">Insurance Doc:</label>
-                        <div class="col-lg-8">
-                            @if (!empty($vehicle?->insurance_image))
-                                @php
-                                    $insExt = strtolower(pathinfo($vehicle->insurance_image, PATHINFO_EXTENSION));
-                                @endphp
-                                <div style="margin-bottom:10px;">
-                                    @if (in_array($insExt, ['doc', 'docx', 'pdf']))
-                                        <iframe height="150px" width="150px"
-                                            src="{{ legacy_site_url() }}img/custom/vehicle_photo/{{ $vehicle->insurance_image }}"></iframe>
-                                    @else
-                                        <img height="150px" width="150px"
-                                            src="{{ legacy_site_url() }}img/custom/vehicle_photo/{{ $vehicle->insurance_image }}" />
-                                    @endif
-                                </div>
-                            @endif
-                            <input type="file" class="form-control" name="insurance_image" id="VehicleInsuranceImage"
-                                data-show-preview="false" data-show-upload="false">
-                            <span class="help-block">Please upload insurance doc. (MAX File Size
-                                {{ ini_get('upload_max_filesize') }})</span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="col-lg-4 control-label text-semibold">Vehicle Inspection:</label>
-                        <div class="col-lg-8">
-                            @if (!empty($vehicle?->inspection_image))
-                                @php
-                                    $inspExt = strtolower(pathinfo($vehicle->inspection_image, PATHINFO_EXTENSION));
-                                @endphp
-                                <div style="margin-bottom:10px;">
-                                    @if (in_array($inspExt, ['doc', 'docx', 'pdf']))
-                                        <iframe height="150px" width="150px"
-                                            src="{{ legacy_site_url() }}img/custom/vehicle_photo/{{ $vehicle->inspection_image }}"></iframe>
-                                    @else
-                                        <img height="150px" width="150px"
-                                            src="{{ legacy_site_url() }}img/custom/vehicle_photo/{{ $vehicle->inspection_image }}" />
-                                    @endif
-                                </div>
-                            @endif
-                            <input type="file" class="form-control" name="inspection_image" id="VehicleInspectionImage"
-                                data-show-preview="false" data-show-upload="false">
-                            <span class="help-block">Please upload inspection doc. (MAX File Size
-                                {{ ini_get('upload_max_filesize') }})</span>
-                        </div>
-                    </div>
-
-                    @if (!empty($vehicle?->id))
                         <div class="form-group">
-                            <label class="col-lg-4 control-label">Vehicle Images</label>
+                            <label class="col-lg-4 control-label text-semibold">Registration Doc:</label>
                             <div class="col-lg-8">
-                                <input type="file" class="fileinputajax" multiple="multiple" name="vehicleimage"
-                                    data-show-preview="true" data-show-upload="true">
-                                <span class="help-block">You can select multiple images.</span>
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            </div>
-
-            <div class="form-group">
-                <div class="col-lg-12">
-                    <button type="submit" class="btn btn-primary">
-                        {{ !empty($vehicle->id) ? 'Update' : 'Save' }}
-                    </button>
-                    <a href="{{ $returnUrl }}" class="btn btn-default">Return</a>
-                </div>
-            </div>
-
-            <!-- cropModal Modal -->
-            <div id="cropModal" class="modal fade" role="dialog">
-                <div class="modal-dialog">
-                    <!-- Modal content-->
-                    <div class="modal-content">
-                        <div class="modal-body">
-                            <div class="image-cropper-container content-group" style="height: 500px;">
-                                <img src="" alt="" class="cropper">
+                                @if (!empty(data_get($vehicle, 'registration_image')))
+                                    @php
+                                        $regExt = strtolower(pathinfo(data_get($vehicle, 'registration_image'), PATHINFO_EXTENSION));
+                                    @endphp
+                                    <div style="margin-bottom:10px;">
+                                        @if (in_array($regExt, ['doc', 'docx', 'pdf']))
+                                            <iframe height="150px" width="150px"
+                                                src="{{ legacy_asset('img/custom/vehicle_photo/' . data_get($vehicle, 'registration_image')) }}"></iframe>
+                                        @else
+                                            <img height="150px" width="150px"
+                                                src="{{ legacy_asset('img/custom/vehicle_photo/' . data_get($vehicle, 'registration_image')) }}" />
+                                        @endif
+                                    </div>
+                                @endif
+                                <input type="file" class="form-control" name="registration_image"
+                                    id="VehicleRegistrationImage" data-show-preview="false" data-show-upload="false">
+                                <span class="help-block">
+                                    Please upload registration doc. (MAX File Size {{ ini_get('upload_max_filesize') }})
+                                </span>
                             </div>
                         </div>
 
-                        <div class="modal-footer">
-                            <div class="row">
-                                <div class="col-lg-4">
-                                    <p><button id="cropImage" type="button" class="btn btn-info btn-block">Crop</button></p>
+                        <div class="form-group">
+                            <label class="col-lg-4 control-label text-semibold">Vehicle Inspection:</label>
+                            <div class="col-lg-8">
+                                @if (!empty(data_get($vehicle, 'inspection_image')))
+                                    @php
+                                        $inspExt = strtolower(pathinfo(data_get($vehicle, 'inspection_image'), PATHINFO_EXTENSION));
+                                    @endphp
+                                    <div style="margin-bottom:10px;">
+                                        @if (in_array($inspExt, ['doc', 'docx', 'pdf']))
+                                            <iframe height="150px" width="150px"
+                                                src="{{ legacy_asset('img/custom/vehicle_photo/' . data_get($vehicle, 'inspection_image')) }}"></iframe>
+                                        @else
+                                            <img height="150px" width="150px"
+                                                src="{{ legacy_asset('img/custom/vehicle_photo/' . data_get($vehicle, 'inspection_image')) }}" />
+                                        @endif
+                                    </div>
+                                @endif
+                                <input type="file" class="form-control" name="inspection_image" id="VehicleInspectionImage"
+                                    data-show-preview="false" data-show-upload="false">
+                                <span class="help-block">Please upload inspection doc. (MAX File Size
+                                    {{ ini_get('upload_max_filesize') }})</span>
+                            </div>
+                        </div>
+
+                        @if (!empty(data_get($vehicle, 'id')))
+                            <div class="form-group">
+                                <label class="col-lg-2 control-label">Vehicle Images</label>
+                                <div class="col-lg-10">
+                                    <input type="file" class="fileinputajax" multiple="multiple" name="vehicleimage"
+                                        data-show-preview="true" data-show-upload="true">
+                                    <span class="help-block">You can select multiple images.</span>
                                 </div>
-                                <div class="col-lg-8 text-right">
-                                    <div class="btn-group" style="margin-right:10px;">
-                                        <button id="rotateLeft" type="button" class="btn btn-info"><i
-                                                class="icon-rotate-ccw3"></i></button>
-                                        <button id="rotateRight" type="button" class="btn btn-info"><i
-                                                class="icon-rotate-cw3"></i></button>
-                                    </div>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-primary" title="Move" id="setDragModeMove">
-                                            <span class="docs-tooltip" data-toggle="tooltip" title="Move Image Mode">
-                                                <i class="icon-move"></i>
-                                            </span>
-                                        </button>
-                                        <button type="button" class="btn btn-primary" title="Crop" id="setDragModeCrop">
-                                            <span class="docs-tooltip" data-toggle="tooltip" title="Crop Mode">
-                                                <i class="icon-crop2"></i>
-                                            </span>
-                                        </button>
-                                    </div>
+                            </div>
+                        @endif
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-body">
+                <div class="col-lg-12">
+                    <div class="form-group">
+                        <div class="col-lg-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                {{ !empty(data_get($vehicle, 'id')) ? 'Update' : 'Save' }}
+                            </button>
+                        </div>
+                        <div class="col-lg-2">
+                            <button type="button" class="btn left-margin btn-cancel w-100"
+                                onclick="goBack('/admin/vehicles/index')">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <input name="Vehicle.id" value="{{ old('Vehicle.id', data_get($vehicle, 'id')) }}" type="hidden">
+
+    </form>
+
+    @if (!empty(data_get($vehicle, 'id')))
+        <!-- cropModal Modal -->
+        <div id="cropModal" class="modal fade" role="dialog">
+            <div class="modal-dialog">
+                <!-- Modal content-->
+                <div class="modal-content">
+                    <div class="modal-body">
+                        <div class="image-cropper-container content-group" style="height: 500px;">
+                            <img src="{{ legacy_asset('img/placeholder.jpg') }}" alt="" class="cropper">
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <div class="row">
+                            <div class="col-lg-4">
+                                <p>
+                                    <button id="cropImage" type="button" class="btn btn-info btn-block">
+                                        Crop
+                                    </button>
+                                </p>
+                            </div>
+                            <div class="col-lg-4">
+                                <div class="btn-group">
+                                    <button id="rotateLeft" type="button" class="btn btn-info">
+                                        <i class="icon-rotate-ccw3"></i>
+                                    </button>
+                                    <button id="rotateRight" type="button" class="btn btn-info">
+                                        <i class="icon-rotate-cw3"></i>
+                                    </button>
+                                </div>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-primary" title="Move" id="setDragModeMove">
+                                        <span class="docs-tooltip" data-toggle="tooltip" title="Move Image Mode"
+                                            data-original-title="Move Image Mode">
+                                            <i class="fa fa-arrows-alt"></i>
+                                        </span>
+                                    </button>
+                                    <button type="button" class="btn btn-primary" title="Crop" id="setDragModeCrop">
+                                        <span class="docs-tooltip" data-toggle="tooltip" title="Crop Mode"
+                                            data-original-title="Crop Mode">
+                                            <i class="icon-crop2"></i>
+                                        </span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -915,304 +964,393 @@
                 </div>
             </div>
         </div>
-    </form>
+    @endif
+
 @endsection
 
 @push('scripts')
+    <script src="{{ legacy_asset('js/select2.js') }}"></script>
+    <script type="text/javascript">
+
+        jQuery(document).ready(function () {
+
+            jQuery(".inspection_exp_date,.state_insp_exp_date,.reg_name_exp_date,.reg_name_date,.insurance_policy_exp_date,.insurance_policy_date,#VehicleAvailabilityDate").datepicker({
+                dateFormat: 'mm/dd/yy',
+                changeMonth: true,
+                changeYear: true
+            });
+
+            jQuery("#VehicleAdminAddForm").validate();
+
+            jQuery("#VehicleRental").change(function () {
+                if (jQuery(this).val() == 'hr') {
+                    jQuery("#dayblk").hide();
+                    jQuery("#dayblk").find("input").val(0);
+                    jQuery("#hrblk").find("input").val(jQuery(this).attr('rel_hr'));
+                    jQuery("#hrblk").show();
+                } else {
+                    jQuery("#hrblk").hide();
+                    jQuery("#hrblk").find("input").val(0);
+                    jQuery("#dayblk").find("input").val(jQuery(this).attr('rel_day'));
+                    jQuery("#dayblk").show();
+                }
+            });
+
+            jQuery("#VehicleFareType").change(function () {
+                if (jQuery(this).val() == 'D' || jQuery(this).val() == 'L') {
+                    jQuery("#dayblk").hide();
+                    jQuery("#dayblk").find("input").val(0);
+                    jQuery("#hrblk").find("input").val(0);
+                    jQuery("#hrblk").hide();
+                } else {
+                    if (jQuery("#VehicleRental").val() == 'hr') {
+                        jQuery("#dayblk").hide();
+                        jQuery("#dayblk").find("input").val(0);
+                        jQuery("#hrblk").find("input").val(jQuery(this).attr('rel_hr'));
+                        jQuery("#hrblk").show();
+                    } else {
+                        jQuery("#hrblk").hide();
+                        jQuery("#hrblk").find("input").val(0);
+                        jQuery("#dayblk").find("input").val(jQuery(this).attr('rel_day'));
+                        jQuery("#dayblk").show();
+                    }
+                }
+            });
+
+            jQuery("#VehicleVinNo").keyup(function () {
+                if (jQuery(this).val().length == 17) {
+                    jQuery.blockUI({
+                        message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Just a moment...</h1>'
+                    });
+                    jQuery.post(SITE_URL + "admin/vehicles/checkVinDetails/", {
+                        'vin': jQuery(this).val()
+                    }, function (resp) {
+                        if (resp.status == 'success' && resp.result) {
+                            if (resp.result.model) jQuery("#VehicleModel").val(resp.result.model);
+                            if (resp.result.make) jQuery("#VehicleMake").val(resp.result.make);
+                            if (resp.result.year) jQuery("#VehicleYearYear").val(resp.result.year);
+                            if (resp.result.transmission) jQuery("#VehicleTransmitionType").val(resp.result.transmission);
+                        }
+
+                    }, "json").done(function () {
+                        jQuery.unblockUI();
+                        jQuery("#VehicleVinNo").val(jQuery("#VehicleVinNo").val().toLocaleUpperCase());
+                    });
+                }
+            });
+
+            initiategplace();
+            $.ajaxSetup({
+                cache: false
+            });
+
+        });
+
+        var autocomplete = [];
+        var options = {
+            types: ['geocode']
+        };
+
+        function setupAutocomplete(autocomplete, inputs, i) {
+            autocomplete.push(new google.maps.places.Autocomplete(inputs[i], options));
+            var idx = autocomplete.length - 1;
+            idx = idx < 0 ? 0 : idx;
+            google.maps.event.addListener(autocomplete[idx], 'place_changed', function () {
+                var placeorg = autocomplete[idx].getPlace();
+
+                if (!placeorg.geometry) {
+                    return;
+                }
+
+                $('#VehicleLocation' + parseInt(idx) + 'Lat').val(placeorg.geometry.location.lat());
+                $('#VehicleLocation' + parseInt(idx) + 'Lng').val(placeorg.geometry.location.lng());
+
+            })
+        }
+
+        function initiategplace(element) {
+            autocomplete = [];
+            var inputs = document.getElementsByClassName("geocodeinput");
+            for (var i = 0; i < inputs.length; i++) {
+                setupAutocomplete(autocomplete, inputs, i);
+            }
+        }
+
+        function address_more(v) {
+            var elem = parseInt($("#address_more").parent(".panel-body").attr('rel-address'));
+            if (v) {
+
+                if (elem === 5) {
+                    alert("Sorry, you cant add more than 5 reccords");
+                    return;
+                }
+
+                elem++;
+                var element = '<div class="form-group" id="ele-' + elem + '">' +
+                    '<label class="col-lg-3 control-label">Address ' + elem + '</label>' +
+                    '<div class="col-lg-8">' +
+                    '<input name="VehicleLocation[' + elem + '][address]" class="form-control geocodeinput" placeholder="Pickup address" value="" type="text">' +
+                    '<input id="VehicleLocation' + elem + 'Lat" name="VehicleLocation[' + elem + '][lat]" class="form-control" value="" type="hidden">' +
+                    '<input id="VehicleLocation' + elem + 'Lng" name="VehicleLocation[' + elem + '][lng]" class="form-control" value="" type="hidden">' +
+                    '<input name="VehicleLocation[' + elem + '][id]" class="form-control" value="" type="hidden">' +
+                    '</div>' +
+                    '<div class="col-lg-1"><a href="javascript:;" onclick="address_more(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                $("#address_more").append(element);
+                initiategplace();
+            } else {
+                $("#address_more #ele-" + elem).remove();
+                elem--;
+            }
+            $("#address_more").parent(".panel-body").attr('rel-address', elem);
+        }
+
+
+        $(function () {
+            $(".switch").bootstrapSwitch();
+        });
+
+    </script>
+
     <script src="{{ legacy_asset('js/assets/js/plugins/uploaders/sortable.min.js') }}"></script>
     <script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/plugins/media/cropper.js') }}"></script>
-    <script>
-        (function () {
-            var ft = document.getElementById('VehicleFareType');
-            var rental = document.getElementById('VehicleRental');
-            var dayBlk = document.getElementById('dayBlk');
-            var rateBlk = document.getElementById('rateBlk');
-            var dayIn = document.getElementById('VehicleDayRent');
-            var rateIn = document.getElementById('VehicleRate');
-            var pricingUnitBlk = document.getElementById('pricingUnitBlk');
 
-            function syncFare() {
-                if (!ft) return;
-                var fareVal = ft.value;
-                if (fareVal === 'D' || fareVal === 'L') {
-                    if (pricingUnitBlk) pricingUnitBlk.style.display = 'none';
-                    if (dayBlk) dayBlk.style.display = 'none';
-                    if (rateBlk) rateBlk.style.display = 'none';
-                    if (dayIn) dayIn.value = '0';
-                    if (rateIn) rateIn.value = '0';
-                } else {
-                    if (pricingUnitBlk) pricingUnitBlk.style.display = 'block';
-                    if (rental) {
-                        var rentalVal = rental.value;
-                        if (rentalVal === 'hr') {
-                            if (dayBlk) dayBlk.style.display = 'none';
-                            if (dayIn) dayIn.value = '0';
-                            if (rateIn && (!rateIn.value || rateIn.value === '0' || rateIn.value === '0.00')) {
-                                rateIn.value = rental.getAttribute('rel_hr') || '0';
-                            }
-                            if (rateBlk) rateBlk.style.display = 'block';
-                        } else {
-                            if (rateBlk) rateBlk.style.display = 'none';
-                            if (rateIn) rateIn.value = '0';
-                            if (dayIn && (!dayIn.value || dayIn.value === '0' || dayIn.value === '0.00')) {
-                                dayIn.value = rental.getAttribute('rel_day') || '0';
-                            }
-                            if (dayBlk) dayBlk.style.display = 'block';
-                        }
+    @if (!empty(data_get($vehicle, 'id')))
+        <script type="text/javascript">
+
+            $(function () {
+
+                $('#VehicleRegistrationImage,#VehicleInspectionImage').fileinput({
+                    initialPreview: false,
+                    browseLabel: 'Browse',
+                    browseIcon: '<i class="icon-file-plus"></i>',
+                    uploadIcon: '<i class="icon-file-upload2"></i>',
+                    removeIcon: '<i class="icon-cross3"></i>',
+                    layoutTemplates: {
+                        icon: '<i class="icon-file-check"></i>'
+                    },
+                    initialCaption: "No file selected"
+                });
+
+                var btns = '<button type="button" onclick="kvcustbtn(\'{caption}\',{key})" class="kvcustbtn btn btn-kv btn-secondary" title="Edit" data-url="{caption}" {dataKey}>' +
+                    '<i class="glyphicon glyphicon-edit"></i>' +
+                    '</button>';
+                $(".fileinputajax").fileinput({
+                    showUpload: false,
+                    otherActionButtons: btns,
+                    uploadUrl: SITE_URL + "admin/vehicles/saveImage", // server upload action
+                    uploadAsync: true,
+                    maxFileCount: 15,
+                    deleteUrl: SITE_URL + "admin/vehicles/deleteImage",
+                    allowedFileExtensions: ['jpeg', 'jpg', 'png'],
+                    initialPreview: @json($initialPreview, JSON_UNESCAPED_SLASHES),
+                    overwriteInitial: false,
+                    initialPreviewAsData: true,
+                    //reversePreviewOrder:true,
+                    initialPreviewFileType: 'image',
+                    initialPreviewConfig: @json($initialPreviewConfig),
+                    maxFileSize: 1024,
+                    uploadExtraData: {
+                        'id': "{{ data_get($vehicle, 'id') }}"
+                    },
+                    fileActionSettings: {
+                        removeIcon: '<i class="icon-bin"></i>',
+                        removeClass: 'btn btn-link btn-xs btn-icon',
+                        uploadIcon: '<i class="icon-upload"></i>',
+                        uploadClass: 'btn btn-link btn-xs btn-icon',
+                        indicatorNew: '<i class="icon-file-plus text-slate"></i>',
+                        indicatorSuccess: '<i class="icon-checkmark3 file-icon-large text-success"></i>',
+                        indicatorError: '<i class="icon-cross2 text-danger"></i>',
+                        indicatorLoading: '<i class="icon-spinner2 spinner text-muted"></i>',
+                        //showDrag: false,
+                        showZoom: true,
+                        //showUpload: false,
+                        //showDelete: false,
+                        showCaption: false,
                     }
-                }
-            }
+                }).on('fileuploaded', function (event, data, previewId, index) {
+                    //alert(JSON.stringify(data));
+                    $("#" + previewId + " button.kv-file-remove").attr('data-key', data.response.key);
+                }).on('filesorted', function (e, params) {
+                    console.log('File sorted params', params);
+                    $.post(SITE_URL + "admin/vehicles/reorderImage", params, function (resp) {
 
-            if (ft) {
-                ft.addEventListener('change', syncFare);
-            }
-            if (rental) {
-                rental.addEventListener('change', syncFare);
-            }
-            syncFare();
-
-            jQuery(document).ready(function () {
-                jQuery(".inspection_exp_date,.state_insp_exp_date,.reg_name_exp_date,.reg_name_date,.insurance_policy_exp_date,.insurance_policy_date,#VehicleAvailabilityDate").datepicker({
-                    dateFormat: 'mm/dd/yy',
-                    changeMonth: true,
-                    changeYear: true
+                    }, 'json');
                 });
             });
 
-            var autocomplete = [];
-            var options = {
-                types: ['geocode']
-            };
+        </script>
 
-            function setupAutocomplete(autocomplete, inputs, i) {
-                autocomplete.push(new google.maps.places.Autocomplete(inputs[i], options));
-                var idx = autocomplete.length - 1;
-                idx = idx < 0 ? 0 : idx;
-                google.maps.event.addListener(autocomplete[idx], 'place_changed', function () {
-                    var placeorg = autocomplete[idx].getPlace();
-                    if (!placeorg.geometry) {
-                        return;
-                    }
-                    $('#VehicleLocation' + parseInt(idx) + 'Lat').val(placeorg.geometry.location.lat());
-                    $('#VehicleLocation' + parseInt(idx) + 'Lng').val(placeorg.geometry.location.lng());
+        <script src="{{ legacy_asset('js/assets/js/plugins/media/cropper.js') }}"></script>
+
+        <script type="text/javascript">
+            var imageUrl = SITE_URL + 'img/custom/vehicle_photo/';
+            var $cropper;
+            var IMG;
+
+            $(document).ready(function () {
+
+                $("#cropImage").click(function () {
+                    jQuery.blockUI({
+                        message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Just a moment...</h1>'
+                    });
+                    var blob = $cropper.getCroppedCanvas().toDataURL('image/jpeg');
+                    var formData = {
+                        'vehicleimage': blob,
+                        "image": IMG.name
+                    };
+                    $.post(SITE_URL + "images/crop", formData, function (resp) {
+                        jQuery.unblockUI();
+                        $("#cropModal").modal('hide');
+                    }, 'json');
                 });
-            }
 
-            function initiategplace() {
-                autocomplete = [];
-                var inputs = document.getElementsByClassName("geocodeinput");
-                for (var i = 0; i < inputs.length; i++) {
-                    setupAutocomplete(autocomplete, inputs, i);
-                }
-            }
+                $("#rotateLeft").click(function () {
+                    $cropper.rotate(-45);
+                });
 
-            window.address_more = function (v) {
-                var $panel = $("#address_more").closest(".panel-body");
-                var elem = parseInt($panel.attr('rel-address'), 10);
-                if (isNaN(elem)) {
-                    elem = 1;
-                }
-                if (v) {
-                    if (elem === 5) {
-                        alert("Sorry, you cant add more than 5 records");
-                        return;
+                $("#rotateRight").click(function () {
+                    $cropper.rotate(45);
+                });
+
+                $("#setDragModeMove").click(function () { //alert('move');
+                    $cropper.setDragMode('move');
+                    //$cropper.setData({move:true});
+                });
+
+                $("#setDragModeCrop").click(function () { //alert('crop');
+                    $cropper.setDragMode('crop');
+                });
+
+                $("#cropModal").on("hidden.bs.modal", function () {
+                    if ($cropper) {
+                        $cropper.destroy();
+                        $cropper = null;
                     }
-                    var nextIndex = elem;
-                    elem++;
-                    var element = '<div class="form-group" id="ele-' + nextIndex + '">' +
-                        '<label class="col-lg-4 control-label">Address ' + elem + ' :</label>' +
-                        '<div class="col-lg-8">' +
-                        '<input name="VehicleLocation[' + nextIndex + '][address]" class="form-control geocodeinput" placeholder="Vehicle Address" value="" type="text">' +
-                        '<input id="VehicleLocation' + nextIndex + 'Lat" name="VehicleLocation[' + nextIndex + '][lat]" value="" type="hidden">' +
-                        '<input id="VehicleLocation' + nextIndex + 'Lng" name="VehicleLocation[' + nextIndex + '][lng]" value="" type="hidden">' +
-                        '<input name="VehicleLocation[' + nextIndex + '][id]" value="" type="hidden">' +
-                        '</div>' +
-                        '<div class="col-lg-1"><a href="javascript:;" onclick="address_more(false)"><i class="icon-minus-circle2 icon-2x"></i></a></div></div>';
-                    $("#address_more").append(element);
-                    initiategplace();
-                } else {
-                    $("#address_more #ele-" + (elem - 1)).remove();
-                    elem--;
+                });
+
+            });
+
+            function calculateCoeff(img_value, property) {
+                var x = 0;
+                property == "width" ? x = 500 : x = 400;
+                return ((x * 100) / img_value) * 0.01;
+            }
+
+            function kvcustbtn(file, key) {
+
+                if (file == '') {
+                    alert("Sorry, you cant edit this image");
+                    return false;
                 }
-                $panel.attr('rel-address', elem);
+
+                IMG = new Image();
+                IMG.key = key;
+                IMG.name = file;
+                IMG.src = imageUrl + file; //dataURL is a base64 image data code previusly obtained.
+                IMG.onload = function () {
+                    //This is only for load the original image into my modal window, 
+                    //no real deal for this example.
+                    var image = document.createElement('img');
+                    image.src = IMG.src;
+                    //When the image is loaded I get all the data of original image so I can compare 
+                    //and calculate the coeff.
+                    var coef = 0;
+                    IMG.width > IMG.height ? coef = calculateCoeff(IMG.width, "width") : coef = calculateCoeff(IMG.height, "height");
+                    //When I finally have the coefficient, then I create and load the cropper library.
+                    var height = (coef * IMG.height);
+                    var width = (coef * IMG.width);
+                    $cropper = new Cropper(image, {
+                        aspectRatio: "",
+                        cropBoxMovable: true,
+                        toggleDragModeOnDblclick: true,
+                        minContainerHeight: height,
+                        minContainerWidth: width,
+                        minCanvasHeight: height,
+                        minCanvasWidth: width
+                    });
+
+                    $("#cropModal .image-cropper-container").html(image);
+                    $("#cropModal").modal('show');
+                    //window.dispatchEvent(new Event('resize'));
+                }
+            }
+
+
+        </script>
+    @endif
+
+    @if (empty(data_get($vehicle, 'id')))
+
+        <script type="text/javascript">
+
+            function format(item) {
+                return item.tag;
             }
 
             jQuery(document).ready(function () {
-                initiategplace();
-                $.ajaxSetup({
-                    cache: false
-                });
-            });
 
-            @if (!empty($vehicle?->id))
-                $(function () {
-                    $('#VehicleRegistrationImage,#VehicleInspectionImage,#VehicleInsuranceImage').fileinput({
-                        initialPreview: false,
-                        browseLabel: 'Browse',
-                        browseIcon: '<i class="icon-file-plus"></i>',
-                        uploadIcon: '<i class="icon-file-upload2"></i>',
-                        removeIcon: '<i class="icon-cross3"></i>',
-                        layoutTemplates: {
-                            icon: '<i class="icon-file-check"></i>'
-                        },
-                        initialCaption: "No file selected"
-                    });
-
-                    var btns = '<button type="button" onclick="kvcustbtn(\'{caption}\',{key})" class="kvcustbtn btn btn-kv btn-secondary" title="Edit" data-url="{caption}" {dataKey}>' +
-                        '<i class="glyphicon glyphicon-edit"></i>' +
-                        '</button>';
-
-                    $(".fileinputajax").fileinput({
-                        showUpload: false,
-                        otherActionButtons: btns,
-                        uploadUrl: SITE_URL + "admin/vehicles/saveImage",
-                        uploadAsync: true,
-                        maxFileCount: 15,
-                        deleteUrl: SITE_URL + "admin/vehicles/deleteImage",
-                        allowedFileExtensions: ['jpeg', 'jpg', 'png'],
-                        initialPreview: @json($initialPreview),
-                        overwriteInitial: false,
-                        initialPreviewAsData: true,
-                        initialPreviewFileType: 'image',
-                        initialPreviewConfig: @json($initialPreviewConfig),
-                        maxFileSize: 1024,
-                        uploadExtraData: {
-                            'id': {{ $vehicle->id }}
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            },
-                        fileActionSettings: {
-                            removeIcon: '<i class="icon-bin"></i>',
-                            removeClass: 'btn btn-link btn-xs btn-icon',
-                            uploadIcon: '<i class="icon-upload"></i>',
-                            uploadClass: 'btn btn-link btn-xs btn-icon',
-                            indicatorNew: '<i class="icon-file-plus text-slate"></i>',
-                            indicatorSuccess: '<i class="icon-checkmark3 file-icon-large text-success"></i>',
-                            indicatorError: '<i class="icon-cross2 text-danger"></i>',
-                            indicatorLoading: '<i class="icon-spinner2 spinner text-muted"></i>',
-                            showZoom: true,
-                            showCaption: false,
-                        }
-                    }).on('fileuploaded', function (event, data, previewId, index) {
-                        $("#" + previewId + " button.kv-file-remove").attr('data-key', data.response.key);
-                    }).on('filesorted', function (e, params) {
-                        console.log('File sorted params', params);
-                        $.post(SITE_URL + "admin/vehicles/reorderImage", params, function (resp) {
-                        }, 'json');
-                    });
-                });
-
-                var imageUrl = SITE_URL + 'img/custom/vehicle_photo/';
-                var $cropper;
-                var IMG;
-                $(document).ready(function () {
-                    $("#cropImage").click(function () {
-                        jQuery.blockUI({
-                            message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Just a moment...</h1>'
-                        });
-                        var blob = $cropper.getCroppedCanvas().toDataURL('image/jpeg');
-                        var formData = {
-                            'vehicleimage': blob,
-                            "image": IMG.name
-                        };
-                        $.post(SITE_URL + "images/crop", formData, function (resp) {
-                            jQuery.unblockUI();
-                            $("#cropModal").modal('hide');
-                        }, 'json');
-                    });
-                    $("#rotateLeft").click(function () {
-                        $cropper.rotate(-45);
-                    });
-                    $("#rotateRight").click(function () {
-                        $cropper.rotate(45);
-                    });
-                    $("#setDragModeMove").click(function () {
-                        $cropper.setDragMode('move');
-                    });
-                    $("#setDragModeCrop").click(function () {
-                        $cropper.setDragMode('crop');
-                    });
-                });
-
-                function calculateCoeff(img_value, property) {
-                    var x = 0;
-                    property == "width" ? x = 500 : x = 400;
-                    return ((x * 100) / img_value) * 0.01;
-                }
-
-                window.kvcustbtn = function (file, key) {
-                    if (file == '') {
-                        alert("Sorry, you cant edit this image");
-                        return false;
-                    }
-                    IMG = new Image();
-                    IMG.key = key;
-                    IMG.name = file;
-                    IMG.src = imageUrl + file;
-                    IMG.onload = function () {
-                        var image = document.createElement('img');
-                        image.src = IMG.src;
-                        var coef = 0;
-                        IMG.width > IMG.height ? coef = calculateCoeff(IMG.width, "width") : coef = calculateCoeff(IMG.height, "height");
-                        var height = (coef * IMG.height);
-                        var width = (coef * IMG.width);
-                        $cropper = new Cropper(image, {
-                            aspectRatio: "",
-                            cropBoxMovable: true,
-                            toggleDragModeOnDblclick: true,
-                            minContainerHeight: height,
-                            minContainerWidth: width,
-                            minCanvasHeight: height,
-                            minCanvasWidth: width
-                        });
-
-                        $("#cropModal .image-cropper-container").html(image);
-                        $("#cropModal").modal('show');
-                    }
-                }
-            @endif
-                                                                                                                                                                                                                                                                    })();
-    </script>
-    @if ($showDealerPicker)
-        <script src="{{ legacy_asset('js/select2.js') }}"></script>
-        <script>
-            (function () {
-                var raw = @json(old('Vehicle.user_id'));
-                var dealerId = raw !== null && raw !== '' ? parseInt(raw, 10) : null;
-                if (dealerId !== null && !Number.isFinite(dealerId)) {
-                    dealerId = null;
-                }
-                var $sel = $('#vehicle_user_id');
-                $sel.select2({
-                    placeholder: 'Search dealer…',
-                    allowClear: true,
+                jQuery("#VehicleUserId").select2({
+                    data: {
+                        results: {},
+                        text: 'tag'
+                    },
+                    formatSelection: format,
+                    formatResult: format,
+                    placeholder: "Select Dealer ",
                     minimumInputLength: 1,
                     ajax: {
-                        url: '/admin/bookings/customerautocomplete',
-                        dataType: 'json',
-                        delay: 250,
+                        url: SITE_URL + "admin/bookings/customerautocomplete",
+                        dataType: "json",
+                        type: "GET",
                         data: function (params) {
-                            return { term: params.term || '', is_dealer: true };
+                            return {
+                                term: params,
+                                "is_dealer": true
+                            }
                         },
                         processResults: function (data) {
                             return {
-                                results: (data || []).map(function (item) {
-                                    return { id: item.id, text: item.tag };
+                                results: $.map(data, function (item) {
+                                    return {
+                                        tag: item.tag,
+                                        id: item.id
+                                    }
                                 })
                             };
                         }
+                    },
+                    initSelection: function (element, callback) {
+                        var dealer_id = "{{ data_get($vehicle, 'user_id') }}";
+                        if (dealer_id.length > 0) {
+                            jQuery.ajax({
+                                url: SITE_URL + "admin/bookings/customerautocomplete",
+                                dataType: "json",
+                                type: "GET",
+                                data: {
+                                    "id": dealer_id
+                                }
+                            }).done(function (data) {
+                                callback(data[0]);
+                            });
+                        }
                     }
                 });
-                if (dealerId) {
-                    $.getJSON('/admin/bookings/customerautocomplete', { id: dealerId })
-                        .done(function (data) {
-                            if (data && data.length) {
-                                var item = data[0];
-                                var opt = new Option(item.tag, item.id, true, true);
-                                $sel.append(opt).trigger('change');
-                            }
-                        });
-                }
-            })();
+
+                $('#VehicleAdminAddForm').on('submit', function (e) {
+                    var $select2 = $('#VehicleUserId', $(this));
+                    // Reset
+                    $select2.parents('.form-group').removeClass('is-invalid');
+                    if ($select2.val() === '') {
+                        // Add is-invalid class when select2 element is required
+                        $select2.parents('.form-group').addClass('is-invalid');
+                        // Stop submiting
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+
+            });
+
         </script>
     @endif
 @endpush

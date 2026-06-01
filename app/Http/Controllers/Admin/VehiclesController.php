@@ -25,6 +25,7 @@ use App\Http\Controllers\Traits\VehicleLocationTrait;
 use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use App\Services\Legacy\Passtime;
 
 class VehiclesController extends LegacyAppController
 {
@@ -191,8 +192,8 @@ class VehiclesController extends LegacyAppController
                 $vehicleData = Vehicle::with([
                     'csSetting:user_id,passtime,gps_provider',
                     'user:id,distance_unit',
-                    'images:id,filename,iorder,remote',
-                    'locations:id,lat,lng,address'
+                    'images:id,vehicle_id,filename,iorder,remote',
+                    'locations:id,vehicle_id,lat,lng,address'
                 ])->findOrFail($vehicleId);
 
                 if (!empty($vehicleData->color)) {
@@ -331,6 +332,240 @@ class VehiclesController extends LegacyAppController
         return redirect('admin/vehicles/index')->with('success', 'Vehicle data updated successfully');
     }
 
+    public function multiplAction(Request $request)
+    {
+        $statusAction = (string) $request->input('Vehicle.status', '');
+        $selected = $request->input('select', []);
+
+        if (!is_array($selected)) {
+            $selected = [];
+        }
+
+        $ids = array_filter(array_map('intval', array_values($selected)));
+
+        if (!empty($ids)) {
+            if ($statusAction === 'active') {
+                Vehicle::query()->whereIn('id', $ids)->update(['status' => 1]);
+            } elseif ($statusAction === 'inactive') {
+                Vehicle::query()->whereIn('id', $ids)->update(['status' => 0]);
+            }
+        }
+
+        return redirect()->to($request->headers->get('referer') ?: '/admin/vehicles/index');
+    }
+
+    public function lastlocation($vehicle_id = null)
+    {
+        $vehicleId = $this->decodeId((string) $vehicle_id);
+        $vehicle = Vehicle::with(['csSetting', 'vehicleSetting'])->find($vehicleId);
+
+        if (!$vehicle) {
+            return redirect('admin/vehicles/index')->with('error', 'Sorry, this vehicle data not found.');
+        }
+
+        $passtime = new Passtime();
+        $vehicleLocation = $passtime->getVehicleLocation($vehicle);
+
+        if (!$vehicleLocation['status']) {
+            return redirect('admin/vehicles/index')->with('error', 'Sorry, this vehicle data not found.');
+        }
+
+        return view('admin.vehicles.lastlocation', compact('vehicleLocation'));
+    }
+
+    public function saveImage(Request $request)
+    {
+        $file = $request->file('vehicleimage');
+        $vehicleId = $request->input('id');
+        $return = $this->handleUpload($file, $vehicleId);
+        return response()->json($return);
+    }
+
+    public function deleteImage(Request $request)
+    {
+        $return = ['success' => true, 'key' => ''];
+        $imageId = $request->input('key');
+        $vehicleImage = VehicleImage::find($imageId);
+
+        if ($vehicleImage) {
+            $filePath = public_path('img/custom/vehicle_photo/' . $vehicleImage->filename);
+
+            if (!empty($vehicleImage->filename) && is_file($filePath)) {
+                @unlink($filePath);
+            }
+
+            $vehicleImage->delete();
+        }
+
+        return response()->json($return);
+    }
+
+    public function checkVinDetails(Request $request)
+    {
+        $vin = $request->input('vin');
+        $return = [
+            'status' => 'error',
+            'message' => 'Invalid Request or missing VIN',
+            'result' => []
+        ];
+
+        if (!empty($vin)) {
+            $vinInfo = $this->commonService->getVinDetails($vin);
+            $return = [
+                'status' => 'success',
+                'message' => 'Record found',
+                'result' => $vinInfo
+            ];
+        }
+
+        return response()->json($return);
+    }
+
+    public function ownerautocomplete(Request $request)
+    {
+        $searchTerm = $request->query('term');
+        $userId = $request->query('user_id');
+
+        if (!empty($userId)) {
+            $user = User::select('id', 'first_name', 'contact_number')
+                ->where('id', $userId)
+                ->first();
+
+            if ($user) {
+                return response()->json([
+                    'id' => $user->id,
+                    'tag' => $user->first_name . ' - ' . $user->contact_number
+                ]);
+            }
+
+            return response()->json([]);
+        }
+
+        $userLists = User::select('id', 'first_name', 'contact_number')
+            ->where('status', 1)
+            ->where(function ($query) use ($searchTerm) {
+                $query->where('contact_number', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('first_name', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('email', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('last_name', 'LIKE', "%{$searchTerm}%");
+            })
+            ->orderBy('first_name', 'ASC')
+            ->limit(10)
+            ->get();
+
+        $users = $userLists->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'tag' => $user->first_name . ' - ' . $user->contact_number
+            ];
+        });
+
+        return response()->json($users);
+    }
+
+    public function loadVehicleStatus(Request $request)
+    {
+        $vehicleId = base64_decode(trim($request->input('vehicleid')));
+        $vehicle = Vehicle::select('id', 'status')->find($vehicleId);
+        return view('admin.vehicles.load_vehicle_status', compact('vehicle'));
+    }
+
+    public function changeVehicleStatus(Request $request)
+    {
+        $vehicleId = $request->input('id');
+        $status = (int) $request->input('status');
+
+        $return = [
+            'status' => true,
+            'message' => 'Vehicle has been updated successfully',
+            'vehicleid' => $vehicleId
+        ];
+
+        if (in_array($status, [8, 9])) {
+            $vehicleData = Vehicle::select([
+                'id',
+                'user_id',
+                'passtime_serialno',
+                'autopi_unit_id',
+                'passtime_status'
+            ])->with(['csSetting', 'vehicleSetting'])
+                ->find($vehicleId);
+
+            if (!$vehicleData) {
+                return response()->json(['status' => false, 'message' => 'Vehicle not found']);
+            }
+
+            if (empty($vehicleData->passtime_serialno)) {
+                $return['message'] = 'Vehicle Passtime serial # not set';
+                $return['status'] = false;
+            }
+
+            $csSetting = $vehicleData->csSetting;
+            if (
+                empty($csSetting?->passtime) ||
+                ($csSetting->passtime === 'passtime' && empty($csSetting->passtime_dealerid)) ||
+                ($csSetting->passtime === 'ituran' && empty($csSetting->ituran_usr))
+            ) {
+                $return['message'] = 'Vehicle Owner\'s GPS provider setting not set';
+                $return['status'] = false;
+            }
+
+            if ($status === 8 && $vehicleData->passtime_status == 0) {
+                $return['message'] = "Vehicle's Starter already Disabled";
+                $return['status'] = false;
+            } elseif ($status === 9 && $vehicleData->passtime_status == 1) {
+                $return['message'] = "Vehicle's Starter already enabled";
+                $return['status'] = false;
+            }
+
+            if (!empty($vehicleData->passtime_serialno) && $return['status']) {
+                $passtime = new Passtime();
+
+                $resp = ($status === 8)
+                    ? $passtime->deActivateVehicle($vehicleData)
+                    : $passtime->ActivateVehicle($vehicleData);
+
+                if ($resp['status']) {
+                    $vehicleData->passtime_status = ($status === 8) ? 0 : 1;
+                    $vehicleData->saveQuietly();
+                    $return['status'] = true;
+                } else {
+                    $return['status'] = false;
+                    $return['message'] = $resp['message'] ?? 'External provider API communication failed.';
+                }
+            }
+
+            return response()->json($return);
+        }
+
+        if (in_array($status, [11, 12])) {
+            Vehicle::where('id', $vehicleId)->updateQuietly([
+                'trash' => ($status === 11) ? 1 : 0
+            ]);
+
+            return response()->json($return);
+        }
+
+        $vehicle = Vehicle::find($vehicleId);
+
+        if ($vehicle) {
+            $vehicle->status = $status;
+            $vehicle->save();
+        }
+
+        return response()->json($return);
+    }
+
+    public function loadSingleRow(Request $request)
+    {
+        $vehicleId = trim($request->input('vehicleid'));
+        $vehicle = Vehicle::with('owner:id,first_name,last_name')->find($vehicleId);
+        return view('admin.vehicles.load_single_row', compact('vehicle'));
+    }
+
+
+
+
     protected function vehicleAddFormBasePath(): string
     {
         return '/admin/vehicles/add';
@@ -357,137 +592,15 @@ class VehiclesController extends LegacyAppController
             ->with('success', 'Vehicle data saved successfully.');
     }
 
-    public function ownerautocomplete(Request $request)
-    {
-        $term = trim((string) $request->query('term', ''));
-        $userId = trim((string) $request->query('user_id', ''));
 
-        if ($userId !== '' && is_numeric($userId)) {
-            $u = User::query()->whereKey((int) $userId)->first(['id', 'first_name', 'contact_number']);
-            $result = [];
-            if ($u) {
-                $result = ['id' => (int) $u->id, 'tag' => trim(($u->first_name ?? '') . ' - ' . ($u->contact_number ?? ''))];
-            }
-            return response()->json($result);
-        }
 
-        $q = User::query()->where('status', 1);
-        if ($term !== '') {
-            $like = '%' . $term . '%';
-            $q->where(function ($qq) use ($like) {
-                $qq->where('contact_number', 'like', $like)
-                    ->orWhere('first_name', 'like', $like)
-                    ->orWhere('email', 'like', $like)
-                    ->orWhere('last_name', 'like', $like);
-            });
-        }
-        $users = $q->orderBy('first_name')->limit(10)->get(['id', 'first_name', 'contact_number']);
 
-        return response()->json($users->map(fn($u) => [
-            'id' => (int) $u->id,
-            'tag' => trim(($u->first_name ?? '') . ' - ' . ($u->contact_number ?? '')),
-        ])->values()->all());
-    }
 
-    public function loadVehicleStatus(Request $request)
-    {
-        $vehicleId = $this->decodeId((string) $request->input('vehicleid', ''));
-        $vehicle = $vehicleId ? Vehicle::query()->find($vehicleId, ['id', 'status']) : null;
-        return response()->json(['vehicle' => $vehicle]);
-    }
 
-    public function changeVehicleStatus(Request $request)
-    {
-        $payload = $request->input('Vehicle', []);
-        $id = isset($payload['id']) ? (int) $payload['id'] : 0;
-        $status = isset($payload['status']) ? (int) $payload['status'] : null;
-        if ($id <= 0 || $status === null) {
-            return response()->json(['status' => false, 'message' => 'Invalid payload']);
-        }
 
-        if ($status === 11 || $status === 12) {
-            Vehicle::query()->whereKey($id)->update(['trash' => $status === 11 ? 1 : 0]);
-            return response()->json(['status' => true, 'message' => 'Vehicle has been updated successfully', 'vehicleid' => $id]);
-        }
 
-        Vehicle::query()->whereKey($id)->update(['status' => $status]);
-        return response()->json(['status' => true, 'message' => 'Vehicle has been updated successfully', 'vehicleid' => $id]);
-    }
 
-    public function loadSingleRow(Request $request)
-    {
-        $vehicleId = (int) $request->input('vehicleid', 0);
-        $vehicle = Vehicle::query()->with('owner')->whereKey($vehicleId)->first();
-        return response()->json(['vehicle' => $vehicle]);
-    }
 
-    public function multiplAction(Request $request)
-    {
-        $statusAction = (string) $request->input('Vehicle.status', '');
-        $selected = $request->input('select', []);
-        if (!is_array($selected)) {
-            $selected = [];
-        }
-        $ids = array_values(array_filter(array_map('intval', array_keys(array_filter($selected)))));
-        if (!empty($ids)) {
-            if ($statusAction === 'active') {
-                Vehicle::query()->whereIn('id', $ids)->update(['status' => 1]);
-            } elseif ($statusAction === 'inactive') {
-                Vehicle::query()->whereIn('id', $ids)->update(['status' => 0]);
-            }
-        }
-        return redirect()->to($request->headers->get('referer') ?: '/admin/vehicles/index');
-    }
-
-    public function saveImage(Request $request): JsonResponse
-    {
-        $vehicleId = (int) $request->input('id', 0);
-        $file = $request->file('vehicleimage');
-        if ($vehicleId <= 0 || !$file) {
-            return response()->json(['success' => false, 'message' => 'Invalid upload payload']);
-        }
-
-        $ext = strtolower((string) $file->getClientOriginalExtension());
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true)) {
-            return response()->json(['success' => false, 'message' => 'Invalid image type']);
-        }
-
-        $name = 'veh_' . $vehicleId . '_' . time() . '.' . $ext;
-        $targetDir = $this->vehiclePhotoDirectory();
-        if (!is_dir($targetDir)) {
-            @mkdir($targetDir, 0755, true);
-        }
-        $file->move($targetDir, $name);
-
-        $maxOrder = (int) (VehicleImage::query()->where('vehicle_id', $vehicleId)->max('iorder') ?? 0);
-        $img = VehicleImage::query()->create([
-            'vehicle_id' => $vehicleId,
-            'filename' => $name,
-            'iorder' => $maxOrder + 1,
-            'remote' => 0,
-        ]);
-
-        return response()->json(['success' => true, 'key' => (int) $img->id, 'file' => $this->vehiclePhotoUrl($name)]);
-    }
-
-    public function deleteImage(Request $request): JsonResponse
-    {
-        $key = (int) $request->input('key', 0);
-        $img = $key > 0 ? VehicleImage::query()->find($key) : null;
-        if (!$img) {
-            return response()->json(['success' => true, 'key' => '']);
-        }
-
-        $filename = (string) ($img->filename ?? '');
-        if ($filename !== '') {
-            $full = $this->vehiclePhotoDirectory() . DIRECTORY_SEPARATOR . $filename;
-            if (is_file($full)) {
-                @unlink($full);
-            }
-        }
-        VehicleImage::query()->whereKey((int) $img->id)->delete();
-        return response()->json(['success' => true, 'key' => '']);
-    }
 
     public function reorderImage(Request $request): JsonResponse
     {
@@ -700,30 +813,9 @@ class VehiclesController extends LegacyAppController
         return redirect($this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])));
     }
 
-    public function checkVinDetails(Request $request): JsonResponse
-    {
-        $vin = strtoupper(trim((string) $request->input('vin', '')));
-        if ($vin === '') {
-            return response()->json(['status' => 'error', 'message' => 'Invalid Json', 'result' => []]);
-        }
-        $result = [
-            'vin' => $vin,
-            'length' => strlen($vin),
-            'valid_length' => strlen($vin) === 17,
-        ];
-        return response()->json(['status' => 'success', 'message' => 'record found', 'result' => $result]);
-    }
 
-    public function lastlocation(Request $request, $vehicle_id = null)
-    {
-        $vehicleId = $this->decodeId((string) $vehicle_id);
-        $vehicle = $vehicleId ? Vehicle::query()->find($vehicleId) : null;
-        return view('admin.vehicles.lastlocation', [
-            'vehicle' => $vehicle,
-            'vehicleLocation' => ['status' => false, 'message' => 'Passtime provider migration pending'],
-            'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
-        ]);
-    }
+
+
 
     public function getVehicleDynamicFare(Request $request): JsonResponse
     {

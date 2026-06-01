@@ -6,7 +6,6 @@
     $fieldname ??= '';
     $keyword ??= '';
     $show ??= null;
-    $showArr ??= [];
     $userId ??= '';
     $type ??= '';
     $visibility ??= '';
@@ -86,7 +85,7 @@
                         <div class="col-md-2">
                             <select name="Search[show]" class="form-control">
                                 <option value="">Status..</option>
-                                @foreach ($showArr as $k => $label)
+                                @foreach ($vehicleSatatus as $k => $label)
                                     <option value="{{ $k }}" @selected((string) $show === (string) $k)>{{ $label }}</option>
                                 @endforeach
                             </select>
