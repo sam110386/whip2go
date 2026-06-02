@@ -2,17 +2,22 @@
 
 namespace App\Http\Controllers\Traits;
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleImage;
-use App\Models\Legacy\VehicleLocation;
-use App\Models\Legacy\DynamicFare;
-use App\Models\Legacy\CsSetting;
-use Illuminate\Support\Facades\Log;
+use App\Services\Legacy\Free2MoveService;
+use App\Services\Legacy\DynamicFare;
+use App\Services\Legacy\Passtime;
+use App\Services\Legacy\GeotabClient;
+use App\Services\Legacy\OnestepGpsClient;
+use App\Services\Legacy\AutoPiFleetClient;
+
 
 trait VehiclesTrait
 {
 
-    protected function handleUpload($file, $vehicleId)
+    private function handleUpload($file, $vehicleId)
     {
         if (!$file->isValid()) {
             return ['error' => 'Upload Error: ' . $file->getErrorMessage()];
@@ -59,75 +64,204 @@ trait VehiclesTrait
         return ['error' => 'Could not save uploaded file. The upload was cancelled, or server error encountered'];
     }
 
-    protected function _getVehicleGps($vehicle_id, $type)
+    private function _getVehicleGps($vehicleId, $type)
     {
-        $vehicle = Vehicle::with(['CsSetting', 'VehicleSetting'])->find($vehicle_id);
-        if (!$vehicle || !$vehicle->CsSetting) {
-            return ['status' => false, "message" => "sorry, seems your setting is not saved for GPS provider."];
+        $vehicle = Vehicle::select([
+            'id',
+            'gps_serialno',
+            'passtime_serialno',
+            'vin_no',
+            'user_id',
+        ])->with(['csSetting', 'vehicleSetting'])->find($vehicleId);
+
+        if (!$vehicle || !$vehicle->csSetting) {
+            return [
+                'status' => false,
+                "message" => "sorry, seems your setting is not saved for GPS provider. Please contact to Administrator support."
+            ];
         }
 
-        $gps_provider = $vehicle->CsSetting->gps_provider;
-        $vin = $vehicle->vin_no;
-
-        // Placeholder for GPS logic
-        Log::info("GPS: getDealerDevices for provider $gps_provider, vin $vin");
-
-        // Simulation of GPS search success
-        $gps_serialno = 'simulated_' . $vin;
-
-        if (!empty($gps_serialno)) {
-            $vehicle->update([$type => $gps_serialno]);
-            return ['status' => true, "message" => "Vehicle found on GPS portal", "gps_serialno" => $gps_serialno];
+        if (!in_array($type, ['gps_serialno', 'passtime_serialno'])) {
+            return [
+                'status' => false,
+                "message" => "sorry, you didn't pass valid inputs. Please refresh your page"
+            ];
         }
 
-        return ['status' => false, "message" => "Sorry, vehicle VIN not found on GPS portal"];
+        $csSettingArray = array_merge(
+            $vehicle->toArray(),
+            ['CsSetting' => $vehicle->csSetting->toArray()],
+            ['VehicleSetting' => $vehicle->vehicleSetting ? $vehicle->vehicleSetting->toArray() : []]
+        );
+
+        $parsedSettings = (new Passtime())->parseVehicleSetting($csSettingArray);
+        $server = $parsedSettings['geotab_server'] ?? null;
+        $username = $parsedSettings['geotab_user'] ?? null;
+        $pwd = $parsedSettings['geotab_pwd'] ?? null;
+        $database = $parsedSettings['geotab_db'] ?? null;
+        $onestepgps = $parsedSettings['onestepgps'] ?? null;
+        $gpsProvider = $parsedSettings['gps_provider'] ?? null;
+
+        if (
+            ($gpsProvider == 'geotab' && (empty($server) || empty($username) || empty($pwd) || empty($database))) ||
+            ($gpsProvider == 'onestepgps' && empty($onestepgps))
+        ) {
+            return [
+                'status' => false,
+                "message" => "sorry, seems your setting is not saved for GPS provider. Please contact to Administrator support."
+            ];
+        }
+
+        // --- GEOTAB ---
+        if ($gpsProvider == 'geotab') {
+            $geotab = new GeotabClient();
+            $return = $geotab->getDealerDevices([
+                "geotab_server" => $server,
+                "geotab_user" => $username,
+                "geotab_pwd" => $pwd,
+                "geotab_db" => $database
+            ]);
+
+            if (!$return['status']) {
+                return $return;
+            }
+
+            $result = collect($return['result'])->pluck('id', 'vehicleIdentificationNumber')->all();
+            $gpsSerialNo = $result[$vehicle->vin_no] ?? "";
+
+            if (!empty($gpsSerialNo)) {
+                $vehicle->update([$type => $gpsSerialNo]);
+            }
+
+            return [
+                'status' => !empty($gpsSerialNo),
+                "message" => "Sorry, vehicle VIN not found on GPS portal",
+                "gps_serialno" => $gpsSerialNo
+            ];
+        }
+
+        // --- ONE STEP GPS ---
+        if ($gpsProvider == 'onestepgps') {
+            $params = ["api-key" => $onestepgps, "device_id" => 1, "vin" => 1];
+            $oneStepGpsService = new OnestepGpsClient();
+            $return = $oneStepGpsService->ExecuteCustomCall('device-info', $params);
+
+            if (!$return['status']) {
+                return $return;
+            }
+
+            $result = collect($return['result'])->pluck('device_id', 'vin')->all();
+            $gpsSerialNo = $result[$vehicle->vin_no] ?? "";
+
+            if (!empty($gpsSerialNo)) {
+                $vehicle->update([$type => $gpsSerialNo]);
+            }
+
+            return [
+                'status' => !empty($gpsSerialNo),
+                "message" => "Sorry, vehicle VIN not found on GPS portal",
+                "gps_serialno" => $gpsSerialNo
+            ];
+        }
+
+        // --- AUTO PI ---
+        if ($gpsProvider == 'autopi') {
+            $params = ["autopi_token" => $parsedSettings['autopi_token'] ?? null];
+            $return = (new AutoPiFleetClient())->getDealerDevices($params);
+
+            if (!$return['status']) {
+                return $return;
+            }
+
+            $result = collect($return['result'])->pluck('connections', 'vin')->all();
+            $vinData = $result[$vehicle->vin_no] ?? null;
+            $firstConnection = !empty($vinData) ? reset($vinData) : null;
+
+            $gpsSerialNo = $firstConnection['id'] ?? "";
+            $autoPiUnitId = $firstConnection['unit_id'] ?? "";
+
+            if (!empty($gpsSerialNo)) {
+                $vehicle->update([
+                    $type => $gpsSerialNo,
+                    'autopi_unit_id' => $autoPiUnitId
+                ]);
+            }
+
+            return [
+                'status' => !empty($gpsSerialNo),
+                "message" => "Sorry, vehicle VIN not found on GPS portal",
+                "gps_serialno" => $gpsSerialNo
+            ];
+        }
+
     }
 
-    protected function _getVehicleDynamicFare($params)
+    private function _getVehicleDynamicFare($request)
     {
-        $vehicleid = $params['vehicleid'];
-        $tag = $params['tag'] ?? 'D';
-        $vehicle = Vehicle::find($vehicleid);
+        $vehicleId = $request->input('vehicleid');
+        $tag = $request->input('tag', 'D');
+        $defaultError = [
+            "status" => "error",
+            "msg" => "Sorry, something went wrong. Please try again"
+        ];
+
+        $vehicle = Vehicle::find($vehicleId);
 
         if (!$vehicle) {
-            return ["status" => "error", "msg" => "Vehicle not found"];
+            return response()->json($defaultError);
         }
 
-        if ($tag == 'D') {
-            // Placeholder for DynamicFare::calculateDynamicFare
-            Log::info("DynamicFare: calculateDynamicFare for vehicle $vehicleid");
-            return [
-                'status' => 'success',
-                'data' => ['simulated' => 'dynamic_fare_data']
-            ];
-        }
+        $responseData = $defaultError;
 
-        if ($tag == 'L') {
-            // Placeholder for Free2Move::fetchDynamicFare
-            Log::info("Free2Move: fetchDynamicFare for vehicle $vehicleid");
-            return [
-                'status' => 'success',
-                'data' => ['simulated' => 'free2move_fare_data']
-            ];
-        }
+        if ($tag === 'D') {
+            $fareResponse = DynamicFare::calculateDynamicFare($vehicle, 1);
 
-        return ["status" => "error", "msg" => "Invalid tag"];
-    }
-
-    protected function _getVehicleInspectionDoc($vehicleid)
-    {
-        $vehicle = Vehicle::find($vehicleid);
-        if ($vehicle && !empty($vehicle->inspection_image)) {
-            $filePath = public_path('img/custom/vehicle_photo/' . $vehicle->inspection_image);
-            if (file_exists($filePath)) {
-                return [
-                    'status' => true,
-                    'message' => "Success",
-                    'result' => ['file' => asset('img/custom/vehicle_photo/' . $vehicle->inspection_image)]
-                ];
+            if ($fareResponse) {
+                $responseData['data'] = $fareResponse;
+                $responseData['status'] = 'success';
             }
         }
-        return ['status' => false, 'message' => "Document not found"];
+
+        if ($tag === 'L') {
+            $fareResponse = Free2MoveService::fetchDynamicFare($vehicleId, 1);
+
+            $responseData['data'] = $fareResponse;
+            $responseData['status'] = isset($fareResponse['error']) ? 'error' : 'success';
+            $responseData['msg'] = $fareResponse['error'] ?? $defaultError['msg'];
+        }
+
+        return response()->json($responseData);
+    }
+
+    private function _getVehicleInspectionDoc(Request $request)
+    {
+        $return = ['status' => false, 'message' => "Invalid Vehicle ID", 'result' => []];
+        $vehicleId = $this->decodeId($request->input('vehicleid'));
+
+        if (empty($vehicleId)) {
+            return response()->json($return);
+        }
+
+        $vehicle = Vehicle::select('inspection_image')->find($vehicleId);
+
+        if ($vehicle && !empty($vehicle->inspection_image)) {
+            $filePath = "custom/vehicle_photo/{$vehicle->inspection_image}";
+
+            if (Storage::disk('public')->exists($filePath)) {
+                $fileUrl = Storage::disk('public')->url($filePath);
+                $return = [
+                    'status' => true,
+                    'message' => "Success",
+                    'result' => ['file' => $fileUrl]
+                ];
+            } else {
+                $return = ['status' => false, 'message' => "sorry, document not exists", 'result' => []];
+            }
+        } else {
+            $return = ['status' => false, 'message' => "sorry, document not added yet by owner", 'result' => []];
+        }
+
+        return response()->json($return);
     }
 
     private function exportToCsv($vehicles)

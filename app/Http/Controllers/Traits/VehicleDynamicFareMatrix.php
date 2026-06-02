@@ -62,7 +62,7 @@ trait VehicleDynamicFareMatrix
         }
 
         $RevSetting = DB::table('rev_settings')->where('user_id', $ownerid)->first();
-        $revshare = !empty($RevSetting->rental_rev) ? $RevSetting->rental_rev : config('app.owner_part', 100);
+        $revshare = !empty($RevSetting->rental_rev) ? $RevSetting->rental_rev : config('legacy.OWNER_PART', 85);
         $diAFee = $revshare * 1;
         $diaRate = $RevSetting->dia_fee * 1;
 
@@ -212,7 +212,7 @@ trait VehicleDynamicFareMatrix
         }
 
         $RevSetting = DB::table('rev_settings')->where('user_id', $ownerid)->first();
-        $revshare = !empty($RevSetting->rental_rev) ? $RevSetting->rental_rev : config('app.owner_part', 100);
+        $revshare = !empty($RevSetting->rental_rev) ? $RevSetting->rental_rev : config('legacy.OWNER_PART', 85);
         $diAFee = $revshare * 1;
         $diaRate = $RevSetting->dia_fee * 1;
         $toalMaintenance = ($maintenance * 12 * ($goalLength / 365));
@@ -351,7 +351,7 @@ trait VehicleDynamicFareMatrix
         }
 
         $RevSetting = DB::table('rev_settings')->where('user_id', $ownerid)->first();
-        $revshare = !empty($RevSetting->rental_rev) ? $RevSetting->rental_rev : config('app.owner_part', 100);
+        $revshare = !empty($RevSetting->rental_rev) ? $RevSetting->rental_rev : config('legacy.OWNER_PART', 85);
         $diAFee = $revshare * 1;
         $diaRate = $RevSetting->dia_fee * 1;
 

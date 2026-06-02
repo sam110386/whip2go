@@ -347,7 +347,7 @@ class BookingReviewsController extends LegacyAppController
         $adjustToll = (bool) ($payload['adjusttollfromdeposit'] ?? false);
 
         $revSetting = RevSetting::where('user_id', $userId)->first();
-        $revShare = $revSetting ? (float) $revSetting->rev : (float) config('legacy.owner_part', 60);
+        $revShare = $revSetting ? (float) $revSetting->rev : config('legacy.OWNER_PART', 85);
 
         $pp = new PaymentProcessor();
         $return = ['status' => 'error', 'message' => 'Unknown error'];

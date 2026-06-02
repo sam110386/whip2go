@@ -2,23 +2,30 @@
 
 namespace App\Services\Legacy;
 
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\Free2MoveQueue;
+
 
 class Free2MoveService
 {
     public static function fetchDynamicFare(int $vehicleid, bool $force = false): array
     {
-        $vehicleData = DB::table('vehicles')
-            ->leftJoin('deposit_rules as DepositRule', 'DepositRule.vehicle_id', '=', 'vehicles.id')
-            ->where('vehicles.id', $vehicleid)
-            ->select(
-                'vehicles.id', 'vehicles.day_rent', 'vehicles.rent_opt',
-                'vehicles.model', 'vehicles.make', 'vehicles.year',
-                'vehicles.homenet_modelnumber', 'vehicles.msrp', 'vehicles.homenet_msrp',
-                'vehicles.vehicleCostInclRecon',
-                'DepositRule.doc_fee', 'DepositRule.id as deposit_rule_id', 'DepositRule.incentive'
-            )
+        $vehicleData = Vehicle::select([
+            'id',
+            'day_rent',
+            'rent_opt',
+            'model',
+            'make',
+            'year',
+            'homenet_modelnumber',
+            'msrp',
+            'homenet_msrp',
+            'vehicleCostInclRecon',
+        ])
+            ->with('depositRule:id,vehicle_id,doc_fee,incentive')
+            ->where('id', $vehicleid)
             ->first();
 
         $defaultReturn = [
@@ -36,6 +43,7 @@ class Free2MoveService
 
         if (!$force && !empty($vehicleData->day_rent)) {
             $rentOpt = !empty($vehicleData->rent_opt) ? json_decode($vehicleData->rent_opt, true) : [];
+
             if (!empty($rentOpt) && count($rentOpt) == 2) {
                 $keys = array_keys($rentOpt);
                 $tier1Obj = $rentOpt[$keys[0]];
@@ -52,6 +60,7 @@ class Free2MoveService
                     ],
                 ];
             }
+
             return [
                 'day_rent' => $vehicleData->day_rent,
                 'rent_opt' => [],
@@ -67,83 +76,83 @@ class Free2MoveService
             'make' => $vehicleData->make,
             'model' => $vehicleData->model,
             'year' => $vehicleData->year,
-            'doc_fee' => $vehicleData->doc_fee,
+            'doc_fee' => $vehicleData?->depositRule?->doc_fee,
             'ref_mode' => $vehicleData->homenet_modelnumber,
             'msrp' => $vehicleData->homenet_msrp,
             'invoice' => $vehicleData->vehicleCostInclRecon,
-            'discount_price' => sprintf('%0.2f', ($vehicleData->vehicleCostInclRecon - ($vehicleData->incentive ?? 0) + ($vehicleData->doc_fee ?? 0))),
+            'discount_price' => sprintf('%0.2f', ($vehicleData->vehicleCostInclRecon - ($vehicleData?->depositRule?->incentive ?? 0) + ($vehicleData?->depositRule?->doc_fee ?? 0))),
             'destination_fee' => 1500,
             'vehicle_id' => $vehicleData->id,
         ];
 
-        if ($requestBody['msrp'] == 0 || $requestBody['invoice'] == 0 || $requestBody['discount_price'] == 0) {
-            DB::table('vehicles')->where('id', $vehicleData->id)->update(['day_rent' => 0, 'status' => 0]);
+        if (
+            $requestBody['msrp'] == 0 ||
+            $requestBody['invoice'] == 0 ||
+            $requestBody['discount_price'] == 0
+        ) {
+            Vehicle::where('id', $vehicleData->id)
+                ->update([
+                    'day_rent' => 0,
+                    'status' => 0
+                ]);
+
             return array_merge($defaultReturn, ['error' => 'Missing pricing data']);
         }
 
-        self::saveToQueue($requestBody);
+        self::_saveToQeueue($requestBody);
 
         return array_merge($defaultReturn, ['error' => 'Request is accepted by Free2Move Api']);
     }
 
-    private static function saveToQueue(array $requestBody): void
+    private static function _saveToQeueue(array $requestBody): void
     {
-        DB::table('free2move_queue')->insert([
-            'created' => date('Y-m-d H:i:s'),
+        Free2MoveQueue::create([
+            'created' => now(),
             'data' => json_encode($requestBody),
-            'status' => 0,
         ]);
     }
 
-    public function callApi(array $requestBody): array
+    public static function _callApi(array $requestBody): array
     {
-        $url = config('legacy.Free2Move.apiHost', '');
-        $header = [
-            'Content-Type: application/json',
-            'Charset=UTF-8',
-            'Cache-Control: no-cache',
-            'Pragma: no-cache',
-            'Token: ' . config('legacy.Free2Move.apiToken', ''),
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        Log::info('Free2Move API call', ['request' => $requestBody, 'response' => $response]);
-
-        return json_decode($response, true) ?? [];
+        $url = config('legacy.Free2Move.apiHost');
+        return self::sendRequest($url, $requestBody);
     }
 
-    public function callAgreementApi(array $requestBody): array
+    public static function _callAgreementApi(array $requestBody): array
     {
+
         $url = config('legacy.Free2Move.apiAgreementHost', '');
-        $header = [
-            'Content-Type: application/json',
-            'Charset=UTF-8',
-            'Cache-Control: no-cache',
-            'Pragma: no-cache',
-            'Token: ' . config('legacy.Free2Move.apiToken', ''),
-        ];
+        return self::sendRequest($url, $requestBody);
+    }
+    private static function sendRequest(string $url, array $requestBody): ?array
+    {
+        $startTime = microtime(true);
+        $token = config('legacy.Free2Move.apiToken', '');
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($requestBody));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $response = curl_exec($ch);
-        curl_close($ch);
+        $logger = Log::channel('free2move');
+        $logger->info('=Request starting here=:');
+        $logger->info('=Request payload is =:', ['url' => $url, 'body' => $requestBody]);
 
-        Log::info('Free2Move Agreement API', ['request' => $requestBody, 'response' => $response]);
+        try {
+            $response = Http::withHeaders([
+                'Charset' => 'UTF-8',
+                'Cache-Control' => 'no-cache',
+                'Pragma' => 'no-cache',
+                'Token' => $token,
+            ])
+                ->withoutVerifying()
+                ->post($url, $requestBody);
 
-        return json_decode($response, true) ?? [];
+            $endTime = microtime(true);
+
+            $logger->info('=Response received as =:', ['response' => $response->body()]);
+            $logger->info("=Start time was =: {$startTime} === end time was = {$endTime}");
+
+            return $response->json();
+
+        } catch (\Exception $e) {
+            Log::error('Free2Move API Error: ' . $e->getMessage());
+            return null;
+        }
     }
 }

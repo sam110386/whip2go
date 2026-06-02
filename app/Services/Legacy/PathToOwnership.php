@@ -106,7 +106,7 @@ class PathToOwnership
     protected function getRevShare(int $ownerId): float
     {
         $revSetting = $this->findRevSetting($ownerId);
-        $share = ($revSetting && !empty($revSetting->rental_rev)) ? $revSetting->rental_rev : config('app.owner_part', 100);
+        $share = ($revSetting && !empty($revSetting->rental_rev)) ? $revSetting->rental_rev : config('legacy.OWNER_PART', 85);
         return (float)$share;
     }
 

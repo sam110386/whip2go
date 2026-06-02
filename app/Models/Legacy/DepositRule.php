@@ -56,5 +56,8 @@ class DepositRule extends LegacyModel
     protected $guarded = [
         'id',
     ];
+    protected $casts = [
+
+    ];
 
 }

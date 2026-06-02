@@ -316,7 +316,7 @@ class MsrpSettingsController extends LegacyAppController
         $rev = DB::table('rev_settings')->where('user_id', $ownerid)->orderByDesc('id')->first();
         $revshare = ($rev !== null && !empty($rev->rental_rev))
             ? (float) $rev->rental_rev
-            : (float) config('legacy.owner_part', 85);
+            : config('legacy.OWNER_PART', 85);
         $diAFee = $revshare * 1;
 
         $financingPart = ($financingType === 'P')

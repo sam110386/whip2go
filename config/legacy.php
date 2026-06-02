@@ -78,7 +78,6 @@ return [
     | Used when `rev_settings.rental_rev` is missing for booking report math.
     |
     */
-    'owner_part' => $legacyOwnerPart,
 
     /** Cake `Configure::read('OWNER_PART')` alias for ported services */
     'OWNER_PART' => $legacyOwnerPart,
@@ -123,6 +122,12 @@ return [
         'x-client_id' => env('AXLE_API_ID', ''),
         'x-client_secret' => env('AXLE_API_SECRET', ''),
         'api_host' => env('AXLE_API_HOST', 'https://api.axle.insure'),
+    ],
+
+    'Free2Move' => [
+        'apiHost' => env('FREE2MOVE_API_HOST', ''),
+        'apiAgreementHost' => env('FREE2MOVE_API_AGREEMENT_HOST', ''),
+        'apiToken' => env('FREE2MOVE_API_TOKEN', ''),
     ],
 
 ];
