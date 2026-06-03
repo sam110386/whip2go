@@ -130,4 +130,17 @@ return [
         'apiToken' => env('FREE2MOVE_API_TOKEN', ''),
     ],
 
+    'Ituran' => [
+        'url' => env('ITURAN_API_URL', ''),
+        'networkId' => env('ITURAN_API_NETWORK_ID', ''),
+        'senderUserName' => env('ITURAN_API_SENDER_USER_NAME', ''),
+        'senderPassword' => env('ITURAN_API_SENDER_PASSWORD', ''),
+    ],
+
+    'Passtime' => [
+        'url' => env('PASSTIME_API_URL', 'https://softwarepartners.passtimeusa.com'),
+        'username' => env('PASSTIME_API_USERNAME', 'adam@mindseyeny.com'),
+        'password' => env('PASSTIME_API_PASSWORD', 'Mindseyeisgreat1!'),
+    ],
+
 ];

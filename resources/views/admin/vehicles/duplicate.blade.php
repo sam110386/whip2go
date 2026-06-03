@@ -46,7 +46,7 @@
                         Owner :<span class="text-danger">*</span>
                     </label>
                     <div class="col-lg-4">
-                        <select name="Vehicle[user_id]" id="VehicleUserId" class="w-100" required></select>
+                        <input type="text" name="Vehicle[user_id]" id="VehicleUserId" class="w-100 required" required>
                     </div>
                     <div class="col-lg-2">
                         <button type="submit" class="btn btn-primary full-width">
@@ -63,42 +63,50 @@
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
 
-    <script>
+    <script type="text/javascript">
 
-        (function () {
-            var dealerId = @json($dealerid ?? null);
-            var $sel = $('#vehicle_user_id');
-            $sel.select2({
-                placeholder: 'Select dealer',
-                allowClear: true,
+        function format(item) {
+            return item.tag;
+        }
+
+        jQuery(document).ready(function () {
+
+            jQuery("#VehicleUserId").select2({
+                data: { results: {}, text: 'tag' },
+                formatSelection: format,
+                formatResult: format,
+                placeholder: "Select Dealer",
                 minimumInputLength: 1,
                 ajax: {
-                    url: '/admin/bookings/customerautocomplete',
-                    dataType: 'json',
-                    delay: 250,
+                    url: @json(url('/admin/bookings/customerautocomplete')),
+                    dataType: "json",
+                    type: "GET",
                     data: function (params) {
-                        return { term: params.term || '', is_dealer: true };
+                        return { term: params, "is_dealer": true }
                     },
                     processResults: function (data) {
                         return {
-                            results: (data || []).map(function (item) {
-                                return { id: item.id, text: item.tag };
+                            results: $.map(data, function (item) {
+                                return { tag: item.tag, id: item.id }
                             })
                         };
                     }
+                },
+                initSelection: function (element, callback) {
+                    var dealer_id = @json($dealerid ?? null);
+                    if (dealer_id.length > 0) {
+                        jQuery.ajax({
+                            url: @json(url('/admin/bookings/customerautocomplete')),
+                            dataType: "json",
+                            type: "GET",
+                            data: { "id": dealer_id }
+                        }).done(function (data) {
+                            callback(data[0]);
+                        });
+                    }
                 }
             });
-            if (dealerId) {
-                $.getJSON('/admin/bookings/customerautocomplete', { id: dealerId })
-                    .done(function (data) {
-                        if (data && data.length) {
-                            var item = data[0];
-                            var opt = new Option(item.tag, item.id, true, true);
-                            $sel.append(opt).trigger('change');
-                        }
-                    });
-            }
-        })();
+        });
 
     </script>
 

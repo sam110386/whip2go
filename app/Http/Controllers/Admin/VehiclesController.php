@@ -363,7 +363,7 @@ class VehiclesController extends LegacyAppController
         }
 
         $passtime = new Passtime();
-        $vehicleLocation = $passtime->getVehicleLocation($vehicle);
+        $vehicleLocation = $passtime->getVehicleLocation($vehicle->toArray() ?: []);
 
         if (!$vehicleLocation['status']) {
             return redirect('admin/vehicles/index')->with('error', 'Sorry, this vehicle data not found.');
@@ -521,8 +521,8 @@ class VehiclesController extends LegacyAppController
                 $passtime = new Passtime();
 
                 $resp = ($status === 8)
-                    ? $passtime->deActivateVehicle($vehicleData)
-                    : $passtime->ActivateVehicle($vehicleData);
+                    ? $passtime->deActivateVehicle($vehicleData->toArray() ?: [])
+                    : $passtime->ActivateVehicle($vehicleData->toArray() ?: []);
 
                 if ($resp['status']) {
                     $vehicleData->passtime_status = ($status === 8) ? 0 : 1;
@@ -609,7 +609,7 @@ class VehiclesController extends LegacyAppController
         $passtimeService = new Passtime();
 
         if ($status === 'active') {
-            $resp = $passtimeService->ActivateVehicle($vehicle);
+            $resp = $passtimeService->ActivateVehicle($vehicle->toArray() ?: []);
             if (!empty($resp['status'])) {
                 $vehicle->updateQuietly(['passtime_status' => 1]);
                 $responseData['status'] = true;
@@ -618,7 +618,7 @@ class VehiclesController extends LegacyAppController
         }
 
         if ($status === 'inactive') {
-            $resp = $passtimeService->deActivateVehicle($vehicle);
+            $resp = $passtimeService->deActivateVehicle($vehicle->toArray() ?: []);
             if (!empty($resp['status'])) {
                 $vehicle->updateQuietly(['passtime_status' => 0]);
                 $responseData['status'] = true;

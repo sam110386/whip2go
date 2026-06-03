@@ -88,13 +88,7 @@ trait VehiclesTrait
             ];
         }
 
-        $csSettingArray = array_merge(
-            $vehicle->toArray(),
-            ['CsSetting' => $vehicle->csSetting->toArray()],
-            ['VehicleSetting' => $vehicle->vehicleSetting ? $vehicle->vehicleSetting->toArray() : []]
-        );
-
-        $parsedSettings = (new Passtime())->parseVehicleSetting($csSettingArray);
+        $parsedSettings = (new Passtime())->parseVehicleSetting($vehicle->toArray() ?: []);
         $server = $parsedSettings['geotab_server'] ?? null;
         $username = $parsedSettings['geotab_user'] ?? null;
         $pwd = $parsedSettings['geotab_pwd'] ?? null;

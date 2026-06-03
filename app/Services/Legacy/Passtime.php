@@ -3,12 +3,13 @@
 namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use App\Services\Legacy\IturanClient;
 use App\Services\Legacy\GeotabClient;
 use App\Services\Legacy\OnestepGpsClient;
+use App\Services\Legacy\AutoPiFleetClient;
 use App\Services\Legacy\GeotabkeylessClient;
 use App\Services\Legacy\SmartCarCommonService;
-use App\Services\Legacy\AutoPiFleetClient;
 use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\Vehicle;
 
@@ -18,7 +19,7 @@ class Passtime
     private $_Geotab;
     private $_Onestepgps;
     private $_Autopi;
-    private $_logfile;
+    private $logger;
 
     public function __construct()
     {
@@ -26,7 +27,13 @@ class Passtime
         $this->_Geotab = new GeotabClient();
         $this->_Onestepgps = new OnestepGpsClient();
         $this->_Autopi = new AutoPiFleetClient();
-        $this->_logfile = storage_path('logs/passtime_' . date('Y-m-d') . '.log');
+
+        $this->logger = Log::build([
+            'driver' => 'daily',
+            'path' => storage_path('logs/passtime.log'),
+            'level' => 'debug',
+            'days' => 14,
+        ]);
     }
 
     public function getVehicleLocation(array $vehicledata)
@@ -34,222 +41,252 @@ class Passtime
         $return = ['status' => false, 'lat' => '', 'lng' => '', 'lastLocate' => date('Y-m-d H:i:s')];
         $vehicledata = $this->parseVehicleSetting($vehicledata);
 
-        if (empty($vehicledata['CsSetting']['gps_provider'] ?? null)) {
+        if (empty($vehicledata['cs_setting']['gps_provider'] ?? null)) {
             return ['status' => false];
         }
 
-        $provider = $vehicledata['CsSetting']['gps_provider'];
+        $provider = $vehicledata['cs_setting']['gps_provider'];
 
         if ($provider === 'ituran') {
             return $this->_Ituran->getVehicleLocation($vehicledata);
         }
+
         if ($provider === 'geotab') {
             return $this->_Geotab->getVehicleLocation($vehicledata);
         }
+
         if ($provider === 'onestepgps') {
             return $this->_Onestepgps->getVehicleLocation($vehicledata);
         }
+
         if ($provider === 'smartcar') {
             return SmartCarCommonService::getVehicleLocation($vehicledata);
         }
+
         if ($provider === 'autopi') {
             return $this->_Autopi->getVehicleLocation($vehicledata);
         }
 
-        $dealerId = trim($vehicledata['CsSetting']['passtime_dealerid'] ?? '');
-        $serialno = trim($vehicledata['Vehicle']['gps_serialno'] ?? '');
-        $last_mile = (int) ($vehicledata['Vehicle']['last_mile'] ?? 0);
+        $dealerId = trim($vehicledata['cs_setting']['passtime_dealerid'] ?? '');
+        $serialno = trim($vehicledata['gps_serialno'] ?? '');
+        $last_mile = (int) ($vehicledata['last_mile'] ?? 0);
 
         if (!empty($dealerId) && !empty($serialno)) {
+
+            $url = config('legacy.Passtime.url') . '/api/device/GetLastLocate';
+            $params = [
+                'DealerNumber' => $dealerId,
+                'SerialNumber' => $serialno,
+                'TimeZone' => 'EST',
+                'TimeZonHasDayLightSavings' => 0,
+            ];
+
             $token = $this->generatetoken();
-            $header = [];
-            $header[] = 'Content-type: application/x-www-form-urlencoded';
-            $header[] = 'Authorization: Bearer ' . $token;
-            $header[] = 'Accept-Charset: utf-8';
-            $requestBody = "DealerNumber=$dealerId&SerialNumber=$serialno&TimeZone=EST&TimeZonHasDayLightSavings=0";
-            $url = 'https://softwarepartners.passtimeusa.com/api/device/GetLastLocate?' . $requestBody;
-            $connection = curl_init();
-            curl_setopt($connection, CURLOPT_URL, $url);
-            curl_setopt($connection, CURLOPT_HTTPHEADER, $header);
-            curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($connection, CURLOPT_TIMEOUT, 10);
+            $result = $this->sendHttpRequest('GET', $url, $params, 10, $token);
 
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . 'getVehicleLocation=Request==' . $url . '?' . $requestBody, FILE_APPEND);
-            $response = curl_exec($connection);
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . '==' . 'getVehicleLocation-Response==' . $response, FILE_APPEND);
+            if (($vehicledata['owner']['distance_unit'] ?? null) == 'KM') {
+                $miles = isset($result[0]['totalMiles']) ?
+                    sprintf('%d', ($result[0]['totalMiles'] * 1.60934)) :
+                    $last_mile;
 
-            curl_close($connection);
-            $result = json_decode($response, true);
-            if (isset($result[0]['lat']) && isset($result[0]['long'])) {
-                if (($vehicledata['Owner']['distance_unit'] ?? null) == 'KM') {
-                    $miles = isset($result[0]['totalMiles']) ? sprintf('%d', ($result[0]['totalMiles'] * 1.60934)) : $last_mile;
-                    return ['status' => true, 'lat' => $result[0]['lat'], 'lng' => $result[0]['long'], 'lastLocate' => $result[0]['lastLocate'] ?? date('Y-m-d H:i:s'), "miles" => $miles];
-                }
-                return ['status' => true, 'lat' => $result[0]['lat'], 'lng' => $result[0]['long'], 'lastLocate' => $result[0]['lastLocate'] ?? date('Y-m-d H:i:s'), "miles" => $result[0]['totalMiles'] ?? null];
+                return [
+                    'status' => true,
+                    'lat' => $result[0]['lat'],
+                    'lng' => $result[0]['long'],
+                    'lastLocate' => $result[0]['lastLocate'] ?? date('Y-m-d H:i:s'),
+                    "miles" => $miles
+                ];
             }
+
+            return [
+                'status' => true,
+                'lat' => $result[0]['lat'],
+                'lng' => $result[0]['long'],
+                'lastLocate' => $result[0]['lastLocate'] ?? date('Y-m-d H:i:s'),
+                "miles" => $result[0]['totalMiles'] ?? null
+            ];
         }
+
         return $return;
     }
-
-    public function setVhicleLocation(array $vehicledata, $token)
+    public function setVhicleLocation(array $vehicledata, $token): void
     {
-        $dealerId = trim($vehicledata['CsSetting']['passtime_dealerid'] ?? '');
-        $serialno = trim($vehicledata['Vehicle']['gps_serialno'] ?? '');
+        $dealerId = trim($vehicledata['cs_setting']['passtime_dealerid'] ?? '');
+        $serialno = trim($vehicledata['gps_serialno'] ?? '');
+
         if (!empty($dealerId) && !empty($serialno)) {
-            $header = [];
-            $header[] = 'Content-type: application/x-www-form-urlencoded';
-            $header[] = 'Authorization: Bearer ' . $token;
-            $header[] = 'Accept-Charset: utf-8';
-            $requestBody = "actionName=UpdateMap&DealerNumber=$dealerId&SerialNumber=$serialno";
-            $url = 'https://softwarepartners.passtimeusa.com/api/device';
-            $connection = curl_init();
-            curl_setopt($connection, CURLOPT_URL, $url);
-            curl_setopt($connection, CURLOPT_POST, 1);
-            curl_setopt($connection, CURLOPT_HTTPHEADER, $header);
-            curl_setopt($connection, CURLOPT_POSTFIELDS, $requestBody);
-            curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($connection, CURLOPT_TIMEOUT, 10);
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . 'setVhicleLocation=Request==' . $url . '?' . $requestBody, FILE_APPEND);
-            $response = curl_exec($connection);
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . '==' . 'setVhicleLocation-Response==' . $response, FILE_APPEND);
+            $url = config('legacy.Passtime.url') . '/api/device';
+            $params = [
+                'actionName' => 'UpdateMap',
+                'DealerNumber' => $dealerId,
+                'SerialNumber' => $serialno,
+            ];
 
-            curl_close($connection);
+            $this->sendHttpRequest('POST', $url, $params, 10, $token);
         }
-    }
 
+        return;
+    }
     public function setVehicleLastMile(array $vehicledata, $order_id = null)
     {
         $vehicledata = $this->parseVehicleSetting($vehicledata);
-        if (empty($vehicledata['CsSetting']['gps_provider'] ?? null)) {
+
+        if (empty($vehicledata['cs_setting']['gps_provider'] ?? null)) {
             return ['status' => false];
         }
 
-        $provider = $vehicledata['CsSetting']['gps_provider'];
+        $provider = $vehicledata['cs_setting']['gps_provider'];
 
         if ($provider === 'ituran') {
-            return $this->_Ituran->setVehicleLastMile($vehicledata, $order_id);
+            return $this->_Ituran->setVehicleLastMile($vehicledata);
         }
+
         if ($provider === 'onestepgps') {
             return $this->_Onestepgps->setVehicleLastMile($vehicledata);
         }
+
         return null;
     }
-
     public function getVehicleLastMile(array $vehicledata)
     {
         $vehicledata = $this->parseVehicleSetting($vehicledata);
 
-        if (empty($vehicledata['CsSetting']['gps_provider'] ?? null)) {
+        if (empty($vehicledata['cs_setting']['gps_provider'] ?? null)) {
             return ['status' => false, 'miles' => 0];
         }
 
-        $provider = $vehicledata['CsSetting']['gps_provider'];
+        $provider = $vehicledata['cs_setting']['gps_provider'];
 
         if ($provider === 'ituran') {
             return $this->_Ituran->getVehicleLastMile($vehicledata);
         }
+
         if ($provider === 'geotab') {
             return $this->_Geotab->getVehicleLastMile($vehicledata);
         }
+
         if ($provider === 'onestepgps') {
             return $this->_Onestepgps->getVehicleLastMile($vehicledata);
         }
+
         if ($provider === 'smartcar') {
             return SmartCarCommonService::getVehicleLastMile($vehicledata);
         }
+
         if ($provider === 'autopi') {
             return $this->_Autopi->getVehicleLastMile($vehicledata);
         }
 
         $return = ['status' => false, 'miles' => 0];
-        $dealerId = trim($vehicledata['CsSetting']['passtime_dealerid'] ?? '');
-        $serialno = trim($vehicledata['Vehicle']['gps_serialno'] ?? '');
-        $last_mile = (int) ($vehicledata['Vehicle']['last_mile'] ?? 0);
+        $dealerId = trim($vehicledata['cs_setting']['passtime_dealerid'] ?? '');
+        $serialno = trim($vehicledata['gps_serialno'] ?? '');
+        $last_mile = (int) ($vehicledata['last_mile'] ?? 0);
 
         if (!empty($dealerId) && !empty($serialno)) {
+            $url = config('legacy.Passtime.url') . '/api/device/GetTotalMiles';
+            $params = [
+                'DealerNumber' => $dealerId,
+                'SerialNumber' => $serialno,
+            ];
+
             $token = $this->generatetoken();
-            $header = [];
-            $header[] = 'Content-type: application/x-www-form-urlencoded';
-            $header[] = 'Authorization: Bearer ' . $token;
-            $header[] = 'Accept-Charset: utf-8';
-            $requestBody = "DealerNumber=$dealerId&SerialNumber=$serialno";
-            $url = 'https://softwarepartners.passtimeusa.com/api/device/GetTotalMiles?' . $requestBody;
-            $connection = curl_init();
-            curl_setopt($connection, CURLOPT_URL, $url);
-            curl_setopt($connection, CURLOPT_HTTPHEADER, $header);
-            curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($connection, CURLOPT_TIMEOUT, 10);
+            $result = $this->sendHttpRequest('GET', $url, $params, 10, $token);
 
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . 'getVehicleLastMile=Request==' . $url, FILE_APPEND);
-            $response = curl_exec($connection);
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . '==' . 'getVehicleLastMile-Response==' . $response, FILE_APPEND);
-
-            curl_close($connection);
-            $result = json_decode($response, true);
             if (isset($result[0]['totalMiles'])) {
-                if (($vehicledata['Owner']['distance_unit'] ?? null) == 'KM') {
+
+                if (($vehicledata['owner']['distance_unit'] ?? null) == 'KM') {
                     $miles = sprintf('%d', ($result[0]['totalMiles'] * 1.60934));
                     return ['status' => true, "miles" => $miles];
                 }
+
                 return ['status' => true, 'miles' => $result[0]['totalMiles']];
             }
+
             return ['status' => true, 'miles' => $last_mile];
         }
+
         return $return;
     }
-
-    public function generatetoken()
+    public function generatetoken(): string
     {
-        $std = 'grant_type=password&username=adam@mindseyeny.com&password=Mindseyeisgreat1!';
-        $header = [];
-        $header[] = 'Content-type: application/x-www-form-urlencoded';
-        $header[] = 'Accept-Charset: utf-8';
-        $url = 'https://softwarepartners.passtimeusa.com/token';
-        $result = $this->sendHttpRequest($url, $std, $header);
+        $url = config('legacy.Passtime.url') . '/token';
+        $params = [
+            'grant_type' => 'password',
+            'username' => config('legacy.Passtime.username'),
+            'password' => config('legacy.Passtime.password'),
+        ];
+
+        $result = $this->sendHttpRequest('POST', $url, $params, 10);
         return $result['access_token'] ?? '';
     }
-
-    public function sendHttpRequest(string $url, string $requestBody, array $header): array
+    private function sendHttpRequest(string $method, string $url, array $params, int $timeout = 10, ?string $token = null): ?array
     {
-        $connection = curl_init();
-        curl_setopt($connection, CURLOPT_URL, $url);
-        curl_setopt($connection, CURLOPT_POST, 1);
-        curl_setopt($connection, CURLOPT_HTTPHEADER, $header);
-        curl_setopt($connection, CURLOPT_POSTFIELDS, $requestBody);
-        curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-        $response = curl_exec($connection);
-        curl_close($connection);
-        return json_decode($response, true) ?? [];
-    }
+        $headers = [
+            'Accept-Charset' => 'utf-8',
+        ];
 
+        if (!empty($token)) {
+            $headers['Authorization'] = "Bearer {$token}";
+        }
+
+        try {
+            $this->logger->info("Passtime Request [{$method}]: {$url}", [
+                'params' => $params,
+            ]);
+
+            $pending = Http::withHeaders($headers)->timeout($timeout);
+
+            $response = strtoupper($method) === 'POST' ?
+                $pending->asForm()->post($url, $params) :
+                $pending->get($url, $params);
+
+
+            $body = $response->body();
+
+            $logParams = $params;
+            if (isset($logParams['password'])) {
+                $logParams['password'] = '********';
+            }
+
+            $this->logger->info("Passtime Response [{$response->status()}]: {$url}", [
+                'params' => $logParams,
+                'body' => $body,
+            ]);
+
+            return $response->json();
+
+        } catch (\Throwable $e) {
+            $this->logger->error("Passtime Request Exception: {$e->getMessage()}", [
+                'method' => $method,
+                'url' => $url,
+                'params' => $params,
+            ]);
+            return null;
+        }
+    }
     public function startPasstime($vhicleId, $order_id)
     {
         if (!empty($vhicleId)) {
-            $vehicle = Vehicle::with(['csSetting', 'vehicleSetting', 'owner'])->find($vhicleId);
-            if ($vehicle) {
-                $vehicleData = [
-                    'Vehicle' => $vehicle->toArray(),
-                    'CsSetting' => $vehicle->csSetting ? $vehicle->csSetting->toArray() : [],
-                    'VehicleSetting' => $vehicle->vehicleSetting ? $vehicle->vehicleSetting->toArray() : [],
-                    'Owner' => $vehicle->owner ? $vehicle->owner->toArray() : [],
-                ];
+            $vehicledata = Vehicle::with(['csSetting', 'vehicleSetting', 'owner'])->find($vhicleId)->toArray();
+
+            if (!empty($vehicleData)) {
 
                 CsOrder::where('id', $order_id)->update([
-                    'start_odometer' => $vehicleData['Vehicle']['last_mile'] ?? 0
+                    'start_odometer' => $vehicledata['last_mile'] ?? 0
                 ]);
 
-                $vehicleData = $this->parseVehicleSetting($vehicleData);
-                $miles = $vehicleData['Vehicle']['last_mile'] ?? 0;
-                $gpsProvider = $vehicleData['CsSetting']['gps_provider'] ?? '';
+                $vehicledata = $this->parseVehicleSetting($vehicledata);
+                $miles = $vehicledata['last_mile'] ?? 0;
+                $gpsProvider = $vehicledata['cs_setting']['gps_provider'] ?? '';
 
                 if ($gpsProvider === 'ituran') {
-                    $miles = $this->_Ituran->startPasstime($vehicleData, $order_id);
+                    $miles = $this->_Ituran->startPasstime($vehicledata, $order_id);
                 } elseif ($gpsProvider === 'geotab') {
-                    $miles = $this->_Geotab->startPasstime($vehicleData, $order_id);
+                    $miles = $this->_Geotab->startPasstime($vehicledata, $order_id);
                 } elseif ($gpsProvider === 'onestepgps') {
-                    $miles = $this->_Onestepgps->startPasstime($vehicleData, $order_id);
+                    $miles = $this->_Onestepgps->startPasstime($vehicledata, $order_id);
                 } else {
-                    $milesResponse = $this->getVehicleLastMile($vehicleData);
+                    $milesResponse = $this->getVehicleLastMile($vehicledata);
                     $miles = ($milesResponse['miles'] ?? 0) ?: 1;
                 }
 
@@ -260,172 +297,170 @@ class Passtime
             }
         }
     }
-
     public function getPasstimeMiles($vhicleId)
     {
         $return = ['miles' => 0, 'allowed_miles' => 0];
-        if (!empty($vhicleId)) {
-            $vehicle = Vehicle::with(['csSetting', 'vehicleSetting', 'owner'])->find($vhicleId);
-            if ($vehicle) {
-                $vehicleData = [
-                    'Vehicle' => $vehicle->toArray(),
-                    'CsSetting' => $vehicle->csSetting ? $vehicle->csSetting->toArray() : [],
-                    'VehicleSetting' => $vehicle->vehicleSetting ? $vehicle->vehicleSetting->toArray() : [],
-                    'Owner' => $vehicle->owner ? $vehicle->owner->toArray() : [],
-                ];
 
-                $vehicleData = $this->parseVehicleSetting($vehicleData);
-                $gpsProvider = $vehicleData['CsSetting']['gps_provider'] ?? '';
+        if (!empty($vhicleId)) {
+            $vehicledata = Vehicle::with(['csSetting', 'vehicleSetting', 'owner'])->find($vhicleId)->toArray();
+
+            if (!empty($vehicledata)) {
+                $vehicledata = $this->parseVehicleSetting($vehicledata);
+                $gpsProvider = $vehicledata['cs_setting']['gps_provider'] ?? '';
 
                 if ($gpsProvider === 'smartcar') {
-                    $milesResponse = SmartCarCommonService::getVehicleLastMile($vehicleData);
+                    $milesResponse = SmartCarCommonService::getVehicleLastMile($vehicledata);
                     $return['miles'] = $milesResponse['miles'] ?? 0;
-                    $return['allowed_miles'] = $vehicleData['Vehicle']['allowed_miles'] ?? 0;
+                    $return['allowed_miles'] = $vehicledata['allowed_miles'] ?? 0;
                 } elseif ($gpsProvider === 'ituran') {
-                    $return = $this->_Ituran->getPasstimeMiles($vehicleData);
+                    $return = $this->_Ituran->getPasstimeMiles($vehicledata);
                 } elseif ($gpsProvider === 'geotab') {
-                    $return = $this->_Geotab->getPasstimeMiles($vehicleData);
+                    $return = $this->_Geotab->getPasstimeMiles($vehicledata);
                 } elseif ($gpsProvider === 'onestepgps') {
-                    $return = $this->_Onestepgps->getPasstimeMiles($vehicleData);
+                    $return = $this->_Onestepgps->getPasstimeMiles($vehicledata);
                 } elseif ($gpsProvider === 'passtime' || empty($gpsProvider)) {
-                    $milesResponse = $this->getVehicleLastMile($vehicleData);
+                    $milesResponse = $this->getVehicleLastMile($vehicledata);
                     $return['miles'] = $milesResponse['miles'] ?? 0;
-                    $return['allowed_miles'] = $vehicleData['Vehicle']['allowed_miles'] ?? 0;
+                    $return['allowed_miles'] = $vehicledata['allowed_miles'] ?? 0;
                 }
 
                 if ($return['miles'] > 0) {
                     Vehicle::where('id', $vhicleId)->update(['last_mile' => $return['miles']]);
                 }
+
             }
         }
+
         return $return;
     }
-
-    public function deActivateVehicle(array $vehicleData)
+    public function deActivateVehicle(array $vehicledata)
     {
-        $vehicleData = $this->parseVehicleSetting($vehicleData);
-        if (empty($vehicleData['CsSetting']['passtime'] ?? null)) {
+        $vehicledata = $this->parseVehicleSetting($vehicledata);
+
+        if (empty($vehicledata['cs_setting']['passtime'] ?? null)) {
             return ['status' => false];
         }
 
-        $passtime = $vehicleData['CsSetting']['passtime'];
+        $passtime = $vehicledata['cs_setting']['passtime'];
 
         if ($passtime === 'geotabkeyless') {
-            return GeotabkeylessClient::deActivateVehicle($vehicleData);
+            return GeotabkeylessClient::deActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'ituran') {
-            return $this->_Ituran->deActivateVehicle($vehicleData);
+            return $this->_Ituran->deActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'geotab') {
-            return $this->_Geotab->deActivateVehicle($vehicleData);
+            return $this->_Geotab->deActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'onestepgps') {
-            return $this->_Onestepgps->deActivateVehicle($vehicleData);
+            return $this->_Onestepgps->deActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'smartcar') {
-            return SmartCarCommonService::deActivateVehicle($vehicleData);
+            return SmartCarCommonService::deActivateVehicle($vehicledata);
         }
 
         $return = ['status' => false, 'message' => __("Passtime dealer # or vehicle serial # not set.")];
-        $dealerId = trim($vehicleData['CsSetting']['passtime_dealerid'] ?? '');
-        $serialno = trim($vehicleData['Vehicle']['passtime_serialno'] ?? '');
+        $dealerId = trim($vehicledata['cs_setting']['passtime_dealerid'] ?? '');
+        $serialno = trim($vehicledata['passtime_serialno'] ?? '');
 
         if (!empty($dealerId) && !empty($serialno)) {
+            $url = config('legacy.Passtime.url') . '/api/device';
+            $params = [
+                'actionName' => 'EnableDisable',
+                'DealerNumber' => $dealerId,
+                'SerialNumber' => $serialno,
+                'EnableDisable' => 0,
+            ];
+
             $token = $this->generatetoken();
-            $header = [];
-            $header[] = 'Content-type: application/x-www-form-urlencoded';
-            $header[] = 'Authorization: Bearer ' . $token;
-            $header[] = 'Accept-Charset: utf-8';
-            $requestBody = "actionName=EnableDisable&DealerNumber=$dealerId&SerialNumber=$serialno&EnableDisable=0";
-            $url = 'https://softwarepartners.passtimeusa.com/api/device';
-            $connection = curl_init();
-            curl_setopt($connection, CURLOPT_URL, $url);
-            curl_setopt($connection, CURLOPT_POST, 1);
-            curl_setopt($connection, CURLOPT_HTTPHEADER, $header);
-            curl_setopt($connection, CURLOPT_POSTFIELDS, $requestBody);
-            curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($connection, CURLOPT_TIMEOUT, 10);
+            $result = $this->sendHttpRequest('POST', $url, $params, 10, $token);
 
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . 'deActivateVehicle=Request==' . $url . '?' . $requestBody, FILE_APPEND);
-            $response = curl_exec($connection);
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . '==' . 'deActivateVehicle-Response==' . $response, FILE_APPEND);
-
-            curl_close($connection);
-            $result = json_decode($response, true);
             if (isset($result['results']['callresult'])) {
                 $return = ['status' => true];
             }
         }
+
         return $return;
     }
-
-    public function parseVehicleSetting(array $vehicleData)
+    public function parseVehicleSetting(array $vehicledata): array
     {
-        if (!isset($vehicleData['VehicleSetting']) || empty($vehicleData['VehicleSetting']['data']) || is_null($vehicleData['VehicleSetting']['data'])) {
-            return $vehicleData;
+        if (
+            !isset($vehicledata['vehicle_setting']) ||
+            empty($vehicledata['vehicle_setting']['data']) ||
+            is_null($vehicledata['vehicle_setting']['data'])
+        ) {
+            return $vehicledata;
         }
-        $jsonTemp = json_decode($vehicleData['VehicleSetting']['data'], true);
-        if (isset($jsonTemp['gps_provider']) && !empty($jsonTemp['gps_provider']) && isset($jsonTemp['passtime']) && !empty($jsonTemp['passtime'])) {
-            $vehicleData['CsSetting'] = $jsonTemp;
+
+        $toArrayFormat = fn($val) => is_array($val) ? $val : (json_decode($val ?? '', true) ?? []);
+        $jsonTemp = $toArrayFormat($vehicledata['vehicle_setting']['data']);
+
+        if (
+            isset($jsonTemp['gps_provider']) &&
+            !empty($jsonTemp['gps_provider']) &&
+            isset($jsonTemp['passtime']) &&
+            !empty($jsonTemp['passtime'])
+        ) {
+            $vehicledata['cs_setting'] = $jsonTemp;
         }
-        return $vehicleData;
+
+        return $vehicledata;
     }
-
-    public function ActivateVehicle(array $vehicleData)
+    public function ActivateVehicle(array $vehicledata)
     {
-        $vehicleData = $this->parseVehicleSetting($vehicleData);
-        if (empty($vehicleData['CsSetting']['passtime'] ?? null)) {
+        $vehicledata = $this->parseVehicleSetting($vehicledata);
+
+        if (empty($vehicledata['cs_setting']['passtime'] ?? null)) {
             return ['status' => false];
         }
 
-        $passtime = $vehicleData['CsSetting']['passtime'];
+        $passtime = $vehicledata['cs_setting']['passtime'];
 
         if ($passtime === 'geotabkeyless') {
-            return GeotabkeylessClient::ActivateVehicle($vehicleData);
+            return GeotabkeylessClient::ActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'geotab') {
-            return $this->_Geotab->ActivateVehicle($vehicleData);
+            return $this->_Geotab->ActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'ituran') {
-            return $this->_Ituran->ActivateVehicle($vehicleData);
+            return $this->_Ituran->ActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'onestepgps') {
-            return $this->_Onestepgps->ActivateVehicle($vehicleData);
+            return $this->_Onestepgps->ActivateVehicle($vehicledata);
         }
+
         if ($passtime === 'smartcar') {
-            return SmartCarCommonService::activateVehicle($vehicleData);
+            return SmartCarCommonService::ActivateVehicle($vehicledata);
         }
 
         $return = ['status' => false, 'message' => __("Passtime dealer # or vehicle serial # not set.")];
-        $dealerId = trim($vehicleData['CsSetting']['passtime_dealerid'] ?? '');
-        $serialno = trim($vehicleData['Vehicle']['passtime_serialno'] ?? '');
+        $dealerId = trim($vehicledata['cs_setting']['passtime_dealerid'] ?? '');
+        $serialno = trim($vehicledata['passtime_serialno'] ?? '');
 
         if (!empty($dealerId) && !empty($serialno)) {
+            $url = config('legacy.Passtime.url') . '/api/device';
+            $params = [
+                'actionName' => 'EnableDisable',
+                'DealerNumber' => $dealerId,
+                'SerialNumber' => $serialno,
+                'EnableDisable' => 1,
+            ];
+
             $token = $this->generatetoken();
-            $header = [];
-            $header[] = 'Content-type: application/x-www-form-urlencoded';
-            $header[] = 'Authorization: Bearer ' . $token;
-            $header[] = 'Accept-Charset: utf-8';
-            $requestBody = "actionName=EnableDisable&DealerNumber=$dealerId&SerialNumber=$serialno&EnableDisable=1";
-            $url = 'https://softwarepartners.passtimeusa.com/api/device';
-            $connection = curl_init();
-            curl_setopt($connection, CURLOPT_URL, $url);
-            curl_setopt($connection, CURLOPT_POST, 1);
-            curl_setopt($connection, CURLOPT_HTTPHEADER, $header);
-            curl_setopt($connection, CURLOPT_POSTFIELDS, $requestBody);
-            curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($connection, CURLOPT_TIMEOUT, 30);
+            $result = $this->sendHttpRequest('POST', $url, $params, 30, $token);
 
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . 'ActivateVehicle=Request==' . $url . '?' . $requestBody, FILE_APPEND);
-            $response = curl_exec($connection);
-            @file_put_contents($this->_logfile, "\n" . date('Y-m-d H:i:s') . '==' . 'ActivateVehicle-Response==' . $response, FILE_APPEND);
-
-            curl_close($connection);
-            $result = json_decode($response, true);
             if (isset($result['results']['callresult'])) {
                 $return = ['status' => true];
             }
         }
+
         return $return;
     }
 }
