@@ -2,109 +2,162 @@
 
 namespace App\Services\Legacy;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SmartCarApiService
 {
+    private string $authUrl = 'https://auth.smartcar.com/oauth/token';
+    private string $apiUrl = 'https://api.smartcar.com/v2.0';
+    private int $timeout = 160;
+    private $logger;
     private array $header = [];
-    private string $_logfile = '';
 
     public function __construct()
     {
-        $this->_logfile = storage_path('logs/smartcar_' . date('Y-m-d') . '.log');
+        $this->logger = Log::build([
+            'driver' => 'daily',
+            'path' => storage_path('logs/smartcar.log'),
+            'level' => 'debug',
+            'days' => 14,
+        ]);
     }
-
     public function getAuthToken(string $request, string $clientId, string $secret): array
     {
-        $url = 'https://auth.smartcar.com/oauth/token';
-        $this->header[] = 'Accept-Charset: utf-8';
-        $this->header[] = 'Authorization: Basic ' . base64_encode($clientId . ':' . $secret);
-        $this->header[] = 'Content-Type: application/x-www-form-urlencoded';
-        return $this->sendHttpRequest($url, $request);
-    }
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => 'Basic ' . base64_encode("{$clientId}:{$secret}"),
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ];
 
+        return $this->sendHttpRequest($this->authUrl, $request);
+    }
     public function refreshToken(string $request, string $clientId, string $secret): array
     {
-        $url = 'https://auth.smartcar.com/oauth/token';
-        $this->header[] = 'Accept-Charset: utf-8';
-        $this->header[] = 'Authorization: Basic ' . base64_encode($clientId . ':' . $secret);
-        $this->header[] = 'Content-Type: application/x-www-form-urlencoded';
-        return $this->sendHttpRequest($url, $request);
-    }
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => 'Basic ' . base64_encode("{$clientId}:{$secret}"),
+            'Content-Type' => 'application/x-www-form-urlencoded',
+        ];
 
+        return $this->sendHttpRequest($this->authUrl, $request);
+    }
     public function getAllVehicles(string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles?limit=40';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token];
+        $url = "{$this->apiUrl}/vehicles?limit=40";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+        ];
         return $this->sendHttpRequest($url);
     }
-
     public function getVinNumber(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/vin';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token];
+        $url = "{$this->apiUrl}/vehicles/{$id}/vin";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+        ];
+
         return $this->sendHttpRequest($url);
     }
-
     public function getOdometer(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/odometer';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token];
+        $url = "{$this->apiUrl}/vehicles/{$id}/odometer";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+        ];
+
         return $this->sendHttpRequest($url);
     }
-
     public function getLocation(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/location';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token];
+        $url = "{$this->apiUrl}/vehicles/{$id}/location";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+        ];
+
         return $this->sendHttpRequest($url);
     }
-
     public function getBattery(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/battery';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token];
+        $url = "{$this->apiUrl}/vehicles/{$id}/battery";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+        ];
+
         return $this->sendHttpRequest($url);
     }
-
     public function lockCar(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/security';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token, 'Content-Type: application/json'];
+        $url = "{$this->apiUrl}/vehicles/{$id}/security";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+        ];
+
         return $this->sendHttpRequest($url, '{"action": "LOCK"}');
     }
-
     public function unlockCar(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/security';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token, 'Content-Type: application/json'];
+        $url = "{$this->apiUrl}/vehicles/{$id}/security";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+        ];
+
         return $this->sendHttpRequest($url, '{"action": "UNLOCK"}');
     }
-
     public function getOdometerBatteryAndLocation(string $id, string $token): array
     {
-        $url = 'https://api.smartcar.com/v2.0/vehicles/' . $id . '/batch';
-        $this->header = ['Accept-Charset: utf-8', 'Authorization: Bearer ' . $token, 'Content-Type: application/json'];
+        $url = "{$this->apiUrl}/vehicles/{$id}/batch";
+        $this->header = [
+            'Accept-Charset' => 'utf-8',
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+        ];
+
         $request = '{"requests": [{ "path" : "/odometer" }, { "path" : "/location" },{ "path" : "/battery" }]}';
         return $this->sendHttpRequest($url, $request);
     }
-
-    public function sendHttpRequest(string $url, string $requestBody = ''): array
+    private function sendHttpRequest(string $url, string $requestBody = ''): array
     {
-        $connection = curl_init();
-        curl_setopt($connection, CURLOPT_URL, $url);
-        curl_setopt($connection, CURLOPT_HTTPHEADER, $this->header);
-        if (!empty($requestBody)) {
-            curl_setopt($connection, CURLOPT_POST, 1);
-            curl_setopt($connection, CURLOPT_POSTFIELDS, $requestBody);
+        $method = empty($requestBody) ? 'GET' : 'POST';
+
+        try {
+            $this->logger->info("SmartCar Request [{$method}]: {$url}", [
+                'body' => $requestBody,
+            ]);
+
+            $pending = Http::withHeaders($this->header)->timeout($this->timeout);
+
+            if ($method === 'POST') {
+                $contentType = $this->header['Content-Type'] ?? 'application/json';
+                $response = $pending->withBody($requestBody, $contentType)->post($url);
+            } else {
+                $response = $pending->get($url);
+            }
+
+            $body = $response->body();
+
+            $this->logger->info("SmartCar Response [{$response->status()}]: {$url}", [
+                'body' => $body,
+            ]);
+
+            return $response->json() ?? [];
+
+        } catch (\Throwable $e) {
+            $this->logger->error("SmartCar Request Exception: {$e->getMessage()}", [
+                'method' => $method,
+                'url' => $url,
+                'body' => $requestBody,
+            ]);
+            return [];
         }
-        curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-        curl_setopt($connection, CURLOPT_TIMEOUT, 160);
-        $response = curl_exec($connection);
-        curl_close($connection);
-
-        Log::channel('daily')->debug('SmartCar API', ['url' => $url, 'request' => $requestBody]);
-
-        return json_decode($response, true) ?: [];
     }
 }

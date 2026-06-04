@@ -19,6 +19,7 @@ class Passtime
     private $_Geotab;
     private $_Onestepgps;
     private $_Autopi;
+    private $_Geotabkeyless;
     private $logger;
 
     public function __construct()
@@ -27,6 +28,7 @@ class Passtime
         $this->_Geotab = new GeotabClient();
         $this->_Onestepgps = new OnestepGpsClient();
         $this->_Autopi = new AutoPiFleetClient();
+        $this->_Geotabkeyless = new GeotabkeylessClient();
 
         $this->logger = Log::build([
             'driver' => 'daily',
@@ -35,7 +37,6 @@ class Passtime
             'days' => 14,
         ]);
     }
-
     public function getVehicleLocation(array $vehicledata)
     {
         $return = ['status' => false, 'lat' => '', 'lng' => '', 'lastLocate' => date('Y-m-d H:i:s')];
@@ -344,7 +345,7 @@ class Passtime
         $passtime = $vehicledata['cs_setting']['passtime'];
 
         if ($passtime === 'geotabkeyless') {
-            return GeotabkeylessClient::deActivateVehicle($vehicledata);
+            return $this->_Geotabkeyless->deActivateVehicle($vehicledata);
         }
 
         if ($passtime === 'ituran') {
@@ -421,7 +422,7 @@ class Passtime
         $passtime = $vehicledata['cs_setting']['passtime'];
 
         if ($passtime === 'geotabkeyless') {
-            return GeotabkeylessClient::ActivateVehicle($vehicledata);
+            return $this->_Geotabkeyless->ActivateVehicle($vehicledata);
         }
 
         if ($passtime === 'geotab') {

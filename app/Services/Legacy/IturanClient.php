@@ -103,7 +103,7 @@ class IturanClient
                 $miles = sprintf('%d', $miles * 0.621371);
             }
 
-            if (($vehicledata['Owner']['distance_unit'] ?? '') === 'KM') {
+            if (($vehicledata['owner']['distance_unit'] ?? '') === 'KM') {
                 return ['status' => true, 'miles' => sprintf('%d', $miles * 1.60934)];
             }
 

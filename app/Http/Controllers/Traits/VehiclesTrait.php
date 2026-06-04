@@ -160,8 +160,7 @@ trait VehiclesTrait
 
         // --- AUTO PI ---
         if ($gpsProvider == 'autopi') {
-            $params = ["autopi_token" => $parsedSettings['autopi_token'] ?? null];
-            $return = (new AutoPiFleetClient())->getDealerDevices($params);
+            $return = (new AutoPiFleetClient())->getDealerDevices($parsedSettings['autopi_token']);
 
             if (!$return['status']) {
                 return $return;

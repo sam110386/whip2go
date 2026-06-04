@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Http\Controllers\Traits\VehicleLocationTrait;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\VehicleVariation;
 use App\Services\Legacy\Colors;
+use App\Services\Legacy\DynamicFare;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,206 +17,142 @@ class FeaturedVehiclesController extends LegacyAppController
 {
     use VehicleLocationTrait;
 
-    protected bool $shouldLoadLegacyModules = true;
-
-    /**
-     * Add / Edit featured vehicle (admin_add).
-     */
     public function add(Request $request, $vehicle_id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $vehicle_id = $vehicle_id ? base64_decode($vehicle_id) : null;
+        $vehicle_id = $this->decodeId($vehicle_id);
         $listTitle = !empty($vehicle_id) ? 'Edit Featured Vehicle' : 'Add Featured Vehicle';
-        $colors = null;
+        $titleForLayout = 'Featured Vehicle';
 
-        if ($request->isMethod('post')) {
-            $data = $request->input('Vehicle', []);
-            unset($data['last_mile']);
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $validatedData = $request->validate([
+                'Vehicle.vehicle_name' => 'bail|required|string',
+                'Vehicle.vin_no' => 'bail|required|unique:vehicles,vin_no' . (!empty($request->input('Vehicle.id')) ? ',' . $request->input('Vehicle.id') : ''),
+                'Vehicle.user_id' => 'bail|required|integer',
+            ], [
+                'Vehicle.vehicle_name.required' => 'Please enter the Vehicle Name.',
+                'Vehicle.vin_no.required' => 'Please enter VIN number.',
+                'Vehicle.vin_no.unique' => 'Entered VIN number already registered.',
+                'Vehicle.user_id.required' => 'Please enter Vehicle owner Id.',
+            ]);
 
-            $data['cab_type'] = !empty($data['cab_type']) ? $data['cab_type'] : 'Regular Sedan';
-            $data['insurance_policy_exp_date'] = !empty($data['insurance_policy_exp_date'])
-                ? Carbon::createFromFormat('m/d/Y', $data['insurance_policy_exp_date'])->format('Y-m-d')
-                : '';
-            $data['inspection_exp_date'] = !empty($data['inspection_exp_date'])
-                ? Carbon::createFromFormat('m/d/Y', $data['inspection_exp_date'])->format('Y-m-d')
-                : '';
-            $data['state_insp_exp_date'] = !empty($data['state_insp_exp_date'])
-                ? Carbon::createFromFormat('m/d/Y', $data['state_insp_exp_date'])->format('Y-m-d')
-                : '';
-            $data['reg_name_exp_date'] = !empty($data['reg_name_exp_date'])
-                ? Carbon::createFromFormat('m/d/Y', $data['reg_name_exp_date'])->format('Y-m-d')
-                : '';
-            $data['reg_name_date'] = !empty($data['reg_name_date'])
-                ? Carbon::createFromFormat('m/d/Y', $data['reg_name_date'])->format('Y-m-d')
-                : '';
-            $data['availability_date'] = !empty($data['availability_date'])
-                ? date('Y-m-d', strtotime($data['availability_date']))
-                : null;
+            $input = $request->all();
+            $vehicleData = array_merge($input['Vehicle'] ?? [], $validatedData['Vehicle'] ?? []);
+            $vehicleLocationData = $input['VehicleLocation'] ?? [];
+            $variationsData = $vehicleData['varitaions'] ?? [];
+            unset($vehicleData['last_mile'], $vehicleData['accudata'], $vehicleData['varitaions']);
+            $vehicleData['cab_type'] ??= 'Regular Sedan';
+            $dateFields = [
+                'insurance_policy_exp_date',
+                'inspection_exp_date',
+                'state_insp_exp_date',
+                'reg_name_exp_date',
+                'reg_name_date',
+                'availability_date'
+            ];
 
-            $vehicle_name = (!empty($data['year']) ? substr($data['year'], -2) . '-' : '')
-                . (!empty($data['make']) ? str_replace(' ', '_', $data['make']) . '-' : '')
-                . (!empty($data['model']) ? str_replace(' ', '_', $data['model']) : '')
-                . (!empty($data['vin_no']) ? '-' . substr($data['vin_no'], -6) : '');
-
-            $data['vehicle_name'] = $vehicle_name;
-            $data['rate'] = preg_replace('/[^0-9,.]/', '', $data['rate'] ?? '');
-            $data['status'] = 1;
-            $data['rent_opt'] = '';
-
-            if (($data['fare_type'] ?? '') === 'D') {
-                $data['day_rent'] = 0;
+            foreach ($dateFields as $field) {
+                $vehicleData[$field] = !empty($vehicleData[$field]) ? Carbon::parse($vehicleData[$field])->format('Y-m-d') : null;
             }
 
-            $data['vehicleCostInclRecon'] = (float) ($data['vehicleCostInclRecon'] ?? 0);
-            $data['kbbnadaWholesaleBook'] = (float) ($data['kbbnadaWholesaleBook'] ?? 0);
-            $data['doors'] = (int) ($data['doors'] ?? 0);
-            $data['allowed_miles'] = (float) ($data['allowed_miles'] ?? 0);
-            $data['rate'] = (float) ($data['rate'] ?? 0);
-            $data['day_rent'] = (float) ($data['day_rent'] ?? 0);
-            $data['is_featured'] = 1;
-            $data['config'] = $data['attributes'] ?? null;
-            $data['vin_no'] = strtoupper($data['vin_no'] ?? '');
+            $yearSuffix = !empty($vehicleData['year']) ? substr($vehicleData['year'], -2) . '-' : '';
+            $makeClean = !empty($vehicleData['make']) ? str_replace(' ', '_', $vehicleData['make']) . '-' : '';
+            $modelClean = !empty($vehicleData['model']) ? str_replace(' ', '_', $vehicleData['model']) : '';
+            $vinSuffix = !empty($vehicleData['vin_no']) ? '-' . substr($vehicleData['vin_no'], -6) : '';
+            $vehicleData['vehicle_name'] = "{$yearSuffix}{$makeClean}{$modelClean}{$vinSuffix}";
+            $vehicleData['rate'] = (float) preg_replace("/[^0-9,.]/", "", $vehicleData['rate'] ?? 0);
+            $vehicleData['status'] = 1;
+            $vehicleData['rent_opt'] = "";
 
-            $variations = $data['varitaions'] ?? [];
-            unset($data['accudata'], $data['varitaions']);
+            if (($vehicleData['fare_type'] ?? '') === 'D') {
+                $vehicleData['day_rent'] = 0;
+            }
 
-            $vehicleId = $data['id'] ?? null;
-            unset($data['id']);
+            $vehicleData['vehicleCostInclRecon'] = (float) ($vehicleData['vehicleCostInclRecon'] ?? 0);
+            $vehicleData['kbbnadaWholesaleBook'] = (float) ($vehicleData['kbbnadaWholesaleBook'] ?? 0);
+            $vehicleData['doors'] = (int) ($vehicleData['doors'] ?? 0);
+            $vehicleData['allowed_miles'] = (float) ($vehicleData['allowed_miles'] ?? 0);
+            $vehicleData['day_rent'] = (float) ($vehicleData['day_rent'] ?? 0);
+            $vehicleData['is_featured'] = 1;
+            $vehicleData['config'] = $vehicleData['attributes'] ?? null;
+            $vehicleData['vin_no'] = isset($vehicleData['vin_no']) ? strtoupper($vehicleData['vin_no']) : null;
 
-            if (!empty($vehicleId)) {
-                DB::table('vehicles')->where('id', $vehicleId)->update($data);
-            } else {
-                $vehicleId = DB::table('vehicles')->insertGetId($data);
-                if ($vehicleId < 999) {
-                    $uniqueNo = '1' . sprintf('%04d', $vehicleId);
-                } else {
-                    $uniqueNo = $vehicleId;
+            DB::transaction(function () use (&$vehicleData, $vehicleLocationData, $variationsData) {
+                $isNew = empty($vehicleData['id']);
+                $vehicle = Vehicle::updateOrCreate(['id' => $vehicleData['id'] ?? null], $vehicleData);
+                $vehicleIdSaved = $vehicle->id;
+
+                if ($isNew) {
+                    $uniqueNo = ($vehicleIdSaved < 999) ? '1' . sprintf('%04d', $vehicleIdSaved) : $vehicleIdSaved;
+                    $vehicle->update(['vehicle_unique_id' => $uniqueNo]);
                 }
-                DB::table('vehicles')->where('id', $vehicleId)->update(['vehicle_unique_id' => $uniqueNo]);
-            }
 
-            if (($data['fare_type'] ?? '') === 'D') {
-                // TODO: port DynamicFare::calculateDynamicFare() when that model is migrated
-                $fareData = [
-                    'id' => $vehicleId,
-                    'user_id' => $data['user_id'] ?? null,
-                    'msrp' => $data['msrp'] ?? 0,
-                    'fare_type' => $data['fare_type'],
-                    'vehicleCostInclRecon' => $data['vehicleCostInclRecon'] ?? 0,
-                ];
-                $this->calculateDynamicFareLegacy($fareData);
-            }
+                if (($vehicleData['fare_type'] ?? '') === 'D') {
+                    $fareData = [
+                        'id' => $vehicleIdSaved,
+                        'user_id' => $vehicleData['user_id'] ?? null,
+                        'msrp' => $vehicleData['msrp'] ?? 0,
+                        'fare_type' => $vehicleData['fare_type'],
+                        'vehicleCostInclRecon' => $vehicleData['vehicleCostInclRecon'] ?? 0
+                    ];
 
-            $this->saveVariationVehicles($data, $vehicleId, $variations);
+                    DynamicFare::calculateDynamicFare($fareData, 1);
+                }
 
-            $locationData = $request->input('VehicleLocation', []);
-            $this->saveVehicleLocation($locationData, $vehicleId);
+                $this->saveVariationVehicles($vehicleData, $vehicleIdSaved, $variationsData);
+                $this->saveVehicleLocation($vehicleLocationData, $vehicleIdSaved);
 
-            return redirect('/admin/vehicles/index')
-                ->with('success', empty($request->input('Vehicle.id'))
-                    ? 'Vehicle data saved successfully'
-                    : 'Vehicle data updated successfully');
+                $msg = $isNew ? 'Vehicle data saved successfully' : 'Vehicle data updated successfully';
+                session()->flash('success', $msg);
+            });
+
+            return redirect()->route('admin/vehicles/index');
         }
 
-        if (!empty($vehicle_id)) {
-            $colors = (new Colors())->getColors();
+        $colors = (new Colors())->getColors();
+        $vehicle = null;
 
-            $vehicleObj = DB::table('vehicles as Vehicle')
-                ->leftJoin('cs_settings as CsSetting', 'CsSetting.user_id', '=', 'Vehicle.user_id')
-                ->leftJoin('users as User', 'User.id', '=', 'Vehicle.user_id')
-                ->select(
-                    'Vehicle.*',
-                    'CsSetting.passtime',
-                    'CsSetting.gps_provider',
-                    'User.distance_unit'
-                )
-                ->where('Vehicle.id', $vehicle_id)
-                ->where('Vehicle.is_featured', 1)
+        if (!empty($vehicleId)) {
+            $vehicle = Vehicle::with([
+                'csSetting:user_id,passtime,gps_provider',
+                'user:id,distance_unit',
+                'images' => function ($query) {
+                    $query->orderBy('iorder', 'asc');
+                },
+                'locations' => function ($query) {
+                    $query->orderBy('id', 'asc');
+                }
+            ])
+                ->where('id', $vehicleId)
+                ->where('is_featured', 1)
                 ->first();
 
-            if (empty($vehicleObj)) {
-                return redirect('/admin/vehicles/index')
-                    ->with('error', 'Sorry, something went wrong. Please try again later');
+            if (!$vehicle) {
+                return redirect()->route('admin.vehicles.index')->with('error', 'Sorry, something went wrong. Please try again later');
             }
 
-            $vehicleObj = (array) $vehicleObj;
-            $vehicleObj['rent_opt'] = json_decode($vehicleObj['rent_opt'] ?? '', true);
-            $vehicleObj['accudata'] = json_decode($vehicleObj['accudata'] ?? '', true);
+            $vehicle->rent_opt = json_decode($vehicle->rent_opt, true);
+            $vehicle->accudata = json_decode($vehicle->accudata, true);
 
-            $vehicleImages = DB::table('vehicle_images')
-                ->where('vehicle_id', $vehicle_id)
-                ->select('id', 'filename', 'iorder', 'remote')
-                ->orderBy('iorder', 'ASC')
+            $vehicleVariants = VehicleVariation::where('vehicle_id', $vehicle->id)
+                ->with('variant:id,msrp,premium_msrp,vin_no,stock_no,config')
                 ->get()
                 ->toArray();
 
-            $vehicleLocations = DB::table('vehicle_locations')
-                ->where('vehicle_id', $vehicle_id)
-                ->select('id', 'lat', 'lng', 'address')
-                ->orderBy('id', 'ASC')
-                ->get()
-                ->map(fn($loc) => (array) $loc)
-                ->toArray();
+            $vehicle->vehicle_variation = $vehicleVariants;
 
-            $vehicleVariants = DB::table('vehicle_variations as VehicleVariation')
-                ->leftJoin('vehicles as Variant', 'Variant.id', '=', 'VehicleVariation.variant_id')
-                ->where('VehicleVariation.vehicle_id', $vehicleObj['id'])
-                ->select(
-                    'VehicleVariation.*',
-                    'Variant.msrp as variant_msrp',
-                    'Variant.id as variant_id_ref',
-                    'Variant.premium_msrp as variant_premium_msrp',
-                    'Variant.vin_no as variant_vin_no',
-                    'Variant.stock_no as variant_stock_no',
-                    'Variant.config as variant_config'
-                )
-                ->get()
-                ->map(function ($row) {
-                    return [
-                        'VehicleVariation' => (array) $row,
-                        'Variant' => [
-                            'id' => $row->variant_id_ref,
-                            'msrp' => $row->variant_msrp,
-                            'premium_msrp' => $row->variant_premium_msrp,
-                            'vin_no' => $row->variant_vin_no,
-                            'stock_no' => $row->variant_stock_no,
-                            'config' => $row->variant_config,
-                        ],
-                    ];
-                })
-                ->toArray();
-
-            if (!empty($vehicleObj['color'])) {
-                $colors[$vehicleObj['color']] = $vehicleObj['color'];
+            if (!empty($vehicleObj->color)) {
+                $colors[$vehicle->color] = $vehicle->color;
             }
-            if (!empty($vehicleObj['interior_color'])) {
-                $colors[$vehicleObj['interior_color']] = $vehicleObj['interior_color'];
+            if (!empty($vehicleObj->interior_color)) {
+                $colors[$vehicle->interior_color] = $vehicle->interior_color;
             }
-
-            $vehicle = $vehicleObj;
-            $vehicle['VehicleVariation'] = $vehicleVariants;
-
-            return view('admin.featured_vehicles.add', [
-                'listTitle' => $listTitle,
-                'title_for_layout' => 'Featured Vehicle',
-                'colors' => $colors,
-                'vehicle' => $vehicle,
-                'vehicleImages' => $vehicleImages,
-                'vehicleLocations' => $vehicleLocations,
-            ]);
         }
 
-        return view('admin.featured_vehicles.add', [
-            'listTitle' => $listTitle,
-            'title_for_layout' => 'Featured Vehicle',
-            'colors' => $colors,
-            'vehicle' => null,
-            'vehicleImages' => [],
-            'vehicleLocations' => [],
-        ]);
+        return view('admin.featured_vehicles.add', compact('listTitle', 'titleForLayout', 'colors', 'vehicle'));
     }
 
     /**

@@ -16,7 +16,7 @@ use App\Models\Legacy\User;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleImage;
 use App\Models\Legacy\VehicleSetting;
-use App\Models\Legacy\DynamicFare;
+use App\Services\Legacy\DynamicFare;
 use App\Services\Legacy\Colors;
 use App\Services\Legacy\Free2MoveService;
 use App\Services\Legacy\Passtime;

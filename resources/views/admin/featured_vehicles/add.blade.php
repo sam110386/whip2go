@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', $title_for_layout ?? 'Featured Vehicle')
+@section('title', $titleForLayout ?? 'Featured Vehicle')
 
 @section('content')
 <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.api_key', '') }}&libraries=places"></script>
@@ -133,12 +133,16 @@
     });
 </script>
 
-<form action="{{ config('app.url') }}admin/featured_vehicles/add" method="POST" class="form-horizontal" id="VehicleAdminAddForm" enctype="multipart/form-data">
+<form action="{{ url('admin/featured_vehicles/add') }}" method="POST" class="form-horizontal" id="VehicleAdminAddForm" enctype="multipart/form-data">
     @csrf
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
-                <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">{{ $listTitle }}</span></h4>
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i> 
+                    <span class="text-semibold">{{ $listTitle }}</span>
+                </h4>
             </div>
             <div class="heading-elements">
                 <div class="heading-btn-group">
