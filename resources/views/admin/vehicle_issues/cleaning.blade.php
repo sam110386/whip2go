@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 @section('content')
-@php $d = $issueData['CsVehicleIssue'] ?? []; $images = $issueData['CsVehicleIssueImage'] ?? []; @endphp
+@php $d = $vehicleIssue['CsVehicleIssue'] ?? []; $images = $vehicleIssue['CsVehicleIssueImage'] ?? []; @endphp
 <style>.kv-file-upload { display: none; }</style>
 <script type="text/javascript">
     function format(item) { return item.tag; }
@@ -21,7 +21,7 @@
         });
     });
 </script>
-<div class="page-header"><div class="page-header-content"><div class="page-title"><h4><i class="icon-arrow-left52 position-left"></i> {{ $listTitle }}</h4></div></div></div>
+<div class="page-header"><div class="page-header-content"><div class="page-title"><h4><i class="icon-arrow-left52 position-left"></i> {{ $title }}</h4></div></div></div>
 <div class="row">@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif</div>
 <div class="panel">
     <form method="POST" name="frmadmin" id="frmadmin" class="form-horizontal" enctype="multipart/form-data">@csrf
@@ -31,7 +31,7 @@
             <div class="form-group"><label class="col-lg-2 control-label"> Status:</label><div class="col-lg-4"><select name="CsVehicleIssue[status]" class="textfield form-control">@foreach($issueStatus as $k => $v)<option value="{{ $k }}" {{ ($d['status'] ?? '0') == $k ? 'selected' : '' }}>{{ $v }}</option>@endforeach</select></div></div>
             <div class="form-group"><label class="col-lg-2 control-label"> Request Details: <font class="requiredField">*</font></label><div class="col-lg-4"><textarea name="CsVehicleIssue[roadside_request_detail]" class="textfield required form-control">{{ $d['roadside_request_detail'] ?? '' }}</textarea><em> Request details if any</em></div></div>
             <div class="form-group"><label class="col-lg-2 control-label"> Images</label><div class="col-lg-8"><input type="file" class="fileinputajax" multiple name="vehicleimage" data-show-preview="true" data-show-upload="false"><span class="help-block">You can select multiple images.</span></div></div>
-            <div class="form-group"><label class="col-lg-2 control-label">&nbsp;</label><div class="col-lg-6"><button type="button" class="btn btn-primary" onclick="saveForm()">{{ !empty($d['id']) ? 'Update' : 'Save' }}</button> <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues')">Cancel</button></div></div>
+            <div class="form-group"><label class="col-lg-2 control-label">&nbsp;</label><div class="col-lg-6"><button type="button" class="btn btn-primary" onclick="saveForm()">{{ !empty($d['id']) ? 'Update' : 'Save' }}</button> <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues/index')">Cancel</button></div></div>
         </div>
         <input type="hidden" name="CsVehicleIssue[id]" id="CsVehicleIssueId" value="{{ $d['id'] ?? '' }}">
         <input type="hidden" name="CsVehicleIssue[user_id]" id="CsVehicleIssueUserId" value="{{ $d['user_id'] ?? '' }}">
@@ -41,7 +41,7 @@
 @php $initialPreview=[]; $initialPreviewConfig=[]; foreach($images as $img){ $preview=['caption'=>$img['image'],'filename'=>$img['image'],'key'=>$img['id'],'width'=>'120px','downloadUrl'=>config('app.url').'/img/custom/vehicle_issue/'.$img['image']]; $ext=strtolower(pathinfo($img['image'],PATHINFO_EXTENSION)); if($ext=='pdf') $preview['type']='pdf'; if(in_array($ext,['doc','docx'])) $preview['type']='gdocs'; $initialPreview[]=config('app.url').'/img/custom/vehicle_issue/'.$img['image']; $initialPreviewConfig[]=$preview; } @endphp
 <script type="text/javascript">
 $(function() {
-    $(".fileinputajax").fileinput({ showUpload: false, uploadUrl: SITE_URL+"admin/vehicle_issues/saveImage", uploadAsync: true, maxFileCount: 15, deleteUrl: SITE_URL+"admin/vehicle_issues/deleteImage", allowedFileExtensions: ['jpeg','jpg','png','doc','docx','pdf'], initialPreview: {!! json_encode($initialPreview) !!}, overwriteInitial: false, initialPreviewAsData: true, initialPreviewFileType: 'image', initialPreviewConfig: {!! json_encode($initialPreviewConfig) !!}, maxFileSize: 1024, uploadExtraData: function() { return {id: $("#CsVehicleIssueId").val(), _token: '{{ csrf_token() }}'}; }, fileActionSettings: { showDrag: false, showZoom: true, showUpload: false, removeIcon: '<i class="icon-bin"></i>', removeClass: 'btn btn-link btn-xs btn-icon' } }).on('fileuploaded', function(event, data, previewId) { $("#"+previewId+" button.kv-file-remove").attr('data-key', data.response.key); }).on('filebatchuploadcomplete', function() { goBack('/admin/vehicle_issues'); });
+    $(".fileinputajax").fileinput({ showUpload: false, uploadUrl: SITE_URL+"admin/vehicle_issues/saveImage", uploadAsync: true, maxFileCount: 15, deleteUrl: SITE_URL+"admin/vehicle_issues/deleteImage", allowedFileExtensions: ['jpeg','jpg','png','doc','docx','pdf'], initialPreview: {!! json_encode($initialPreview) !!}, overwriteInitial: false, initialPreviewAsData: true, initialPreviewFileType: 'image', initialPreviewConfig: {!! json_encode($initialPreviewConfig) !!}, maxFileSize: 1024, uploadExtraData: function() { return {id: $("#CsVehicleIssueId").val(), _token: '{{ csrf_token() }}'}; }, fileActionSettings: { showDrag: false, showZoom: true, showUpload: false, removeIcon: '<i class="icon-bin"></i>', removeClass: 'btn btn-link btn-xs btn-icon' } }).on('fileuploaded', function(event, data, previewId) { $("#"+previewId+" button.kv-file-remove").attr('data-key', data.response.key); }).on('filebatchuploadcomplete', function() { goBack('/admin/vehicle_issues/index'); });
 });
 function saveForm() {
     if ($("#frmadmin").valid()) {

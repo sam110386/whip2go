@@ -6,7 +6,7 @@ function featuredVehicleOpenVariantPopup(){
         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Loading...</h1>',
         css: {'z-index': '9999'}
     });
-    $.post(SITE_URL + "admin/vehicle/featured_vehicles/loadAttributePopup", {}, function (data) {
+    $.post(SITE_URL + "admin/featured_vehicles/loadAttributePopup", {}, function (data) {
         $("#modelsidebar .modal-content").html(data);
         $ ("#modelsidebar").modal("show").find(".modal-dialog").css("width", "100%").css("height", "100%");
     }).done(function(){
@@ -23,7 +23,7 @@ function featuredVehicleAttributeStep1(){
         css: {'z-index': '9999'}
     });
     var params=$("#FeaturedVehicleAdminLoadAttributePopupForm").serialize();
-    $.post(SITE_URL + "admin/vehicle/featured_vehicles/loadAttributeStep2Popup", params, function (data) {
+    $.post(SITE_URL + "admin/featured_vehicles/loadAttributeStep2Popup", params, function (data) {
         $("#modelsidebar .modal-content").html(data);
         $("#modelsidebar").modal("show").find(".modal-dialog").css("width", "100%").css("height", "100%");
     }).done(function(){
@@ -41,7 +41,7 @@ function featuredVehicleAttributeStep2(){
         css: {'z-index': '9999'}
     });
     var params=$("#FeaturedVehicleAdminLoadAttributeStep2PopupForm").serialize()+'&stock_no='+$("#VehicleStockNo").val()+'&msrp='+$("#VehicleMsrp").val()+"&premium_msrp="+$("#VehiclePremiumMsrp").val()+"&vin="+$("#VehicleVinNo").val();
-    $.post(SITE_URL + "admin/vehicle/featured_vehicles/loadAttributeStep3List", params, function (data) {
+    $.post(SITE_URL + "admin/featured_vehicles/loadAttributeStep3List", params, function (data) {
         $("#variantVehicleBlockWrapper").html(data);
         $("#modelsidebar").modal("hide");
     }).done(function(){
@@ -79,7 +79,7 @@ function featuredVehicleAddVariantPopup(parentid){
         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Loading...</h1>',
         css: {'z-index': '9999'}
     });
-    $.post(SITE_URL + "admin/vehicle/featured_vehicles/loadNewVariant", {parentid:parentid}, function (data) {
+    $.post(SITE_URL + "admin/featured_vehicles/loadNewVariant", {parentid:parentid}, function (data) {
         $("#modelsidebar .modal-content").html(data);
         $ ("#modelsidebar").modal("show").find(".modal-dialog").css("width", "100%").css("height", "100%");
     }).done(function(){
@@ -99,7 +99,7 @@ function removeVariationRow(stock_no,variantid=null){
             message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> processing...</h1>',
             css: {'z-index': '9999'}
         });
-        $.post(SITE_URL + "admin/vehicle/featured_vehicles/deleteVariant", {variantid:variantid}, function (data) {
+        $.post(SITE_URL + "admin/featured_vehicles/deleteVariant", {variantid:variantid}, function (data) {
             alert(data.message);
         },'json').done(function(){
             jQuery.unblockUI();
@@ -113,7 +113,7 @@ function addExistingStep2(){
         css: {'z-index': '9999'}
     });
     var params=$("#FeaturedVehicleAdminLoadNewVariantForm").serialize();
-    $.post(SITE_URL + "admin/vehicle/featured_vehicles/addExistingStep2", params, function (data) {
+    $.post(SITE_URL + "admin/featured_vehicles/addExistingStep2", params, function (data) {
         $("#modelsidebar .modal-content").html(data);
         $("#modelsidebar").modal("show").find(".modal-dialog").css("width", "100%").css("height", "100%");
     }).done(function(){
@@ -130,7 +130,7 @@ function addExistingStep3(){
         css: {'z-index': '9999'}
     });
     var params=$("#FeaturedVehicleAdminAddExistingStep2Form").serialize();
-    $.post(SITE_URL + "admin/vehicle/featured_vehicles/addExistingStep3", params, function (data) {
+    $.post(SITE_URL + "admin/featured_vehicles/addExistingStep3", params, function (data) {
         $("#variantVehicleBlockWrapper").html(data);
         $("#modelsidebar").modal("hide");
     }).done(function(){

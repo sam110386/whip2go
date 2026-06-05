@@ -71,4 +71,24 @@ class CsVehicleIssue extends LegacyModel
         'created',
         'updated',
     ];
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
+
+    public function renter()
+    {
+        return $this->belongsTo(User::class, 'renter_id');
+    }
+    
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'renter_id');
+    }
+
+    public function images()
+    {
+        return $this->hasMany(CsVehicleIssueImage::class, 'cs_vehicle_issue_id');
+    }
 }

@@ -2,16 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\VehicleLocationTrait;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleVariation;
 use App\Services\Legacy\Colors;
 use App\Services\Legacy\DynamicFare;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Http\Controllers\Traits\VehicleLocationTrait;
 use Carbon\Carbon;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class FeaturedVehiclesController extends LegacyAppController
 {
@@ -102,7 +101,7 @@ class FeaturedVehiclesController extends LegacyAppController
                     DynamicFare::calculateDynamicFare($fareData, 1);
                 }
 
-                $this->saveVariationVehicles($vehicleData, $vehicleIdSaved, $variationsData);
+                $this->_saveVariationVehicles($vehicleData, $vehicleIdSaved, $variationsData);
                 $this->saveVehicleLocation($vehicleLocationData, $vehicleIdSaved);
 
                 $msg = $isNew ? 'Vehicle data saved successfully' : 'Vehicle data updated successfully';
@@ -115,7 +114,7 @@ class FeaturedVehiclesController extends LegacyAppController
         $colors = (new Colors())->getColors();
         $vehicle = null;
 
-        if (!empty($vehicleId)) {
+        if (!empty($vehicle_id)) {
             $vehicle = Vehicle::with([
                 'csSetting:user_id,passtime,gps_provider',
                 'user:id,distance_unit',
@@ -126,7 +125,7 @@ class FeaturedVehiclesController extends LegacyAppController
                     $query->orderBy('id', 'asc');
                 }
             ])
-                ->where('id', $vehicleId)
+                ->where('id', $vehicle_id)
                 ->where('is_featured', 1)
                 ->first();
 
@@ -137,27 +136,21 @@ class FeaturedVehiclesController extends LegacyAppController
             $vehicle->rent_opt = json_decode($vehicle->rent_opt, true);
             $vehicle->accudata = json_decode($vehicle->accudata, true);
 
-            $vehicleVariants = VehicleVariation::where('vehicle_id', $vehicle->id)
-                ->with('variant:id,msrp,premium_msrp,vin_no,stock_no,config')
-                ->get()
-                ->toArray();
-
-            $vehicle->vehicle_variation = $vehicleVariants;
-
             if (!empty($vehicleObj->color)) {
                 $colors[$vehicle->color] = $vehicle->color;
             }
+
             if (!empty($vehicleObj->interior_color)) {
                 $colors[$vehicle->interior_color] = $vehicle->interior_color;
             }
+            
+            $vehicleVariants = VehicleVariation::with('variant')
+                ->where('vehicle_id', $vehicle_id)
+                ->get();
         }
 
-        return view('admin.featured_vehicles.add', compact('listTitle', 'titleForLayout', 'colors', 'vehicle'));
+        return view('admin.featured_vehicles.add', compact('listTitle', 'titleForLayout', 'colors', 'vehicle', 'vehicleVariants'));
     }
-
-    /**
-     * AJAX: render attribute popup (step 1).
-     */
     public function loadAttributePopup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -166,10 +159,6 @@ class FeaturedVehiclesController extends LegacyAppController
 
         return view('admin.featured_vehicles._attributes');
     }
-
-    /**
-     * AJAX: render attribute step 2 popup with color dropdowns.
-     */
     public function loadAttributeStep2Popup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -185,10 +174,6 @@ class FeaturedVehiclesController extends LegacyAppController
 
         return view('admin.featured_vehicles._attribute_step2', compact('colors', 'attributes'));
     }
-
-    /**
-     * AJAX: generate attribute combinations, render variation list.
-     */
     public function loadAttributeStep3List(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -201,6 +186,7 @@ class FeaturedVehiclesController extends LegacyAppController
 
         $rawAttributes = $request->input('FeaturedVehicle.attributes', []);
         $attributes = [];
+
         foreach ($rawAttributes as $key => $values) {
             if (is_array($values)) {
                 $attributes[$key] = $values;
@@ -209,7 +195,7 @@ class FeaturedVehiclesController extends LegacyAppController
             }
         }
 
-        $customAttributes = $this->generateCombinations($attributes);
+        $customAttributes = $this->_generateCombinations($attributes);
         $stock_no = trim($request->input('stock_no', ''));
         $vin = str_pad(trim(strtoupper($request->input('vin', ''))), 16, 'X');
         $msrp = $request->input('msrp', 0);
@@ -224,11 +210,7 @@ class FeaturedVehiclesController extends LegacyAppController
             'premium_msrp'
         ));
     }
-
-    /**
-     * JSON: check if stock number already exists.
-     */
-    public function checkStockDuplicate(Request $request): JsonResponse
+    public function checkStockDuplicate(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => 'error', 'message' => 'Unauthorized', 'result' => []]);
@@ -238,9 +220,7 @@ class FeaturedVehiclesController extends LegacyAppController
         $return = ['status' => 'error', 'message' => 'Invalid Json', 'result' => []];
 
         if (!empty($stock_no)) {
-            $exists = DB::table('vehicles')
-                ->where('stock_no', 'LIKE', $stock_no . '%')
-                ->count();
+            $exists = Vehicle::where('stock_no', 'LIKE', "{$stock_no}%")->count();
 
             if ($exists) {
                 return response()->json(['status' => 'error', 'message' => 'record found', 'result' => []]);
@@ -251,10 +231,6 @@ class FeaturedVehiclesController extends LegacyAppController
 
         return response()->json($return);
     }
-
-    /**
-     * AJAX: load existing child vehicles for adding new variants.
-     */
     public function loadNewVariant(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -267,41 +243,33 @@ class FeaturedVehiclesController extends LegacyAppController
 
         $parentid = $request->input('parentid');
 
-        $vehicleObj = DB::table('vehicles')
+        $vehicle = Vehicle::with([
+            'variations' => function ($query) {
+                $query->select('vehicle_id', 'variant_id')->orderBy('variant_id', 'ASC');
+            }
+        ])
             ->where('id', $parentid)
             ->where('is_featured', 1)
             ->select('id', 'user_id', 'stock_no', 'config')
             ->first();
 
-        if (!$vehicleObj) {
+        if (!$vehicle) {
             abort(404);
         }
 
-        $vehicleObj = (array) $vehicleObj;
+        $existsVariants = $vehicle->variations->pluck('variant_id')->toArray();
 
-        $existsVariants = DB::table('vehicle_variations')
-            ->where('vehicle_id', $vehicleObj['id'])
-            ->pluck('variant_id')
-            ->toArray();
-
-        $childs = DB::table('vehicles')
-            ->where('user_id', $vehicleObj['user_id'])
+        $childs = Vehicle::where('user_id', $vehicle->user_id)
             ->where('is_featured', 0)
-            ->where('stock_no', 'LIKE', $vehicleObj['stock_no'] . '-%')
-            ->get()
-            ->map(fn($row) => ['Vehicle' => (array) $row])
-            ->toArray();
+            ->where('stock_no', 'LIKE', "{$vehicle->stock_no}-%")
+            ->get();
 
         return view('admin.featured_vehicles._add_new_variant', compact(
-            'vehicleObj',
+            'vehicle',
             'childs',
             'existsVariants'
         ));
     }
-
-    /**
-     * AJAX: step 2 of adding existing variants.
-     */
     public function addExistingStep2(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -317,10 +285,6 @@ class FeaturedVehiclesController extends LegacyAppController
 
         return view('admin.featured_vehicles._add_new_variant_step2', compact('variations', 'attributes'));
     }
-
-    /**
-     * AJAX: step 3 of adding existing variants.
-     */
     public function addExistingStep3(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -333,6 +297,7 @@ class FeaturedVehiclesController extends LegacyAppController
 
         $variations = $request->input('variations', []);
         $attributes = [];
+
         foreach ($variations as $variation) {
             $configs = $variation['config'] ?? [];
             foreach ($configs as $key => $config) {
@@ -343,32 +308,34 @@ class FeaturedVehiclesController extends LegacyAppController
 
         return view('admin.featured_vehicles._add_new_variant_step3', compact('variations', 'attributes'));
     }
-
-    /**
-     * JSON: delete a vehicle variant.
-     */
-    public function deleteVariant(Request $request): JsonResponse
+    public function deleteVariant(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized', 'result' => []]);
+            return $redirect;
         }
 
-        $return = ['status' => 'error', 'message' => 'Invalid Json', 'result' => []];
+        $return = [
+            'status' => 'error',
+            'message' => 'Invalid Json',
+            'result' => []
+        ];
 
         if ($request->ajax() && !empty($request->input('variantid'))) {
             $variantid = $request->input('variantid');
-            DB::table('vehicles')->where('id', $variantid)->delete();
-            DB::table('vehicle_variations')->where('variant_id', $variantid)->delete();
-            $return = ['status' => 'success', 'message' => 'Variant deleted successfully', 'result' => []];
+
+            Vehicle::where('id', $variantid)->delete();
+            VehicleVariation::where('variant_id', $variantid)->delete();
+
+            $return = [
+                'status' => 'success',
+                'message' => 'Variant deleted successfully',
+                'result' => []
+            ];
         }
 
         return response()->json($return);
     }
-
-    /**
-     * Save variation vehicles for a featured parent vehicle.
-     */
-    private function saveVariationVehicles(array $parentValues, int $parentId, array $variations = []): void
+    private function _saveVariationVehicles(array $parentValues, int $parentId, array $variations = []): void
     {
         foreach ($variations as $stockKey => $variation) {
             $config = json_decode($variation['config'] ?? '{}', true);
@@ -382,6 +349,7 @@ class FeaturedVehiclesController extends LegacyAppController
             $dataValues['vin_no'] = end($configKeys);
             $dataValues['stock_no'] = $stockKey;
             $dataValues['is_featured'] = 0;
+
             $variantExistingId = $variation['id'] ?? '';
             $dataValues['msrp'] = $variation['dprice'] ?? 0;
             $dataValues['premium_msrp'] = $variation['lprice'] ?? 0;
@@ -393,6 +361,7 @@ class FeaturedVehiclesController extends LegacyAppController
             if (strpos(strtolower($dataValues['config']), 'color') !== false) {
                 $colorValue = $dataValues['color'] ?? '';
                 $decoded = json_decode($dataValues['config'], true);
+
                 if (is_array($decoded)) {
                     foreach ($decoded as $k => $v) {
                         if (strpos(strtolower($k), 'color') !== false) {
@@ -401,12 +370,14 @@ class FeaturedVehiclesController extends LegacyAppController
                         }
                     }
                 }
+
                 $dataValues['color'] = $colorValue;
             }
 
             if (strpos(strtolower($dataValues['config']), 'trim') !== false) {
                 $trim = $dataValues['trim'] ?? '';
                 $decoded = json_decode($dataValues['config'], true);
+
                 if (is_array($decoded)) {
                     foreach ($decoded as $k => $v) {
                         if (strpos(strtolower($k), 'trim') !== false) {
@@ -415,6 +386,7 @@ class FeaturedVehiclesController extends LegacyAppController
                         }
                     }
                 }
+
                 $dataValues['trim'] = $trim;
             }
 
@@ -426,32 +398,38 @@ class FeaturedVehiclesController extends LegacyAppController
             );
 
             if (!empty($variantExistingId)) {
-                DB::table('vehicles')->where('id', $variantExistingId)->update([
+
+                Vehicle::where('id', $variantExistingId)->update([
                     'trim' => $dataValues['trim'] ?? null,
                     'color' => $dataValues['color'] ?? null,
                     'msrp' => $dataValues['msrp'],
                     'premium_msrp' => $dataValues['premium_msrp'],
                     'config' => $dataValues['config'],
                 ]);
-                DB::table('vehicle_variations')
-                    ->where('vehicle_id', $parentId)
+
+                VehicleVariation::where('vehicle_id', $parentId)
                     ->where('variant_id', $variantExistingId)
                     ->delete();
-                DB::table('vehicle_variations')->insert([
+
+                VehicleVariation::create([
                     'vehicle_id' => $parentId,
                     'variant_id' => $variantExistingId,
                 ]);
+
                 continue;
             }
 
-            $vehicleid = DB::table('vehicles')->insertGetId($dataValues);
+            $vehicle = Vehicle::create($dataValues);
+            $vehicleid = $vehicle->id;
+            $uniqueNo = $vehicleid;
+
             if ($vehicleid < 999) {
                 $uniqueNo = '1' . sprintf('%04d', $vehicleid);
-            } else {
-                $uniqueNo = $vehicleid;
             }
-            DB::table('vehicles')->where('id', $vehicleid)->update(['vehicle_unique_id' => $uniqueNo]);
-            DB::table('vehicle_variations')->insert([
+
+            $vehicle->update(['vehicle_unique_id' => $uniqueNo]);
+
+            VehicleVariation::create([
                 'vehicle_id' => $parentId,
                 'variant_id' => $vehicleid,
             ]);
@@ -459,15 +437,11 @@ class FeaturedVehiclesController extends LegacyAppController
             if (($dataValues['fare_type'] ?? '') === 'D') {
                 $fareData = $dataValues;
                 $fareData['id'] = $vehicleid;
-                $this->calculateDynamicFareLegacy($fareData);
+                DynamicFare::calculateDynamicFare($fareData, 1);
             }
         }
     }
-
-    /**
-     * Recursive combination generator for attribute arrays.
-     */
-    private function generateCombinations(array $arrays, array $prefix = []): array
+    private function _generateCombinations(array $arrays, array $prefix = []): array
     {
         $result = [];
         $arrayKeys = array_keys($arrays);
@@ -477,35 +451,12 @@ class FeaturedVehiclesController extends LegacyAppController
             $newPrefix = $prefix;
             $newPrefix[$arrayKeys[0]] = trim($value);
             if (count($arrays) > 0) {
-                $result = array_merge($result, $this->generateCombinations($arrays, $newPrefix));
+                $result = array_merge($result, $this->_generateCombinations($arrays, $newPrefix));
             } else {
                 $result[] = $newPrefix;
             }
         }
 
         return $result;
-    }
-
-    /**
-     * Placeholder for DynamicFare calculation until that model is migrated.
-     * TODO: Replace with proper DynamicFare service when available.
-     */
-    private function calculateDynamicFareLegacy(array $data): void
-    {
-        try {
-            DB::statement(
-                "CALL calculateDynamicFare(?, ?, ?, ?, ?, 1)",
-                [
-                    $data['id'] ?? 0,
-                    $data['user_id'] ?? 0,
-                    $data['msrp'] ?? 0,
-                    $data['fare_type'] ?? 'D',
-                    $data['vehicleCostInclRecon'] ?? 0,
-                ]
-            );
-        } catch (\Exception $e) {
-            // Stored procedure may not exist yet; log and continue
-            \Illuminate\Support\Facades\Log::warning('calculateDynamicFare failed: ' . $e->getMessage());
-        }
     }
 }

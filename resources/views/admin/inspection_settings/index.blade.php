@@ -26,7 +26,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form action="{{ url('/admin/inspection_settings') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
+            <form action="{{ url('/admin/inspection_settings/index') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
                 @csrf
                 <legend>Inspection Schedule Setting</legend>
 
@@ -55,7 +55,7 @@
                     <label class="col-lg-2 control-label">&nbsp;</label>
                     <div class="col-lg-6">
                         <button type="submit" class="btn btn-primary">Update</button>
-                        <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues')">Cancel</button>
+                        <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues/index')">Cancel</button>
                     </div>
                 </div>
 

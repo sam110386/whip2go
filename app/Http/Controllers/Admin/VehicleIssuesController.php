@@ -2,41 +2,32 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\CsVehicleIssue;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Carbon\Carbon;
 
 class VehicleIssuesController extends LegacyAppController
 {
     public array $issueStatus = [
-        '0'  => 'NOT Resolved',
-        '1'  => 'Assigned',
-        '2'  => 'Hold',
-        '3'  => 'Resolved',
-        '4'  => 'Pending',
-        '5'  => 'LiabilityTransferredToDriver',
-        '6'  => 'DirectlyPaidByDriver',
-        '7'  => 'ChargedToDriverByDIA',
-        '8'  => 'PaidByOwner',
-        '9'  => 'Liability transferred to Uber/Lyft',
+        '0' => 'NOT Resolved',
+        '1' => 'Assigned',
+        '2' => 'Hold',
+        '3' => 'Resolved',
+        '4' => 'Pending',
+        '5' => 'LiabilityTransferredToDriver',
+        '6' => 'DirectlyPaidByDriver',
+        '7' => 'ChargedToDriverByDIA',
+        '8' => 'PaidByOwner',
+        '9' => 'Liability transferred to Uber/Lyft',
         '10' => 'Need to Report',
         '11' => '3rd party responsible-Hold',
         '12' => '3rd party responsible-Resolved',
     ];
-
-    public array $vehicleIssueType = [
-        '1' => 'Accident',
-        '2' => 'Roadside',
-        '3' => 'Mechanical',
-        '4' => 'Violation',
-        '5' => 'Cleaning',
-        '6' => 'Maintenance',
-        '7' => 'Inspection Scan',
-        '8' => 'Pending Booking',
-    ];
-
     private int $imageSize = 2097152;
     private array $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf', 'doc', 'docx'];
 
@@ -46,61 +37,69 @@ class VehicleIssuesController extends LegacyAppController
             return $redirect;
         }
 
-        $cookies = [];
-        if (!$request->has('Search.ClearFilter') && Cookie::has('vehicle_issues_search')) {
-            $cookies = json_decode(Cookie::get('vehicle_issues_search'), true) ?: [];
-        }
+        $sessionLimitName = "vehicle_issues_limit";
+        $title = "Outstanding Issues";
 
-        $search = $request->input('Search', []);
         if ($request->has('Search.ClearFilter')) {
-            $search = [];
+            Cookie::queue(Cookie::forget('vehicle_issues_search'));
+            return redirect('admin/vehicle_issues/index');
         }
 
-        $vehicle_id = $search['vehicle_id'] ?? $request->route('vehicle_id') ?? ($cookies['vehicle_id'] ?? '');
-        $type       = $search['type'] ?? $request->route('type') ?? ($cookies['type'] ?? '');
-        $status     = $search['status'] ?? $request->route('status') ?? ($cookies['status'] ?? '');
-        $user_id    = $search['user_id'] ?? $request->route('user_id') ?? ($cookies['user_id'] ?? '');
-        $renter_id  = $search['renter_id'] ?? $request->route('renter_id') ?? ($cookies['renter_id'] ?? '');
+        $cookies = json_decode($request->cookie('vehicle_issues_search'), true) ?? [];
 
-        $query = DB::table('cs_vehicle_issues as CsVehicleIssue')
-            ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'CsVehicleIssue.vehicle_id')
-            ->leftJoin('users as User', 'User.id', '=', 'CsVehicleIssue.renter_id')
-            ->select(
-                'CsVehicleIssue.*',
-                'Vehicle.id as vehicle_table_id',
-                'Vehicle.vehicle_unique_id',
-                'Vehicle.vehicle_name',
-                'User.first_name',
-                'User.last_name'
-            );
+        $vehicle_id = $request->input('Search.vehicle_id', $request->query('vehicle_id', $cookies['vehicle_id'] ?? ''));
+        $type = $request->input('Search.type', $request->query('type', $cookies['type'] ?? ''));
+        $status = $request->input('Search.status', $request->query('status', $cookies['status'] ?? ''));
+        $user_id = $request->input('Search.user_id', $request->query('user_id', $cookies['user_id'] ?? ''));
+        $renter_id = $request->input('Search.renter_id', $request->query('renter_id', $cookies['renter_id'] ?? ''));
+
+
+        if ($request->filled('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            Session::put($sessionLimitName, $limit);
+        } else {
+            $limit = Session::get($sessionLimitName, $this->recordsPerPage ?? 10);
+        }
+
+        $query = CsVehicleIssue::with([
+            'vehicle:id,vehicle_unique_id,vehicle_name',
+            'user:id,first_name,last_name'
+        ]);
+
 
         if (!empty($vehicle_id)) {
-            $query->where('CsVehicleIssue.vehicle_id', $vehicle_id);
+            $query->where('vehicle_id', $vehicle_id);
         }
+
         if (!empty($type)) {
-            $query->where('CsVehicleIssue.type', $type);
+            $query->where('type', $type);
         }
+
         if ($status !== '' && $status !== null) {
-            $query->where('CsVehicleIssue.status', $status);
+            $query->where('status', $status);
         } else {
             $status = '0';
-            $query->where('CsVehicleIssue.status', 0);
+            $query->where('status', 0);
         }
+
         if (!empty($user_id)) {
-            $query->where('CsVehicleIssue.user_id', $user_id);
+            $query->where('user_id', $user_id);
         }
+
         if (!empty($renter_id)) {
-            $query->where('CsVehicleIssue.renter_id', $renter_id);
+            $query->where('renter_id', $renter_id);
         }
 
-        $limit = $request->input('Record.limit', session('vehicle_issues_limit', 20));
-        session(['vehicle_issues_limit' => $limit]);
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
 
-        $vehicleissues = $query->orderByDesc('CsVehicleIssue.id')->paginate($limit);
+        $query->orderBy($sort, $direction);
+        $vehicleissues = $query->paginate($limit);
 
-        $data = compact('vehicleissues', 'vehicle_id', 'type', 'status', 'user_id', 'renter_id');
+        $data = compact('title', 'vehicleissues', 'vehicle_id', 'type', 'status', 'user_id', 'renter_id', 'limit');
         $data['issueStatus'] = $this->issueStatus;
-        $data['VehicleIssueType'] = $this->vehicleIssueType;
+        $data['VehicleIssueType'] = $this->commonService->getVehicleIssueType();
 
         if ($request->ajax()) {
             return view('admin.vehicle_issues._index', $data);
@@ -108,41 +107,76 @@ class VehicleIssuesController extends LegacyAppController
 
         Cookie::queue('vehicle_issues_search', json_encode([
             'vehicle_id' => $vehicle_id,
-            'type'       => $type,
-            'status'     => $status,
-            'user_id'    => $user_id,
-            'renter_id'  => $renter_id,
+            'type' => $type,
+            'status' => $status,
+            'user_id' => $user_id,
+            'renter_id' => $renter_id,
         ]), 60 * 24 * 30);
 
         return view('admin.vehicle_issues.index', $data);
     }
+    public function getVehicle(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json([], 403);
+        }
 
-    public function roadside(Request $request, $id = null)
+        $vehicles = [];
+        $id = $request->input('id', '');
+        $searchTerm = $request->input('term', '');
+
+        $query = Vehicle::select([
+            'id',
+            'vehicle_unique_id',
+            'vehicle_name',
+            'user_id',
+            'last_mile'
+        ]);
+
+
+        $vehicleLists = !empty($id) ?
+            $query->where('id', $id)->get() :
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('vehicle_unique_id', 'like', "%{$searchTerm}%")
+                    ->orWhere('vehicle_name', 'like', "%{$searchTerm}%");
+            })
+                ->orderBy('vehicle_unique_id')
+                ->limit(10)
+                ->get();
+
+
+        $vehicles = $vehicleLists->map(function ($vehicle) {
+            return [
+                'id' => $vehicle->id,
+                'tag' => "{$vehicle->vehicle_unique_id}-{$vehicle->vehicle_name}",
+                'user_id' => $vehicle->user_id,
+                'last_mile' => $vehicle->last_mile,
+            ];
+        });
+
+        return response()->json($vehicles);
+    }
+    public function roadside($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
         $id = $this->decodeId($id);
-        $listTitle = !empty($id) ? 'Update Roadside Report' : 'Add Roadside Report';
-        $issueData = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
+        $title = 'Add Roadside Report';
+        $vehicleIssue = null;
 
         if (!empty($id)) {
-            $issue = DB::table('cs_vehicle_issues')->where('id', $id)->first();
-            if ($issue) {
-                $issueData['CsVehicleIssue'] = (array) $issue;
-                $issueData['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
-                    ->where('cs_vehicle_issue_id', $id)->get()->map(fn($r) => (array) $r)->all();
-            }
+            $title = 'Update Roadside Report';
+            $vehicleIssue = CsVehicleIssue::with('images')->findOrFail($id);
         }
 
         return view('admin.vehicle_issues.roadside', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
+            'vehicleIssue' => $vehicleIssue,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => $issueData,
         ]);
     }
-
     public function accident(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -150,30 +184,26 @@ class VehicleIssuesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        $listTitle = !empty($id) ? 'Update Accidental Report' : 'Add Accident Report';
-        $issueData = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
+        $title = !empty($id) ? 'Update Accidental Report' : 'Add Accident Report';
+        $vehicleIssue = null;
 
         if (!empty($id)) {
-            $issue = DB::table('cs_vehicle_issues')->where('id', $id)->first();
-            if ($issue) {
-                $data = (array) $issue;
-                $data['injury']  = !empty($data['injury']) ? json_decode($data['injury'], true) : [];
-                $data['witness'] = !empty($data['witness']) ? json_decode($data['witness'], true) : [];
-                $extra = json_decode($data['extra'] ?? '{}', true) ?: [];
-                $data = array_merge($data, $extra);
-                $issueData['CsVehicleIssue'] = $data;
-                $issueData['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
-                    ->where('cs_vehicle_issue_id', $id)->get()->map(fn($r) => (array) $r)->all();
+            $vehicleIssue = CsVehicleIssue::with('images')->findOrFail($id);
+            $vehicleIssue->injury = !empty($vehicleIssue->injury) ? json_decode($vehicleIssue->injury, true) : [];
+            $vehicleIssue->witness = !empty($vehicleIssue->witness) ? json_decode($vehicleIssue->witness, true) : [];
+            $extraData = json_decode($vehicleIssue->extra ?? '{}', true);
+
+            if (is_array($extraData)) {
+                $vehicleIssue->forceFill($extraData);
             }
         }
 
         return view('admin.vehicle_issues.accident', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
+            'vehicleIssue' => $vehicleIssue,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => $issueData,
         ]);
     }
-
     public function mechanical(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -181,8 +211,8 @@ class VehicleIssuesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        $listTitle = !empty($id) ? 'Update Mechanical Issue' : 'Add Mechanical Issue';
-        $issueData = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
+        $title = !empty($id) ? 'Update Mechanical Issue' : 'Add Mechanical Issue';
+        $vehicleIssue = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
 
         if (!empty($id)) {
             $issue = DB::table('cs_vehicle_issues')->where('id', $id)->first();
@@ -190,19 +220,31 @@ class VehicleIssuesController extends LegacyAppController
                 $data = (array) $issue;
                 $extra = json_decode($data['extra'] ?? '{}', true) ?: [];
                 $data = array_merge($data, $extra);
-                $issueData['CsVehicleIssue'] = $data;
-                $issueData['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
+                $vehicleIssue['CsVehicleIssue'] = $data;
+                $vehicleIssue['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
                     ->where('cs_vehicle_issue_id', $id)->get()->map(fn($r) => (array) $r)->all();
             }
         }
 
         return view('admin.vehicle_issues.mechanical', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => $issueData,
+            'vehicleIssue' => $vehicleIssue,
         ]);
     }
+    public function delete($id)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
 
+        $id = $this->decodeId($id);
+        if ($id) {
+            DB::table('cs_vehicle_issues')->where('id', $id)->delete();
+        }
+
+        return redirect()->back()->with('success', 'Record deleted successfully');
+    }
     public function cleaning(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -210,22 +252,22 @@ class VehicleIssuesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        $listTitle = !empty($id) ? 'Update Cleaning Request' : 'Add Cleaning Request';
-        $issueData = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
+        $title = !empty($id) ? 'Update Cleaning Request' : 'Add Cleaning Request';
+        $vehicleIssue = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
 
         if (!empty($id)) {
             $issue = DB::table('cs_vehicle_issues')->where('id', $id)->first();
             if ($issue) {
-                $issueData['CsVehicleIssue'] = (array) $issue;
-                $issueData['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
+                $vehicleIssue['CsVehicleIssue'] = (array) $issue;
+                $vehicleIssue['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
                     ->where('cs_vehicle_issue_id', $id)->get()->map(fn($r) => (array) $r)->all();
             }
         }
 
         return view('admin.vehicle_issues.cleaning', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => $issueData,
+            'vehicleIssue' => $vehicleIssue,
         ]);
     }
 
@@ -236,8 +278,8 @@ class VehicleIssuesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        $listTitle = !empty($id) ? 'Update Vehicle Maintenance Record' : 'Add Vehicle Maintenance Record';
-        $issueData = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
+        $title = !empty($id) ? 'Update Vehicle Maintenance Record' : 'Add Vehicle Maintenance Record';
+        $vehicleIssue = ['CsVehicleIssue' => [], 'CsVehicleIssueImage' => []];
 
         if (!empty($id)) {
             $issue = DB::table('cs_vehicle_issues')->where('id', $id)->where('type', 6)->first();
@@ -245,16 +287,16 @@ class VehicleIssuesController extends LegacyAppController
                 $data = (array) $issue;
                 $extra = json_decode($data['extra'] ?? '{}', true) ?: [];
                 $data = array_merge($data, $extra);
-                $issueData['CsVehicleIssue'] = $data;
-                $issueData['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
+                $vehicleIssue['CsVehicleIssue'] = $data;
+                $vehicleIssue['CsVehicleIssueImage'] = DB::table('cs_vehicle_issue_images')
                     ->where('cs_vehicle_issue_id', $id)->get()->map(fn($r) => (array) $r)->all();
             }
         }
 
         return view('admin.vehicle_issues.maintenance', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => $issueData,
+            'vehicleIssue' => $vehicleIssue,
         ]);
     }
 
@@ -266,16 +308,16 @@ class VehicleIssuesController extends LegacyAppController
 
         $id = $this->decodeId($id);
         if (empty($id)) {
-            return redirect('/admin/vehicle_issues')
+            return redirect('admin/vehicle_issues/index')
                 ->with('error', 'Sorry, new request is not allowed to create here, for Pending Booking');
         }
 
-        $listTitle = 'Update Pending Booking Related Request';
+        $title = 'Update Pending Booking Related Request';
 
         if ($request->isMethod('put') || $request->isMethod('post')) {
             $data = DB::table('cs_vehicle_issues')->where('id', $id)->where('type', 8)->first();
             if (empty($data)) {
-                return redirect('/admin/vehicle_issues')->with('error', 'Sorry, wrong attempt');
+                return redirect('admin/vehicle_issues/index')->with('error', 'Sorry, wrong attempt');
             }
             $row = (array) $data;
             $notes = $request->input('CsVehicleIssue.notes', '');
@@ -287,16 +329,16 @@ class VehicleIssuesController extends LegacyAppController
 
             DB::table('cs_vehicle_issues')->where('id', $id)->update([
                 'status' => $newStatus,
-                'extra'  => json_encode($extra),
+                'extra' => json_encode($extra),
             ]);
 
-            return redirect('/admin/vehicle_issues')->with('success', 'Record updated successfully');
+            return redirect('admin/vehicle_issues/index')->with('success', 'Record updated successfully');
         }
 
         $data = DB::table('cs_vehicle_issues')
             ->where('id', $id)->where('type', 8)->first();
         if (empty($data)) {
-            return redirect('/admin/vehicle_issues')->with('error', 'Sorry, wrong attempt');
+            return redirect('admin/vehicle_issues/index')->with('error', 'Sorry, wrong attempt');
         }
         $row = (array) $data;
         $extra = !empty($row['extra']) ? json_decode($row['extra'], true) : [];
@@ -306,12 +348,12 @@ class VehicleIssuesController extends LegacyAppController
         $notes = current($notesArr) ?: '';
 
         return view('admin.vehicle_issues.pending_booking', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => ['CsVehicleIssue' => $row],
-            'checklist'   => $checklist,
-            'notes'       => $notes,
-            'id'          => base64_encode($id),
+            'vehicleIssue' => ['CsVehicleIssue' => $row],
+            'checklist' => $checklist,
+            'notes' => $notes,
+            'id' => base64_encode($id),
         ]);
     }
 
@@ -322,7 +364,7 @@ class VehicleIssuesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        $listTitle = !empty($id) ? 'Update Inspection Scan Request' : 'Add Inspection Scan Request';
+        $title = !empty($id) ? 'Update Inspection Scan Request' : 'Add Inspection Scan Request';
 
         if ($request->isMethod('post') || $request->isMethod('put')) {
             $input = $request->input('CsVehicleIssue', []);
@@ -337,9 +379,9 @@ class VehicleIssuesController extends LegacyAppController
             }
 
             if (!empty($bookingObj)) {
-                $input['renter_id']  = $bookingObj->renter_id;
+                $input['renter_id'] = $bookingObj->renter_id;
                 $input['vehicle_id'] = $bookingObj->vehicle_id;
-                $input['user_id']    = $bookingObj->user_id;
+                $input['user_id'] = $bookingObj->user_id;
                 $input['cs_order_id'] = $bookingObj->id;
             }
 
@@ -352,14 +394,14 @@ class VehicleIssuesController extends LegacyAppController
                     ->where('vehicle_id', $vehicleObj->id)
                     ->select('id', 'user_id', 'renter_id', 'vehicle_id', 'parent_id')
                     ->orderByDesc('id')->first();
-                $input['renter_id']   = null;
-                $input['vehicle_id']  = $vehicleObj->id;
-                $input['user_id']     = $vehicleObj->user_id;
+                $input['renter_id'] = null;
+                $input['vehicle_id'] = $vehicleObj->id;
+                $input['user_id'] = $vehicleObj->user_id;
                 $input['cs_order_id'] = null;
             }
 
             if (!empty($bookingObj)) {
-                $input['renter_id']   = $bookingObj->renter_id;
+                $input['renter_id'] = $bookingObj->renter_id;
                 $input['cs_order_id'] = $bookingObj->id;
             }
 
@@ -368,24 +410,24 @@ class VehicleIssuesController extends LegacyAppController
 
             if (!empty($input['id'])) {
                 DB::table('cs_vehicle_issues')->where('id', $input['id'])->update(array_filter([
-                    'vehicle_id'  => $input['vehicle_id'] ?? null,
-                    'user_id'     => $input['user_id'] ?? null,
-                    'renter_id'   => $input['renter_id'] ?? null,
+                    'vehicle_id' => $input['vehicle_id'] ?? null,
+                    'user_id' => $input['user_id'] ?? null,
+                    'renter_id' => $input['renter_id'] ?? null,
                     'cs_order_id' => $input['cs_order_id'] ?? null,
-                    'status'      => $input['status'] ?? 0,
-                    'type'        => 7,
+                    'status' => $input['status'] ?? 0,
+                    'type' => 7,
                 ], fn($v) => $v !== null));
                 $recordId = $input['id'];
             } else {
                 $recordId = DB::table('cs_vehicle_issues')->insertGetId([
-                    'vehicle_id'  => $input['vehicle_id'] ?? null,
-                    'user_id'     => $input['user_id'] ?? null,
-                    'renter_id'   => $input['renter_id'] ?? null,
+                    'vehicle_id' => $input['vehicle_id'] ?? null,
+                    'user_id' => $input['user_id'] ?? null,
+                    'renter_id' => $input['renter_id'] ?? null,
                     'cs_order_id' => $input['cs_order_id'] ?? null,
-                    'status'      => $input['status'] ?? 0,
-                    'type'        => 7,
-                    'created'     => now(),
-                    'modified'    => now(),
+                    'status' => $input['status'] ?? 0,
+                    'type' => 7,
+                    'created' => now(),
+                    'modified' => now(),
                 ]);
             }
 
@@ -398,57 +440,27 @@ class VehicleIssuesController extends LegacyAppController
             //     }
             // }
 
-            return redirect('/admin/vehicle_issues')->with('success', 'Request saved successfully');
+            return redirect('admin/vehicle_issues/index')->with('success', 'Request saved successfully');
         }
 
-        $issueData = ['CsVehicleIssue' => []];
+        $vehicleIssue = ['CsVehicleIssue' => []];
         if (!empty($id)) {
             $issue = DB::table('cs_vehicle_issues')->where('id', $id)->first();
             if ($issue) {
                 $data = (array) $issue;
                 $data['extra'] = !empty($data['extra']) ? json_decode($data['extra'], true) : [];
-                $issueData['CsVehicleIssue'] = $data;
+                $vehicleIssue['CsVehicleIssue'] = $data;
             }
         }
 
         return view('admin.vehicle_issues.inspection_scan', [
-            'listTitle'   => $listTitle,
+            'title' => $title,
             'issueStatus' => $this->issueStatus,
-            'issueData'   => $issueData,
+            'vehicleIssue' => $vehicleIssue,
         ]);
     }
 
-    public function getVehicle(Request $request)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return response()->json([], 403);
-        }
 
-        $vehicles = [];
-        $id = $request->input('id', '');
-        $searchTerm = $request->input('term', '');
-
-        $query = DB::table('vehicles')->select('id', 'vehicle_unique_id', 'vehicle_name', 'user_id', 'last_mile');
-        if (!empty($id)) {
-            $query->where('id', $id);
-        } else {
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('vehicle_unique_id', 'like', "%{$searchTerm}%")
-                  ->orWhere('vehicle_name', 'like', "%{$searchTerm}%");
-            })->limit(10)->orderBy('vehicle_unique_id');
-        }
-
-        foreach ($query->get() as $v) {
-            $vehicles[] = [
-                'id'        => $v->id,
-                'tag'       => $v->vehicle_unique_id . '-' . $v->vehicle_name,
-                'user_id'   => $v->user_id,
-                'last_mile' => $v->last_mile,
-            ];
-        }
-
-        return response()->json($vehicles);
-    }
 
     public function saveAdd(Request $request)
     {
@@ -482,13 +494,13 @@ class VehicleIssuesController extends LegacyAppController
         }
 
         $timezone = session('default_timezone', 'UTC');
-        $input['police_reported']  = isset($input['police_reported']) ? 1 : 0;
-        $input['on_way_tolift']    = isset($input['on_way_tolift']) ? 1 : 0;
-        $input['have_passenger']   = isset($input['have_passenger']) ? 1 : 0;
+        $input['police_reported'] = isset($input['police_reported']) ? 1 : 0;
+        $input['on_way_tolift'] = isset($input['on_way_tolift']) ? 1 : 0;
+        $input['have_passenger'] = isset($input['have_passenger']) ? 1 : 0;
         $input['working_with_delivery'] = isset($input['working_with_delivery']) ? 1 : 0;
-        $input['orders_from_delivery']  = isset($input['orders_from_delivery']) ? 1 : 0;
+        $input['orders_from_delivery'] = isset($input['orders_from_delivery']) ? 1 : 0;
         $input['way_to_drop_off_delivery'] = isset($input['way_to_drop_off_delivery']) ? 1 : 0;
-        $input['injury']  = !empty($input['injury']) ? json_encode($input['injury']) : '';
+        $input['injury'] = !empty($input['injury']) ? json_encode($input['injury']) : '';
         $input['witness'] = !empty($input['witness']) ? json_encode($input['witness']) : '';
         $input['accident_datetime'] = !empty($input['accident_datetime'])
             ? Carbon::parse($input['accident_datetime'], $timezone)->setTimezone('UTC')->format('Y-m-d H:i:s')
@@ -540,14 +552,15 @@ class VehicleIssuesController extends LegacyAppController
         $html .= e($this->issueStatus[$status]);
         $html .= '<a href="#"><i class="icon-gear"></i></a><ul class="dropdown-menu dropdown-menu-sm">';
         foreach ($this->issueStatus as $k => $issueStats) {
-            if ($k == $status) continue;
+            if ($k == $status)
+                continue;
             $html .= '<li><a href="#" onclick="changemystatus(\'' . base64_encode($id) . '\',' . $k . ')">' . e($issueStats) . '</a></li>';
         }
         $html .= '</ul></span>';
 
         return response()->json([
-            'status'   => 'success',
-            'html'     => $html,
+            'status' => 'success',
+            'html' => $html,
             'recordid' => $id,
         ]);
     }
@@ -580,10 +593,10 @@ class VehicleIssuesController extends LegacyAppController
 
         $input['extra'] = json_encode([
             'vehicle_scheduled_for_service' => $input['vehicle_scheduled_for_service'] ?? '',
-            'vehicle_serviced'              => $input['vehicle_serviced'] ?? 0,
-            'service_paid'                  => $input['service_paid'] ?? 0,
-            'current_odometer'              => $currentOdometer,
-            'next_service_odometer'         => $nextOdometer,
+            'vehicle_serviced' => $input['vehicle_serviced'] ?? 0,
+            'service_paid' => $input['service_paid'] ?? 0,
+            'current_odometer' => $currentOdometer,
+            'next_service_odometer' => $nextOdometer,
         ]);
 
         $recordId = $this->saveIssue($input);
@@ -629,19 +642,7 @@ class VehicleIssuesController extends LegacyAppController
         return response()->json(['success' => true, 'key' => '']);
     }
 
-    public function delete($id)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
 
-        $id = $this->decodeId($id);
-        if ($id) {
-            DB::table('cs_vehicle_issues')->where('id', $id)->delete();
-        }
-
-        return redirect()->back()->with('success', 'Record deleted successfully');
-    }
 
     protected function handleUpload($file, int $issueid, int $ftype = 0): array
     {
@@ -672,8 +673,8 @@ class VehicleIssuesController extends LegacyAppController
         $file->move($uploadDir, $filename);
 
         $imageId = DB::table('cs_vehicle_issue_images')->insertGetId([
-            'image'               => $filename,
-            'type'                => $ftype,
+            'image' => $filename,
+            'type' => $ftype,
             'cs_vehicle_issue_id' => $issueid,
         ]);
 
@@ -683,25 +684,61 @@ class VehicleIssuesController extends LegacyAppController
     protected function saveIssue(array $input): int
     {
         $columns = [
-            'vehicle_id', 'user_id', 'renter_id', 'type', 'status',
-            'roadside_request_detail', 'maintenance_issue_detail',
-            'accident_datetime', 'accident_location', 'accident_description',
-            'vehicle_damage_description', 'vehicle_damage_location', 'vehicle_seen_date',
-            'vehicle_other_insurance', 'police_reported', 'police_reportno', 'police_dept_name',
-            'on_way_tolift', 'have_passenger', 'working_with_delivery',
-            'orders_from_delivery', 'way_to_drop_off_delivery',
-            'other_vehicle_involved', 'other_party_vehi_make', 'other_party_vehi_model',
-            'other_party_vehi_year', 'other_party_vehi_vin',
-            'other_party_vehi_insurancecompany', 'other_party_vehi_insurance',
-            'other_party_vehi_insuranceexp', 'other_party_vehi_insurance_claim',
-            'other_party_nameaddress', 'other_party_phone',
-            'other_party_driver', 'other_party_driverphone', 'other_party_driveradress',
-            'other_party_driverlicense', 'other_party_driverlicstate', 'other_party_driverlicexpdate',
-            'other_party_vehiclelocation', 'other_party_damage_detail',
-            'other_party_injury_details', 'injury', 'witness',
-            'ccm_claim_number', 'total_damage', 'insurance_coverage', 'company_cost',
-            'vehicle_insurance_company_name', 'vehicle_insurance', 'claim_number',
-            'service_paid', 'notes', 'extra', 'cs_order_id',
+            'vehicle_id',
+            'user_id',
+            'renter_id',
+            'type',
+            'status',
+            'roadside_request_detail',
+            'maintenance_issue_detail',
+            'accident_datetime',
+            'accident_location',
+            'accident_description',
+            'vehicle_damage_description',
+            'vehicle_damage_location',
+            'vehicle_seen_date',
+            'vehicle_other_insurance',
+            'police_reported',
+            'police_reportno',
+            'police_dept_name',
+            'on_way_tolift',
+            'have_passenger',
+            'working_with_delivery',
+            'orders_from_delivery',
+            'way_to_drop_off_delivery',
+            'other_vehicle_involved',
+            'other_party_vehi_make',
+            'other_party_vehi_model',
+            'other_party_vehi_year',
+            'other_party_vehi_vin',
+            'other_party_vehi_insurancecompany',
+            'other_party_vehi_insurance',
+            'other_party_vehi_insuranceexp',
+            'other_party_vehi_insurance_claim',
+            'other_party_nameaddress',
+            'other_party_phone',
+            'other_party_driver',
+            'other_party_driverphone',
+            'other_party_driveradress',
+            'other_party_driverlicense',
+            'other_party_driverlicstate',
+            'other_party_driverlicexpdate',
+            'other_party_vehiclelocation',
+            'other_party_damage_detail',
+            'other_party_injury_details',
+            'injury',
+            'witness',
+            'ccm_claim_number',
+            'total_damage',
+            'insurance_coverage',
+            'company_cost',
+            'vehicle_insurance_company_name',
+            'vehicle_insurance',
+            'claim_number',
+            'service_paid',
+            'notes',
+            'extra',
+            'cs_order_id',
         ];
 
         $data = array_intersect_key($input, array_flip($columns));
@@ -712,7 +749,7 @@ class VehicleIssuesController extends LegacyAppController
             return (int) $input['id'];
         }
 
-        $data['created']  = now();
+        $data['created'] = now();
         $data['modified'] = now();
         return DB::table('cs_vehicle_issues')->insertGetId($data);
     }

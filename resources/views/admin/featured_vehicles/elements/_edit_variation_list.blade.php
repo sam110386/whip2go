@@ -1,8 +1,8 @@
 <div class="row">
     <div class="col-md-12">
-        <input type="hidden" name="Vehicle[attributes]" value='{{ json_encode($attributes) }}' />
+        <input type="hidden" name="Vehicle[attributes]" value='{{ $attributes ?? '' }}' />
 
-        @if(!empty($customAttributes))
+        @if($vehicleVariants && count($vehicleVariants) > 0)
             <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
                 <thead>
                     <tr>
@@ -15,18 +15,28 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php $i = 1; @endphp
-                    @foreach($customAttributes as $key => $options)
+                    @foreach($vehicleVariants as $options)
                         @php
-                            $tmpstock = "{$stock_no}-{$i}";
-                            $vn = substr($vin, 0, (16 - strlen($i))) . $i++;
+                            $variant = $options->variant;
+                            if ($variant) {
+                                $tmpstock = $variant->stock_no;
+                                $vn = $variant->vin_no;
+                                $msrp = $variant->msrp;
+                                $premium_msrp = $variant->premium_msrp;
+                                $conf = json_decode($variant->config ?? '', true) ?? [];
+                            } else {
+                                continue;
+                            }
                         @endphp
                         <tr id="row{{ $tmpstock }}">
                             <td>
                                 {{ $tmpstock }}
-                                <input name="Vehicle[varitaions][{{ $tmpstock }}][id]" type="hidden" value="" />
+                                <input name="Vehicle[varitaions][{{ $tmpstock }}][id]" type="hidden"
+                                    value="{{ $variant->id }}" />
                             </td>
-                            <td>{{ $vn }}</td>
+                            <td>
+                                {{ $vn }}
+                            </td>
                             <td>
                                 <input name="Vehicle[varitaions][{{ $tmpstock }}][dprice]" class="form-control required number"
                                     value="{{ $msrp }}" />
@@ -36,13 +46,13 @@
                                     value="{{ $premium_msrp }}" />
                             </td>
                             <td>
-                                {!! implode(', ', array_map(fn($k, $v) => "<strong>$k:</strong> $v", array_keys($options), $options)) !!}
+                                {!! implode(', ', array_map(fn($k, $v) => "<strong>$k:</strong> $v", array_keys($conf), $conf)) !!}
                             </td>
                             <td>
-                                <a href="#" onclick="return removeVariationRow('{{ $tmpstock }}');">
+                                <a href="#" onclick="return removeVariationRow('{{ $tmpstock }}','{{ $variant->id }}');">
                                     <i class="icon-trash"></i>
                                 </a>
-                                <input type="hidden" value='{{ json_encode([$vn => $options]) }}'
+                                <input type="hidden" value='{{ json_encode([$vn => $conf]) }}'
                                     name="Vehicle[varitaions][{{ $tmpstock }}][config]" />
                             </td>
                         </tr>

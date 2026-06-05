@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 @section('content')
-@php $d = $issueData['CsVehicleIssue'] ?? []; @endphp
+@php $d = $vehicleIssue['CsVehicleIssue'] ?? []; @endphp
 <script type="text/javascript">
     function format(item) { return item.tag; }
     jQuery(document).ready(function() {
@@ -13,7 +13,7 @@
         });
     });
 </script>
-<div class="page-header"><div class="page-header-content"><div class="page-title"><h4><i class="icon-arrow-left52 position-left"></i> {{ $listTitle }}</h4></div></div></div>
+<div class="page-header"><div class="page-header-content"><div class="page-title"><h4><i class="icon-arrow-left52 position-left"></i> {{ $title }}</h4></div></div></div>
 <div class="row">@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif</div>
 <div class="panel">
     <form action="{{ url('/admin/vehicle_issues/pendingBooking/' . $id) }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
@@ -24,7 +24,7 @@
             <div class="form-group"><label class="col-lg-2 control-label"> Status:</label><div class="col-lg-4"><select name="CsVehicleIssue[status]" class="textfield form-control">@foreach($issueStatus as $k => $v)<option value="{{ $k }}" {{ ($d['status'] ?? '0') == $k ? 'selected' : '' }}>{{ $v }}</option>@endforeach</select></div></div>
             <div class="form-group"><label class="col-lg-2 control-label"> Missing Checklist:</label><div class="col-lg-4 control-label text-bold">{!! $checklist !!}</div></div>
             <div class="form-group"><label class="col-lg-2 control-label"> Note: <font class="requiredField">*</font></label><div class="col-lg-4"><textarea name="CsVehicleIssue[notes]" class="textfield required form-control">{{ $notes }}</textarea><em> Details if any</em></div></div>
-            <div class="form-group"><label class="col-lg-2 control-label">&nbsp;</label><div class="col-lg-6"><button type="submit" class="btn btn-primary">{{ !empty($d['id']) ? 'Update' : 'Save' }}</button> <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues')">Cancel</button></div></div>
+            <div class="form-group"><label class="col-lg-2 control-label">&nbsp;</label><div class="col-lg-6"><button type="submit" class="btn btn-primary">{{ !empty($d['id']) ? 'Update' : 'Save' }}</button> <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues/index')">Cancel</button></div></div>
         </div>
         <input type="hidden" name="CsVehicleIssue[id]" value="{{ $d['id'] ?? '' }}">
         <input type="hidden" name="CsVehicleIssue[user_id]" value="{{ $d['user_id'] ?? '' }}">
