@@ -1,12 +1,12 @@
 @extends('admin.layouts.app')
 
-@section('title', $listTitle ?? 'Inspection Schedule Setting')
-
 @php
     $listTitle ??= 'Inspection Schedule Setting';
     $settingData ??= [];
     $scheduels ??= [];
 @endphp
+
+@section('title', $listTitle)
 
 @section('content')
     <div class="page-header">
@@ -26,26 +26,38 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form action="{{ url('/admin/inspection_settings/index') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
+            <form action="{{ url('/admin/inspection_settings/index') }}" method="POST" name="frmadmin" id="frmadmin"
+                class="form-horizontal">
                 @csrf
+
                 <legend>Inspection Schedule Setting</legend>
 
                 <div class="form-group">
-                    <label class="col-lg-2 control-label">Active:<font class="requiredField">*</font></label>
+                    <label class="col-lg-2 control-label">
+                        Active:<font class="requiredField">*</font>
+                    </label>
                     <div class="col-lg-5">
                         <select name="InspectionSetting[status]" class="required form-control">
-                            <option value="1" @selected(($settingData['status'] ?? 1) == 1)>Yes</option>
-                            <option value="0" @selected(($settingData['status'] ?? 1) == 0)>No</option>
+                            <option value="1" @selected(($settingData['status'] ?? 1) == 1)>
+                                Yes
+                            </option>
+                            <option value="0" @selected(($settingData['status'] ?? 1) == 0)>
+                                No
+                            </option>
                         </select>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label class="col-lg-2 control-label">Create Schedule Every<font class="requiredField">*</font></label>
+                    <label class="col-lg-2 control-label">
+                        Create Schedule Every<font class="requiredField">*</font>
+                    </label>
                     <div class="col-lg-5">
                         <select name="InspectionSetting[schedule]" class="required form-control">
                             @foreach($scheduels as $k => $v)
-                                <option value="{{ $k }}" @selected(($settingData['schedule'] ?? 1) == $k)>{{ $v }}</option>
+                                <option value="{{ $k }}" @selected(($settingData['schedule'] ?? 1) == $k)>
+                                    {{ $v }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -54,8 +66,13 @@
                 <div class="form-group">
                     <label class="col-lg-2 control-label">&nbsp;</label>
                     <div class="col-lg-6">
-                        <button type="submit" class="btn btn-primary">Update</button>
-                        <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/vehicle_issues/index')">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            Update
+                        </button>
+                        <button type="button" class="btn left-margin btn-cancel"
+                            onclick="goBack('/admin/vehicle_issues/index')">
+                            Cancel
+                        </button>
                     </div>
                 </div>
 

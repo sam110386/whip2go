@@ -15,7 +15,6 @@ use Illuminate\Support\Facades\DB;
  */
 class VehicleAlertsController extends LegacyAppController
 {
-    protected int $recordsPerPage = 25;
 
     /**
      * admin_index → index

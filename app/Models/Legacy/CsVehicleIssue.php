@@ -8,7 +8,7 @@ class CsVehicleIssue extends LegacyModel
 {
     public $timestamps = true;
     const CREATED_AT = 'created';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'updated';
     protected $table = 'cs_vehicle_issues';
 
     protected $fillable = [
@@ -81,7 +81,7 @@ class CsVehicleIssue extends LegacyModel
     {
         return $this->belongsTo(User::class, 'renter_id');
     }
-    
+
     public function user()
     {
         return $this->belongsTo(User::class, 'renter_id');
@@ -89,6 +89,7 @@ class CsVehicleIssue extends LegacyModel
 
     public function images()
     {
-        return $this->hasMany(CsVehicleIssueImage::class, 'cs_vehicle_issue_id');
+        return $this->hasMany(CsVehicleIssueImage::class, 'cs_vehicle_issue_id')
+            ->orderBy('id', 'desc');
     }
 }

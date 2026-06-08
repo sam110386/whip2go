@@ -648,7 +648,7 @@ class IntercomClient
         }
 
         try {
-            $clientObj = new IntercomSDK(config('services.intercom.access_token'), null, ['Intercom-Version' => '2.13', 'Content-Type' => 'application/json']);
+            $clientObj = new IntercomSDK(config('legacy.intercom.access_token'), null, ['Intercom-Version' => '2.13', 'Content-Type' => 'application/json']);
 
             $ticket = [
                 'ticket_type_id' => $ticket_type_id,
@@ -668,7 +668,7 @@ class IntercomClient
     public function updateTicketSatatus(string $ticketid)
     {
         try {
-            $clientObj = new IntercomSDK(config('services.intercom.access_token'), null, ['Intercom-Version' => '2.13', 'Content-Type' => 'application/json']);
+            $clientObj = new IntercomSDK(config('legacy.intercom.access_token'), null, ['Intercom-Version' => '2.13', 'Content-Type' => 'application/json']);
             return $clientObj->put('tickets/' . $ticketid, ['open' => false]);
         } catch (Exception $e) {
             return ['status' => false, 'message' => $e->getMessage()];

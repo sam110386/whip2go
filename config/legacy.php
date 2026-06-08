@@ -143,4 +143,18 @@ return [
         'password' => env('PASSTIME_API_PASSWORD', 'Mindseyeisgreat1!'),
     ],
 
+    'MaintenanceMonitoring' => [
+        'miles' => 5000
+    ],
+
+    'Inspektlabs' => [
+        'clientId' => env('INSPEKTLABS_CLIENT_ID', ''),
+        'login_pwd' => env('INSPEKTLABS_LOGIN_PWD', ''),
+        'url' => env('INSPEKTLABS_URL', ''),
+        'auth_url' => env('INSPEKTLABS_AUTH_URL', ''),
+        'api_ley' => env('INSPEKTLABS_API_LEY', ''),
+        'secret_key' => env('INSPEKTLABS_SECRET_KEY', ''),
+        'webhook_token' => env('INSPEKTLABS_WEBHOOK_TOKEN', ''),
+    ],
+
 ];

@@ -24,20 +24,24 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/vehicle_alert/vehicle_alerts/index') }}">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET"
+                action="{{ url('admin/vehicle_alert/vehicle_alerts/index') }}">
                 <div class="row">
                     <div class="col-md-12">
                         <div class="col-md-3">
                             Vehicle :
-                            <input type="text" id="SearchVehicleId" name="Search[vehicle_id]" class="form-control" style="width:100%;" value="{{ $vehicleid }}" placeholder="Vehicle">
+                            <input type="text" id="SearchVehicleId" name="Search[vehicle_id]" class="form-control"
+                                style="width:100%;" value="{{ $vehicleid }}" placeholder="Vehicle">
                         </div>
                         <div class="col-md-1">
                             <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="search" value="SEARCH" class="btn btn-primary" alt="SEARCH">SEARCH</button>
+                            <button type="submit" name="search" value="SEARCH" class="btn btn-primary"
+                                alt="SEARCH">SEARCH</button>
                         </div>
                         <div class="col-md-1">
                             <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                                alt="Clear Filter">Clear Filter</button>
                         </div>
                     </div>
                 </div>
@@ -61,13 +65,16 @@
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
     <style type="text/css">
-        tbody tr { cursor: pointer; }
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
+        tbody tr {
+            cursor: pointer;
+        }
+
+        .table>thead>tr>th,
+        .table>tbody>tr>th,
+        .table>tfoot>tr>th,
+        .table>thead>tr>td,
+        .table>tbody>tr>td,
+        .table>tfoot>tr>td {
             padding: 5px;
         }
     </style>
