@@ -20,4 +20,9 @@ class VehicleScanInspection extends LegacyModel
         'status',
         'created',
     ];
+
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'order_id', 'id');
+    }
 }

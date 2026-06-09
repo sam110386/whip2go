@@ -1,3 +1,5 @@
+@include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50, 'position' => 'top'])
+
 <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
     <thead>
         <tr>
@@ -12,16 +14,19 @@
     <tbody>
         @foreach ($lists as $list)
             <tr>
-                <td>{{ $list->increment_id }}</td>
+                <td>{{ $list?->csOrder?->increment_id }}</td>
                 <td>{{ $list->case_id }}</td>
                 <td>{{ $list->token }}</td>
                 <td>{{ $statusFlags[$list->status] ?? 'N/A' }}</td>
                 <td>{{ $list->created }}</td>
                 <td>
-                    <a href="javascript:void(0)" title="View Report" onclick="loadReportDetail('{{ $list->case_id }}')"><i class="icon-magazine icon-2x" title="View Report"></i></a>
+                    <a href="javascript:void(0)" title="View Report" onclick="loadReportDetail('{{ $list->case_id }}')">
+                        <i class="icon-magazine icon-2x" title="View Report"></i>
+                    </a>
                 </td>
             </tr>
         @endforeach
     </tbody>
 </table>
-{{ $lists->links() }}
+
+@include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])

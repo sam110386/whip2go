@@ -1,6 +1,6 @@
 function loadReportDetail(caseid) {
     jQuery.blockUI({message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Loading...</h1>'});
-    $.post(SITE_URL + "admin/inspekt/Inspektdocs/openDetail", {caseid: caseid}, function(resp) {
+    $.post(SITE_URL + "admin/Inspektdocs/openDetail", {caseid: caseid}, function(resp) {
         if (resp.status) {
             $("#myModal .modal-content").html(resp.view);
 			$("#myModal").modal("show").find(".modal-dialog").css("width", "850px");

@@ -388,13 +388,13 @@
                                         </div>
                                         @if ($i++ == 1)
                                             <div class="col-lg-1">
-                                                <a href="javascript:;" onclick="deposit(true)">
+                                                <a href="javascript:void(0)" onclick="deposit(true)">
                                                     <i class="icon-plus-circle2 icon-2x"></i>
                                                 </a>
                                             </div>
                                         @else
                                             <div class="col-lg-1">
-                                                <a href="javascript:;" onclick="deposit(false)">
+                                                <a href="javascript:void(0)" onclick="deposit(false)">
                                                     <i class="icon-minus-circle2 icon-2x"></i>
                                                 </a>
                                             </div>
@@ -415,7 +415,7 @@
                                             placeholder="amount" value="">
                                     </div>
                                     <div class="col-lg-1">
-                                        <a href="javascript:;" onclick="deposit(true)">
+                                        <a href="javascript:void(0)" onclick="deposit(true)">
                                             <i class="icon-plus-circle2 icon-2x"></i>
                                         </a>
                                     </div>
@@ -449,13 +449,13 @@
                                         </div>
                                         @if ($i++ == 1)
                                             <div class="col-lg-1">
-                                                <a href="javascript:;" onclick="initialfee(true)">
+                                                <a href="javascript:void(0)" onclick="initialfee(true)">
                                                     <i class="icon-plus-circle2 icon-2x"></i>
                                                 </a>
                                             </div>
                                         @else
                                             <div class="col-lg-1">
-                                                <a href="javascript:;" onclick="initialfee(false)">
+                                                <a href="javascript:void(0)" onclick="initialfee(false)">
                                                     <i class="icon-minus-circle2 icon-2x"></i>
                                                 </a>
                                             </div>
@@ -476,7 +476,7 @@
                                             placeholder="amount" value="">
                                     </div>
                                     <div class="col-lg-1">
-                                        <a href="javascript:;" onclick="initialfee(true)">
+                                        <a href="javascript:void(0)" onclick="initialfee(true)">
                                             <i class="icon-plus-circle2 icon-2x"></i>
                                         </a>
                                     </div>
@@ -838,7 +838,7 @@
                     '<input name="DepositRule[deposit_amt_opt][' + elem + '][after_day]" class="form-control" placeholder="days" value="0" type="text"></div>' +
                     '<div class="col-lg-2">Amount</div>' +
                     '<div class="col-lg-2"><input name="DepositRule[deposit_amt_opt][' + elem + '][amount]" class="form-control" placeholder="amount" value="0" type="text"></div>' +
-                    '<div class="col-lg-1"><a href="javascript:;" onclick="deposit(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                    '<div class="col-lg-1"><a href="javascript:void(0)" onclick="deposit(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
                 $("#deposit").append(element);
             } else {
                 $("#deposit #ele-" + elem).remove();
@@ -862,7 +862,7 @@
                     '<input name="DepositRule[initial_fee_opt][' + elem + '][after_day]" class="form-control" placeholder="days" value="0" type="text"></div>' +
                     '<div class="col-lg-2">Amount</div>' +
                     '<div class="col-lg-2"><input name="DepositRule[initial_fee_opt][' + elem + '][amount]" class="form-control" placeholder="amount" value="0" type="text"></div>' +
-                    '<div class="col-lg-1"><a href="javascript:;" onclick="initialfee(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                    '<div class="col-lg-1"><a href="javascript:void(0)" onclick="initialfee(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
                 $("#initialfee").append(element);
             } else {
                 $("#initialfee #ele-" + elem).remove();

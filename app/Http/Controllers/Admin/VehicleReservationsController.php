@@ -10,55 +10,109 @@ use Illuminate\Support\Facades\DB;
 
 class VehicleReservationsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
+    private $checklist = [
+        "income_provan" => "Initial Income proven for usage",
+        "insurance_affordable" => "Insurance quote affordable",
+        "insurance_quote_number" => "Insurance quote number",
+        "income_more_than_required" => "Income proven greater than income required",
+        "market" => "Market",
+        "updated_address" => "Updated Address",
+        "mvr" => "MVR clear",
+        "clue" => "CLUE clear",
+        "vehicle_agreed_with_customer" => "Vehicle agreed with customer and VIN secured",
+        "insurance_quoted_with_real_vin" => "Insurance requoted with real VIN",
+        "proof_of_residency" => "Proof of residency",
+        "streetview_address" => "Streetview of address",
+        "identity_verified" => "Identity verified",
+        "payments_made" => "Payments made",
+        "vehicle_ordered" => "Vehicle ordered",
+        'vehicle_image_downloaded' => "Vehicle Images Pulled",
+        "registration_in_process" => "Registration In Process",
+        "gps_ordered" => "GPS ordered",
+        "gps_installation_scheduled" => "GPS installation scheduled",
+        "gps_installed_tested" => "GPS installed and tested",
+        "lease_agreement_signed" => "Lease Agreement Signed",
+        "insurance_bound" => "Insurance bound",
+        "company_garage_insurance_place" => "Company garage insurance in place",
+        "vehicle_registered" => "Temp Tag",
+        'permanent_license_plate_attached' => 'Permanent License Plate Attached',
+        'spare_key_collected' => 'Spare Key Collected',
+        "pickup_scheduled" => "Pick up scheduled",
+        'dia_additional_insured' => 'DIA additional insured',
+        'axle_in_place' => 'Axle in place',
+        'ccm_maintenance_card' => 'CCM Maintenance Card'
+    ];
+    protected $readyForDealerStatus = [
+        0 => ["In Review", "bg-primary"],
+        1 => ["Sale Request", "bg-orange bg-orange-300"],
+        2 => ["Vehicle Sold", "bg-green bg-green-700"],
+        3 => ["Not Interested", "bg-danger"],
+        4 => ["Find a Replacement", "bg-info"]
+    ];
     public function index(Request $request)
     {
-        $limit = $this->resolveLimit($request);
-        $bookings = $this->reservationQuery([0, 1])
-            ->orderByDesc('vr.id')
-            ->paginate($limit)
-            ->withQueryString();
+        $title = 'Pending Booking';
+        $sessLimitName = "vehiclereservation_limit";
+        $limit = $request->input('Record.limit', session($sessLimitName, $this->recordsPerPage ?? 50));
+
+        session([$sessLimitName => $limit]);
+        $request->merge(['Record' => ['limit' => $limit]]);
+
+        $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
+
+        $bookings = VehicleReservation::with([
+            'vehicle:id,msrp,vin_no,vehicle_name',
+            'depositRule:id,vehicle_reservation_id,insurance,insurance_payer,insu_agreed,financing',
+            'renter:id,first_name,last_name,state'
+        ])
+            ->whereIn('status', $allowedStatus)
+            ->orderBy('id', 'DESC')
+            ->paginate($limit);
 
         if ($request->ajax()) {
-            return response()->view('admin.vehicle_reservations._table', [
+            return response()->view('admin.vehicle_reservations.elements.index', [
                 'bookings' => $bookings,
-                'mode' => 'index',
+                'checklists' => $this->checklist,
+                'readyForDealerStatus' => $this->readyForDealerStatus,
+                'title' => $title,
+                'limit' => $limit
             ]);
         }
 
         return view('admin.vehicle_reservations.index', [
             'bookings' => $bookings,
-            'limit' => $limit,
-            'mode' => 'index',
+            'checklists' => $this->checklist,
+            'readyForDealerStatus' => $this->readyForDealerStatus,
+            'title' => $title,
+            'limit' => $limit
         ]);
     }
-
     public function all(Request $request)
     {
-        $limit = $this->resolveLimit($request);
-        $bookings = $this->reservationQuery()
-            ->orderByDesc('vr.id')
-            ->paginate($limit)
-            ->withQueryString();
+        $title = 'All Pending Booking';
+        $sessLimitName = "vehiclereservation_limit";
+        $limit = $request->input('Record.limit', session($sessLimitName, $this->recordsPerPage ?? 50));
+
+        session([$sessLimitName => $limit]);
+        $request->merge(['Record' => ['limit' => $limit]]);
+
+        $bookings = VehicleReservation::with([
+            'vehicle:id,msrp,vin_no,vehicle_name',
+            'owner:id,first_name,last_name'
+        ])
+            ->orderBy('id', 'DESC')
+            ->paginate($limit);
 
         if ($request->ajax()) {
-            return response()->view('admin.vehicle_reservations._table', [
-                'bookings' => $bookings,
-                'mode' => 'all',
-            ]);
+            return view('admin.vehicle_reservations.elements.all', compact('bookings', 'title', 'limit'));
         }
 
-        return view('admin.vehicle_reservations.index', [
-            'bookings' => $bookings,
-            'limit' => $limit,
-            'mode' => 'all',
-        ]);
+        return view('admin.vehicle_reservations.all', compact('bookings', 'title', 'limit'));
     }
 
     public function singleload(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('id', ''));
+        $id = $this->decodeId((string) $request->input('id', ''));
         if (!$id) {
             return response('Invalid reservation id', 400);
         }
@@ -78,8 +132,8 @@ class VehicleReservationsController extends LegacyAppController
 
     public function changeSaveStatus(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
-        $status = (int)$request->input('status', -1);
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
+        $status = (int) $request->input('status', -1);
         if (!$id || !in_array($status, [0, 1, 2, 3], true)) {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
@@ -91,7 +145,7 @@ class VehicleReservationsController extends LegacyAppController
 
         VehicleReservation::query()->whereKey($id)->update(['status' => $status]);
         if (in_array($status, [2, 3], true)) {
-            DB::table('vehicles')->where('id', (int)$exists->vehicle_id)->update(['booked' => 0]);
+            DB::table('vehicles')->where('id', (int) $exists->vehicle_id)->update(['booked' => 0]);
         }
 
         return response()->json([
@@ -117,7 +171,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function getuserdetails(Request $request): JsonResponse
     {
-        $userId = (int)$request->input('user_id', 0);
+        $userId = (int) $request->input('user_id', 0);
         if ($userId <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid user id']);
         }
@@ -151,7 +205,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function createBooking(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        $id = $this->decodeId((string) $request->input('lease_id', ''));
         if (!$id) {
             return response()->json(['status' => false, 'message' => 'Invalid reservation']);
         }
@@ -159,17 +213,17 @@ class VehicleReservationsController extends LegacyAppController
         if (!$row) {
             return response()->json(['status' => false, 'message' => 'Reservation not found']);
         }
-        if ((int)$row->status !== 1) {
+        if ((int) $row->status !== 1) {
             VehicleReservation::query()->whereKey($id)->update(['status' => 1]);
         }
-        DB::table('vehicles')->where('id', (int)$row->vehicle_id)->update(['booked' => 1]);
+        DB::table('vehicles')->where('id', (int) $row->vehicle_id)->update(['booked' => 1]);
 
         return response()->json(['status' => true, 'message' => 'Booking created successfully', 'result' => ['lease_id' => $id]]);
     }
 
     public function saveVehicleBooking(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('lease_id', $request->input('id', '')));
+        $id = $this->decodeId((string) $request->input('lease_id', $request->input('id', '')));
         if (!$id) {
             return response()->json(['status' => false, 'message' => 'Invalid reservation']);
         }
@@ -189,7 +243,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function changeVehicle(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
@@ -209,8 +263,8 @@ class VehicleReservationsController extends LegacyAppController
 
     public function updateReservationVehicle(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
-        $vehicleId = (int)$request->input('vehicle_id', 0);
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
+        $vehicleId = (int) $request->input('vehicle_id', 0);
         if (!$id || $vehicleId <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
@@ -221,7 +275,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function changeDatetime(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
@@ -235,13 +289,13 @@ class VehicleReservationsController extends LegacyAppController
 
     public function updateDatetime(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
         $data = [];
         foreach (['start_datetime', 'end_datetime'] as $key) {
-            $val = (string)$request->input($key, '');
+            $val = (string) $request->input($key, '');
             if ($val !== '') {
                 $data[$key] = $val;
             }
@@ -255,7 +309,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function changeStatus(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
@@ -269,7 +323,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function loadstatuschecklist(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
@@ -284,7 +338,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function vehicleReservationLog(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
@@ -300,7 +354,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function getfarecalculations(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('id', $request->input('lease_id', '')));
+        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
         if (!$id) {
             return response()->json(['status' => false, 'message' => 'Invalid reservation']);
         }
@@ -313,32 +367,32 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json([
             'status' => true,
             'data' => [
-                'rental' => (float)data_get($odr, 'rental', 0),
-                'tax' => (float)data_get($odr, 'tax', 0),
-                'insurance' => (float)data_get($odr, 'insurance', 0),
-                'deposit' => (float)data_get($odr, 'downpayment', 0),
+                'rental' => (float) data_get($odr, 'rental', 0),
+                'tax' => (float) data_get($odr, 'tax', 0),
+                'insurance' => (float) data_get($odr, 'insurance', 0),
+                'deposit' => (float) data_get($odr, 'downpayment', 0),
             ],
         ]);
     }
 
     public function loadcancelblock(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        $id = $this->decodeId((string) $request->input('lease_id', ''));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
 
-        return response()->view('admin.vehicle_reservations._cancel_popup', ['id' => base64_encode((string)$id)]);
+        return response()->view('admin.vehicle_reservations._cancel_popup', ['id' => base64_encode((string) $id)]);
     }
 
     public function loadinsurancepopup(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        $id = $this->decodeId((string) $request->input('lease_id', ''));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
 
-        return response()->view('admin.vehicle_reservations._insurance_popup', ['id' => base64_encode((string)$id)]);
+        return response()->view('admin.vehicle_reservations._insurance_popup', ['id' => base64_encode((string) $id)]);
     }
 
     public function changeinsurancepopup(Request $request)
@@ -358,8 +412,8 @@ class VehicleReservationsController extends LegacyAppController
 
     public function saveinsurancepayer(Request $request): JsonResponse
     {
-        $id = $this->decodeId((string)$request->input('lease_id', ''));
-        $payer = (string)$request->input('insurance_payer', '');
+        $id = $this->decodeId((string) $request->input('lease_id', ''));
+        $payer = (string) $request->input('insurance_payer', '');
         if (!$id || $payer === '') {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
@@ -377,12 +431,12 @@ class VehicleReservationsController extends LegacyAppController
 
     public function capturepayment(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('lease_id', ''));
+        $id = $this->decodeId((string) $request->input('lease_id', ''));
         if (!$id) {
             return response('Invalid reservation', 400);
         }
 
-        return response()->view('admin.vehicle_reservations._capture_payment', ['id' => base64_encode((string)$id)]);
+        return response()->view('admin.vehicle_reservations._capture_payment', ['id' => base64_encode((string) $id)]);
     }
 
     public function processcapturepayment(Request $request): JsonResponse
@@ -402,7 +456,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function renderlog($filename)
     {
-        return response()->view('admin.vehicle_reservations._render_log', ['filename' => (string)$filename]);
+        return response()->view('admin.vehicle_reservations._render_log', ['filename' => (string) $filename]);
     }
 
     protected function reservationQuery(?array $statuses = null)
@@ -440,7 +494,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function getplaidrecord(Request $request): JsonResponse
     {
-        $userId = (int)base64_decode((string)$request->input('userid', ''));
+        $userId = (int) base64_decode((string) $request->input('userid', ''));
         if ($userId <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid user id']);
         }
@@ -485,7 +539,7 @@ class VehicleReservationsController extends LegacyAppController
     {
         $userId = $request->input('pk');
         $value = $request->input('value');
-        $name = (string)$request->input('name', '');
+        $name = (string) $request->input('name', '');
 
         if (empty($userId) || empty($value)) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
@@ -510,7 +564,7 @@ class VehicleReservationsController extends LegacyAppController
             DB::table('user_incomes')->insert($data);
         }
 
-        if ($existing && (float)($existing->income ?? 0) <= (float)$value) {
+        if ($existing && (float) ($existing->income ?? 0) <= (float) $value) {
             VehicleReservation::query()
                 ->where('renter_id', $userId)
                 ->whereIn('status', [0, 1])
@@ -524,7 +578,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function checkodometer(Request $request): JsonResponse
     {
-        $vehicleId = (int)$request->input('vehicleid', 0);
+        $vehicleId = (int) $request->input('vehicleid', 0);
         if ($vehicleId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
         }
@@ -555,7 +609,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function checkStarterInterrupt(Request $request): JsonResponse
     {
-        $vehicleId = (int)$request->input('vehicleid', 0);
+        $vehicleId = (int) $request->input('vehicleid', 0);
         $orderId = $request->input('orderid');
 
         if ($vehicleId <= 0) {
@@ -589,8 +643,8 @@ class VehicleReservationsController extends LegacyAppController
 
     public function disableStaterInterrupt(Request $request): JsonResponse
     {
-        $vehicleId = (int)$request->input('vehicleid', 0);
-        $disable = (bool)$request->input('disable', false);
+        $vehicleId = (int) $request->input('vehicleid', 0);
+        $disable = (bool) $request->input('disable', false);
 
         if ($vehicleId <= 0) {
             return response()->json(['status' => false, 'message' => 'Sorry, something missing']);
@@ -633,7 +687,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function staterInterruptWorks(Request $request): JsonResponse
     {
-        $orderId = (int)$request->input('orderid', 0);
+        $orderId = (int) $request->input('orderid', 0);
         if ($orderId <= 0) {
             return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
         }
@@ -649,7 +703,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function insudoc(Request $request): JsonResponse
     {
-        $id = (int)base64_decode((string)$request->input('id', ''));
+        $id = (int) base64_decode((string) $request->input('id', ''));
         if ($id <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid reservation id']);
         }
@@ -683,7 +737,7 @@ class VehicleReservationsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => "Sorry, you can't perform this action now."]);
         }
 
-        if ((int)($reservation->insurance_payer ?? 0) === 3) {
+        if ((int) ($reservation->insurance_payer ?? 0) === 3) {
             $payerDoc = DB::table('insurance_payers')
                 ->where('order_deposit_rule_id', $reservation->odr_id)
                 ->first(['insurance_card']);
@@ -715,7 +769,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function goalrecalculate(Request $request, $id = null)
     {
-        $ruleId = $id ? (int)base64_decode((string)$id) : 0;
+        $ruleId = $id ? (int) base64_decode((string) $id) : 0;
         if ($ruleId <= 0) {
             return redirect('/admin/vehicle-reservations');
         }
@@ -725,27 +779,27 @@ class VehicleReservationsController extends LegacyAppController
             return redirect('/admin/vehicle-reservations');
         }
 
-        $odrArr = (array)$odr;
+        $odrArr = (array) $odr;
         $odrArr['rent_opt'] = !empty($odrArr['rent_opt']) ? json_decode($odrArr['rent_opt'], true) : [];
         $odrArr['initial_fee_opt'] = !empty($odrArr['initial_fee_opt']) ? json_decode($odrArr['initial_fee_opt'], true) : [];
         $odrArr['deposit_opt'] = !empty($odrArr['deposit_opt']) ? json_decode($odrArr['deposit_opt'], true) : [];
         $odrArr['duration_opt'] = !empty($odrArr['duration_opt']) ? json_decode($odrArr['duration_opt'], true) : [];
         $odrArr['calculation'] = !empty($odrArr['calculation']) ? json_decode($odrArr['calculation'], true) : [];
         $odrArr['goal'] = 'custom';
-        $odrArr['miles'] = floor(((float)($odrArr['miles'] ?? 0)) * 365 / 12);
+        $odrArr['miles'] = floor(((float) ($odrArr['miles'] ?? 0)) * 365 / 12);
 
-        $vrId = (int)($odrArr['vehicle_reservation_id'] ?? 0);
+        $vrId = (int) ($odrArr['vehicle_reservation_id'] ?? 0);
         $vr = DB::table('vehicle_reservations')
             ->where('id', $vrId)
             ->first(['renter_id', 'vehicle_id', 'initial_discount', 'discount_desc']);
 
-        $vehicleId = $vr ? (int)$vr->vehicle_id : 0;
+        $vehicleId = $vr ? (int) $vr->vehicle_id : 0;
         $vehicleRow = DB::table('vehicles')
             ->where('id', $vehicleId)
             ->first(['id', 'msrp', 'allowed_miles']);
 
         $allowedMiles = $vehicleRow->allowed_miles ?? 0;
-        $k = $allowedMiles ? (int)ceil($allowedMiles * 30) : 1000;
+        $k = $allowedMiles ? (int) ceil($allowedMiles * 30) : 1000;
         $milesOptions = [];
         while ($k <= 15000) {
             $milesOptions[$k] = $k;
@@ -760,7 +814,7 @@ class VehicleReservationsController extends LegacyAppController
         return view('admin.vehicle_reservations.goalrecalculate', [
             'OrderDepositRule' => $odrArr,
             'vehicles' => $vehicles,
-            'VehicleReservationObj' => $vr ? (array)$vr : [],
+            'VehicleReservationObj' => $vr ? (array) $vr : [],
         ]);
     }
 
@@ -812,12 +866,12 @@ class VehicleReservationsController extends LegacyAppController
         ];
 
         DB::table('cs_order_deposit_rules')
-            ->where('id', (int)$offer['id'])
+            ->where('id', (int) $offer['id'])
             ->update($dataToSave);
 
-        if (!empty($offer['clear_promo']) && (int)$offer['clear_promo'] === 1) {
+        if (!empty($offer['clear_promo']) && (int) $offer['clear_promo'] === 1) {
             $rule = DB::table('cs_order_deposit_rules')
-                ->where('id', (int)$offer['id'])
+                ->where('id', (int) $offer['id'])
                 ->value('vehicle_reservation_id');
 
             if ($rule) {
@@ -862,7 +916,7 @@ class VehicleReservationsController extends LegacyAppController
         ];
 
         DB::table('cs_order_deposit_rules')
-            ->where('id', (int)$offer['id'])
+            ->where('id', (int) $offer['id'])
             ->update($dataToSave);
 
         return response()->json(['status' => true, 'message' => 'Data updated successfully']);
@@ -879,7 +933,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function vehicleSellingOpions(Request $request)
     {
-        $orderId = (int)base64_decode((string)$request->input('orderid', ''));
+        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
         if ($orderId <= 0) {
             return response('Invalid reservation', 400);
         }
@@ -905,7 +959,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function vehicleSellingOpionAgreeToSell(Request $request)
     {
-        $orderId = (int)$request->input('orderid', 0);
+        $orderId = (int) $request->input('orderid', 0);
         if ($orderId <= 0) {
             return response('Invalid order', 400);
         }
@@ -953,7 +1007,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function pushToDealer(Request $request, $id = null, $flag = 0): JsonResponse
     {
-        $decodedId = $id ? (int)base64_decode((string)$id) : 0;
+        $decodedId = $id ? (int) base64_decode((string) $id) : 0;
         if ($decodedId <= 0) {
             return response()->json(['status' => false, 'message' => "Sorry, you can't perform this action now"]);
         }
@@ -963,11 +1017,11 @@ class VehicleReservationsController extends LegacyAppController
             return response()->json(['status' => false, 'message' => 'Reservation not found']);
         }
 
-        DB::table('vehicle_reservations')->where('id', $decodedId)->update(['ready_for_dealer' => (int)$flag]);
+        DB::table('vehicle_reservations')->where('id', $decodedId)->update(['ready_for_dealer' => (int) $flag]);
 
         \Log::warning("pushToDealer: Email notification stubbed for reservation {$decodedId}, flag={$flag}.");
 
-        $msg = (int)$flag === 1 ? 'pushed to dealer' : 'removed from dealer list';
+        $msg = (int) $flag === 1 ? 'pushed to dealer' : 'removed from dealer list';
 
         return response()->json(['status' => true, 'message' => "Booking has been {$msg} successfully"]);
     }
@@ -984,13 +1038,13 @@ class VehicleReservationsController extends LegacyAppController
     protected function resolveLimit(Request $request): int
     {
         if ($request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
+            $lim = (int) $request->input('Record.limit');
             if ($lim > 0 && $lim <= 500) {
                 session(['vehicle_reservations_limit' => $lim]);
             }
         }
 
-        $limit = (int)session('vehicle_reservations_limit', 50);
+        $limit = (int) session('vehicle_reservations_limit', 50);
 
         return $limit > 0 ? $limit : 50;
     }

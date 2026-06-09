@@ -1933,9 +1933,17 @@ class Common
         return (int) (new \DateTime($start))->diff(new \DateTime($end))->days;
     }
 
-    public function years_between_dates($start, $end)
+    public function years_between_dates($date_start, $date_end)
     {
-        return (int) (new \DateTime($start))->diff(new \DateTime($end))->y;
+        if (empty($date_start) || empty($date_end)) {
+            return 0;
+        }
+
+        try {
+            return Carbon::parse($date_start)->diffInYears(Carbon::parse($date_end));
+        } catch (\Exception $e) {
+            return 0;
+        }
     }
 
     public function FileSizeInBytes($val)
@@ -2088,11 +2096,11 @@ class Common
             return $return;
         }
 
-        if ($key) {
+        if ($key !== false && array_key_exists($key, $return)) {
             return $return[$key];
         }
 
-        if ($val) {
+        if ($val !== false) {
             $return = array_flip($return);
             return $return[$val];
         }

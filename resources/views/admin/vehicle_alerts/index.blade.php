@@ -1,12 +1,25 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Vehicle Alerts')
-
 @php
-    $vehicleid ??= '';
+    $vehicleId ??= '';
+    $title ??= 'Manage Vehicle Alerts';
 @endphp
 
+@section('title', $title)
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+
+    <style type="text/css">
+        tbody tr {
+            cursor: pointer;
+        }
+    </style>
+
+@endpush
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -24,71 +37,48 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET"
-                action="{{ url('admin/vehicle_alert/vehicle_alerts/index') }}">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="col-md-3">
-                            Vehicle :
-                            <input type="text" id="SearchVehicleId" name="Search[vehicle_id]" class="form-control"
-                                style="width:100%;" value="{{ $vehicleid }}" placeholder="Vehicle">
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="search" value="SEARCH" class="btn btn-primary"
-                                alt="SEARCH">SEARCH</button>
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
-                                alt="Clear Filter">Clear Filter</button>
-                        </div>
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/vehicle_alerts/index') }}">
+                <fieldset class="content-group">
+                    <div class="col-md-2">
+                        <input type="text" id="SearchVehicleId" name="Search[vehicle_id]" style="width:100%;"
+                            value="{{ $vehicleId }}" placeholder="Vehicle">
                     </div>
-                </div>
+                    <div class="col-md-2">
+                        <button type="submit" name="search" value="SEARCH" class="btn btn-primary" alt="SEARCH">
+                            SEARCH
+                        </button>
+                    </div>
+                </fieldset>
             </form>
-
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.vehicle_alerts._index_table')
-            </div>
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
+    <div class="panel">
+        <div class="panel-body" id="listing">
+            @include('admin.vehicle_alerts.elements.index')
         </div>
     </div>
+
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-    <style type="text/css">
-        tbody tr {
-            cursor: pointer;
-        }
 
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
 
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
-    <script src="{{ legacy_asset('VehicleAlert/js/vehiclealert.js') }}"></script>
+    <script src="{{ legacy_asset('js/vehiclealert/vehiclealert.js') }}"></script>
+
     <script type="text/javascript">
-        function format(item) { return item.tag; }
+        function format(item) {
+            return item.tag;
+        }
 
         jQuery(document).ready(function () {
+
             jQuery("#SearchVehicleId").select2({
-                data: { results: {}, text: 'tag' },
+                data: {
+                    results: {},
+                    text: 'tag'
+                },
                 formatSelection: format,
                 formatResult: format,
                 placeholder: "Select Vehicle ",
@@ -98,18 +88,24 @@
                     dataType: "json",
                     type: "GET",
                     data: function (params) {
-                        return { term: params, "is_dealer": true };
+                        return {
+                            term: params,
+                            "is_dealer": true
+                        };
                     },
                     processResults: function (data) {
                         return {
                             results: $.map(data, function (item) {
-                                return { tag: item.tag, id: item.id };
+                                return {
+                                    tag: item.tag,
+                                    id: item.id
+                                };
                             })
                         };
                     }
                 },
                 initSelection: function (element, callback) {
-                    var vehicle_id = "{{ $vehicleid }}";
+                    var vehicle_id = "{{ $vehicleId }}";
                     if (vehicle_id.length > 0) {
                         jQuery.ajax({
                             url: "{{ url('admin/vehicle_offers/vehicleautocomplete') }}",
@@ -126,7 +122,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -186,6 +182,7 @@
                 loadListing(window.location.href);
             };
         });
+
     </script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+
 @endpush

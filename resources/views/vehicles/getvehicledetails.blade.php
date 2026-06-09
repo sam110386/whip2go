@@ -56,7 +56,7 @@
                                 </a>
                             </div>
                             <div class="col-lg-2">
-                                <a href="javascript:;" onclick="getVehicleGps('{{ $vehicle->id }}', 'gps_serialno')">
+                                <a href="javascript:void(0)" onclick="getVehicleGps('{{ $vehicle->id }}', 'gps_serialno')">
                                     <button type="button" class="btn btn-info btn-icon">
                                         <i class="icon-spinner9"></i>
                                     </button>
@@ -74,7 +74,7 @@
                                 </a>
                             </div>
                             <div class="col-lg-2">
-                                <a href="javascript:;"
+                                <a href="javascript:void(0)"
                                     onclick="getVehicleGps('{{ $vehicle->id }}', 'passtime_serialno')">
                                     <button type="button" class="btn btn-info btn-icon">
                                         <i class="icon-spinner9"></i>
@@ -97,7 +97,7 @@
                         <div class="form-group">
                             <label class="col-lg-4 control-label">Download Vehicle Images :</label>
                             <div class="col-lg-6">
-                                <a href="javascript:;"
+                                <a href="javascript:void(0)"
                                     onclick="downloadVehicleImage('{{ base64_encode($vehicle->id) }}')">
                                     <button type="button" class="btn btn-info btn-icon">
                                         <i class="icon-file-download2"></i>

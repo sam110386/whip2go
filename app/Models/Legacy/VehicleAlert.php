@@ -20,4 +20,10 @@ class VehicleAlert extends LegacyModel
         'note',
         'created',
     ];
+
+
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id', 'id');
+    }
 }

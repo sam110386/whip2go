@@ -1,28 +1,58 @@
 @extends('admin.layouts.app')
 
 @php
-    $mode ??= 'index';
-    $limit ??= 50;
-    $isAll = $mode === 'all';
+    $title ??= 'Pending Booking';
+    $chkrstatus = $commonService->getCheckrTypeValueForEditable();
 @endphp
 
-@section('title', $isAll ? 'All Pending Booking' : 'Pending Booking')
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('css/timepicki.css') }}">
+
+    <style type="text/css">
+        .datepicker .prev,
+        .datepicker .next {
+            background: none;
+        }
+
+        .kv-fileinput-caption.icon-visible {
+            display: flex;
+        }
+
+        .kv-fileinput-caption .file-caption-name {
+            border: none;
+            padding: 0;
+        }
+
+        .panel-body {
+            padding: 20px 10px;
+        }
+    </style>
+
+@endpush
+
+@section('title', $title)
 
 @section('content')
+
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">{{ $isAll ? 'All Pending' : 'Pending' }}</span> Booking
+                    <span class="text-semibold">Pending</span> Booking
                 </h4>
             </div>
             <div class="heading-elements">
-                @if ($isAll)
-                    <a href="{{ url('admin/vehicle_reservations/index') }}" class="btn left-margin btn-cancel">Show pending only</a>
-                @else
-                    <a href="{{ url('admin/vehicle_reservations/all') }}" class="btn left-margin btn-cancel">All Pending Booking</a>
-                @endif
+                <a href="{{ url('admin/vehicle_reservations/all') }}" class="btn left-margin btn-cancel">
+                    All Pending Booking
+                </a>
             </div>
         </div>
     </div>
@@ -33,65 +63,47 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ $isAll ? url('admin/vehicle_reservations/all') : url('admin/vehicle_reservations/index') }}">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="col-md-2">
-                            Rows / page :
-                            <select name="Record[limit]" class="form-control ajax-limit">
-                                @foreach ([25, 50, 100, 200] as $opt)
-                                    <option value="{{ $opt }}" @selected((int) $limit === $opt)>{{ $opt }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" value="search" class="btn btn-primary" alt="APPLY">APPLY</button>
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
-                        </div>
-                    </div>
-                </div>
-            </form>
-
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.vehicle_reservations._table', ['bookings' => $bookings ?? collect(), 'mode' => $mode])
+            <div style="width:100%; overflow: visible;" id="postsPaging">
+                @include('admin.vehicle_reservations.elements.index')
             </div>
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
+
+
 @endsection
 
-@push('styles')
-    <style type="text/css">
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
 @push('scripts')
+
+    <script src="{{ legacy_asset('js/assets/js/plugins/forms/editable/editable.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/mvrbox.js') }}"></script>
+    <script src="{{ legacy_asset('js/cluereport.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/measureone/functions.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_plaid.js') }}"></script>
+    <script src="{{ legacy_asset('js/insurance/insurance.js') }}"></script>
+    <script src="{{ legacy_asset('js/insurance/driverfinancedquote.js') }}"></script>
+    <script src="{{ legacy_asset('js/insuranceprovider/insurance_provider.js') }}"></script>
+    <script src="{{ legacy_asset('js/prepaidplan/prepaidplan.js') }}"></script>
+    <script src="{{ legacy_asset('js/axle/axle.js') }}"></script>
+    <script src="{{ legacy_asset('js/jquery.maskedinput.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/pickers/datetimepicker.js') }}"></script>
+    <script src="{{ legacy_asset('js/timepicki.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/select2.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_setting.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function () {
+
+            $(".fancybox").fancybox();
 
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -150,7 +162,172 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
+
+        });
+
+        $(function () {
+            // Editable
+            // Change defaults
+            $.fn.editable.defaults.highlight = false;
+            $.fn.editable.defaults.mode = 'popup';
+            $.fn.editableform.template = '<form class="editableform form-horizontal">' +
+                '<div class="control-group">' +
+                '<div class="editable-input"></div> <div class="editable-buttons"></div>' +
+                '<div class="editable-error-block"></div>' +
+                '</div> ' +
+                '</form>';
+            $.fn.editableform.buttons =
+                '<button type="submit" class="btn btn-info btn-icon editable-submit"><i class="icon-check"></i></button>' +
+                '<button type="button" class="btn btn-default btn-icon editable-cancel"><i class="icon-x"></i></button>';
+
+        });
+
+        $(function () {
+            // Editable
+            // Change defaults
+            $.fn.editable.defaults.highlight = false;
+            $.fn.editable.defaults.mode = 'popup';
+            $.fn.editableform.template = '<form class="editableform">' +
+                '<div class="control-group">' +
+                '<div class="editable-input"></div> <div class="editable-buttons"></div>' +
+                '<div class="editable-error-block"></div>' +
+                '</div> ' +
+                '</form>';
+            $.fn.editableform.buttons =
+                '<button type="submit" class="btn btn-info btn-icon editable-submit"><i class="icon-check"></i></button>' +
+                '<button type="button" class="btn btn-default btn-icon editable-cancel"><i class="icon-x"></i></button>';
+
+        });
+
+        $('.selectedit').editable({
+            source: [{
+                value: 0,
+                text: 'No'
+            }, {
+                value: 2,
+                text: 'NR'
+            }],
+            display: function (value, sourceData) {
+                var colors = {
+                    0: "gray",
+                    1: "green",
+                    2: "blue"
+                }, elem = $.grep(sourceData, function (o) {
+                    return o.value == value;
+                });
+
+                if (elem.length) {
+                    $(this).text(elem[0].text).css("color", colors[value]);
+                } else {
+                    $(this).empty();
+                }
+            }
+        });
+
+        $('.gpsedit').editable({
+            source: [{
+                value: 0,
+                text: 'No'
+            }, {
+                value: 1,
+                text: 'Yes'
+            }, {
+                value: 2,
+                text: 'NR'
+            }],
+            display: function (value, sourceData) {
+                var colors = {
+                    0: "gray",
+                    1: "green",
+                    2: "blue"
+                }, elem = $.grep(sourceData, function (o) {
+                    return o.value == value;
+                });
+
+                if (elem.length) {
+                    $(this).text(elem[0].text).css("color", colors[value]);
+                } else {
+                    $(this).empty();
+                }
+            }
+        });
+
+        var allstatus = @json($chkrstatus);
+
+        $('.mvredit').editable({
+            placement: 'left',
+            url: '{{ url("admin/vehicle_reservations/updatemvr") }}',
+            value: {
+                accidents_3: "0",
+                accidents_5: "0",
+                violations: "0"
+            },
+            validate: function (value) {
+                if (value.accidents_3 == '') {
+                    return 'How many accidents in the last 3 years!';
+                }
+
+                if (value.accidents_5 == '') {
+                    return 'How many accidents in the last 5 years';
+                }
+
+                if (value.violations == '') {
+                    return 'How many moving violations in the last 4 years?';
+                }
+            },
+            display: function (value, sourceData) {
+                if (sourceData) {
+                    value = sourceData.status ? sourceData.result.status : value;
+                }
+                var html = allstatus.map((val) => {
+                    return val.value == value ? val.text : '';
+                });
+                $(this).html(html);
+            },
+            success: function (response, newValue) {
+                if (!response) {
+                    return "Unknown error!";
+                }
+            }
+        });
+        $('.cluereport').editable({
+            placement: 'left',
+            sourceOptions: 'cluereport',
+            url: '{{ url("/admin/vehicle_reservations/updatemvr") }}',
+            value: {
+                accidents_3: "0",
+                accidents_5: "0",
+                violations: "0",
+                notes: ""
+            },
+            validate: function (value) {
+                console.log(value);
+
+                if (value.accidents_3 == '') {
+                    return 'How many accidents in the last 3 years!';
+                }
+
+                if (value.accidents_5 == '') {
+                    return 'How many accidents in the last 5 years';
+                }
+
+                if (value.violations == '') {
+                    return 'How many moving violations in the last 4 years?';
+                }
+            },
+            display: function (value, sourceData) {
+                if (sourceData) {
+                    value = sourceData.status ? sourceData.result.status : value;
+                }
+                var html = value ? "Clear" : "Fail";
+                $(this).html(html);
+            },
+            success: function (response, newValue) {
+                if (!response) {
+                    return "Unknown error!";
+                }
+            }
         });
     </script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+
 @endpush

@@ -7,7 +7,7 @@ function DeleteVehicleAlert(recordid){
         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
         css: {'z-index': '9999'}
     });
-    $.post(SITE_URL + "admin/vehicle_alert/vehicle_alerts/delete", {recordid:recordid}, function (data) {
+    $.post(SITE_URL + "admin/vehicle_alerts/delete", {recordid:recordid}, function (data) {
         alert(data.message);
         if(data.status){
             $("tr#row_"+recordid).remove();
