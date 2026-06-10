@@ -21,30 +21,24 @@
             @forelse ($bookings as $trip)
                 @php
                     $renterUser = \App\Helpers\Legacy\UtilityHelper::get_User($trip->renter_id);
-                    $isExpired = ($trip->status == 0 && \Carbon\Carbon::parse($trip->start_datetime)->isBefore(now()->subDays(7))) ? 'danger' : '';
+                    $expired = ($trip->status == 0 && \Carbon\Carbon::parse($trip->start_datetime)->isBefore(now()->subDays(7))) ? 1 : 0;
                 @endphp
 
-                <tr id="tripRow{{ $trip->id }}" class="{{ $isExpired }}">
+                <tr id="tripRow{{ $trip->id }}" class="{{ $expired ? 'danger' : '' }}">
                     <td class="text-center">
                         {{ $trip->id }}
                     </td>
 
                     <td class="text-center">
-                        <a herf="javascript:void(0)" onclick="changeReservationStatus('{{ base64_encode($trip->id) }}')">
-                            {{ $commonService->getReservationStatus(false, $trip->status) }}
-                        </a>
+                        {{ $commonService->getReservationStatus(false, $trip->status) }}
                     </td>
 
                     <td class="text-center">
-                        <a herf="javascript:void(0)" onclick="changeReservationVehicle('{{ base64_encode($trip->id) }}')">
-                            {{ $trip?->vehicle?->vehicle_name }}
-                        </a>
+                        {{ $trip?->vehicle?->vehicle_name }}
                     </td>
 
-
-
                     <td class="text-center">
-                        {{ $trip->created ? \Carbon\Carbon::parse($trip->created)->format('Y-m-d h:i A') : '' }}
+                        {{ $trip?->owner?->first_name . ' ' . $trip?->owner?->last_name}}
                     </td>
 
                     <td class="text-center">
@@ -52,213 +46,44 @@
                     </td>
 
                     <td class="text-center">
-                        <a herf="javascript:void(0)"
-                            onclick="getuserdetails('{{ base64_encode($trip->renter_id) }}','{{ base64_encode($trip->user_id) }}','{{ base64_encode($trip->id) }}')">
-                            {{ $trip?->renter?->first_name . ' ' . $trip?->renter?->last_name  }}
-                        </a>
+                        {{ $renterUser['first_name'] . ' ' . $renterUser['last_name']  }}
                     </td>
 
                     <td class="text-center">
-                        {{ $trip->buy == 1 ? 'Buy' : ($commonService->getVehicleFinancing($trip?->depositRule?->financing ?? 0)) }}
+                        {{ $trip?->vehicle?->vin_no }}
                     </td>
 
                     <td class="text-center">
-                        <a herf="javascript:void(0)"
-                            onclick="getvehicledetails('{{ base64_encode($trip?->vehicle?->id) }}','{{ base64_encode($trip->id) }}')">
-                            {{ $trip?->vehicle?->vin_no }}
-                        </a>
+                        {{ $trip?->vehicle?->msrp }}
                     </td>
 
                     <td class="text-center">
-                        @if ($trip->checkr_status == 1)
-                            Clear
-                        @else
-                            <a herf="javascript:void(0)" id="checkr_status" class="mvredit" data-type="address"
-                                data-inputclass="form-control" data-pk="{{ $trip->id }}" data-value="{{ $trip->checkr_status }}"
-                                data-title="Please answer the following questions">
-                                {{ $commonService->getCheckrTypeValue(false, $trip->checkr_status) }}
-                            </a>
+                        {{ $trip->cancel_note }}
+                    </td>
+
+                    <td class="text-center">
+                        @if ($trip->status == 0)
+                            New
+                        @elseif ($trip->status == 1)
+                            Approved
+                        @elseif ($trip->status == 2)
+                            Canceled
                         @endif
                     </td>
 
                     <td class="text-center">
-                        @if ($trip->income_threshold == 1)
-                            Yes
-                        @else
-                            <a herf="javascript:void(0)" id="income_threshold" class="selectedit" data-type="select"
-                                data-inputclass="form-control" data-pk="{{ $trip->id }}"
-                                data-value="{{ $trip->income_threshold }}" data-title="Select status"
-                                data-url="{{ url('admin/vehicle_reservations/updatelist') }}">
-                                {{ ($trip->income_threshold == 3) ? 'Suspected' : ($trip->income_threshold == 2 ? 'NR' : ($trip->income_threshold ? 'Yes' : 'No')) }}
+                        <a href="javascript:void(0)" title="Status Logs"
+                            onclick="return vehicleReservationLog('{{ base64_encode($trip->id) }}');">
+                            <i class="icon-bubble-dots3"></i>
+                        </a>
+                        @if ($expired)
+                            <a href="javascript:void(0)" class="text-danger" title="Cancel"
+                                onclick="return cancelReservation('{{ base64_encode($trip->id) }}');">
+                                <i class='icon-cancel-square'></i>
                             </a>
                         @endif
                     </td>
 
-                    <td class="text-center">
-                        {{ $trip->gps == 1 ? 'Yes' : 'No' }}
-                    </td>
-
-                    <td class="text-center">
-                        {{ $trip->gps2 == 1 ? 'Yes' : 'No' }}
-                    </td>
-
-                    <td class="text-center">
-                        <a herf="javascript:void(0)" id="clue_report" class="cluereport" data-type="cluereport"
-                            data-inputclass="form-control" data-pk="{{ $trip->id }}" data-value="{{ $trip->clue_report }}"
-                            data-title="Select status" data-url="{{ url('admin/vehicle_reservations/updatelist') }}">
-                            {{ $trip->clue_report == 1 ? 'Clear' : 'Fail' }}
-                        </a>
-                    </td>
-
-                    <td class="text-center">
-                        @if ($renterUser['dob'] != '' && $renterUser['dob'] != NULL)
-                            {{ $commonService->years_between_dates($renterUser['dob'], date('Y-m-d')) }}
-                        @else
-                            N/A
-                        @endif
-                    </td>
-
-                    <td class="text-center">
-                        <a herf="javascript:void(0)" onclick="loadInsurancePopUp('{{ base64_encode($trip->id) }}')">
-                            <i class=" icon-menu2"></i>
-                        </a>
-                    </td>
-
-                    <td class="text-center">
-                        @if (in_array($trip?->depositRule?->insurance_payer, [3, 4, 5, 6]))
-                            <a herf="javascript:void(0)" id="docusign" class="gpsedit" data-type="select"
-                                data-inputclass="form-control" data-pk="{{ $trip->id }}" data-value="{{ $trip->docusign }}"
-                                data-title="Select status" data-url="{{ url('admin/vehicle_reservations/updatelist') }}">
-                                {{ ($trip->docusign == 2) ? 'NR' : (($trip->docusign == 1) ? 'Yes' : 'No') }}
-                            </a>
-                        @else
-                            NR
-                        @endif
-                    </td>
-
-                    <td class="text-center">
-                        <a href="{{ url('/admin/users/add/' . base64_encode($trip->renter_id)) }}"
-                            title="Edit Driver License state" target="_blank">
-                            {{ $trip->renter?->state ?: ($renterUser['licence_state'] ?? 'N/A') }}
-                        </a>
-                    </td>
-
-
-                    <td>
-                        <span class="dropdown">
-                            <a href="#" class="dropdown-toggle" data-toggle="dropdown" data-position="left"
-                                aria-expanded="true">
-                                <i class="icon-cog7"></i>
-                                <span class="caret"></span>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-solid pull-right">
-                                <li>
-                                    <a href="javascript:void(0)" title="Status Logs"
-                                        onclick="return vehicleReservationLog('{{ base64_encode($trip->id) }}');">
-                                        <i class="icon-bubble-dots3"></i>
-                                        Status Logs
-                                    </a>
-                                </li>
-
-                                @if ($trip->ready_for_dealer == 0)
-                                    <li>
-                                        <a href="{{ url('/admin/vehicle_reservations/pushToDealer/' . base64_encode($trip->id) . '/1') }}"
-                                            title="Ready For Dealer"
-                                            onclick="return confirm('Are you sure this booking is ready for dealer?')">
-                                            <i class="icon-drag-left-right"></i>
-                                            Ready For Dealer
-                                        </a>
-                                    </li>
-                                @else
-                                    <li>
-                                        <a href="{{ url('/admin/vehicle_reservations/pushToDealer/' . base64_encode($trip->id) . '/0') }}"
-                                            title="Pull From Dealer"
-                                            onclick="return confirm('Are you sure this booking is pulled from dealer?')">
-                                            <i class="icon-drag-right"></i>
-                                            Pull From Dealer
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if ($trip->buy == 0)
-                                    <li>
-                                        <a href="javascript:void(0)" title="Accept"
-                                            onclick="return createVehicleReservation('{{ base64_encode($trip->id) }}');">
-                                            <i class="glyphicon glyphicon-ok-circle"></i>
-                                            Activate
-                                        </a>
-                                    </li>
-                                @endif
-
-                                <li>
-                                    <a href="javascript:void(0)" title="Change Date"
-                                        onclick="return changeDatetime('{{ base64_encode($trip->id) }}');">
-                                        <i class="icon-calendar3"></i>
-                                        Change Date
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="javascript:void(0)" class="text-danger" title="Cancel"
-                                        onclick="return cancelReservation('{{ base64_encode($trip->id) }}');">
-                                        <i class="icon-cancel-square"></i>
-                                        Cancel
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="javascript:void(0)" class="text" title="Capture Payment"
-                                        onclick="return captureVehicleReservationPayment('{{ base64_encode($trip->id) }}');">
-                                        <i class="icon-coins"></i>
-                                        Capture Payment
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="javascript:void(0)" class="text" title="Insurance Ticket"
-                                        onclick="return getReservationInsuranceDoc('{{ base64_encode($trip->id) }}');">
-                                        <i class="icon-magazine"></i>
-                                        Insurance Ticket
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="javascript:void(0)" class="text" title="Agreement Doc"
-                                        onclick="return getReservationAgreementDoc('{{ $trip->id }}');">
-                                        <i class="icon-file-pdf"></i>
-                                        Agreement Doc
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="{{ url('/admin/booking_reviews/reservationreview/' . base64_encode($trip->id)) }}"
-                                        class="text" title="Beginning Condition Report">
-                                        <i class="glyphicon glyphicon-list-alt"></i>
-                                        Beginning Condition Report
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="{{ url('/admin/vehicle_reservations/goalrecalculate/' . base64_encode($trip->orderDepositRule?->id)) }}"
-                                        title="Edit Goal Calculations"
-                                        onclick="return confirm('Are you sure you want to edit this booking goal calculations?')">
-                                        <i class="icon-cog3"></i>
-                                        Edit Goal Calculations
-                                    </a>
-                                </li>
-
-                                <li>
-                                    <a href="javascript:void(0)" class="text" title="Status Checklist"
-                                        onclick="return loadStatusChecklistPopup('{{ base64_encode($trip->id) }}');">
-                                        <i class="icon-stack-check"></i>
-                                        Status Checklist
-                                    </a>
-                                </li>
-
-
-                            </ul>
-                        </span>
-                    </td>
                 </tr>
             @empty
                 <tr id="set_hide">

@@ -4,7 +4,7 @@ namespace App\Models\Legacy;
 
 use App\Models\Legacy\LegacyModel;
 
-class ReservationPrepaidPlan extends LegacyModel
+class PrepaidPlan extends LegacyModel
 {
     public $timestamps = true;
     const CREATED_AT = 'created';

@@ -96,18 +96,18 @@
                 if (typeof historyUrl === 'undefined') {
                     historyUrl = url;
                 }
-                $('#listing').css('opacity', '0.5');
+                $('#postsPaging').css('opacity', '0.5');
 
                 $.ajax({
                     url: url,
                     type: "GET",
                     success: function (data) {
-                        $('#listing').html(data);
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').html(data);
+                        $('#postsPaging').css('opacity', '1');
                         window.history.pushState(null, null, historyUrl);
                     },
                     error: function (xhr) {
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').css('opacity', '1');
                         console.error('AJAX Load Error:', xhr);
                     }
                 });

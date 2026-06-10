@@ -3,52 +3,19 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\CsReservationPayment;
+use App\Models\Legacy\DepositRule;
+use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\VehicleReservation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Traits\VehicleReservationsTrait;
 
 class VehicleReservationsController extends LegacyAppController
 {
-    private $checklist = [
-        "income_provan" => "Initial Income proven for usage",
-        "insurance_affordable" => "Insurance quote affordable",
-        "insurance_quote_number" => "Insurance quote number",
-        "income_more_than_required" => "Income proven greater than income required",
-        "market" => "Market",
-        "updated_address" => "Updated Address",
-        "mvr" => "MVR clear",
-        "clue" => "CLUE clear",
-        "vehicle_agreed_with_customer" => "Vehicle agreed with customer and VIN secured",
-        "insurance_quoted_with_real_vin" => "Insurance requoted with real VIN",
-        "proof_of_residency" => "Proof of residency",
-        "streetview_address" => "Streetview of address",
-        "identity_verified" => "Identity verified",
-        "payments_made" => "Payments made",
-        "vehicle_ordered" => "Vehicle ordered",
-        'vehicle_image_downloaded' => "Vehicle Images Pulled",
-        "registration_in_process" => "Registration In Process",
-        "gps_ordered" => "GPS ordered",
-        "gps_installation_scheduled" => "GPS installation scheduled",
-        "gps_installed_tested" => "GPS installed and tested",
-        "lease_agreement_signed" => "Lease Agreement Signed",
-        "insurance_bound" => "Insurance bound",
-        "company_garage_insurance_place" => "Company garage insurance in place",
-        "vehicle_registered" => "Temp Tag",
-        'permanent_license_plate_attached' => 'Permanent License Plate Attached',
-        'spare_key_collected' => 'Spare Key Collected',
-        "pickup_scheduled" => "Pick up scheduled",
-        'dia_additional_insured' => 'DIA additional insured',
-        'axle_in_place' => 'Axle in place',
-        'ccm_maintenance_card' => 'CCM Maintenance Card'
-    ];
-    protected $readyForDealerStatus = [
-        0 => ["In Review", "bg-primary"],
-        1 => ["Sale Request", "bg-orange bg-orange-300"],
-        2 => ["Vehicle Sold", "bg-green bg-green-700"],
-        3 => ["Not Interested", "bg-danger"],
-        4 => ["Find a Replacement", "bg-info"]
-    ];
+    use VehicleReservationsTrait;
+
     public function index(Request $request)
     {
         $title = 'Pending Booking';
@@ -109,6 +76,206 @@ class VehicleReservationsController extends LegacyAppController
 
         return view('admin.vehicle_reservations.all', compact('bookings', 'title', 'limit'));
     }
+    public function markBookingCancel(Request $request)
+    {
+        $leaseIdRaw = $request->input('lease_id');
+        $cancelNote = $request->input('cancel_note', '');
+        $leaseId = $this->decodeId($leaseIdRaw);
+        $return = [
+            'status' => false,
+            'message' => "Invalid Request",
+            'result' => []
+        ];
+
+        if (empty($leaseId)) {
+            return response()->json($return);
+        }
+
+        $reservation = VehicleReservation::find($leaseId);
+
+        if (!$reservation) {
+            $return["message"] = "Sorry, booking not found";
+            return response()->json($return);
+        }
+
+        $return = $this->_markBookingCancel($reservation, $cancelNote);
+        return response()->json($return);
+    }
+    public function createBooking(Request $request)
+    {
+        $leaseIdRaw = $request->input('lease_id');
+
+        if (!empty($leaseIdRaw)) {
+            $leaseId = $this->decodeId($leaseIdRaw);
+            $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
+
+            $reservation = VehicleReservation::with('vehicle')
+                ->where('id', $leaseId)
+                ->where('buy', 0)
+                ->whereIn('status', $allowedStatus)
+                ->first();
+
+            if (!$reservation || !$reservation->vehicle) {
+                return redirect()->to('/admin/vehicle_reservations/index');
+            }
+
+            $vehicle = $reservation->vehicle;
+            $orderDepositRule = OrderDepositRule::where('vehicle_reservation_id', $reservation->id)->first();
+            $csReservationPayments = CsReservationPayment::where('reservation_id', $reservation->id)
+                ->whereIn('type', [1, 3])
+                ->select('type', 'amount')
+                ->get();
+
+            $priceRulesAmt = DepositRule::getPendingBookingFee($reservation, $orderDepositRule);
+
+            $tz = $reservation->timezone ?? config('app.timezone');
+            $startDateObj = Carbon::parse($reservation->start_datetime)->timezone($tz);
+            $endDateObj = Carbon::parse($reservation->end_datetime)->timezone($tz);
+
+            $startDate = $startDateObj->format('m/d/Y');
+            $endDate = $endDateObj->format('m/d/Y');
+
+            // Parse json settings safely
+            $rentalOpt = json_decode($orderDepositRule->rental_opt ?? '[]', true);
+            $initialFeeOpt = json_decode($orderDepositRule->initial_fee_opt ?? '[]', true);
+            $depositOpt = json_decode($orderDepositRule->deposit_opt ?? '[]', true);
+            $durationOpt = json_decode($orderDepositRule->duration_opt ?? '[]', true);
+            $durations = json_decode($orderDepositRule->duration ?? '[]', true);
+
+            // Aggregations using Eloquent
+            $paidRental = CsReservationPayment::getTotalRentalTax($reservation->id); // or sum logic
+            $paidInsurance = CsReservationPayment::getTotalInsurance($reservation->id);
+
+            $notification = "";
+            $days = Carbon::parse($reservation->start_datetime)->diffInDays(Carbon::parse($reservation->end_datetime));
+
+            // Timing Validations
+            if (Carbon::parse($reservation->start_datetime)->isPast()) {
+                $startDate = now()->format('m/d/Y');
+                $endDate = now()->addDays($days)->format('m/d/Y');
+                $notification = "*Please note that booking start date is expired, any missed scheduled fees date would be adjusted as per current start date selection";
+            } elseif (Carbon::parse($reservation->start_datetime)->isFuture()) {
+                $notification = "*Please note that booking start date is future date, if you want to start now then please choose today date. Missed scheduled payments would be adjusted as per start date";
+            }
+
+            // Next validation checkpoint
+            $nextDate = resolve(OrderDepositRule::class)->getFromTierData($orderDepositRule->duration_opt, $startDate, $endDate);
+            if ($nextDate > 7) {
+                $notification .= "<br>*Please note booking will be created with {$nextDate} days interval as per booking duration setting";
+            }
+
+            // Dealer validations lookup
+            $csSetting = CsSetting::where('user_id', $vehicle->user_id)->first(['booking_validation']);
+            $csSettingObj = $csSetting && !empty($csSetting->booking_validation) ? json_decode($csSetting->booking_validation, true) : [];
+
+            $validateVehicle = true;
+            $flagfailed = [];
+
+            // Run Dealer Matrix Checklists
+            if (($csSettingObj['registration'] ?? 0) == 1 && empty($vehicle->registration_image)) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Vehicle Registration Missing';
+            }
+            if (($csSettingObj['inspection'] ?? 0) == 1 && empty($vehicle->inspection_image)) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Vehicle Inspection Missing';
+            }
+            if (($csSettingObj['income_threshold'] ?? 0) == 1 && $reservation->income_threshold == 0) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Income threshold dont qualify';
+            }
+            // Checking driver relation (assuming custom driver setup exists on reservation)
+            if (($csSettingObj['residency_proof'] ?? 0) == 1 && empty($reservation->driver?->address_doc)) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Driver residence proof is missing';
+            }
+
+            // Explicit hardcoded check rules
+            if (!in_array($reservation->gps2, [1, 2])) {
+                $validateVehicle = false;
+                $flagfailed[] = 'GPS2 dont qualify';
+            }
+            if (!in_array($reservation->docusign, [1, 2])) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Docusign dont qualify';
+            }
+            if ($reservation->gps != 1) {
+                $validateVehicle = false;
+                $flagfailed[] = 'GPS dont qualify';
+            }
+            if ($reservation->checkr_status != 1) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Cheker Status dont qualify';
+            }
+            if (!in_array($reservation->clue_report, [1, 2])) {
+                $validateVehicle = false;
+                $flagfailed[] = 'Clue Report dont qualify';
+            }
+
+            // Income Requirement Multiplier calculation
+            if ($orderDepositRule->insurance > 19) {
+                $userIncome = UserIncome::where('user_id', $reservation->renter_id)->first();
+                $incomeRequired = number_format((($orderDepositRule->rental + $orderDepositRule->insurance) * 4 * 365 / 12), 2, '.', '');
+
+                if (!$userIncome || $userIncome->provenincome < $incomeRequired) {
+                    $validateVehicle = false;
+                    $flagfailed[] = 'Sorry, driver proven income is not sufficient';
+                }
+            }
+
+            // Process internal checklists
+            $bookingChecklists = resolve(CommonHelper::class)->getMissingChecklist($reservation->checklists, $this->checklist);
+            $missingChecklists = [];
+
+            // Pass values to array template structure
+            return view('admin.bookings.create', compact(
+                'validateVehicle',
+                'reservation',
+                'vehicle',
+                'orderDepositRule',
+                'csReservationPayments',
+                'priceRulesAmt',
+                'startDate',
+                'endDate',
+                'rentalOpt',
+                'initialFeeOpt',
+                'depositOpt',
+                'notification',
+                'paidRental',
+                'paidInsurance',
+                'durationOpt',
+                'days',
+                'flagfailed',
+                'missingChecklists',
+                'durations'
+            ));
+        }
+
+        return redirect()->to('/admin/vehicle_reservations/index');
+
+        // $id = $this->decodeId((string) $request->input('lease_id', ''));
+        // if (!$id) {
+        //     return response()->json(['status' => false, 'message' => 'Invalid reservation']);
+        // }
+        // $row = VehicleReservation::query()->find($id);
+        // if (!$row) {
+        //     return response()->json(['status' => false, 'message' => 'Reservation not found']);
+        // }
+        // if ((int) $row->status !== 1) {
+        //     VehicleReservation::query()->whereKey($id)->update(['status' => 1]);
+        // }
+        // DB::table('vehicles')->where('id', (int) $row->vehicle_id)->update(['booked' => 1]);
+
+        // return response()->json(['status' => true, 'message' => 'Booking created successfully', 'result' => ['lease_id' => $id]]);
+    }
+
+
+
+
+
+
+
+
 
     public function singleload(Request $request)
     {
@@ -155,12 +322,7 @@ class VehicleReservationsController extends LegacyAppController
         ]);
     }
 
-    public function markBookingCancel(Request $request): JsonResponse
-    {
-        $request->merge(['status' => 2]);
 
-        return $this->changeSaveStatus($request);
-    }
 
     public function markBookingCompleted(Request $request): JsonResponse
     {
@@ -203,23 +365,7 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'MVR update queued']);
     }
 
-    public function createBooking(Request $request): JsonResponse
-    {
-        $id = $this->decodeId((string) $request->input('lease_id', ''));
-        if (!$id) {
-            return response()->json(['status' => false, 'message' => 'Invalid reservation']);
-        }
-        $row = VehicleReservation::query()->find($id);
-        if (!$row) {
-            return response()->json(['status' => false, 'message' => 'Reservation not found']);
-        }
-        if ((int) $row->status !== 1) {
-            VehicleReservation::query()->whereKey($id)->update(['status' => 1]);
-        }
-        DB::table('vehicles')->where('id', (int) $row->vehicle_id)->update(['booked' => 1]);
 
-        return response()->json(['status' => true, 'message' => 'Booking created successfully', 'result' => ['lease_id' => $id]]);
-    }
 
     public function saveVehicleBooking(Request $request): JsonResponse
     {
