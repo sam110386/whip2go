@@ -3,6 +3,7 @@
 namespace App\Models\Legacy;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 
 class OrderDepositRule extends LegacyModel
 {
@@ -86,5 +87,48 @@ class OrderDepositRule extends LegacyModel
     public function csOrder()
     {
         return $this->belongsTo(CsOrder::class, 'cs_order_id', 'id');
+    }
+
+
+    public static function nextDuration($orderId, $startDate, $endDate)
+    {
+        $depositObj = self::where('cs_order_id', $orderId)
+            ->where('duration_opt', '!=', '')
+            ->select('duration_opt', 'start_datetime')
+            ->first();
+
+        if (!$depositObj) {
+            return false;
+        }
+
+        return self::getFromTierData($depositObj->duration_opt, $startDate, $endDate);
+    }
+    public static function getFromTierData($tierData, $startDate, $endDate)
+    {
+        $retrun = false;
+        $tierArray = json_decode($tierData, true);
+
+        if (empty($tierArray)) {
+            return $retrun;
+        }
+
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->startOfDay();
+
+        foreach ($tierArray as $rlObj) {
+
+            if (!isset($rlObj['after_date']) || !isset($rlObj['duration'])) {
+                continue;
+            }
+
+            $afterDate = Carbon::parse($rlObj['after_date'])->startOfDay();
+
+            if ($afterDate->between($start, $end)) {
+                $retrun = $rlObj['duration'];
+                break;
+            }
+        }
+
+        return $retrun;
     }
 }

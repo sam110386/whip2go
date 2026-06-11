@@ -2,6 +2,7 @@
 
 namespace App\Models\Legacy;
 
+use App\Services\Legacy\Passtime;
 use App\Services\Legacy\PromoService;
 
 class DepositRule extends LegacyModel
@@ -67,7 +68,10 @@ class DepositRule extends LegacyModel
         if (!empty($this->_depositObj)) {
             $time_fee = $this->_depositObj->time_fee;
             $charge_rentTotal = number_format(($time_fee * $hours), 2, '.', '');
-            return ['time_fee' => $charge_rentTotal, 'charge_rent_event' => $this->_depositObj->charge_rent];
+            return [
+                'time_fee' => $charge_rentTotal,
+                'charge_rent_event' => $this->_depositObj->charge_rent
+            ];
         }
 
         return [
@@ -75,73 +79,53 @@ class DepositRule extends LegacyModel
             'charge_rent_event' => 'N'
         ];
     }
-
     public function calculateLatenessFee($hours, $vehicleid)
     {
         if (!empty($vehicleid)) {
             $depositObj = self::where('vehicle_id', $vehicleid)->first();
+
             if (!empty($depositObj)) {
                 $lateness_fee = $depositObj->lateness_fee;
                 $lateness_feeTotal = number_format(($lateness_fee * $hours), 2, '.', '');
                 return ['lateness_fee' => $lateness_feeTotal];
             }
         }
+
         return ['lateness_fee' => 0];
     }
-
-    /**
-     * Calculate TAX amount for booking rental
-     * @param int $amount
-     * @param int $vehicleid
-     * @return float
-     */
     public function calculateTax($amount, $vehicleid)
     {
         if (!empty($vehicleid)) {
             $depositObj = self::where('vehicle_id', $vehicleid)->first();
+
             if (!empty($depositObj)) {
                 return number_format((($amount * $depositObj->tax) / 100), 2, '.', '');
             }
+
             return 0;
         }
+
         return 0;
     }
-
-    /**
-     * Calculate DIA amount for booking rental
-     * @param int $amount
-     * @param int $userid
-     * @return float
-     */
     public function calculateDIAFee($amount, $userid)
     {
-        $diaRate = defined('DIA_FEE') ? DIA_FEE : 5;
+        $diaRate = config('legacy.DIA_FEE', 5);
         $RevSetting = RevSetting::where('user_id', $userid)->first(['dia_fee']);
+
         if (!empty($RevSetting)) {
             $diaRate = $RevSetting->dia_fee;
         }
+
         return sprintf("%0.2f", ($amount * $diaRate) / 100);
     }
-
-    /**
-     * Load Vehicle object
-     * @param int $vehicleid
-     * @return object|null
-     */
     public function getVehicleInfo($vehicleid)
     {
         return Vehicle::where('id', $vehicleid)->select('rate', 'day_rent')->first();
     }
-
-    /**
-     * Calculate Booking rental fee and charge events, for booking agreement PDF action.
-     * @param array $lease
-     * @param int $vehicleid
-     * @return array
-     */
     public function getAgreementPdfCalculation($lease, $vehicleid)
     {
         $this->_depositObj = self::where('vehicle_id', $vehicleid)->first();
+
         if (empty($lease) || empty($this->_depositObj)) {
             return [
                 'time_fee' => 0,
@@ -153,6 +137,7 @@ class DepositRule extends LegacyModel
                 'discount' => 0
             ];
         }
+
         $timeDiff = strtotime($lease['end_datetime']) - strtotime($lease['start_datetime']);
         $totalHours = abs($timeDiff / 3600);
         $insurance_days = $totalHours < 24 ? 1 : floor($totalHours / 24);
@@ -171,7 +156,7 @@ class DepositRule extends LegacyModel
         $depositfeeOpt = !empty($this->_depositObj->deposit_amt_opt) ? json_decode($this->_depositObj->deposit_amt_opt, true) : [];
 
         // Apply Discount
-        $promo = app(PromoService::class);
+        $promo = new PromoService();
         $discounts = $promo->useRentalPromoCode(["rent" => $time_fee], $lease['renter_id']);
         $time_fee = ($time_fee - ($discounts['rent_discount'] * $totldays));
         $discount = ($discounts['rent_discount'] * $totldays);
@@ -202,16 +187,19 @@ class DepositRule extends LegacyModel
         $return['dia_insu'] = $dia_insu;
         return $return;
     }
-
-    /**
-     * Get vehicle charge event.
-     * @param int $vehicleid
-     * @return array
-     */
     public function getBookingChargeEvent($vehicleid)
     {
-        $return = ['charge_rent_event' => 'N', 'deposit_amt' => 0, 'deposit_event' => 'N', 'insurance_event' => 'N', 'initial_fee' => 0, 'initial_event' => 'P'];
+        $return = [
+            'charge_rent_event' => 'N',
+            'deposit_amt' => 0,
+            'deposit_event' => 'N',
+            'insurance_event' => 'N',
+            'initial_fee' => 0,
+            'initial_event' => 'P'
+        ];
+
         $this->_depositObj = self::where('vehicle_id', $vehicleid)->first();
+
         if (!empty($this->_depositObj)) {
             $return = [
                 'charge_rent_event' => $this->_depositObj->charge_rent,
@@ -223,31 +211,21 @@ class DepositRule extends LegacyModel
                 'initial_event' => $this->_depositObj->initial_event,
             ];
         }
+
         return $return;
     }
-
-    /**
-     * Get vehicle cancelation charge amount.
-     * @param int $vehicleid
-     * @return float
-     */
     public function getCancellationFee($vehicleid)
     {
         $return = 0;
         $this->_depositObj = self::where('vehicle_id', $vehicleid)->first();
+
         if (!empty($this->_depositObj)) {
             $return = $this->_depositObj->cancellation_fee;
         }
+
         return $return;
     }
-
-    /**
-     * Get Booking all fee for booking complete event
-     * @param array $CsOrder
-     * @param bool $autorenew
-     * @return array
-     */
-    public function getAllFee($CsOrder, $autorenew = false)
+    public function getAllFee(array $CsOrder, bool $autorenew = false)
     {
         $return = [
             'estimated_rent' => $CsOrder['rent'],
@@ -268,13 +246,19 @@ class DepositRule extends LegacyModel
         $CsOrder['parent_id'] = !empty($CsOrder['parent_id']) ? $CsOrder['parent_id'] : $CsOrder['id'];
         $OrderDepositRuleObj = OrderDepositRule::where('cs_order_id', $CsOrder['parent_id'])->first();
         $vhcileInfo = $this->getVehicleInfo($CsOrder['vehicle_id']);
+
         if (empty($vhcileInfo)) {
             return $return;
         }
+
         if ($autorenew) {
-            $timeDiff = (!empty($CsOrder['start_timing']) && $CsOrder['start_timing'] != '0000-00-00 00:00:00') ? (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_timing'])) : (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_datetime']));
+            $timeDiff = (!empty($CsOrder['start_timing']) && $CsOrder['start_timing'] != '0000-00-00 00:00:00')
+                ? (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_timing']))
+                : (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_datetime']));
         } else {
-            $timeDiff = (!empty($CsOrder['start_timing']) && $CsOrder['start_timing'] != '0000-00-00 00:00:00') ? (time() - strtotime($CsOrder['start_timing'])) : (time() - strtotime($CsOrder['start_datetime']));
+            $timeDiff = (!empty($CsOrder['start_timing']) && $CsOrder['start_timing'] != '0000-00-00 00:00:00')
+                ? (time() - strtotime($CsOrder['start_timing']))
+                : (time() - strtotime($CsOrder['start_datetime']));
         }
 
         $totalHours = abs($timeDiff / 3600);
@@ -287,52 +271,65 @@ class DepositRule extends LegacyModel
         if (!empty($OrderDepositRuleObj)) {
             $return['insurance_amt'] = number_format(($totldays * $OrderDepositRuleObj->insurance), 2, '.', '');
         }
+
         if (!empty($OrderDepositRuleObj) && $OrderDepositRuleObj->insurance_payer == 7) {
             $return['insurance_amt'] = 0;
         }
+
         $time_fee = 0;
-        $day_rent = !empty($OrderDepositRuleObj) ? $this->getDayRentFromTierData($OrderDepositRuleObj->rental_opt, $insurance_days, $OrderDepositRuleObj->rental, $CsOrder['start_datetime']) : $vhcileInfo->day_rent;
+        $day_rent = !empty($OrderDepositRuleObj)
+            ? $this->getDayRentFromTierData($OrderDepositRuleObj->rental_opt, $insurance_days, $OrderDepositRuleObj->rental, $CsOrder['start_datetime'])
+            : $vhcileInfo->day_rent;
+
         if ($day_rent > 0) {
             $time_fee = sprintf('%0.2f', ($totldays * $day_rent));
         }
-        $taxRate = !empty($OrderDepositRuleObj) ? $OrderDepositRuleObj->tax : '';
 
+        $taxRate = !empty($OrderDepositRuleObj) ? $OrderDepositRuleObj->tax : '';
         $return['rent'] = number_format($time_fee, 2, '.', '');
 
-        $promo = app(PromoService::class);
+        $promo = new PromoService();
         $discounts = $promo->useRentalPromoCode(["rent" => $time_fee], $CsOrder['renter_id']);
 
         $return['rent'] = ($time_fee - ($discounts['rent_discount'] * $totldays));
         $return['discount'] = ($discounts['rent_discount'] * $totldays);
-
         $return['extra_mileage_fee'] = 0;
         $scheduledEndodometer = 0;
+
         if ($autorenew && strtotime($CsOrder['end_datetime']) < time()) {
             $scheduledEndodometer = CsTrackVehicle::getLastMileFromHistory($CsOrder['vehicle_id'], $CsOrder['end_datetime']);
         }
 
-        $Passtime = app(\App\Services\Legacy\Passtime::class);
+        $Passtime = new Passtime();
         $milesData = $Passtime->getPasstimeMiles($CsOrder['vehicle_id']);
 
         if ($milesData['miles'] && $milesData['allowed_miles']) {
             $return['end_odometer'] = $scheduledEndodometer ? $scheduledEndodometer : $milesData['miles'];
+
             if (isset($OrderDepositRuleObj->miles) && $OrderDepositRuleObj->miles > 0) {
                 $billableMileage = (int) (($return['end_odometer'] - $CsOrder['start_odometer']) - ($OrderDepositRuleObj->miles * $totldays));
             } else {
                 $billableMileage = ($CsOrder['start_odometer'] > 0) ? (($return['end_odometer'] - $CsOrder['start_odometer']) - ($milesData['allowed_miles'] * $totldays)) : 0;
             }
+
             if ($billableMileage > 0) {
                 $DepositTemplate = CsDepositTemplate::where('user_id', $CsOrder['user_id'])->first(['max_extramile_fee']);
-                $maxExtraMileFee = isset($DepositTemplate->max_extramile_fee) && !empty($DepositTemplate->max_extramile_fee) ? $DepositTemplate->max_extramile_fee : 500;
-
-                $extra_mileage_feeTotal = isset($OrderDepositRuleObj->emf_rate) ? sprintf('%0.2f', ($billableMileage * $OrderDepositRuleObj->emf_rate)) : 0;
+                $maxExtraMileFee = isset($DepositTemplate->max_extramile_fee) && !empty($DepositTemplate->max_extramile_fee)
+                    ? $DepositTemplate->max_extramile_fee
+                    : 500;
+                $extra_mileage_feeTotal = isset($OrderDepositRuleObj->emf_rate)
+                    ? sprintf('%0.2f', ($billableMileage * $OrderDepositRuleObj->emf_rate))
+                    : 0;
                 $extra_mileage_feeTotal += $return['extra_mileage_fee'];
-                $return['extra_mileage_fee'] = $extra_mileage_feeTotal > $maxExtraMileFee ? sprintf('%0.2f', $maxExtraMileFee) : sprintf('%0.2f', $extra_mileage_feeTotal);
+                $return['extra_mileage_fee'] = $extra_mileage_feeTotal > $maxExtraMileFee
+                    ? sprintf('%0.2f', $maxExtraMileFee)
+                    : sprintf('%0.2f', $extra_mileage_feeTotal);
 
                 $dia_insu = sprintf('%0.2f', ($billableMileage * ($OrderDepositRuleObj->emf_insu_rate ? $OrderDepositRuleObj->emf_insu_rate : 0)));
                 $return['dia_insu'] = $dia_insu > $maxExtraMileFee ? sprintf('%0.2f', $maxExtraMileFee) : $dia_insu;
             }
         }
+
         $dia_fee = $this->calculateDIAFee($return['rent'], $CsOrder['user_id']);
         $tax = (($return['rent'] + $dia_fee) * $taxRate) / 100;
         $return['tax'] = number_format($tax, 2, '.', '');
@@ -342,13 +339,7 @@ class DepositRule extends LegacyModel
         $return['days'] = $totldays;
         return $return;
     }
-
-    /**
-     * Get Booking Rent, TAX & DIA fee only booking complete event
-     * @param array $CsOrder
-     * @return array
-     */
-    public function calculateRentTaxOnComplete($CsOrder)
+    public function calculateRentTaxOnComplete(array $CsOrder)
     {
         $return = [
             'rent' => $CsOrder['rent'],
@@ -367,7 +358,10 @@ class DepositRule extends LegacyModel
         if (empty($vhcileInfo)) {
             return $return;
         }
-        $timeDiff = (!empty($CsOrder['start_timing']) && $CsOrder['start_timing'] != '0000-00-00 00:00:00') ? (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_timing'])) : (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_datetime']));
+
+        $timeDiff = (!empty($CsOrder['start_timing']) && $CsOrder['start_timing'] != '0000-00-00 00:00:00')
+            ? (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_timing']))
+            : (strtotime($CsOrder['end_datetime']) - strtotime($CsOrder['start_datetime']));
         $totalHours = abs($timeDiff / 3600);
         $rate = $vhcileInfo->rate > 0 ? $vhcileInfo->rate : 0;
         $insurance_days = $totalHours < 24 ? 1 : floor($totalHours / 24);
@@ -377,36 +371,49 @@ class DepositRule extends LegacyModel
         if (!empty($OrderDepositRuleObj)) {
             $return['insurance_amt'] = number_format(($totldays * $OrderDepositRuleObj->insurance), 2, '.', '');
         }
+
         if (!empty($OrderDepositRuleObj) && $OrderDepositRuleObj->insurance_payer == 7) {
             $return['insurance_amt'] = 0;
         }
+
         $totalDays = $insurance_days;
+
         if (!empty($OrderDepositRuleObj)) {
-            $tDiff = strtotime($CsOrder['end_datetime']) - (!empty($OrderDepositRuleObj->start_datetime) ? strtotime($OrderDepositRuleObj->start_datetime) : strtotime($OrderDepositRuleObj->created));
+            $tDiff = strtotime($CsOrder['end_datetime']) - (!empty($OrderDepositRuleObj->start_datetime)
+                ? strtotime($OrderDepositRuleObj->start_datetime)
+                : strtotime($OrderDepositRuleObj->created));
             $tHours = abs($tDiff / 3600);
             $totalDays = $tHours < 24 ? 1 : floor($tHours / 24);
         }
-        $day_rent = !empty($OrderDepositRuleObj) ? $this->getDayRentFromTierData($OrderDepositRuleObj->rental_opt, $totalDays, $OrderDepositRuleObj->rental, $CsOrder['start_datetime']) : $vhcileInfo->day_rent;
+
+        $day_rent = !empty($OrderDepositRuleObj)
+            ? $this->getDayRentFromTierData($OrderDepositRuleObj->rental_opt, $totalDays, $OrderDepositRuleObj->rental, $CsOrder['start_datetime'])
+            : $vhcileInfo->day_rent;
+
         if ($day_rent > 0) {
             $time_feeDays = ($insurance_days * $day_rent);
             $time_feehours = 0;
+
             if ($insurance_hours > 6) {
                 $time_feehours = $day_rent;
             }
+
             $time_fee = number_format(($time_feeDays + $time_feehours), 2, '.', '');
         } else {
             $time_fee = number_format(($totalHours * $rate), 2, '.', '');
         }
+
         $taxRate = !empty($OrderDepositRuleObj) ? $OrderDepositRuleObj->tax : 0;
 
         $totaldays = $insurance_days + ($insurance_hours > 6 ? 1 : 0);
         $return['extra_mileage_fee'] = 0;
         $scheduledEndodometer = 0;
+
         if (strtotime($CsOrder['end_datetime']) < time()) {
             $scheduledEndodometer = CsTrackVehicle::getLastMileFromHistory($CsOrder['vehicle_id'], $CsOrder['end_datetime']);
         }
 
-        $Passtime = app(\App\Services\Legacy\Passtime::class);
+        $Passtime = new Passtime();
         $milesData = $Passtime->getPasstimeMiles($CsOrder['vehicle_id']);
 
         $return['end_odometer'] = $scheduledEndodometer ? $scheduledEndodometer : $milesData['miles'];
@@ -414,21 +421,26 @@ class DepositRule extends LegacyModel
         if (isset($OrderDepositRuleObj->miles) && $OrderDepositRuleObj->miles > 0) {
             $billableMileage = (int) (($return['end_odometer'] - $CsOrder['start_odometer']) - ($OrderDepositRuleObj->miles * $totaldays));
         } else {
-            $billableMileage = ($CsOrder['start_odometer'] > 0) ? (($return['end_odometer'] - $CsOrder['start_odometer']) - ($milesData['allowed_miles'] * $totaldays)) : 0;
+            $billableMileage = ($CsOrder['start_odometer'] > 0)
+                ? (($return['end_odometer'] - $CsOrder['start_odometer']) - ($milesData['allowed_miles'] * $totaldays))
+                : 0;
         }
+
         if ($billableMileage > 0) {
             $DepositTemplate = CsDepositTemplate::where('user_id', $CsOrder['user_id'])->first(['max_extramile_fee']);
             $maxExtraMileFee = isset($DepositTemplate->max_extramile_fee) && !empty($DepositTemplate->max_extramile_fee) ? $DepositTemplate->max_extramile_fee : 500;
 
             $extra_mileage_feeTotal = sprintf('%0.2f', ($billableMileage * $OrderDepositRuleObj->emf_rate));
             $extra_mileage_feeTotal += $return['extra_mileage_fee'];
-            $return['extra_mileage_fee'] = $extra_mileage_feeTotal > $maxExtraMileFee ? sprintf('%0.2f', $maxExtraMileFee) : sprintf('%0.2f', $extra_mileage_feeTotal);
+            $return['extra_mileage_fee'] = $extra_mileage_feeTotal > $maxExtraMileFee
+                ? sprintf('%0.2f', $maxExtraMileFee)
+                : sprintf('%0.2f', $extra_mileage_feeTotal);
 
             $dia_insu = sprintf('%0.2f', ($billableMileage * $OrderDepositRuleObj->emf_insu_rate));
             $return['dia_insu'] = $dia_insu > $maxExtraMileFee ? sprintf('%0.2f', $maxExtraMileFee) : $dia_insu;
         }
 
-        $promo = app(PromoService::class);
+        $promo = new PromoService();
         $discounts = $promo->useRentalPromoCode(["rent" => $time_fee], $CsOrder['renter_id']);
 
         $return['rent'] = ($time_fee - ($discounts['rent_discount'] * $totaldays));
@@ -446,19 +458,27 @@ class DepositRule extends LegacyModel
 
         return $return;
     }
-
-    /**
-     * Calculate Booking rental fee and charge events, for booking Quote.
-     * Mainly used for mobile api.
-     * @param array $lease
-     * @param int $vehicleid
-     * @return array
-     */
     public function getQuoteFee($lease, $vehicleid)
     {
-        $return = ['rent' => 0, 'rent_days' => 0, 'rent_hours' => 0, 'rent_des' => '', 'deposit_amt' => 0, 'deposit_amt_des' => '*One time and refundable ', 'tax' => 0, 'tax_des' => '', 'insurance_amt' => 0, 'insurance_amt_des' => 'One time for a booking', 'initial_fee' => 0, 'initial_fee_des' => '*once per booking', 'dia_fee' => 0];
+        $return = [
+            'rent' => 0,
+            'rent_days' => 0,
+            'rent_hours' => 0,
+            'rent_des' => '',
+            'deposit_amt' => 0,
+            'deposit_amt_des' => '*One time and refundable ',
+            'tax' => 0,
+            'tax_des' => '',
+            'insurance_amt' => 0,
+            'insurance_amt_des' => 'One time for a booking',
+            'initial_fee' => 0,
+            'initial_fee_des' => '*once per booking',
+            'dia_fee' => 0
+        ];
+
         $this->_depositObj = self::where('vehicle_id', $vehicleid)->first();
         $vhcileInfo = $this->getVehicleInfo($vehicleid);
+
         if (!empty($this->_depositObj) || !empty($vhcileInfo)) {
 
             $timeDiff = strtotime($lease['end_datetime']) - strtotime($lease['start_datetime']);
@@ -468,18 +488,22 @@ class DepositRule extends LegacyModel
             $return['rent_days'] = $insurance_days;
             $insuranceofdays = ($insurance_days * $this->_depositObj->insurance_fee);
             $insurance_hours_fee = 0;
+
             if ($insurance_hours) {
                 $insurance_hours_fee = $this->_depositObj->insurance_fee;
             }
+
             $insurance_fee = sprintf('%0.2f', ($insuranceofdays + $insurance_hours_fee));
 
             if ($vhcileInfo->day_rent > 0) {
                 $time_feeDays = ($insurance_days * $vhcileInfo->day_rent);
                 $time_feehours = 0;
+
                 if ($insurance_hours) {
                     $time_feehours = $vhcileInfo->day_rent;
                     $return['rent_days'] = $return['rent_days'] + 1;
                 }
+
                 $return['rent_des'] = $return['rent_days'] . ' days X $' . $vhcileInfo->day_rent;
                 $time_fee = sprintf('%0.2f', ($time_feeDays + $time_feehours));
             } else {
@@ -506,7 +530,7 @@ class DepositRule extends LegacyModel
             $return['total_initial_fee'] = $totalinitialFee;
             $return['initial_fee_opt'] = $initialfeeOpt;
             // Apply Discount
-            $promo = app(PromoService::class);
+            $promo = new PromoService();
             $discounts = $promo->useRentalPromoCode(["rent" => $time_fee], $lease['renter_id']);
             $return['rent'] = ($time_fee - ($discounts['rent_discount'] * $insurance_days));
             $return['discount'] = ($discounts['rent_discount'] * $insurance_days);
@@ -530,24 +554,34 @@ class DepositRule extends LegacyModel
             $return['convert_to_ownership'] = '0 days';
             $return['estimate_rate_after'] = 'Estimated rate/day after 0days: 0/day';
         }
+
         return $return;
     }
-
-    /**
-     * Calculate insurance only & dia fee with tax.
-     * @param array $CsOrder
-     * @param int $insurance_days
-     * @param string $insurance_fee
-     * @return array
-     */
-    public function getInsuranceFee($CsOrder, $insurance_days, $insurance_fee = '')
+    public function getInsuranceFee(array $CsOrder, $insurance_days, $insurance_fee = '')
     {
-        $return = ['time_fee' => $CsOrder['rent'], 'charge_rent_event' => 'N', 'deposit_amt' => $CsOrder['deposit'], 'deposit_event' => 'N', 'deposit_type' => 'P', 'tax' => 0, 'insurance_amt' => 0, 'insurance_event' => 'N', 'initial_fee' => $CsOrder['initial_fee'], 'initial_event' => 'P', 'discount' => 0, 'dia_fee' => isset($CsOrder['dia_fee']) ? $CsOrder['dia_fee'] : 0];
+        $return = [
+            'time_fee' => $CsOrder['rent'],
+            'charge_rent_event' => 'N',
+            'deposit_amt' => $CsOrder['deposit'],
+            'deposit_event' => 'N',
+            'deposit_type' => 'P',
+            'tax' => 0,
+            'insurance_amt' => 0,
+            'insurance_event' => 'N',
+            'initial_fee' => $CsOrder['initial_fee'],
+            'initial_event' => 'P',
+            'discount' => 0,
+            'dia_fee' => isset($CsOrder['dia_fee']) ? $CsOrder['dia_fee'] : 0
+        ];
+
         $this->_depositObj = self::where('vehicle_id', $CsOrder['vehicle_id'])->first();
+
         if (!empty($this->_depositObj)) {
+
             if (empty($insurance_fee)) {
                 $insurance_fee = number_format(($insurance_days * $this->_depositObj->insurance_fee), 2, '.', '');
             }
+
             $CsOrder['dia_fee'] = $this->calculateDIAFee($CsOrder['rent'], $CsOrder['user_id']);
             $tax = sprintf('%0.2f', ((($CsOrder['rent'] + $CsOrder['dia_fee']) * $this->_depositObj->tax) / 100));
 
@@ -580,24 +614,34 @@ class DepositRule extends LegacyModel
                 'initial_fee_tax' => sprintf('%0.2f', ($CsOrder['initial_fee'] * $this->_depositObj->tax / 100))
             ];
         }
+
         return $return;
     }
-
-    /**
-     * Calculate rental fee & insurance on auto renew event.
-     * @param array $lease
-     * @param int $parentId
-     * @return array
-     */
-    public function getFeeRenewBooking($lease, $parentId)
+    public function getFeeRenewBooking(array $lease, int $parentId)
     {
-        $return = ['time_fee' => 0, 'charge_rent_event' => 'N', 'deposit_amt' => $lease['deposit'], 'deposit_event' => 'N', 'deposit_type' => 'P', 'tax' => 0, 'insurance_amt' => 0, 'insurance_event' => 'N', 'initial_fee' => 0, 'initial_event' => 'P', 'days' => 1, 'discount' => 0];
+        $return = [
+            'time_fee' => 0,
+            'charge_rent_event' => 'N',
+            'deposit_amt' => $lease['deposit'],
+            'deposit_event' => 'N',
+            'deposit_type' => 'P',
+            'tax' => 0,
+            'insurance_amt' => 0,
+            'insurance_event' => 'N',
+            'initial_fee' => 0,
+            'initial_event' => 'P',
+            'days' => 1,
+            'discount' => 0
+        ];
+
         $OrderDepositRuleObj = OrderDepositRule::where('cs_order_id', $parentId)->first();
         $this->_depositObj = self::where('vehicle_id', $lease['vehicle_id'])->first();
         $vhcileInfo = $this->getVehicleInfo($lease['vehicle_id']);
+
         if (empty($this->_depositObj) || empty($vhcileInfo)) {
             return $return;
         }
+
         $timeDiff = strtotime($lease['end_datetime']) - strtotime($lease['start_datetime']);
         $totalHours = abs($timeDiff / 3600);
         $insurance_days = $totalHours < 24 ? 1 : floor($totalHours / 24);
@@ -609,29 +653,41 @@ class DepositRule extends LegacyModel
         } else {
             $insuranceofdays = ($insurance_days * $this->_depositObj->insurance_fee);
             $insurance_hours_fee = 0;
+
             if ($insurance_hours) {
                 $insurance_hours_fee = $this->_depositObj->insurance_fee;
             }
+
             $insurance_fee = number_format(($insuranceofdays + $insurance_hours_fee), 2, '.', '');
         }
+
         if (!empty($OrderDepositRuleObj) && $OrderDepositRuleObj->insurance_payer == 7) {
             $insurance_fee = 0;
         }
+
         $totalDays = $insurance_days;
+
         if (!empty($OrderDepositRuleObj)) {
-            $tDiff = strtotime($lease['end_datetime']) - (!empty($OrderDepositRuleObj->start_datetime) ? strtotime($OrderDepositRuleObj->start_datetime) : strtotime($OrderDepositRuleObj->created));
+            $tDiff = strtotime($lease['end_datetime']) - (!empty($OrderDepositRuleObj->start_datetime)
+                ? strtotime($OrderDepositRuleObj->start_datetime)
+                : strtotime($OrderDepositRuleObj->created));
             $tHours = abs($tDiff / 3600);
             $totalDays = $tHours < 24 ? 1 : floor($tHours / 24);
         }
-        $day_rent = !empty($OrderDepositRuleObj) ? $this->getDayRentFromTierData($OrderDepositRuleObj->rental_opt, $totalDays, $OrderDepositRuleObj->rental, $lease['start_datetime']) : $vhcileInfo->day_rent;
+
+        $day_rent = !empty($OrderDepositRuleObj)
+            ? $this->getDayRentFromTierData($OrderDepositRuleObj->rental_opt, $totalDays, $OrderDepositRuleObj->rental, $lease['start_datetime'])
+            : $vhcileInfo->day_rent;
+
         if ($day_rent > 0) {
             $time_feeDays = ($totldays * $day_rent);
             $time_fee = sprintf('%0.2f', $time_feeDays);
         } else {
             $time_fee = number_format(($totalHours * $vhcileInfo->rate), 2, '.', '');
         }
+
         // Apply Discount
-        $promo = app(PromoService::class);
+        $promo = new PromoService();
         $discounts = $promo->useRentalPromoCode(["rent" => $time_fee], $lease['renter_id']);
         $time_fee = ($time_fee - ($discounts['rent_discount'] * $insurance_days));
         $discount = ($discounts['rent_discount'] * $insurance_days);
@@ -660,41 +716,46 @@ class DepositRule extends LegacyModel
             'order_rule_id' => $OrderDepositRuleObj->id
         ];
     }
-
-    /**
-     * Function to filter out the rental from tier option data.
-     * @param string $tierData
-     * @param int $days
-     * @param mixed $retrun
-     * @param string $startdatetime
-     * @return mixed
-     */
     public function getDayRentFromTierData($tierData, $days, $retrun, $startdatetime)
     {
         $ruleObj = json_decode($tierData, 1);
+
         if (empty($ruleObj)) {
             return $retrun;
         }
+
         foreach ($ruleObj as $rlObj) {
-            if ((isset($rlObj['after_day']) && !empty($rlObj['after_day']) && $days > $rlObj['after_day']) || (isset($rlObj['after_day_date']) && !empty($rlObj['after_day_date']) && strtotime($startdatetime) > strtotime($rlObj['after_day_date']))) {
+            if (
+                (isset($rlObj['after_day']) && !empty($rlObj['after_day']) && $days > $rlObj['after_day']) ||
+                (isset($rlObj['after_day_date']) && !empty($rlObj['after_day_date']) && strtotime($startdatetime) > strtotime($rlObj['after_day_date']))
+            ) {
                 $retrun = $rlObj['amount'];
                 break;
             }
         }
+
         return $retrun;
     }
-
-    /**
-     * Calculate rental fee & insurance on pending booking page, for convert booking.
-     * @param object|array $lease
-     * @param object|array $OrderDepositRuleObj
-     * @return array
-     */
-    public static function getPendingBookingFee($lease, $OrderDepositRuleObj)
+    public function getPendingBookingFee($lease, $OrderDepositRuleObj)
     {
-        $return = ['time_fee' => 0, 'charge_rent_event' => 'N', 'deposit_amt' => 0, 'deposit_event' => 'N', 'deposit_type' => 'P', 'tax' => 0, 'insurance_amt' => 0, 'insurance_event' => 'N', 'initial_fee' => 0, 'initial_event' => 'P', 'days' => 1, 'discount' => 0];
+        $return = [
+            'time_fee' => 0,
+            'charge_rent_event' => 'N',
+            'deposit_amt' => 0,
+            'deposit_event' => 'N',
+            'deposit_type' => 'P',
+            'tax' => 0,
+            'insurance_amt' => 0,
+            'insurance_event' => 'N',
+            'initial_fee' => 0,
+            'initial_event' => 'P',
+            'days' => 1,
+            'discount' => 0
+        ];
+
         $vehicleId = is_array($lease) ? $lease['vehicle_id'] : $lease->vehicle_id;
         $depositObj = self::where('vehicle_id', $vehicleId)->first();
+
         if (!empty($depositObj)) {
             $startDatetime = is_array($lease) ? $lease['start_datetime'] : $lease->start_datetime;
             $endDatetime = is_array($lease) ? $lease['end_datetime'] : $lease->end_datetime;
@@ -719,24 +780,26 @@ class DepositRule extends LegacyModel
             } else {
                 $insuranceofdays = ($insurance_days * $depositObj->insurance_fee);
                 $insurance_hours_fee = 0;
+
                 if ($insurance_hours) {
                     $insurance_hours_fee = $depositObj->insurance_fee;
                 }
+
                 $insurance_fee = number_format(($insuranceofdays + $insurance_hours_fee), 2, '.', '');
             }
 
             $time_fee = number_format(($totldays * $odrRental), 2, '.', '');
             $emf = $discount = 0;
+
             // Apply Discount on rental fee
             if ($time_fee > 0) {
-                $promo = app(PromoService::class);
+                $promo = new PromoService();
                 $discounts = $promo->useRentalPromoCode(["rent" => $time_fee], $renterId);
                 $time_fee = ($time_fee - ($discounts['rent_discount'] * $totldays));
                 $discount = ($discounts['rent_discount'] * $totldays);
             }
 
-            $instance = new self();
-            $dia_fee = $instance->calculateDIAFee($time_fee, $userId);
+            $dia_fee = $this->calculateDIAFee($time_fee, $userId);
             $taxRate = $odrTax;
             $tax = sprintf('%0.2f', ((($time_fee + $dia_fee) * $taxRate) / 100));
             $emftax = sprintf('%0.2f', (($emf * $taxRate) / 100));
@@ -760,28 +823,13 @@ class DepositRule extends LegacyModel
                 'initial_fee_tax' => (!empty($OrderDepositRuleObj) ? sprintf('%0.2f', ($odrInitialFee * $odrTax / 100)) : 0),
             ];
         }
+
         return $return;
     }
-
-    /**
-     * Get insurance factor
-     * @param int $driverid
-     * @param int $dealerid
-     * @param float $amt
-     * @return float
-     */
     public function getInsuranceWithFactor($driverid, $dealerid, $amt)
     {
         return $amt;
     }
-
-    /**
-     * Calculate insurance factor
-     * @param int $age
-     * @param float $amt
-     * @param string $factorjson
-     * @return float
-     */
     public function calculateInsuranceFactor($age, $amt, $factorjson)
     {
         return $amt;

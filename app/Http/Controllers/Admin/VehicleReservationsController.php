@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Models\Legacy\CsReservationPayment;
+use App\Models\Legacy\CsSetting;
 use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\UserIncome;
 use App\Models\Legacy\VehicleReservation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Traits\VehicleReservationsTrait;
+use Carbon\Carbon;
 
 class VehicleReservationsController extends LegacyAppController
 {
@@ -126,9 +129,9 @@ class VehicleReservationsController extends LegacyAppController
                 ->select('type', 'amount')
                 ->get();
 
-            $priceRulesAmt = DepositRule::getPendingBookingFee($reservation, $orderDepositRule);
+            $priceRulesAmt = (new DepositRule())->getPendingBookingFee($reservation, $orderDepositRule);
 
-            $tz = $reservation->timezone ?? config('app.timezone');
+            $tz = $reservation->timezone ?? 'UTC';
             $startDateObj = Carbon::parse($reservation->start_datetime)->timezone($tz);
             $endDateObj = Carbon::parse($reservation->end_datetime)->timezone($tz);
 
@@ -147,7 +150,7 @@ class VehicleReservationsController extends LegacyAppController
             $paidInsurance = CsReservationPayment::getTotalInsurance($reservation->id);
 
             $notification = "";
-            $days = Carbon::parse($reservation->start_datetime)->diffInDays(Carbon::parse($reservation->end_datetime));
+            $days = $this->commonService->days_between_dates($reservation->start_datetime, $reservation->end_datetime);
 
             // Timing Validations
             if (Carbon::parse($reservation->start_datetime)->isPast()) {
@@ -159,7 +162,8 @@ class VehicleReservationsController extends LegacyAppController
             }
 
             // Next validation checkpoint
-            $nextDate = resolve(OrderDepositRule::class)->getFromTierData($orderDepositRule->duration_opt, $startDate, $endDate);
+            $nextDate = OrderDepositRule::getFromTierData($orderDepositRule->duration_opt, $startDate, $endDate);
+
             if ($nextDate > 7) {
                 $notification .= "<br>*Please note booking will be created with {$nextDate} days interval as per booking duration setting";
             }
@@ -176,14 +180,17 @@ class VehicleReservationsController extends LegacyAppController
                 $validateVehicle = false;
                 $flagfailed[] = 'Vehicle Registration Missing';
             }
+
             if (($csSettingObj['inspection'] ?? 0) == 1 && empty($vehicle->inspection_image)) {
                 $validateVehicle = false;
                 $flagfailed[] = 'Vehicle Inspection Missing';
             }
+
             if (($csSettingObj['income_threshold'] ?? 0) == 1 && $reservation->income_threshold == 0) {
                 $validateVehicle = false;
                 $flagfailed[] = 'Income threshold dont qualify';
             }
+
             // Checking driver relation (assuming custom driver setup exists on reservation)
             if (($csSettingObj['residency_proof'] ?? 0) == 1 && empty($reservation->driver?->address_doc)) {
                 $validateVehicle = false;
@@ -195,18 +202,22 @@ class VehicleReservationsController extends LegacyAppController
                 $validateVehicle = false;
                 $flagfailed[] = 'GPS2 dont qualify';
             }
+
             if (!in_array($reservation->docusign, [1, 2])) {
                 $validateVehicle = false;
                 $flagfailed[] = 'Docusign dont qualify';
             }
+
             if ($reservation->gps != 1) {
                 $validateVehicle = false;
                 $flagfailed[] = 'GPS dont qualify';
             }
+
             if ($reservation->checkr_status != 1) {
                 $validateVehicle = false;
                 $flagfailed[] = 'Cheker Status dont qualify';
             }
+
             if (!in_array($reservation->clue_report, [1, 2])) {
                 $validateVehicle = false;
                 $flagfailed[] = 'Clue Report dont qualify';
@@ -224,11 +235,11 @@ class VehicleReservationsController extends LegacyAppController
             }
 
             // Process internal checklists
-            $bookingChecklists = resolve(CommonHelper::class)->getMissingChecklist($reservation->checklists, $this->checklist);
+            $bookingChecklists = $this->commonService->getMissingChecklist($reservation->checklists, $this->checklist);
             $missingChecklists = [];
 
             // Pass values to array template structure
-            return view('admin.bookings.create', compact(
+            return view('admin.vehicle_reservations.create_booking', compact(
                 'validateVehicle',
                 'reservation',
                 'vehicle',
@@ -251,22 +262,7 @@ class VehicleReservationsController extends LegacyAppController
             ));
         }
 
-        return redirect()->to('/admin/vehicle_reservations/index');
-
-        // $id = $this->decodeId((string) $request->input('lease_id', ''));
-        // if (!$id) {
-        //     return response()->json(['status' => false, 'message' => 'Invalid reservation']);
-        // }
-        // $row = VehicleReservation::query()->find($id);
-        // if (!$row) {
-        //     return response()->json(['status' => false, 'message' => 'Reservation not found']);
-        // }
-        // if ((int) $row->status !== 1) {
-        //     VehicleReservation::query()->whereKey($id)->update(['status' => 1]);
-        // }
-        // DB::table('vehicles')->where('id', (int) $row->vehicle_id)->update(['booked' => 1]);
-
-        // return response()->json(['status' => true, 'message' => 'Booking created successfully', 'result' => ['lease_id' => $id]]);
+        return redirect()->back();
     }
 
 

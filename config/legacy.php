@@ -157,4 +157,6 @@ return [
         'webhook_token' => env('INSPEKTLABS_WEBHOOK_TOKEN', ''),
     ],
 
+    'DIA_FEE' => 5,
+
 ];
