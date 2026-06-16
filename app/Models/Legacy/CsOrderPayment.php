@@ -13,17 +13,23 @@ use App\Models\Legacy\CsOrder;
 
 class CsOrderPayment extends LegacyModel
 {
-    public $orderid;
-    public $transactionid;
-    public $renterid;
-    public $chargedat;
-    public $payerid;
-    public $typeid;
+    private $_type = [];
+    private $orderid = '';
+    private $transactionid = '';
+    private $amount = 0;
+    private $type = '';
+    private $currency = 'USD';
+    private $tax = 0;
+    private $dia_fee = 0;
+    private $payerid;
+    private $renterid;
+    private $chargedat;
+    private $Reportlib;
+
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = null;
     protected $table = 'cs_order_payments';
-
     protected $fillable = [
         'cs_order_id',
         'type',
@@ -46,7 +52,6 @@ class CsOrderPayment extends LegacyModel
     protected $guarded = [
         'id',
     ];
-
     protected $casts = [
         'id' => 'integer',
         'cs_order_id' => 'integer',
@@ -59,10 +64,60 @@ class CsOrderPayment extends LegacyModel
     {
         return $this->belongsTo(CsOrder::class, 'cs_order_id');
     }
+    public function setOrderId($orderid)
+    {
+        $this->orderid = $orderid;
+    }
+    public function setAmount($amount)
+    {
+        $this->amount = $amount;
+    }
+    public function setTransactionidId($transactionid)
+    {
+        $this->transactionid = $transactionid;
+    }
+    public function setType($type)
+    {
+        $this->type = $type;
+    }
+    public function setCurrency($currency)
+    {
+        $this->currency = $currency;
+    }
+    public function setTax($tax)
+    {
+        $this->tax = $tax;
+    }
+    public function setDiaFee($dia_fee)
+    {
+        $this->dia_fee = $dia_fee;
+    }
+    public function setPayerId($payerid)
+    {
+        $this->payerid = $payerid;
+    }
+    public function setRenterId($renterid)
+    {
+        $this->renterid = $renterid;
+    }
+    public function setChargedAt($chargedat)
+    {
+        $this->chargedat = $chargedat;
+    }
+    public function reset()
+    {
+        $this->orderid = null;
+        $this->amount = null;
+        $this->transactionid = null;
+        $this->type = null;
+        $this->currency = null;
+        $this->tax = null;
+        $this->dia_fee = null;
+        $this->payerid = null;
+        $this->renterid = null;
+    }
 
-    // ---------------------------------------------------------------------
-    // Legacy getter methods (mirroring original CakePHP API)
-    // ---------------------------------------------------------------------
+
     public static function getDepositTransaction($orderid)
     {
         return self::where('cs_order_id', $orderid)
@@ -141,9 +196,7 @@ class CsOrderPayment extends LegacyModel
             ->first();
     }
 
-    // ---------------------------------------------------------------------
-    // Legacy total calculation methods
-    // ---------------------------------------------------------------------
+
     public static function getTotalDeposit($orderid)
     {
         return (float) self::where('cs_order_id', $orderid)
@@ -203,18 +256,11 @@ class CsOrderPayment extends LegacyModel
 
     public static function getTotalPaidLateFee($orderid)
     {
-        // Late fee payments (type 5) that are marked as paid (status 1)
         return (float) self::where('cs_order_id', $orderid)
-            ->where('type', 5)
+            ->where('type', 19)
             ->where('status', 1)
             ->sum('amount');
     }
-
-    // ---------------------------------------------------------------------
-    // End of legacy methods
-    // ---------------------------------------------------------------------
-
-
 
     public static function getActiveRentalTransaction($orderId)
     {
@@ -348,7 +394,6 @@ class CsOrderPayment extends LegacyModel
             'charged_at' => $chargedAtValue
         ]);
     }
-
     public function saveRentalTransaction()
     {
 
@@ -469,7 +514,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveInitialFeeTransaction()
     {
 
@@ -585,7 +629,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveInsuranceTransaction()
     {
         $renter_id = !empty($this->payerid) ? $this->payerid : $this->renterid;
@@ -701,7 +744,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveDiaInsuranceTransaction()
     {
         $renter_id = !empty($this->payerid) ? $this->payerid : $this->renterid;
@@ -817,7 +859,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveEmfTransaction()
     {
 
@@ -936,7 +977,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveLateFeeTransaction()
     {
 
@@ -1056,7 +1096,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveCancelTransaction()
     {
         $order = CsOrder::find($this->orderid);
@@ -1151,7 +1190,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveTollTransaction()
     {
         $order = CsOrder::find($this->orderid);
@@ -1262,7 +1300,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveCustomerBalanceTransaction()
     {
         $order = CsOrder::find($this->orderid);
@@ -1371,7 +1408,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public function saveTDKTransaction()
     {
         $order = CsOrder::find($this->orderid);
@@ -1383,7 +1419,7 @@ class CsOrderPayment extends LegacyModel
             "user_id" => $renter_id,
             "cs_order_id" => $this->orderid,
             "rtype" => "D",
-            "type" => $this->typeid,
+            "type" => $this->type,
             "transaction_id" => "",
             "amt" => $this->amount
         ]);
@@ -1396,7 +1432,7 @@ class CsOrderPayment extends LegacyModel
 
                     self::create([
                         'cs_order_id' => $this->orderid,
-                        'type' => $this->typeid,
+                        'type' => $this->type,
                         'amount' => $transaction['amt'],
                         'transaction_id' => $transaction['transaction_id'],
                         'charged_at' => $chargedAtValue
@@ -1406,7 +1442,7 @@ class CsOrderPayment extends LegacyModel
                         "user_id" => $renter_id,
                         "cs_order_id" => $this->orderid,
                         "rtype" => "C",
-                        "type" => $this->typeid,
+                        "type" => $this->type,
                         "transaction_id" => $transaction['transaction_id'],
                         "amt" => $transaction['amt'],
                         "source" => $source
@@ -1431,7 +1467,7 @@ class CsOrderPayment extends LegacyModel
 
             $orderPayment = self::create([
                 'cs_order_id' => $this->orderid,
-                'type' => $this->typeid,
+                'type' => $this->type,
                 'amount' => $this->amount,
                 'transaction_id' => $this->transactionid,
                 'charged_at' => $chargedAtValue
@@ -1441,13 +1477,13 @@ class CsOrderPayment extends LegacyModel
                 "user_id" => $renter_id,
                 "cs_order_id" => $this->orderid,
                 "rtype" => "C",
-                "type" => $this->typeid,
+                "type" => $this->type,
                 "transaction_id" => $this->transactionid,
                 "amt" => $this->amount
             ]);
 
             $types = app(Common::class)->getPayoutTypeValue(1);
-            $typeName = $types[$this->typeid] ?? 'fee';
+            $typeName = $types[$this->type] ?? 'fee';
             $msg = "Payment was successful for the {$typeName} charges of your DriveItAway order ";
             app(EmailQueueService::class)->saveEmailToQueue($orderPayment->id, $this->amount, $msg, $this->orderid);
 
@@ -1456,12 +1492,11 @@ class CsOrderPayment extends LegacyModel
                 "amount" => $this->amount,
                 "transaction_id" => $this->transactionid,
                 "source" => 'stripe',
-                'type' => $this->typeid,
+                'type' => $this->type,
                 "charged_at" => $chargedAtValue
             ]);
         }
     }
-
     public static function saveInPayoutTransaction($transaction)
     {
         $txnid = $transaction['transaction_id'];
@@ -1488,7 +1523,6 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-
     public static function assignBookingIdToPayoutTransaction($transaction)
     {
         $txnid = $transaction['transaction_id'];

@@ -9,6 +9,7 @@ use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\UserIncome;
 use App\Models\Legacy\VehicleReservation;
+use App\Models\Legacy\VehicleReservationLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -106,10 +107,10 @@ class VehicleReservationsController extends LegacyAppController
     }
     public function createBooking(Request $request)
     {
-        $leaseIdRaw = $request->input('lease_id');
+        $lease_id = $request->input('lease_id');
 
-        if (!empty($leaseIdRaw)) {
-            $leaseId = $this->decodeId($leaseIdRaw);
+        if (!empty($lease_id)) {
+            $leaseId = $this->decodeId($lease_id);
             $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
 
             $reservation = VehicleReservation::with('vehicle')
@@ -240,6 +241,7 @@ class VehicleReservationsController extends LegacyAppController
 
             // Pass values to array template structure
             return view('admin.vehicle_reservations.create_booking', compact(
+                'lease_id',
                 'validateVehicle',
                 'reservation',
                 'vehicle',
@@ -263,6 +265,154 @@ class VehicleReservationsController extends LegacyAppController
         }
 
         return redirect()->back();
+    }
+    public function markBookingCompleted(Request $request)
+    {
+        $leaseId = $this->decodeId($request->input('lease_id'));
+
+        if (!empty($leaseId)) {
+            VehicleReservation::withoutEvents(function () use ($leaseId) {
+                VehicleReservation::where('id', $leaseId)->update(['status' => 1]);
+            });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Request processed successfully',
+                'result' => ['lease_id' => $leaseId]
+            ]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Invalid Request',
+            'result' => []
+        ], 400);
+    }
+    public function updatelist(Request $request)
+    {
+        $pk = $request->input('pk');
+        $name = $request->input('name');
+        $value = $request->input('value');
+
+        $allowedNames = ['gps2', 'gps', 'income_threshold', 'checkr_status', 'clue_report', 'docusign'];
+
+        if (!empty($pk) && !empty($name) && in_array($name, $allowedNames)) {
+
+            VehicleReservation::withoutEvents(function () use ($pk, $name, $value) {
+                VehicleReservation::where('id', $pk)->update([$name => $value]);
+            });
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Request processed successfully',
+                'result' => []
+            ]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Invalid Request',
+            'result' => []
+        ], 400);
+    }
+    public function updatemvr(Request $request)
+    {
+        $pk = $request->input('pk');
+        $name = $request->input('name');
+        $value = $request->input('value', []);
+
+        $loggedUserId = session('SESSION_ADMIN.id')
+            ?? session('userParentId')
+            ?? session('userid')
+            ?? 0;
+
+        $response = [
+            'status' => false,
+            'message' => 'Invalid Request',
+            'result' => []
+        ];
+
+        if (empty($pk) || empty($name)) {
+            return response()->json($response, 400);
+        }
+
+        if ($name === 'checkr_status') {
+            $status = '';
+            $accidents3 = (int) ($value['accidents_3'] ?? 0);
+            $accidents5 = (int) ($value['accidents_5'] ?? 0);
+            $violations = (int) ($value['violations'] ?? 0);
+
+            if ($accidents3 < 2 && $accidents5 < 3 && $violations < 2) {
+                $status = 1;
+            } elseif ($accidents3 >= 2 || $accidents5 >= 3 || $violations >= 2) {
+                $status = 4;
+            }
+
+            if ($status !== '') {
+                VehicleReservation::withoutEvents(function () use ($pk, $status) {
+                    VehicleReservation::where('id', $pk)->update(['checkr_status' => $status]);
+                });
+
+                VehicleReservationLog::create([
+                    'user_id' => $loggedUserId,
+                    'reservation_id' => $pk,
+                    'status' => 10,
+                    'note' => "Status changed by MVR review, with following choice: accidents_3:$accidents3,accidents_5:$accidents5,violations:$violations"
+                ]);
+            } else {
+                $reservation = VehicleReservation::find($pk, ['checkr_status']);
+                $status = $reservation ? $reservation->checkr_status : 0;
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Request processed successfully',
+                'result' => ['status' => $status]
+            ]);
+        }
+
+        if ($name === 'clue_report') {
+            $status = '';
+            $accidents3 = (int) ($value['accidents_3'] ?? 0);
+            $accidents5 = (int) ($value['accidents_5'] ?? 0);
+            $violations = (int) ($value['violations'] ?? 0);
+            $notes = $value['notes'] ?? '';
+
+            if ($accidents3 < 2 && $accidents5 < 3 && $violations < 2) {
+                $status = 1;
+            } elseif ($accidents3 >= 2 || $accidents5 >= 3 || $violations >= 2) {
+                $status = 0;
+            }
+
+            if ($status !== '') {
+                VehicleReservation::withoutEvents(function () use ($pk, $status) {
+                    VehicleReservation::where('id', $pk)->update(['clue_report' => $status]);
+                });
+
+                VehicleReservationLog::create([
+                    'user_id' => $loggedUserId,
+                    'reservation_id' => $pk,
+                    'status' => 10,
+                    'note' => "Status changed by CLUE review, with following choice: accidents_3:$accidents3,accidents_5:$accidents5,violations:$violations,notes:$notes"
+                ]);
+            } else {
+                $reservation = VehicleReservation::find($pk, ['clue_report']);
+                $status = $reservation ? $reservation->clue_report : 0;
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Request processed successfully',
+                'result' => ['status' => $status]
+            ]);
+        }
+
+        return response()->json($response, 400);
+    }
+    public function saveVehicleBooking(Request $request): JsonResponse
+    {
+        $result = $this->_saveVehicleBooking($request->all());
+        return response()->json($result);
     }
 
 
@@ -320,12 +470,7 @@ class VehicleReservationsController extends LegacyAppController
 
 
 
-    public function markBookingCompleted(Request $request): JsonResponse
-    {
-        $request->merge(['status' => 3]);
 
-        return $this->changeSaveStatus($request);
-    }
 
     public function getuserdetails(Request $request): JsonResponse
     {
@@ -351,37 +496,13 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json(['status' => true, 'user' => $user]);
     }
 
-    public function updatelist(Request $request)
-    {
-        return $this->index($request);
-    }
-
-    public function updatemvr(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'MVR update queued']);
-    }
 
 
 
-    public function saveVehicleBooking(Request $request): JsonResponse
-    {
-        $id = $this->decodeId((string) $request->input('lease_id', $request->input('id', '')));
-        if (!$id) {
-            return response()->json(['status' => false, 'message' => 'Invalid reservation']);
-        }
-        $payload = [];
-        foreach (['start_datetime', 'end_datetime', 'vehicle_id', 'renter_id'] as $k) {
-            $v = $request->input($k);
-            if ($v !== null && $v !== '') {
-                $payload[$k] = $v;
-            }
-        }
-        if ($payload !== []) {
-            VehicleReservation::query()->whereKey($id)->update($payload);
-        }
 
-        return response()->json(['status' => true, 'message' => 'Reservation updated successfully']);
-    }
+
+
+
 
     public function changeVehicle(Request $request)
     {

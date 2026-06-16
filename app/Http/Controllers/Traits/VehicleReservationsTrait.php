@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Traits;
 
+use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\PrepaidPlan;
 use App\Models\Legacy\VehicleReservation;
 use App\Models\Legacy\Vehicle;
@@ -12,6 +13,7 @@ use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\CsWallet;
 use App\Models\Legacy\CsOrderStatuslog;
 use App\Models\Legacy\CsReservationPayment;
+use App\Services\Legacy\Insurance;
 use App\Services\Legacy\Notifier;
 use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Support\Facades\Log;
@@ -61,7 +63,7 @@ trait VehicleReservationsTrait
         3 => ["Not Interested", "bg-danger"],
         4 => ["Find a Replacement", "bg-info"]
     ];
-    public function _markBookingCancel(VehicleReservation $reservation, string $cancelNote = "")
+    private function _markBookingCancel(VehicleReservation $reservation, string $cancelNote = "")
     {
         $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
 
@@ -125,27 +127,307 @@ trait VehicleReservationsTrait
             'result' => ['lease_id' => $leaseId]
         ];
     }
-
-    public function _saveVehicleBooking($data)
+    private function _saveVehicleBooking(array $requestData): array
     {
-        // Core logic for creating a booking from a reservation
-        try {
-            return DB::transaction(function () use ($data) {
-                $lease_id = base64_decode($data['Text']['lease_id'] ?? '');
-                $reservation = VehicleReservation::findOrFail($lease_id);
+        $startTimeInput = str_replace('AM', '', $requestData['start_time'] ?? '');
+        $endTimeInput = str_replace('AM', '', $requestData['end_time'] ?? '');
+        $startTime = date('h:i A', strtotime($startTimeInput));
+        $endTime = date('h:i A', strtotime($endTimeInput));
+        $leaseId = base64_decode(trim($requestData['lease_id'] ?? ''));
+        $return = ['status' => false, 'message' => 'Invalid inputs', 'result' => []];
+        $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
 
-                // 1. Create CsOrder
-                // 2. Map fields (start date, end date, rent, tax, etc.)
-                // 3. Update reservation status to 1 (Accepted)
-                // 4. Update vehicle status to booked=1
+        $vehicleReservation = VehicleReservation::with('owner:id,currency,address,address_lat,address_lng')
+            ->where('id', $leaseId)
+            ->where('buy', 0)
+            ->whereIn('status', $allowedStatus)
+            ->first();
 
-                Log::info("Booking saved from reservation: " . $lease_id);
-                return ['status' => true, 'message' => "Booking processed successfully"];
-            });
-        } catch (\Exception $e) {
-            Log::error("Error saving booking: " . $e->getMessage());
-            return ['status' => false, 'message' => "Error: " . $e->getMessage()];
+        if (empty($vehicleReservation)) {
+            $return['message'] = 'Sorry, Reservation data not found';
+            return $return;
         }
+
+        $vehicleId = $vehicleReservation->vehicle_id;
+        $customerId = $vehicleReservation->renter_id;
+        $address = $vehicleReservation->owner->address ?? '';
+        $addressLat = $vehicleReservation->owner->address_lat ?? '';
+        $addressLng = $vehicleReservation->owner->address_lng ?? '';
+
+        $vehicleData = Vehicle::where('id', $vehicleId)
+            ->where('user_id', $vehicleReservation->user_id)
+            ->first();
+
+        if (empty($vehicleData)) {
+            $return['message'] = 'Sorry, you are not authorize owner of selected Vehicle';
+            return $return;
+        }
+
+        $startDate = $requestData['daterangefrom'] ?? '';
+        $endDate = $requestData['daterangeto'] ?? '';
+        $timezone = $vehicleReservation->timezone;
+        $startDatetime = date('Y-m-d H:i:s', strtotime($startDate . ' ' . $startTime));
+        $endDatetime = date('Y-m-d H:i:s', strtotime($endDate . ' ' . $endTime));
+
+        if (empty($startDate) || empty($endDate) || strtotime($startDatetime) > strtotime($endDatetime)) {
+            $return['message'] = 'Sorry, please select correct date range';
+            return $return;
+        }
+
+        $bookingRentalChoice = OrderDepositRule::where('vehicle_reservation_id', $leaseId)->first();
+
+        if (empty($bookingRentalChoice)) {
+            $return['message'] = 'Sorry, Renter booking rent preference data not found';
+            return $return;
+        }
+
+        $nextDate = OrderDepositRule::getFromTierData($bookingRentalChoice->duration_opt, $startDate, $endDate);
+
+        if ($nextDate) {
+            $endDatetime = date('Y-m-d H:i:s', strtotime($startDatetime . " +$nextDate days"));
+        }
+
+        $csOrder = [];
+        $csOrder['status'] = 0;
+        $csOrder['pickup_address'] = $address;
+        $csOrder['lat'] = $addressLat;
+        $csOrder['lng'] = $addressLng;
+        $csOrder['vehicle_id'] = $vehicleId;
+        $csOrder['vehicle_name'] = $vehicleData->vehicle_name;
+        $csOrder['user_id'] = $vehicleData->user_id;
+        $csOrder['start_datetime'] = Carbon::parse($startDatetime, $timezone)->setTimezone(config('app.timezone'))->toDateTimeString();
+        $csOrder['end_datetime'] = Carbon::parse($endDatetime, $timezone)->setTimezone(config('app.timezone'))->toDateTimeString();
+        $csOrder['pto'] = $vehicleReservation->pto;
+        $csOrder['delivery'] = $vehicleReservation->delivery;
+        $csOrder['renter_id'] = $customerId;
+
+        $priceRulesAmt = (new DepositRule())->getPendingBookingFee($csOrder, $bookingRentalChoice->toArray());
+
+        $csOrder['start_odometer'] = $vehicleData->last_mile;
+        $csOrder['rent'] = $priceRulesAmt['time_fee'];
+        $csOrder['tax'] = $priceRulesAmt['tax'];
+        $csOrder['dia_fee'] = $priceRulesAmt['dia_fee'];
+        $csOrder['insurance_amt'] = $priceRulesAmt['insurance_amt'] ?? 0;
+        $csOrder['extra_mileage_fee'] = $priceRulesAmt['extra_mileage_fee'] ?? 0;
+        $csOrder['emf_tax'] = $priceRulesAmt['emf_tax'];
+
+        $priceRulesAmt['initial_fee'] = 0;
+        $priceRulesAmt['initial_fee_tax'] = 0;
+        $priceRulesAmt['deposit_amt'] = 0;
+        $priceRulesAmt['currency'] = $vehicleReservation->owner->currency;
+        $priceRulesAmt['insurance_payer'] = $bookingRentalChoice->insurance_payer;
+
+        $csOrder['discount'] = $priceRulesAmt['discount'];
+        $csOrder['initial_discount'] = $vehicleReservation->initial_discount;
+
+        $rentalPayments = CsReservationPayment::getRentalTransaction($vehicleReservation->id);
+
+        if (!empty($rentalPayments)) {
+            $rentalCollection = collect($rentalPayments);
+            $paidRent = sprintf('%0.2f', $rentalCollection->sum('rent'));
+            $paidTax = sprintf('%0.2f', $rentalCollection->sum('tax'));
+            $paidDiaFee = sprintf('%0.2f', $rentalCollection->sum('dia_fee'));
+
+            $priceRulesAmt['time_fee'] = ($priceRulesAmt['time_fee'] - $paidRent) >= 0
+                ? ($priceRulesAmt['time_fee'] - $paidRent)
+                : $priceRulesAmt['time_fee'];
+            $priceRulesAmt['tax'] = ($priceRulesAmt['tax'] - $paidTax);
+            $priceRulesAmt['dia_fee'] = ($priceRulesAmt['dia_fee'] - $paidDiaFee);
+        }
+
+        $paidInsurances = CsReservationPayment::getInsuranceTransaction($vehicleReservation->id);
+
+        if (!empty($paidInsurances)) {
+            $paidInsurance = sprintf('%0.2f', collect($paidInsurances)->sum('amount'));
+            $priceRulesAmt['insurance_amt'] = ($paidInsurance > $priceRulesAmt['insurance_amt'])
+                ? 0
+                : ($priceRulesAmt['insurance_amt'] - $paidInsurance);
+            $csOrder['insurance_amt'] = ($paidInsurance > $priceRulesAmt['insurance_amt'])
+                ? $paidInsurance
+                : $csOrder['insurance_amt'];
+        }
+
+        $paymentProcessorObj = new PaymentProcessor();
+        $paymentProcessResult = $paymentProcessorObj->checkAndProcessForMobile($customerId, $csOrder['user_id'], $priceRulesAmt);
+
+        if (($paymentProcessResult['status'] ?? '') === 'success') {
+            $csOrder['initial_fee'] = $priceRulesAmt['initial_fee'] = $bookingRentalChoice->initial_fee ?? $priceRulesAmt['initial_fee'];
+            $csOrder['initial_fee_tax'] = isset($bookingRentalChoice->initial_fee)
+                ? sprintf('%0.2f', ($bookingRentalChoice->initial_fee * $bookingRentalChoice->tax / 100))
+                : 0;
+            $csOrder['deposit'] = $bookingRentalChoice->deposit_amt ?? $priceRulesAmt['deposit_amt'];
+            $csOrder['deposit_type'] = 'C';
+            $csOrder['increment_id'] = $this->commonService->getOrderIncrementId();
+            $csOrder['dpa_status'] = $paymentProcessResult['dpa_status'];
+            $csOrder['insu_status'] = $priceRulesAmt['insurance_amt'] == 0 ? 1 : $paymentProcessResult['insu_status'];
+            $csOrder['emf_status'] = $priceRulesAmt['extra_mileage_fee'] == 0 ? 1 : $paymentProcessResult['emf_status'];
+            $csOrder["payment_status"] = ($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']) == 0 ? 1 : $paymentProcessResult['payment_status'];
+            $csOrder['infee_status'] = $paymentProcessResult['infee_status'];
+            $csOrder['timezone'] = $timezone;
+            $csOrder['currency'] = $vehicleReservation->owner->currency;
+
+            $createdOrder = CsOrder::create($csOrder);
+            $csOrderId = $createdOrder->id;
+
+            VehicleReservation::withoutEvents(function () use ($vehicleReservation) {
+                VehicleReservation::where('id', $vehicleReservation->id)->update(['status' => 1]);
+            });
+
+            $initialFeeOpt = $initialFeeOptTemp = !empty($bookingRentalChoice->initial_fee_opt)
+                ? json_decode($bookingRentalChoice->initial_fee_opt, true)
+                : [];
+            $depositOpt = $depositOptTemp = !empty($bookingRentalChoice->deposit_opt)
+                ? json_decode($bookingRentalChoice->deposit_opt, true)
+                : [];
+
+            if (strtotime($vehicleReservation->start_datetime) !== strtotime($csOrder['start_datetime'])) {
+                $initialFeeOptTemp = $this->commonService->updateMissedScheduleOpt($csOrder['start_datetime'], $initialFeeOpt);
+                $depositOptTemp = $this->commonService->updateMissedScheduleOpt($csOrder['start_datetime'], $depositOpt);
+            }
+
+            OrderDepositRule::where('id', $bookingRentalChoice->id)->update([
+                'cs_order_id' => $csOrderId,
+                'start_datetime' => $csOrder['start_datetime'],
+                'initial_fee_opt' => json_encode($initialFeeOptTemp),
+                'deposit_opt' => json_encode($depositOptTemp),
+                'msrp' => $vehicleData->msrp,
+                'premium_msrp' => $vehicleData->premium_msrp
+            ]);
+
+            $depositAuth = CsReservationPayment::getDepositTransaction($leaseId);
+
+            if (!empty($depositAuth)) {
+                $responseCapture = $paymentProcessorObj->ReservationPaymentCaptureOnly($csOrderId, $depositAuth, $csOrder['user_id']);
+                CsOrder::where('id', $csOrderId)->update([
+                    'dpa_status' => ($responseCapture['status'] === 'success') ? 1 : 2
+                ]);
+            }
+
+            $csOrderPayment = new CsOrderPayment();
+            $csOrderPayment->setOrderId($csOrderId);
+            $csOrderPayment->setCurrency($paymentProcessResult['currency']);
+            $csOrderPayment->setRenterId($csOrder['renter_id']);
+
+            if (!empty($paymentProcessResult['insurance_transaction_id'])) {
+                $csOrderPayment->setAmount($priceRulesAmt['insurance_amt']);
+                $csOrderPayment->setTransactionidId($paymentProcessResult['insurance_transaction_id']);
+                $csOrderPayment->setType('C');
+                $csOrderPayment->setPayerId($paymentProcessResult['insu_payerid']);
+                $csOrderPayment->saveInsuranceTransaction();
+            }
+
+            if (!empty($paymentProcessResult['transaction_id'])) {
+                $csOrderPayment->setAmount(($priceRulesAmt['time_fee'] + $priceRulesAmt['tax'] + $priceRulesAmt['dia_fee']));
+                $csOrderPayment->setTransactionidId($paymentProcessResult['transaction_id']);
+                $csOrderPayment->setType('C');
+                $csOrderPayment->setTax($priceRulesAmt['tax']);
+                $csOrderPayment->setDiaFee($priceRulesAmt['dia_fee']);
+                $csOrderPayment->saveRentalTransaction();
+            }
+
+            if (!empty($rentalPayments)) {
+                foreach ($rentalPayments as $rentalPayment) {
+                    $csOrderPayment->setAmount($rentalPayment['amount']);
+                    $csOrderPayment->setTransactionidId($rentalPayment['transaction_id']);
+                    $csOrderPayment->setType('C');
+                    $csOrderPayment->setTax($rentalPayment['tax']);
+                    $csOrderPayment->setChargedAt($rentalPayment['created']);
+                    $csOrderPayment->setDiaFee($rentalPayment['dia_fee']);
+                    $csOrderPayment->saveRentalTransaction();
+                }
+            }
+
+            if (!empty($paidInsurances)) {
+                foreach ($paidInsurances as $pInsurance) {
+                    $csOrderPayment->setAmount($pInsurance['amount']);
+                    $csOrderPayment->setTransactionidId($pInsurance['transaction_id']);
+                    $csOrderPayment->setType('C');
+                    $csOrderPayment->setChargedAt($pInsurance['created']);
+                    $csOrderPayment->setPayerId($pInsurance['payer_id']);
+                    $csOrderPayment->saveInsuranceTransaction();
+                }
+            }
+
+            if (!empty($paymentProcessResult['emf_transaction_id'])) {
+                $csOrderPayment->setAmount($csOrder['extra_mileage_fee']);
+                $csOrderPayment->setTransactionidId($paymentProcessResult['emf_transaction_id']);
+                $csOrderPayment->setType('C');
+                $csOrderPayment->setTax($csOrder['emf_tax']);
+                $csOrderPayment->saveEmfTransaction();
+            }
+
+            $initialFeeAuth = CsReservationPayment::getInitialFeeTransaction($leaseId);
+
+            if (!empty($initialFeeAuth)) {
+                $responseCap = $paymentProcessorObj->ReservationPaymentCaptureOnly($csOrderId, $initialFeeAuth, $csOrder['user_id']);
+                CsOrder::where('id', $csOrderId)->update([
+                    'infee_status' => ($responseCap['status'] === 'success') ? 1 : 2
+                ]);
+            }
+
+            $pendingInsu = false;
+            if ($bookingRentalChoice->insurance_payer == 3 && ($priceRulesAmt['insurance_event'] ?? '') === 'P') {
+                $insuranceObj = new Insurance();
+                $insuPassData = [
+                    'pending_insu' => 0,
+                    "order_rule_id" => $bookingRentalChoice->id,
+                    "start_datetime" => $csOrder['start_datetime']
+                ];
+
+                $insuObjResult = $insuranceObj->getCalculatedAndChargeInsurance($insuPassData);
+
+                if (!$insuObjResult['status']) {
+                    CsOrder::where('id', $csOrderId)->update(['pending_insu' => $insuObjResult['pending_insu']]);
+                    $pendingInsu = true;
+                }
+            }
+
+            if ($bookingRentalChoice->insurance_payer == 7) {
+                DepositRule::where('vehicle_id', $vehicleId)->update(['insurance_fee' => 25]);
+            }
+
+            CsOrderStatuslog::saveBookingPendingToActiveEvent($csOrderId, $vehicleData->user_id);
+
+            // Notifications
+            $owner = User::find($vehicleData->user_id, ['email', 'notify_email']);
+            $renterInfo = CommonHelper::getRenterDetails($customerId);
+            Emailnotify::sendNotificationToOwner($vehicleData->toArray(), $owner, $csOrder['start_datetime'], $renterInfo);
+
+            $notifier = new Notifier();
+            $tag = ["Booking_Status" => "Active", 'Rental_Status' => "Paid"];
+            if ($pendingInsu || ($csOrder['infee_status'] ?? 0) == 2 || ($csOrder['dpa_status'] ?? 0) == 2 || ($csOrder['insu_status'] ?? 0) == 2 || ($csOrder['payment_status'] ?? 0) == 2) {
+                $tag['Rental_Status'] = "Unpaid";
+            }
+            $notifier->notifyForActivateBooking($csOrderId, $renterInfo, $tag);
+
+            // Intercom Logging pipeline
+            Notifier::createIntercomeUserEvent([
+                "event_name" => "booking_activated",
+                "created_at" => time(),
+                "external_id" => $customerId,
+                "user_id" => $customerId,
+                "metadata" => [
+                    "booking_id" => $csOrderId,
+                    "pending_booking_id" => $leaseId,
+                    'vehicle_id' => $vehicleId,
+                    'vehicle_name' => $vehicleData->vehicle_name,
+                    "goal" => $bookingRentalChoice->goal,
+                    "total_program_cost" => $bookingRentalChoice->total_program_cost
+                ]
+            ]);
+
+            // Wrap up execution workflows
+            $this->createOutstandingIssues($csOrderId, $vehicleReservation->toArray());
+            $this->copyVehicleImageFromRemote($vehicleData->id);
+
+            $newType = ($vehicleData->from_feed == 1) ? 'real' : $vehicleData->type;
+            Vehicle::where('id', $vehicleId)->update(['type' => $newType]);
+
+            return ['status' => true, 'message' => "Your acceptance booked successfully", 'result' => [], "lease_id" => $leaseId];
+        } else {
+            return ['status' => false, 'message' => "Your acceptance failed due to payment failed with error: " . ($paymentProcessResult['message'] ?? 'Unknown Error'), 'result' => []];
+        }
+
     }
 
     public function _getfarecalculations($reservationId)

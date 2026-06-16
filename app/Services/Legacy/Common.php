@@ -2349,7 +2349,7 @@ class Common
         $jsonString = preg_replace('/_value/', '', $orderCheckLists);
         $items = collect(json_decode($jsonString, true));
 
-        $filtered = $items->forget(function ($value, $key) {
+        $filtered = $items->reject(function ($value, $key) {
             return str_contains($key, '_note');
         });
 
@@ -2360,7 +2360,7 @@ class Common
             return $value !== 'No';
         })->keys();
 
-        return array_values(array_diff(array_keys($checklists), $completedKeys->toArray()));
+        return collect($checklists)->keys()->diff($completedKeys)->values()->all();
     }
 
     public function getAvailabilityOptions($val = null)
