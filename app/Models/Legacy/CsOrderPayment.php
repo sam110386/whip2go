@@ -117,143 +117,241 @@ class CsOrderPayment extends LegacyModel
         $this->renterid = null;
     }
 
-
     public static function getDepositTransaction($orderid)
     {
         return self::where('cs_order_id', $orderid)
             ->where('type', 1)
-            ->first();
+            ->pluck('amount', 'transaction_id');
     }
-
     public static function getActiveDepositTransaction($orderid)
     {
-        return self::where('cs_order_id', $orderid)
+        return self::select([
+            'id',
+            'amount',
+            'transaction_id',
+            'txntype',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
             ->where('type', 1)
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->keyBy('id');
     }
-
     public static function getRentalTransaction($orderid)
     {
         return self::where('cs_order_id', $orderid)
             ->where('type', 2)
-            ->first();
+            ->pluck('amount', 'transaction_id');
     }
-
     public static function getInitialFeeTransaction($orderid)
     {
         return self::where('cs_order_id', $orderid)
             ->where('type', 3)
-            ->first();
+            ->get([
+                'id',
+                'amount',
+                'tax',
+                'transaction_id'
+            ]);
     }
-
     public static function getInsuranceTransaction($orderid)
     {
         return self::where('cs_order_id', $orderid)
             ->where('type', 4)
-            ->first();
+            ->pluck('amount', 'transaction_id');
     }
-
     public static function getActiveDiaInsuranceTransaction($orderid)
     {
-        return self::where('cs_order_id', $orderid)
+        return self::select([
+            'id',
+            'amount',
+            'transaction_id',
+            'payer_id',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
             ->where('type', 14)
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->keyBy('id');
     }
-
     public static function getActiveEmfTransaction($orderid)
     {
-        return self::where('cs_order_id', $orderid)
+        return self::select([
+            'id',
+            'amount',
+            'tax',
+            'transaction_id',
+            'payer_id',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
             ->where('type', 16)
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->keyBy('id');
     }
-
     public static function getActiveTollTransaction($orderid)
     {
-        return self::where('cs_order_id', $orderid)
-            ->where('type', 19)
+        return self::select([
+            'id',
+            'amount',
+            'transaction_id',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
+            ->where('type', 6)
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->keyBy('id');
     }
-
     public static function getActiveLateFeeTransaction($orderid)
     {
-        // Late fee uses type 5 (balance over due) in this implementation
-        return self::where('cs_order_id', $orderid)
-            ->where('type', 5)
+        return self::select([
+            'id',
+            'amount',
+            'transaction_id',
+            'rent',
+            'tax',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
+            ->where('type', 19)
             ->where('status', 1)
-            ->first();
+            ->get()
+            ->keyBy('id');
     }
-
     public static function getNoneTransferredDepositTransaction($orderid)
     {
-        // Deposits that have not yet been transferred (status 0)
         return self::where('cs_order_id', $orderid)
             ->where('type', 1)
-            ->where('status', 0)
-            ->first();
+            ->where('cs_transfer', 0)
+            ->where('txntype', 'C')
+            ->get()
+            ->keyBy('id');
     }
-
-
     public static function getTotalDeposit($orderid)
     {
         return (float) self::where('cs_order_id', $orderid)
             ->where('type', 1)
+            ->where('status', 1)
             ->sum('amount');
     }
-
     public static function getTotalRentalTax($orderid)
     {
-        return (float) self::where('cs_order_id', $orderid)
+        $rows = self::where('cs_order_id', $orderid)
             ->where('type', 2)
-            ->sum('tax');
-    }
+            ->where('status', 1)
+            ->get([
+                'amount',
+                'rent',
+                'tax',
+                'dia_fee'
+            ]);
 
+
+        if ($rows->isEmpty()) {
+            return [
+                'rent' => 0,
+                'tax' => 0,
+                'dia_fee' => 0
+            ];
+        }
+
+        $amount = (float) $rows->sum('amount');
+        $rent = (float) $rows->sum('rent');
+        $tax = (float) $rows->sum('tax');
+        $dia_fee = (float) $rows->sum('dia_fee');
+
+        return [
+            'rent' => min($rent, $amount),
+            'tax' => $tax,
+            'dia_fee' => $dia_fee
+        ];
+    }
     public static function getTotalInsurance($orderid)
     {
         return (float) self::where('cs_order_id', $orderid)
             ->where('type', 4)
+            ->where('status', 1)
             ->sum('amount');
     }
-
     public static function getTotalDiaInsurance($orderid)
     {
         return (float) self::where('cs_order_id', $orderid)
             ->where('type', 14)
-            ->sum('amount');
-    }
-
-    public static function getTotalEmf($orderid)
-    {
-        return (float) self::where('cs_order_id', $orderid)
-            ->where('type', 16)
-            ->sum('amount');
-    }
-
-    public static function getTotalInitialFee($orderid)
-    {
-        return (float) self::where('cs_order_id', $orderid)
-            ->where('type', 3)
-            ->sum('amount');
-    }
-
-    public static function getTotalToll($orderid)
-    {
-        return (float) self::where('cs_order_id', $orderid)
-            ->where('type', 19)
-            ->sum('amount');
-    }
-
-    public static function getTotalPaidRental($orderid)
-    {
-        return (float) self::where('cs_order_id', $orderid)
-            ->where('type', 2)
             ->where('status', 1)
             ->sum('amount');
     }
+    public static function getTotalEmf($orderid)
+    {
+        $rows = self::where('cs_order_id', $orderid)
+            ->where('type', 16)
+            ->where('status', 1)
+            ->get(['amount', 'tax']);
 
+        if ($rows->isEmpty()) {
+            return [
+                'emf' => 0,
+                'tax' => 0
+            ];
+        }
+
+        $amount = (float) $rows->sum('amount');
+        $tax = (float) $rows->sum('tax');
+
+        return [
+            'emf' => ($amount - $tax),
+            'tax' => $tax
+        ];
+    }
+    public static function getTotalInitialFee($orderid)
+    {
+        $rows = self::where('cs_order_id', $orderid)
+            ->where('type', 3)
+            ->where('status', 1)
+            ->get(['amount', 'tax']);
+
+        if ($rows->isEmpty()) {
+            return [
+                'initial_fee' => 0,
+                'initial_fee_tax' => 0
+            ];
+        }
+
+        $amount = (float) $rows->sum('amount');
+        $tax = (float) $rows->sum('tax');
+
+        return [
+            'initial_fee' => ($amount - ($tax < $amount ? $tax : 0)),
+            'initial_fee_tax' => $tax,
+        ];
+    }
+    public static function getTotalToll($orderid)
+    {
+        return (float) self::where('cs_order_id', $orderid)
+            ->where('type', 6)
+            ->where('status', 1)
+            ->sum('amount');
+    }
+    public static function getTotalPaidRental($orderid)
+    {
+        return (float) self::where('cs_order_id', $orderid)
+            ->whereIn('type', [2, 16])
+            ->where('status', 1)
+            ->sum('amount');
+    }
     public static function getTotalPaidLateFee($orderid)
     {
         return (float) self::where('cs_order_id', $orderid)
@@ -261,7 +359,6 @@ class CsOrderPayment extends LegacyModel
             ->where('status', 1)
             ->sum('amount');
     }
-
     public static function getActiveRentalTransaction($orderId)
     {
         return self::select([
@@ -281,13 +378,117 @@ class CsOrderPayment extends LegacyModel
             ->get()
             ->keyBy('id');
     }
+    public static function getActiveInsuranceTransaction($orderid)
+    {
+        return self::select([
+            'id',
+            'amount',
+            'transaction_id',
+            'payer_id',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
+            ->where('type', 4)
+            ->where('status', 1)
+            ->get()
+            ->keyBy('id');
+    }
+    public static function getActiveInitialFeeTransaction($orderid)
+    {
+        return self::select([
+            'id',
+            'amount',
+            'rent',
+            'tax',
+            'transaction_id',
+            'charged_at',
+            'currency',
+            'dealer_amt'
+        ])
+            ->where('cs_order_id', $orderid)
+            ->where('type', 3)
+            ->where('status', 1)
+            ->get()
+            ->keyBy('id');
+    }
+    public static function copyDeposits($oldorderid, $neworderid)
+    {
+        $deposits = self::getActiveDepositTransaction($oldorderid);
+        foreach ($deposits as $deposit) {
+            self::create([
+                'cs_order_id' => $neworderid,
+                'type' => 1,
+                'status' => 1,
+                'amount' => $deposit->amount,
+                'transaction_id' => $deposit->transaction_id,
+                'currency' => $deposit->currency,
+                'dealer_amt' => $deposit->dealer_amt,
+                'charged_at' => $deposit->charged_at,
+            ]);
+        }
+
+        self::where('cs_order_id', $oldorderid)
+            ->where('type', 1)
+            ->update(['status' => 3]);
+    }
+    public static function saveInPayoutTransaction($transaction)
+    {
+        $txnid = $transaction['transaction_id'];
+        $orderid = $transaction['cs_order_id'] ?? ($transaction['order_id'] ?? 0);
+        $type = $transaction['type'] ?? 1;
+        $hitch = config('legacy.HITCH');
+        $paymentProcessorObj = new PaymentProcessor();
+        $result = $paymentProcessorObj->chargeRetrieve(['auth_token' => $txnid]);
+
+        if (isset($result['metadata']) && isset($result['metadata']['payer_id']) && $result['metadata']['payer_id'] == $hitch) {
+            $amt = ($result['amount_captured'] > 0) ? ($result['amount_captured'] / 100) : 0;
+            CsPayoutTransaction::create([
+                "cs_order_id" => $orderid,
+                "type" => $type,
+                "cs_payment_id" => 0,
+                "user_id" => $result['metadata']['payer_id'],
+                "amount" => 0,
+                "refund" => $amt,
+                'transaction_id' => $txnid,
+                'transfer_id' => $result['source_transfer'] ?? '',
+                'balance_transaction' => $result['balance_transaction'] ?? '',
+                'destination_payment' => $result['source_transfer'] ?? ''
+            ]);
+        }
+    }
+    public static function assignBookingIdToPayoutTransaction($transaction)
+    {
+        $txnid = $transaction['transaction_id'];
+        $orderid = $transaction['order_id'];
+        $hitch = config('legacy.HITCH');
+        $paymentProcessorObj = new PaymentProcessor();
+        $result = $paymentProcessorObj->chargeRetrieve(['auth_token' => $txnid]);
+
+        if (!isset($result['metadata']) || !isset($result['metadata']['payer_id']) || $result['metadata']['payer_id'] != $hitch) {
+            return;
+        }
+
+        $findObj = CsPayoutTransaction::where('transaction_id', $txnid)
+            ->where('cs_order_id', 0)
+            ->where('user_id', $result['metadata']['payer_id'])
+            ->first();
+
+        if (empty($findObj)) {
+            return;
+        }
+
+        $findObj->update(['cs_order_id' => $orderid]);
+    }
+
     public function saveDepositTransaction()
     {
         if (empty($this->orderid) || empty($this->transactionid)) {
             return;
         }
 
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $this->renterid,
@@ -307,7 +508,6 @@ class CsOrderPayment extends LegacyModel
 
                 $chargedAtValue = $transaction['charged_at'] ?? now();
                 $source = $transaction['source'] ?? 'card';
-
                 $orderPayment = self::create([
                     'cs_order_id' => $this->orderid,
                     'type' => 1,
@@ -396,8 +596,7 @@ class CsOrderPayment extends LegacyModel
     }
     public function saveRentalTransaction()
     {
-
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $this->renterid,
@@ -410,11 +609,13 @@ class CsOrderPayment extends LegacyModel
 
         if (is_array($this->transactionid)) {
             $step = 1;
+
             foreach ($this->transactionid as $transaction) {
                 if ($step++ == 2) {
                     $this->tax = 0;
                     $this->dia_fee = 0;
                 }
+
                 if ($transaction['amt'] <= 0) {
                     continue;
                 }
@@ -467,6 +668,7 @@ class CsOrderPayment extends LegacyModel
                     $emailQueue->saveEmailToQueue($orderPayment->id, $transaction['amt'], $msg, $this->orderid, $source);
                 }
             }
+
             return;
         }
 
@@ -516,8 +718,7 @@ class CsOrderPayment extends LegacyModel
     }
     public function saveInitialFeeTransaction()
     {
-
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $this->renterid,
@@ -529,6 +730,7 @@ class CsOrderPayment extends LegacyModel
         ]);
 
         if (is_array($this->transactionid)) {
+
             foreach ($this->transactionid as $transaction) {
                 if ($transaction['amt'] <= 0) {
                     continue;
@@ -582,6 +784,7 @@ class CsOrderPayment extends LegacyModel
                     $emailQueue->saveEmailToQueue($orderPayment->id, $transaction['amt'], $msg, $this->orderid, $source);
                 }
             }
+
             return;
         }
 
@@ -632,8 +835,7 @@ class CsOrderPayment extends LegacyModel
     public function saveInsuranceTransaction()
     {
         $renter_id = !empty($this->payerid) ? $this->payerid : $this->renterid;
-
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $renter_id,
@@ -747,8 +949,7 @@ class CsOrderPayment extends LegacyModel
     public function saveDiaInsuranceTransaction()
     {
         $renter_id = !empty($this->payerid) ? $this->payerid : $this->renterid;
-
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $renter_id,
@@ -861,9 +1062,7 @@ class CsOrderPayment extends LegacyModel
     }
     public function saveEmfTransaction()
     {
-
-        $emailQueue = app(EmailQueueService::class);
-
+        $emailQueue = new EmailQueueService();
         Reportlib::saveAccountReportData([
             "user_id" => $this->renterid,
             "cs_order_id" => $this->orderid,
@@ -979,9 +1178,7 @@ class CsOrderPayment extends LegacyModel
     }
     public function saveLateFeeTransaction()
     {
-
-        $emailQueue = app(EmailQueueService::class);
-
+        $emailQueue = new EmailQueueService();
         Reportlib::saveAccountReportData([
             "user_id" => $this->renterid,
             "cs_order_id" => $this->orderid,
@@ -1101,8 +1298,6 @@ class CsOrderPayment extends LegacyModel
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
 
-
-
         Reportlib::saveAccountReportData([
             "user_id" => $renter_id,
             "cs_order_id" => $this->orderid,
@@ -1194,9 +1389,7 @@ class CsOrderPayment extends LegacyModel
     {
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
-
-
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $renter_id,
@@ -1304,9 +1497,7 @@ class CsOrderPayment extends LegacyModel
     {
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
-
-
-        $emailQueue = app(EmailQueueService::class);
+        $emailQueue = new EmailQueueService();
 
         Reportlib::saveAccountReportData([
             "user_id" => $renter_id,
@@ -1413,8 +1604,6 @@ class CsOrderPayment extends LegacyModel
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
 
-
-
         Reportlib::saveAccountReportData([
             "user_id" => $renter_id,
             "cs_order_id" => $this->orderid,
@@ -1482,10 +1671,10 @@ class CsOrderPayment extends LegacyModel
                 "amt" => $this->amount
             ]);
 
-            $types = app(Common::class)->getPayoutTypeValue(1);
+            $types = (new Common())->getPayoutTypeValue(1);
             $typeName = $types[$this->type] ?? 'fee';
             $msg = "Payment was successful for the {$typeName} charges of your DriveItAway order ";
-            app(EmailQueueService::class)->saveEmailToQueue($orderPayment->id, $this->amount, $msg, $this->orderid);
+            (new EmailQueueService())->saveEmailToQueue($orderPayment->id, $this->amount, $msg, $this->orderid);
 
             ReportPayment::saveCharge([
                 "orderid" => $this->orderid,
@@ -1496,55 +1685,5 @@ class CsOrderPayment extends LegacyModel
                 "charged_at" => $chargedAtValue
             ]);
         }
-    }
-    public static function saveInPayoutTransaction($transaction)
-    {
-        $txnid = $transaction['transaction_id'];
-        $orderid = $transaction['cs_order_id'] ?? ($transaction['order_id'] ?? 0);
-        $type = $transaction['type'] ?? 1;
-        $hitch = config('legacy.HITCH');
-
-        $paymentProcessorObj = app(PaymentProcessor::class);
-        $result = $paymentProcessorObj->chargeRetrieve(['auth_token' => $txnid]);
-
-        if (isset($result['metadata']) && isset($result['metadata']['payer_id']) && $result['metadata']['payer_id'] == $hitch) {
-            $amt = ($result['amount_captured'] > 0) ? ($result['amount_captured'] / 100) : 0;
-            CsPayoutTransaction::create([
-                "cs_order_id" => $orderid,
-                "type" => $type,
-                "cs_payment_id" => 0,
-                "user_id" => $result['metadata']['payer_id'],
-                "amount" => 0,
-                "refund" => $amt,
-                'transaction_id' => $txnid,
-                'transfer_id' => $result['source_transfer'] ?? '',
-                'balance_transaction' => $result['balance_transaction'] ?? '',
-                'destination_payment' => $result['source_transfer'] ?? ''
-            ]);
-        }
-    }
-    public static function assignBookingIdToPayoutTransaction($transaction)
-    {
-        $txnid = $transaction['transaction_id'];
-        $orderid = $transaction['order_id'];
-        $hitch = config('legacy.HITCH');
-
-        $paymentProcessorObj = app(PaymentProcessor::class);
-        $result = $paymentProcessorObj->chargeRetrieve(['auth_token' => $txnid]);
-
-        if (!isset($result['metadata']) || !isset($result['metadata']['payer_id']) || $result['metadata']['payer_id'] != $hitch) {
-            return;
-        }
-
-        $findObj = CsPayoutTransaction::where('transaction_id', $txnid)
-            ->where('cs_order_id', 0)
-            ->where('user_id', $result['metadata']['payer_id'])
-            ->first();
-
-        if (empty($findObj)) {
-            return;
-        }
-
-        $findObj->update(['cs_order_id' => $orderid]);
     }
 }

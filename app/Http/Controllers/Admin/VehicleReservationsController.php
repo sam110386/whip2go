@@ -7,10 +7,13 @@ use App\Models\Legacy\CsReservationPayment;
 use App\Models\Legacy\CsSetting;
 use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\PlaidUser;
+use App\Models\Legacy\User;
 use App\Models\Legacy\UserIncome;
 use App\Models\Legacy\VehicleReservation;
 use App\Models\Legacy\VehicleReservationLog;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Traits\VehicleReservationsTrait;
@@ -409,12 +412,62 @@ class VehicleReservationsController extends LegacyAppController
 
         return response()->json($response, 400);
     }
-    public function saveVehicleBooking(Request $request): JsonResponse
+    public function saveVehicleBooking(Request $request)
     {
         $result = $this->_saveVehicleBooking($request->all());
         return response()->json($result);
     }
+    public function getuserdetails(Request $request)
+    {
+        $userId = $this->decodeId(trim($request->input('userid')));
+        $owner = $this->decodeId(trim($request->input('owner')));
+        $booking = !empty(trim($request->input('booking'))) ? $this->decodeId(trim($request->input('booking'))) : '';
 
+        $user = User::with([
+            'userLicenseDetail:id,user_id,givenName,lastName,dateOfBirth,addressStreet,addressCity,addressState,addressPostalCode',
+            'income',
+            'creditScore',
+            'measureOne',
+            'report'
+        ])->find($userId);
+
+        if (!$user) {
+            abort(404, 'User not found');
+        }
+
+        list($paystub, $paybank) = PlaidUser::getUserFlags($userId);
+        $incomeRequired = $monthlyRent = $monthlyInsurance = 'N/A';
+
+        if (!empty($booking)) {
+            $orderDepositRuleObj = OrderDepositRule::where('vehicle_reservation_id', $booking)->first();
+
+            if ($orderDepositRuleObj) {
+                $rental = $orderDepositRuleObj->rental;
+                $tax = $orderDepositRuleObj->tax;
+                $insurance = $orderDepositRuleObj->insurance;
+
+                $calculatedRent = ($rental * 365) / 12;
+                $monthlyRent = sprintf('%0.2f', $calculatedRent + ($calculatedRent * $tax / 100));
+                $monthlyInsurance = sprintf('%0.2f', ($insurance * 365) / 12);
+                $incomeRequired = sprintf('%0.2f', ((float) $monthlyRent + (float) $monthlyInsurance) * 4);
+            }
+        }
+
+        return view('admin.getuserdetails.', compact(
+            'user',
+            'owner',
+            'paystub',
+            'paybank',
+            'incomeRequired',
+            'monthlyRent',
+            'monthlyInsurance',
+            'booking'
+        ));
+    }
+    public function renderlog($filename)
+    {
+        $this->_renderlog($filename);
+    }
 
 
 
@@ -467,41 +520,6 @@ class VehicleReservationsController extends LegacyAppController
             'result' => ['id' => $id, 'status' => $status],
         ]);
     }
-
-
-
-
-
-    public function getuserdetails(Request $request): JsonResponse
-    {
-        $userId = (int) $request->input('user_id', 0);
-        if ($userId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid user id']);
-        }
-        $user = DB::table('users')->where('id', $userId)->first([
-            'id',
-            'first_name',
-            'last_name',
-            'email',
-            'contact_number',
-            'address',
-            'state',
-            'city',
-            'zip',
-        ]);
-        if (!$user) {
-            return response()->json(['status' => false, 'message' => 'User not found']);
-        }
-
-        return response()->json(['status' => true, 'user' => $user]);
-    }
-
-
-
-
-
-
-
 
 
     public function changeVehicle(Request $request)
@@ -717,10 +735,7 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Payment recapture queued']);
     }
 
-    public function renderlog($filename)
-    {
-        return response()->view('admin.vehicle_reservations._render_log', ['filename' => (string) $filename]);
-    }
+
 
     protected function reservationQuery(?array $statuses = null)
     {

@@ -98,9 +98,24 @@ class User extends LegacyModel
     {
         return $this->belongsTo(AdminRole::class, 'role_id');
     }
-
     public function userLicenseDetail(): HasOne
     {
         return $this->hasOne(UserLicenseDetail::class, 'user_id');
+    }
+    public function income()
+    {
+        return $this->hasOne(UserIncome::class, 'user_id');
+    }
+    public function creditScore()
+    {
+        return $this->hasOne(UserCreditScore::class, 'user_id');
+    }
+    public function measureOne()
+    {
+        return $this->hasOne(MeasureoneUser::class, 'user_id');
+    }
+    public function report()
+    {
+        return $this->hasOne(UserReport::class, 'user_id');
     }
 }

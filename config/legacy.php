@@ -157,6 +157,13 @@ return [
         'webhook_token' => env('INSPEKTLABS_WEBHOOK_TOKEN', ''),
     ],
 
+    'Salesforce' => [
+        'username' => env('SALESFORCE_USERNAME', ''),
+        'password' => env('SALESFORCE_PASSWORD', ''),
+        'enabled' => env('SALESFORCE_ENABLED', false),
+    ],
+
     'DIA_FEE' => 5,
+    'COMPANY_DISPACHER' => env('LEGACY_COMPANY_DISPACHER', 73),
 
 ];

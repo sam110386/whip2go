@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Traits;
 
+use App\Models\Legacy\CsVehicleIssue;
 use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\PrepaidPlan;
 use App\Models\Legacy\VehicleReservation;
@@ -13,11 +14,12 @@ use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\CsWallet;
 use App\Models\Legacy\CsOrderStatuslog;
 use App\Models\Legacy\CsReservationPayment;
+use App\Services\Legacy\Emailnotify;
 use App\Services\Legacy\Insurance;
 use App\Services\Legacy\Notifier;
 use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Carbon\Carbon;
 
 trait VehicleReservationsTrait
@@ -388,19 +390,25 @@ trait VehicleReservationsTrait
 
             CsOrderStatuslog::saveBookingPendingToActiveEvent($csOrderId, $vehicleData->user_id);
 
-            // Notifications
             $owner = User::find($vehicleData->user_id, ['email', 'notify_email']);
-            $renterInfo = CommonHelper::getRenterDetails($customerId);
-            Emailnotify::sendNotificationToOwner($vehicleData->toArray(), $owner, $csOrder['start_datetime'], $renterInfo);
+            $renterInfo = $this->commonService->getRenterDetails($customerId);
+            (new Emailnotify())->sendNotificationToOwner($vehicleData->toArray(), $owner->toArray(), $csOrder['start_datetime'], $renterInfo);
 
             $notifier = new Notifier();
             $tag = ["Booking_Status" => "Active", 'Rental_Status' => "Paid"];
-            if ($pendingInsu || ($csOrder['infee_status'] ?? 0) == 2 || ($csOrder['dpa_status'] ?? 0) == 2 || ($csOrder['insu_status'] ?? 0) == 2 || ($csOrder['payment_status'] ?? 0) == 2) {
+
+            if (
+                $pendingInsu
+                || ($csOrder['infee_status'] ?? 0) == 2
+                || ($csOrder['dpa_status'] ?? 0) == 2
+                || ($csOrder['insu_status'] ?? 0) == 2
+                || ($csOrder['payment_status'] ?? 0) == 2
+            ) {
                 $tag['Rental_Status'] = "Unpaid";
             }
+
             $notifier->notifyForActivateBooking($csOrderId, $renterInfo, $tag);
 
-            // Intercom Logging pipeline
             Notifier::createIntercomeUserEvent([
                 "event_name" => "booking_activated",
                 "created_at" => time(),
@@ -416,19 +424,88 @@ trait VehicleReservationsTrait
                 ]
             ]);
 
-            // Wrap up execution workflows
-            $this->createOutstandingIssues($csOrderId, $vehicleReservation->toArray());
-            $this->copyVehicleImageFromRemote($vehicleData->id);
+            $this->_createOutstanidngIssues($csOrderId, $vehicleReservation->toArray());
+            $this->_CopyVehicleImageFromRemote($vehicleData->id);
 
             $newType = ($vehicleData->from_feed == 1) ? 'real' : $vehicleData->type;
             Vehicle::where('id', $vehicleId)->update(['type' => $newType]);
 
-            return ['status' => true, 'message' => "Your acceptance booked successfully", 'result' => [], "lease_id" => $leaseId];
+            return [
+                'status' => true,
+                'message' => "Your acceptance booked successfully",
+                'result' => [],
+                "lease_id" => $leaseId
+            ];
         } else {
-            return ['status' => false, 'message' => "Your acceptance failed due to payment failed with error: " . ($paymentProcessResult['message'] ?? 'Unknown Error'), 'result' => []];
+            return [
+                'status' => false,
+                'message' => "Your acceptance failed due to payment failed with error: " . ($paymentProcessResult['message'] ?? 'Unknown Error'),
+                'result' => []
+            ];
         }
 
     }
+    private function _createOutstanidngIssues($orderId, $reservationObj)
+    {
+        $bookingChecklists = !empty($reservationObj['checklists'])
+            ? json_decode($reservationObj['checklists'], true)
+            : [];
+
+        if (!empty($bookingChecklists)) {
+            $bookingChecklists = $this->commonService->getMissingChecklist($reservationObj['checklists'], $this->checklist, true);
+        }
+
+        $baseData = [
+            'user_id' => $reservationObj['user_id'],
+            'vehicle_id' => $reservationObj['vehicle_id'],
+            'renter_id' => $reservationObj['renter_id'],
+            'cs_order_id' => $orderId,
+            'type' => 8
+        ];
+
+        if (!empty($bookingChecklists) && is_array($bookingChecklists)) {
+            foreach ($bookingChecklists as $key) {
+                if (isset($this->checklist[$key])) {
+                    $dataToSave = array_merge($baseData, [
+                        'extra' => json_encode([$key => $this->checklist[$key]])
+                    ]);
+
+                    CsVehicleIssue::create($dataToSave);
+                }
+            }
+        }
+
+        $licenseIssueData = $baseData;
+        $licenseIssueData['type'] = 9;
+
+        CsVehicleIssue::create($licenseIssueData);
+
+        return;
+    }
+    public function _renderlog($filename)
+    {
+        $filepath = app_path('CreditLogs/' . $filename);
+
+        if (!File::isFile($filepath)) {
+            return response("<pre>Sorry, file does not exist.</pre>", 404)
+                ->header('Content-Type', 'text/html');
+        }
+
+        $jsonString = File::get($filepath);
+        $content = json_decode($jsonString, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $content = $jsonString;
+        }
+
+        $output = '<pre>' . print_r($content, true) . '</pre>';
+
+        return response($output)
+            ->header('Content-Type', 'text/html');
+    }
+
+
+
 
     public function _getfarecalculations($reservationId)
     {
@@ -478,10 +555,7 @@ trait VehicleReservationsTrait
     {
         return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
     }
-    protected function _createOutstanidngIssues(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
+
     protected function _insudoc(...$args)
     {
         return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];

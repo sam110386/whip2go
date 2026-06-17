@@ -237,7 +237,20 @@ class CsOrderStatuslog extends LegacyModel
     }
     public static function updateToVendor(self $record): void
     {
-        $orderData = CsOrder::with(['renter', 'owner', 'vehicle'])
+        $orderData = CsOrder::select([
+            'id',
+            'renter_id',
+            'user_id',
+            'vehicle_id',
+            'increment_id',
+            'start_datetime',
+            'timezone'
+        ])
+            ->with([
+                'renter:id,email,first_name,last_name,contact_number',
+                'owner:id,business_name,contact_number,address,state,city,zip',
+                'vehicle:id,year,make,model,vin_no,trim,cab_type'
+            ])
             ->where('id', $record->cs_order_id)
             ->first();
 
@@ -293,5 +306,4 @@ class CsOrderStatuslog extends LegacyModel
 
         echo $body;
     }
-
 }

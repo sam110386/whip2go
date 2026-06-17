@@ -27,4 +27,18 @@ class PlaidUser extends LegacyModel
         'id',
     ];
 
+
+    public static function getUserFlags($userId)
+    {
+        $plaids = self::where('user_id', $userId)
+            ->whereNotNull('token')
+            ->where('token', '!=', '')
+            ->get();
+
+        $paystub = $plaids->contains('paystub', 1);
+        $paybank = $plaids->contains('paystub', 0);
+
+        return [$paystub, $paybank];
+    }
+
 }

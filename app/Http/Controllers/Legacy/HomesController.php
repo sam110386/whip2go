@@ -235,7 +235,7 @@ class HomesController extends LegacyAppController
             $fromName = (string) config('legacy.homes_driveitaway_contactus_from_name', 'Whip Team');
             $subject = (string) config('legacy.homes_driveitaway_contactus_subject', 'Whip - Contact Us');
 
-            $html = view('emails.contact_us', [
+            $html = view('emails.html.contact_us', [
                 'logourl' => url(legacy_asset('img/logo-white.png')),
                 'FIRST_NAME' => $first,
                 'LAST_NAME' => $last,
@@ -303,7 +303,7 @@ class HomesController extends LegacyAppController
             $fromName = (string) config('legacy.homes_driveitaway_nada_from_name', 'Whip Team');
             $subject = (string) config('legacy.homes_driveitaway_nada_subject', 'DriveitAway - NADA 2019');
 
-            $html = view('emails.nada', [
+            $html = view('emails.html.nada', [
                 'logourl' => url(legacy_asset('img/logo-white.png')),
                 'NAME' => $name,
                 'EMAIL' => $email,
