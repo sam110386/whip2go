@@ -10,8 +10,11 @@ use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\PlaidUser;
 use App\Models\Legacy\User;
 use App\Models\Legacy\UserIncome;
+use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleReservation;
 use App\Models\Legacy\VehicleReservationLog;
+use App\Services\Legacy\Passtime;
+use App\Services\Legacy\PlaidClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\File;
 use Illuminate\Http\Request;
@@ -453,7 +456,7 @@ class VehicleReservationsController extends LegacyAppController
             }
         }
 
-        return view('admin.getuserdetails.', compact(
+        return view('admin.vehicle_reservations.getuserdetails.', compact(
             'user',
             'owner',
             'paystub',
@@ -468,139 +471,305 @@ class VehicleReservationsController extends LegacyAppController
     {
         $this->_renderlog($filename);
     }
-
-
-
-
-
-
-
-
-    public function singleload(Request $request)
+    public function getplaidrecord(Request $request)
     {
-        $id = $this->decodeId((string) $request->input('id', ''));
-        if (!$id) {
-            return response('Invalid reservation id', 400);
+        $userid = $this->decodeId($request->input('userid'));
+        $plaid = PlaidUser::where('user_id', $userid)->first();
+
+        $return = [
+            "status" => false,
+            "message" => "Sorry, User didn't add his bank details yet"
+        ];
+
+        if ($plaid && !empty(json_decode($plaid->metadata, true))) {
+            $plaidView = view('vehicle_reservations.elements.plaid', ['plaid' => $plaid])->render();
+
+            $return = [
+                "status" => true,
+                "message" => "",
+                "userid" => $userid,
+                "plaidtoken" => $plaid->token,
+                "view" => $plaidView
+            ];
         }
 
-        $booking = $this->reservationQuery()
-            ->where('vr.id', $id)
-            ->first();
-
-        if (!$booking) {
-            return response('Reservation not found', 404);
-        }
-
-        return response()->view('admin.vehicle_reservations._single_row', [
-            'b' => $booking,
-        ]);
+        return response()->json($return);
     }
-
-    public function changeSaveStatus(Request $request): JsonResponse
+    public function getplaidbalance(Request $request)
     {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        $status = (int) $request->input('status', -1);
-        if (!$id || !in_array($status, [0, 1, 2, 3], true)) {
-            return response()->json(['status' => false, 'message' => 'Invalid request']);
+        $token = $request->input('plaid_token');
+        $accountid = $request->input('acccountid');
+        $balanceObj = (new PlaidClient())->getBalance($token, [], [$accountid]);
+        $return = [
+            "status" => true,
+            "message" => "Sorry, balance not returned",
+            "balance" => '$0'
+        ];
+
+        if (!empty($balanceObj['status']) && isset($balanceObj['accounts'][0])) {
+            $account = $balanceObj['accounts'][0];
+            $bal = $account['balances']['iso_currency_code'] . ' ' . $account['balances']['current'];
+            $return = [
+                "status" => true,
+                "message" => "",
+                "balance" => $bal
+            ];
         }
 
-        $exists = VehicleReservation::query()->find($id);
-        if (!$exists) {
-            return response()->json(['status' => false, 'message' => 'Reservation not found']);
+        return response()->json($return);
+    }
+    public function bankstatement(Request $request)
+    {
+        $token = $request->input('plaid_token');
+        $accountid = $request->input('acccountid');
+
+        $transactionObj = (new PlaidClient())->getTransactionHistory(
+            $token,
+            now()->subDays(60)->format('Y-m-d'),
+            now()->format('Y-m-d'),
+            [],
+            [$accountid]
+        );
+
+        $return = [
+            "status" => true,
+            "message" => "Sorry, statement is not returned",
+            "transactions" => []
+        ];
+
+        if (!empty($transactionObj['status'])) {
+            $transactionView = view('vehicle_reservations.elements.statement', ['transactions' => $transactionObj['transactions']])->render();
+            $return = [
+                "status" => true,
+                "message" => "",
+                "transactions" => $transactionView
+            ];
+        } else {
+            $return['status'] = false;
+            $return['message'] = $transactionObj['message'] ?? 'An error occurred';
         }
 
-        VehicleReservation::query()->whereKey($id)->update(['status' => $status]);
-        if (in_array($status, [2, 3], true)) {
-            DB::table('vehicles')->where('id', (int) $exists->vehicle_id)->update(['booked' => 0]);
+        return response()->json($return);
+    }
+    public function provenincome(Request $request)
+    {
+        $userid = $request->input('pk');
+        $value = $request->input('value');
+        $name = $request->input('name');
+
+        if (empty($userid) || empty($value)) {
+            return response()->json(["status" => 'error', "message" => "Sorry, something missing"]);
         }
+
+        $userIncome = UserIncome::where('user_id', $userid)->first();
+
+        if ($name == 'statedIncome') {
+            UserIncome::updateOrCreate(
+                ['user_id' => $userid],
+                ['income' => $value]
+            );
+
+            return response()->json(["status" => 'success', "message" => "Saved successfully"]);
+        }
+
+        UserIncome::updateOrCreate(
+            ['user_id' => $userid],
+            ['provenincome' => $value]
+        );
+
+        if ($userIncome && $userIncome->income <= $value) {
+            VehicleReservation::updatePendingBooking($userid, 4);
+        }
+
+        return response()->json(["status" => 'success', "message" => "Saved successfully"]);
+    }
+    public function checkodometer(Request $request)
+    {
+        $vehicleid = $request->input('vehicleid');
+
+        if (empty($vehicleid)) {
+            return response()->json(["status" => 'error', "message" => "Sorry, something missing"]);
+        }
+
+        $passtime = (new Passtime())->getPasstimeMiles($vehicleid);
+
+        if (!empty($passtime)) {
+            $miles = data_get($passtime, 'miles');
+
+            $return = [
+                "status" => 'success',
+                "message" => "Processed successfully",
+                "html" => "Current odometer reading is " . $miles
+            ];
+        } else {
+            $return = [
+                "status" => 'error',
+                "message" => "Sorry, GPS seems not providing status update. Please check GPS provider setting & vehicle serial number."
+            ];
+        }
+
+        return response()->json($return);
+    }
+    public function checkStarterInterrupt(Request $request)
+    {
+        $vehicleid = $request->input('vehicleid');
+        $orderid = $request->input('orderid');
+
+        if (empty($vehicleid)) {
+            return response()->json(["status" => 'error', "message" => "Sorry, something missing"]);
+        }
+
+        $vehicleData = Vehicle::select(['id', 'user_id', 'passtime_serialno'])
+            ->with('csSetting:user_id,passtime_dealerid,passtime')
+            ->find($vehicleid);
+
+        if (!$vehicleData || empty($vehicleData->passtime_serialno)) {
+            return response()->json(['status' => 'error', 'message' => 'Vehicle Passtime serial # not set']);
+        }
+
+        if (empty($vehicle->csSetting?->passtime)) {
+            return response()->json(['status' => 'error', 'message' => "Vehicle Owner's GPS provider setting not set"]);
+        }
+
+        $gpsconfirmView = view('vehicle_reservations.elements.starterconfirm', [
+            'vehicleid' => $vehicleid,
+            'reservationid' => $orderid
+        ])->render();
 
         return response()->json([
-            'status' => true,
-            'message' => 'Reservation updated successfully',
-            'result' => ['id' => $id, 'status' => $status],
+            "status" => 'success',
+            "message" => "Saved successfully",
+            "html" => $gpsconfirmView
         ]);
     }
-
-
-    public function changeVehicle(Request $request)
+    public function disableStaterInterrupt(Request $request)
     {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-        $reservation = VehicleReservation::query()->find($id);
-        if (!$reservation) {
-            return response('Reservation not found', 404);
-        }
-        $vehicles = DB::table('vehicles')
-            ->where('status', 1)
-            ->where('trash', 0)
-            ->orderBy('vehicle_unique_id')
-            ->limit(100)
-            ->get(['id', 'vehicle_unique_id', 'vehicle_name']);
+        $vehicleid = $request->input('vehicleid');
+        $disable = $request->input('disable');
+        $return = ["status" => false, "message" => "Sorry, something missing"];
 
-        return response()->view('admin.vehicle_reservations._change_vehicle', compact('reservation', 'vehicles'));
-    }
-
-    public function updateReservationVehicle(Request $request): JsonResponse
-    {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        $vehicleId = (int) $request->input('vehicle_id', 0);
-        if (!$id || $vehicleId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid request']);
-        }
-        VehicleReservation::query()->whereKey($id)->update(['vehicle_id' => $vehicleId]);
-
-        return response()->json(['status' => true, 'message' => 'Vehicle updated successfully']);
-    }
-
-    public function changeDatetime(Request $request)
-    {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-        $reservation = VehicleReservation::query()->find($id, ['id', 'start_datetime', 'end_datetime', 'timezone']);
-        if (!$reservation) {
-            return response('Reservation not found', 404);
+        if (empty($vehicleid)) {
+            return response()->json(["status" => false, "message" => "Sorry, something missing"]);
         }
 
-        return response()->view('admin.vehicle_reservations._change_datetime', compact('reservation'));
-    }
+        $vehicle = Vehicle::select(['id', 'user_id', 'passtime_serialno', 'autopi_unit_id', 'passtime_status'])
+            ->with([
+                'csSetting',
+                'vehicleSetting'
+            ])->find($vehicleid);
 
-    public function updateDatetime(Request $request): JsonResponse
-    {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response()->json(['status' => false, 'message' => 'Invalid request']);
+        if (!$vehicle || empty($vehicle->passtime_serialno)) {
+            return response()->json($return);
         }
-        $data = [];
-        foreach (['start_datetime', 'end_datetime'] as $key) {
-            $val = (string) $request->input($key, '');
-            if ($val !== '') {
-                $data[$key] = $val;
+
+        if (empty($vehicle->csSetting?->passtime)) {
+            $return['message'] = "Vehicle Owner's GPS provider setting not set";
+            return response()->json($return);
+        }
+
+        $passtimeService = new Passtime();
+        $vehiclePayload = $vehicle->toArray();
+
+        if ($disable) {
+            $return = $passtimeService->deActivateVehicle($vehiclePayload);
+            if (!empty($return['status'])) {
+                $vehicle->update(['passtime_status' => 0]);
+                $return['status'] = true;
+                return response()->json($return);
+            }
+        } else {
+            $return = $passtimeService->ActivateVehicle($vehiclePayload);
+            if (!empty($return['status'])) {
+                $vehicle->update(['passtime_status' => 1]);
+                $return['status'] = true;
+                return response()->json($return);
             }
         }
-        if ($data !== []) {
-            VehicleReservation::query()->whereKey($id)->update($data);
+
+        return response()->json($return);
+    }
+    public function staterInterruptWorks(Request $request)
+    {
+        $orderid = $request->input('orderid');
+
+        if (!empty($orderid)) {
+            VehicleReservation::where('id', $orderid)->update([
+                'gps' => 1,
+                'gps2' => 1
+            ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => "Request processed successfully",
+                'result' => []
+            ]);
         }
 
-        return response()->json(['status' => true, 'message' => 'Date/time updated successfully']);
+        return response()->json(["status" => 'error', "message" => "Sorry, something missing"]);
     }
-
+    public function changeVehicle(Request $request)
+    {
+        $admin = true;
+        $orderid = $this->decodeId($request->input('orderid'));
+        $booking = VehicleReservation::find($orderid);
+        return view('vehicle_reservations.change_vehicle', compact('booking', 'admin'));
+    }
+    public function updateReservationVehicle(Request $request)
+    {
+        $return = $this->_updateReservationVehicle($request->all());
+        return response()->json($return);
+    }
+    public function changeDatetime(Request $request)
+    {
+        $orderid = $this->decodeId($request->input('orderid'));
+        $booking = VehicleReservation::find($orderid);
+        return view('vehicle_reservations.change_datetime', compact('booking'));
+    }
+    public function updateDatetime(Request $request)
+    {
+        $return = $this->_updateDatetime($request->all());
+        return response()->json($return);
+    }
+    public function getfarecalculations(Request $request)
+    {
+        $return = $this->_getfarecalculations($request->all());
+        return response()->json($return);
+    }
     public function changeStatus(Request $request)
     {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-        $reservation = VehicleReservation::query()->find($id, ['id', 'status']);
-        if (!$reservation) {
-            return response('Reservation not found', 404);
-        }
-
-        return response()->view('admin.vehicle_reservations._change_status', compact('reservation'));
+        $orderid = $this->decodeId($request->input('orderid'));
+        $booking = VehicleReservation::find($orderid);
+        $status = $this->commonService->getReservationStatus(true, true);
+        return view('vehicle_reservations.change_status', compact('booking', 'status'));
     }
+    public function changeSaveStatus(Request $request)
+    {
+        $return = $this->_changeSaveStatus($request->all());
+        return response()->json($return);
+    }
+    public function singleload(Request $request)
+    {
+        $orderId = $request->input('orderid');
+        $booking = VehicleReservation::with([
+            'vehicle:id,msrp,vin_no,vehicle_name',
+            'depositRule:id,vehicle_reservation_id,downpayment',
+            'renter:id,first_name,last_name'
+        ])->find($orderId);
+
+        return view('admin.vehicle_reservations.singleload', ['trip' => $booking]);
+    }
+    public function vehicleReservationLog(Request $request)
+    {
+        $return = $this->_vehicleReservationLog($request->all());
+        return response()->json($return);
+    }
+
+
+
+
+
+
+
 
     public function loadstatuschecklist(Request $request)
     {
@@ -615,45 +784,6 @@ class VehicleReservationsController extends LegacyAppController
     public function updatechecklist(Request $request): JsonResponse
     {
         return response()->json(['status' => true, 'message' => 'Checklist updated successfully']);
-    }
-
-    public function vehicleReservationLog(Request $request)
-    {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-        $logs = DB::table('cs_order_statuslogs')
-            ->where('reservation_id', $id)
-            ->orWhere('vehicle_reservation_id', $id)
-            ->orderByDesc('id')
-            ->limit(200)
-            ->get();
-
-        return response()->view('admin.vehicle_reservations._log', ['logs' => $logs, 'id' => $id]);
-    }
-
-    public function getfarecalculations(Request $request): JsonResponse
-    {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response()->json(['status' => false, 'message' => 'Invalid reservation']);
-        }
-        $reservation = VehicleReservation::query()->find($id);
-        if (!$reservation) {
-            return response()->json(['status' => false, 'message' => 'Reservation not found']);
-        }
-        $odr = DB::table('cs_order_deposit_rules')->where('vehicle_reservation_id', $id)->first();
-
-        return response()->json([
-            'status' => true,
-            'data' => [
-                'rental' => (float) data_get($odr, 'rental', 0),
-                'tax' => (float) data_get($odr, 'tax', 0),
-                'insurance' => (float) data_get($odr, 'insurance', 0),
-                'deposit' => (float) data_get($odr, 'downpayment', 0),
-            ],
-        ]);
     }
 
     public function loadcancelblock(Request $request)
@@ -735,8 +865,6 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Payment recapture queued']);
     }
 
-
-
     protected function reservationQuery(?array $statuses = null)
     {
         $q = DB::table('vehicle_reservations as vr')
@@ -768,220 +896,9 @@ class VehicleReservationsController extends LegacyAppController
         return $q;
     }
 
-    // ── Plaid / Financial methods (Plaid API not yet ported) ──────────
-
-    public function getplaidrecord(Request $request): JsonResponse
-    {
-        $userId = (int) base64_decode((string) $request->input('userid', ''));
-        if ($userId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid user id']);
-        }
-
-        $plaid = DB::table('plaid_users')->where('user_id', $userId)->first();
-        if (!$plaid || empty(json_decode($plaid->metadata ?? '', true))) {
-            return response()->json(['status' => false, 'message' => "Sorry, User didnt add his bank details yet"]);
-        }
-
-        return response()->json([
-            'status' => true,
-            'message' => '',
-            'userid' => $userId,
-            'plaidtoken' => $plaid->token ?? '',
-            'view' => '<p>Plaid record loaded (view partial not yet ported)</p>',
-        ]);
-    }
-
-    public function getplaidbalance(Request $request): JsonResponse
-    {
-        \Log::warning('getplaidbalance: Plaid API not yet ported to Laravel.');
-
-        return response()->json([
-            'status' => false,
-            'message' => 'Plaid API not yet ported to Laravel',
-            'balance' => '$0',
-        ]);
-    }
-
-    public function bankstatement(Request $request): JsonResponse
-    {
-        \Log::warning('bankstatement: Plaid API not yet ported to Laravel.');
-
-        return response()->json([
-            'status' => false,
-            'message' => 'Plaid bank statement API not yet ported to Laravel',
-            'transactions' => [],
-        ]);
-    }
-
-    public function provenincome(Request $request): JsonResponse
-    {
-        $userId = $request->input('pk');
-        $value = $request->input('value');
-        $name = (string) $request->input('name', '');
-
-        if (empty($userId) || empty($value)) {
-            return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
-        }
-
-        $existing = DB::table('user_incomes')->where('user_id', $userId)->first();
-
-        if ($name === 'statedIncome') {
-            $data = ['income' => $value, 'user_id' => $userId];
-            if ($existing) {
-                DB::table('user_incomes')->where('id', $existing->id)->update($data);
-            } else {
-                DB::table('user_incomes')->insert($data);
-            }
-            return response()->json(['status' => 'success', 'message' => 'Saved successfully']);
-        }
-
-        $data = ['provenincome' => $value, 'user_id' => $userId];
-        if ($existing) {
-            DB::table('user_incomes')->where('id', $existing->id)->update($data);
-        } else {
-            DB::table('user_incomes')->insert($data);
-        }
-
-        if ($existing && (float) ($existing->income ?? 0) <= (float) $value) {
-            VehicleReservation::query()
-                ->where('renter_id', $userId)
-                ->whereIn('status', [0, 1])
-                ->update(['income_flag' => 4]);
-        }
-
-        return response()->json(['status' => 'success', 'message' => 'Saved successfully']);
-    }
-
-    // ── Vehicle Health methods ────────────────────────────────────────
-
-    public function checkodometer(Request $request): JsonResponse
-    {
-        $vehicleId = (int) $request->input('vehicleid', 0);
-        if ($vehicleId <= 0) {
-            return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
-        }
-
-        $vehicle = DB::table('vehicles as v')
-            ->leftJoin('cs_settings as cs', 'cs.user_id', '=', 'v.user_id')
-            ->where('v.id', $vehicleId)
-            ->first([
-                'v.id',
-                'v.passtime_serialno',
-                'v.autopi_unit_id',
-                'cs.passtime as gps_provider',
-                'cs.passtime_dealerid',
-            ]);
-
-        if (!$vehicle) {
-            return response()->json(['status' => 'error', 'message' => 'Vehicle not found']);
-        }
-
-        \Log::warning("checkodometer: GPS provider call stubbed for vehicle {$vehicleId}.");
-
-        return response()->json([
-            'status' => 'error',
-            'message' => 'GPS provider call not yet ported. Check GPS provider setting & vehicle serial number.',
-            'vehicle' => $vehicle,
-        ]);
-    }
-
-    public function checkStarterInterrupt(Request $request): JsonResponse
-    {
-        $vehicleId = (int) $request->input('vehicleid', 0);
-        $orderId = $request->input('orderid');
-
-        if ($vehicleId <= 0) {
-            return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
-        }
-
-        $vehicle = DB::table('vehicles as v')
-            ->leftJoin('cs_settings as cs', 'cs.user_id', '=', 'v.user_id')
-            ->where('v.id', $vehicleId)
-            ->first([
-                'v.passtime_serialno',
-                'cs.passtime_dealerid',
-                'cs.passtime as gps_provider',
-            ]);
-
-        if (!$vehicle || empty($vehicle->passtime_serialno)) {
-            return response()->json(['status' => 'error', 'message' => 'Vehicle Passtime serial # not set']);
-        }
-        if (empty($vehicle->gps_provider)) {
-            return response()->json(['status' => 'error', 'message' => "Vehicle Owner's GPS provider setting not set"]);
-        }
-
-        \Log::warning("checkStarterInterrupt: GPS starter check stubbed for vehicle {$vehicleId}.");
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Starter interrupt check completed (stubbed)',
-            'html' => '<p>Starter interrupt confirmation (view not yet ported)</p>',
-        ]);
-    }
-
-    public function disableStaterInterrupt(Request $request): JsonResponse
-    {
-        $vehicleId = (int) $request->input('vehicleid', 0);
-        $disable = (bool) $request->input('disable', false);
-
-        if ($vehicleId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something missing']);
-        }
-
-        $vehicle = DB::table('vehicles as v')
-            ->leftJoin('cs_settings as cs', 'cs.user_id', '=', 'v.user_id')
-            ->leftJoin('vehicle_settings as vs', 'vs.vehicle_id', '=', 'v.id')
-            ->where('v.id', $vehicleId)
-            ->first([
-                'v.id',
-                'v.passtime_serialno',
-                'v.autopi_unit_id',
-                'v.passtime_status',
-                'v.user_id',
-                'cs.passtime as gps_provider',
-                'cs.passtime_dealerid',
-                'vs.vehicle_id as vs_vehicle_id',
-            ]);
-
-        if (!$vehicle || empty($vehicle->passtime_serialno)) {
-            return response()->json(['status' => false, 'message' => 'Vehicle Passtime serial # not set']);
-        }
-        if (empty($vehicle->gps_provider)) {
-            return response()->json(['status' => false, 'message' => "Vehicle Owner's GPS provider setting not set"]);
-        }
-
-        $newStatus = $disable ? 0 : 1;
-        $action = $disable ? 'deactivation' : 'activation';
-
-        \Log::warning("disableStaterInterrupt: Passtime {$action} stubbed for vehicle {$vehicleId}.");
-
-        DB::table('vehicles')->where('id', $vehicleId)->update(['passtime_status' => $newStatus]);
-
-        return response()->json([
-            'status' => true,
-            'message' => "Starter interrupt {$action} processed (stubbed). Vehicle passtime_status set to {$newStatus}.",
-        ]);
-    }
-
-    public function staterInterruptWorks(Request $request): JsonResponse
-    {
-        $orderId = (int) $request->input('orderid', 0);
-        if ($orderId <= 0) {
-            return response()->json(['status' => 'error', 'message' => 'Sorry, something missing']);
-        }
-
-        \Log::warning("staterInterruptWorks: Passtime check stubbed for reservation {$orderId}.");
-
-        VehicleReservation::query()->whereKey($orderId)->update(['gps' => 1, 'gps2' => 1]);
-
-        return response()->json(['status' => 'success', 'message' => 'Request processed successfully']);
-    }
-
-    // ── Insurance doc method ──────────────────────────────────────────
-
     public function insudoc(Request $request): JsonResponse
     {
-        $id = (int) base64_decode((string) $request->input('id', ''));
+        $id = (int) $this->decodeId((string) $request->input('id', ''));
         if ($id <= 0) {
             return response()->json(['status' => false, 'message' => 'Invalid reservation id']);
         }
@@ -1043,11 +960,9 @@ class VehicleReservationsController extends LegacyAppController
         ]);
     }
 
-    // ── Goal / Matrix methods ─────────────────────────────────────────
-
     public function goalrecalculate(Request $request, $id = null)
     {
-        $ruleId = $id ? (int) base64_decode((string) $id) : 0;
+        $ruleId = $id ? (int) $this->decodeId((string) $id) : 0;
         if ($ruleId <= 0) {
             return redirect('/admin/vehicle-reservations');
         }
@@ -1200,8 +1115,6 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Data updated successfully']);
     }
 
-    // ── Selling / PTO methods (stubs) ─────────────────────────────────
-
     public function download_vehicle_images(Request $request): JsonResponse
     {
         \Log::warning('download_vehicle_images: Not yet ported to Laravel.');
@@ -1211,7 +1124,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function vehicleSellingOpions(Request $request)
     {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
+        $orderId = (int) $this->decodeId((string) $request->input('orderid', ''));
         if ($orderId <= 0) {
             return response('Invalid reservation', 400);
         }
@@ -1285,7 +1198,7 @@ class VehicleReservationsController extends LegacyAppController
 
     public function pushToDealer(Request $request, $id = null, $flag = 0): JsonResponse
     {
-        $decodedId = $id ? (int) base64_decode((string) $id) : 0;
+        $decodedId = $id ? (int) $this->decodeId((string) $id) : 0;
         if ($decodedId <= 0) {
             return response()->json(['status' => false, 'message' => "Sorry, you can't perform this action now"]);
         }
@@ -1310,8 +1223,6 @@ class VehicleReservationsController extends LegacyAppController
 
         return response()->json(['status' => false, 'message' => 'Vehicle selling option save not yet ported to Laravel']);
     }
-
-    // ── Protected helpers ─────────────────────────────────────────────
 
     protected function resolveLimit(Request $request): int
     {

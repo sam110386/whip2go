@@ -14,9 +14,11 @@ use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\CsWallet;
 use App\Models\Legacy\CsOrderStatuslog;
 use App\Models\Legacy\CsReservationPayment;
+use App\Models\Legacy\VehicleReservationLog;
 use App\Services\Legacy\Emailnotify;
 use App\Services\Legacy\Insurance;
 use App\Services\Legacy\Notifier;
+use App\Services\Legacy\PathToOwnership;
 use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
@@ -482,7 +484,7 @@ trait VehicleReservationsTrait
 
         return;
     }
-    public function _renderlog($filename)
+    private function _renderlog($filename)
     {
         $filepath = app_path('CreditLogs/' . $filename);
 
@@ -503,45 +505,413 @@ trait VehicleReservationsTrait
         return response($output)
             ->header('Content-Type', 'text/html');
     }
-
-
-
-
-    public function _getfarecalculations($reservationId)
+    private function _updateReservationVehicle(array $data, $userid = null)
     {
-        $reservation = VehicleReservation::with('OrderDepositRule')->find($reservationId);
-        if (!$reservation)
-            return ['status' => false, 'message' => "Reservation not found"];
+        $reservationId = $data['VehicleReservation']['id'] ?? null;
+        $vehicleId = $data['VehicleReservation']['vehicle_id'] ?? null;
+        $newRentalRaw = $data['VehicleReservation']['newrental'] ?? null;
 
-        // Dynamic calculation logic from VehicleDynamicFareMatrix trait
-        $results = $this->calculateDynamicFare($reservation);
-        return $results;
+        if (empty($reservationId) || empty($vehicleId) || empty($newRentalRaw)) {
+            return ['status' => false, 'message' => "Sorry, invalid inputs, please try again", 'view' => ""];
+        }
+
+        $newRentalData = explode('X', $newRentalRaw);
+        $query = VehicleReservation::where('id', $reservationId)->where('status', 0);
+
+        if (!empty($userid)) {
+            $query->where('user_id', $userid);
+        }
+
+        $vehicleReservationObj = $query->first();
+
+        if (!$vehicleReservationObj) {
+            return ['status' => false, 'message' => "Sorry, invalid inputs, please try again", 'view' => ""];
+        }
+
+        $initialFeeOptions = isset($newRentalData[0]) ? preg_replace("/[^0-9,.]/", "", $newRentalData[0]) : 0;
+        $miles = $newRentalData[1] ?? 0;
+        $rentalOptions = isset($newRentalData[2]) ? preg_replace("/[^0-9,.]/", "", $newRentalData[2]) : 0;
+        $emf = isset($newRentalData[3]) ? preg_replace("/[^0-9,.]/", "", $newRentalData[3]) : 0;
+
+        if (!$initialFeeOptions || !$miles) {
+            return ['status' => false, 'message' => "Sorry, invalid inputs, please try again", 'view' => ""];
+        }
+
+        $vehicle = Vehicle::with('owner:id,currency')
+            ->where('id', $vehicleId)
+            ->where('status', 1)
+            ->first();
+
+        if (!$vehicle) {
+            return ['status' => false, 'message' => "Sorry, this vehicle is not available now", 'result' => []];
+        }
+
+        $ownerId = $vehicle->user_id;
+        $pto = $vehicleReservationObj->pto;
+
+        $orderDepositRuleObj = OrderDepositRule::where('vehicle_reservation_id', $vehicleReservationObj->id)->first();
+        $pathToOwnership = new PathToOwnership();
+
+        if ($orderDepositRuleObj && in_array((int) $orderDepositRuleObj->insurance_payer, [3, 5, 6, 7])) {
+            $insurance = 0;
+        } else {
+            $depositRule = DepositRule::where('vehicle_id', $vehicle->id)->first();
+            $insurance = $pathToOwnership->getDynamicFareMatrixInsurance($miles, $vehicle->toArray(), $depositRule->toArray());
+        }
+
+        $allCalculations = $pathToOwnership->getQuoteForBooking($vehicle->toArray(), [
+            "rental_options" => $rentalOptions,
+            "initial_fee" => $initialFeeOptions,
+            "pto" => $pto,
+            "renter_id" => $vehicleReservationObj->renter_id
+        ]);
+
+        $orderDepositRuleData = [
+            "initial_fee" => $initialFeeOptions,
+            "base_rent" => $allCalculations['base_dayrent'],
+            "rental" => $rentalOptions,
+            "tax" => $allCalculations['tax_rate'],
+            "totalcost" => $allCalculations['totalcost'],
+            "num_of_days" => $allCalculations['num_of_days'],
+            "equityshare" => $allCalculations['equityshare'],
+            "downpayment" => $allCalculations['downpayment'],
+            "rental_opt" => json_encode($allCalculations['rental_opt']),
+            "deposit_opt" => $allCalculations['deposit_opt'],
+            'deposit_amt' => $allCalculations['deposit_amt'],
+            "total_initial_fee" => $initialFeeOptions,
+            "total_program_cost" => $allCalculations['total_program_cost'],
+            "goal" => $allCalculations['goal'],
+            "emf" => sprintf('%0.2f', ($emf / 30)),
+            "miles" => sprintf('%0.2f', ($miles / 30)),
+            'insurance' => $insurance,
+            "emf_rate" => $allCalculations['emf_rate'],
+            "emf_insu_rate" => ($orderDepositRuleObj && in_array((int) $orderDepositRuleObj->insurance_payer, [3, 5, 6, 7])) ? 0 : $allCalculations['emf_insu_rate'],
+            'write_down_allocation' => $allCalculations['write_down_allocation'],
+            'finance_allocation' => $allCalculations['finance_allocation'],
+            'maintenance_allocation' => $allCalculations['maintenance_allocation'],
+            'disposition_fee' => $allCalculations['disposition_fee'],
+            "calculation" => json_encode($allCalculations),
+        ];
+
+        $priceRulesAmt = ['deposit_amt' => 0, "initial_fee" => 0, 'initial_fee_tax' => 0];
+
+        if ($orderDepositRuleObj) {
+            if ($orderDepositRuleObj->initial_fee < $orderDepositRuleData['initial_fee']) {
+                $priceRulesAmt['initial_fee'] = (float) ($orderDepositRuleData['initial_fee'] - $orderDepositRuleObj->initial_fee);
+                $priceRulesAmt['initial_fee_tax'] = (float) ($priceRulesAmt['initial_fee'] * $orderDepositRuleObj->tax / 100);
+            }
+            if ($orderDepositRuleObj->deposit_amt < $orderDepositRuleData['deposit_amt']) {
+                $priceRulesAmt['deposit_amt'] = (float) ($orderDepositRuleData['deposit_amt'] - $orderDepositRuleObj->deposit_amt);
+            }
+        }
+
+        $paymentProcessorObj = new PaymentProcessor();
+        $paymentProcessResult = $paymentProcessorObj->PaymentAutherizeOnly(
+            $vehicleReservationObj->renter_id,
+            $ownerId,
+            $priceRulesAmt,
+            $vehicle->owner->currency ?? 'USD'
+        );
+
+        if (($paymentProcessResult['status'] ?? '') !== 'success') {
+            return [
+                'status' => false,
+                'message' => "Sorry, your request failed due to the balance payment authorization with error: " . ($paymentProcessResult['message'] ?? 'Unknown Error'),
+                'result' => []
+            ];
+        }
+
+        $vehicleReservationObj->update([
+            'user_id' => $ownerId,
+            'vehicle_id' => $vehicle->id
+        ]);
+
+        OrderDepositRule::updateOrCreate(
+            ['id' => $orderDepositRuleObj->id ?? null],
+            $orderDepositRuleData
+        );
+
+        $targetVehicleType = ($vehicle->from_feed == 1) ? 'real' : $vehicle->type;
+        Vehicle::where('id', $vehicleId)->update(['booked' => 1, 'type' => $targetVehicleType]);
+        Vehicle::where('id', $vehicleReservationObj->vehicle_id)->update(['booked' => 0]);
+
+        $csPayment = new CsReservationPayment();
+        $csPayment->setOrderId($vehicleReservationObj->id);
+        $csPayment->setCurrency($paymentProcessResult['currency'] ?? 'USD');
+
+        if (!empty($paymentProcessResult['deposit_auth'])) {
+            $csPayment->setAmount($priceRulesAmt['deposit_amt']);
+            $csPayment->setTransactionidId($paymentProcessResult['deposit_auth']);
+            $csPayment->setType($paymentProcessResult['deposit_type']);
+            $csPayment->saveDepositTransaction();
+        }
+
+        if (!empty($paymentProcessResult['initial_fee_id'])) {
+            $csPayment->setAmount(($priceRulesAmt['initial_fee'] + $priceRulesAmt['initial_fee_tax']));
+            $csPayment->setTax($priceRulesAmt['initial_fee_tax']);
+            $csPayment->setTransactionidId($paymentProcessResult['initial_fee_id']);
+            $csPayment->setType($paymentProcessResult['infee_type']);
+            $csPayment->saveInitialFeeTransaction();
+        }
+
+        if ($orderDepositRuleObj && $orderDepositRuleObj->insurance_payer == 7) {
+            DepositRule::where('vehicle_id', $vehicleId)->update(['insurance_fee' => 25]);
+        }
+
+        return ['status' => true, 'message' => "Your request saved successfully", 'result' => ""];
+
     }
-
-    public function _changeStatus($reservationId, $status)
+    private function _updateDatetime(array $data, $userid = null)
     {
-        $reservation = VehicleReservation::find($reservationId);
-        if ($reservation) {
-            $reservation->update(['status' => $status]);
-            CsOrderStatuslog::create([
-                'reservation_id' => $reservationId,
-                'status' => $status,
-                'comment' => "Status changed by system/admin"
+        $input = $data['VehicleReservation'] ?? $data;
+        $startTime = date('h:i A', strtotime(str_replace('AM', '', $input['start_time'] ?? '')));
+        $endTime = date('h:i A', strtotime(str_replace('AM', '', $input['end_time'] ?? '')));
+
+        $query = VehicleReservation::where('id', $input['id'] ?? null);
+
+        if ($userid) {
+            $query->where('user_id', $userid);
+        }
+
+        $vehicleReservation = $query->first(['id', 'timezone']);
+
+        if (!$vehicleReservation) {
+            return [
+                'status' => false,
+                'message' => "Sorry, Reservation data not found",
+                'result' => []
+            ];
+        }
+
+        $startDate = $input['daterangefrom'] ?? '';
+        $endDate = $input['daterangeto'] ?? '';
+        $timezone = $vehicleReservation->timezone;
+
+        $startDatetimeStr = date('Y-m-d H:i:s', strtotime($startDate . ' ' . $startTime));
+        $endDatetimeStr = date('Y-m-d H:i:s', strtotime($endDate . ' ' . $endTime));
+
+        if (
+            empty($startDate) ||
+            empty($endDate) ||
+            strtotime($startDatetimeStr) > strtotime($endDatetimeStr)
+        ) {
+            return [
+                'status' => false,
+                'message' => "Sorry, please select correct date range",
+                'result' => []
+            ];
+        }
+
+        $serverTimezone = config('app.timezone', 'UTC');
+        $startDatetimeServer = Carbon::createFromFormat('Y-m-d H:i:s', $startDatetimeStr, $timezone)
+            ->setTimezone($serverTimezone)
+            ->toDateTimeString();
+        $endDatetimeServer = Carbon::createFromFormat('Y-m-d H:i:s', $endDatetimeStr, $timezone)
+            ->setTimezone($serverTimezone)
+            ->toDateTimeString();
+
+        $vehicleReservation->update([
+            'start_datetime' => $startDatetimeServer,
+            'end_datetime' => $endDatetimeServer,
+        ]);
+
+        return [
+            "status" => true,
+            "message" => "Your request saved successfully"
+        ];
+    }
+    private function _getfarecalculations(array $data)
+    {
+        if (empty($data['bookingid']) || empty($data['vehicleid'])) {
+            return [
+                'status' => false,
+                'message' => "Sorry, invalid inputs, please try again",
+                'view' => ""
+            ];
+        }
+
+        $bookingid = $data['bookingid'];
+        $vehicleid = $data['vehicleid'];
+
+        $vehicleReservationObj = VehicleReservation::with('owner:id,currency')->find($bookingid);
+
+        if (!$vehicleReservationObj) {
+            return [
+                'status' => false,
+                'message' => "Sorry, booking not found",
+                'view' => ""
+            ];
+        }
+
+        $renter = User::find($vehicleReservationObj->renter_id);
+        $vehicle = Vehicle::find($vehicleid);
+        $orderDepositRule = OrderDepositRule::where('vehicle_reservation_id', $vehicleReservationObj->id)->first();
+
+        if (!$vehicle || !$renter) {
+            return [
+                'status' => false,
+                'message' => "Sorry, vehicle or renter data missing",
+                'view' => ""
+            ];
+        }
+
+        $vehicle->currency = $vehicleReservationObj->owner->currency ?? 'USD';
+
+        $pathToOwnership = new PathToOwnership();
+        $dayRent = $pathToOwnership->getVehiclePerDayPriceForQuote(
+            $vehicle->toArray(),
+            $renter->toArray(),
+            $orderDepositRule->total_initial_fee ?? 0
+        );
+
+        $result = [
+            'rent' => $vehicle->day_rent,
+            'fare_des' => '$' . $vehicle->day_rent . '/day',
+            'rental_options' => $dayRent['tier_rental'] ?? [],
+            'pre_miles' => !empty($orderDepositRule) ? ceil($orderDepositRule->miles * 30) : 1000
+        ];
+
+        $view = view('vehicle_reservations._getfarecalculations', compact('result'))->render();
+
+        return [
+            'status' => true,
+            'message' => "",
+            'view' => $view
+        ];
+    }
+    private function _changeSaveStatus(array $data, $userid = null)
+    {
+        $input = $data['VehicleReservation'] ?? $data;
+        $reservationId = $input['id'] ?? null;
+        $status = (int) ($input['status'] ?? 0);
+
+        $query = VehicleReservation::where('id', $reservationId);
+
+        if (!empty($userid)) {
+            $query->where('user_id', $userid);
+        }
+
+        $vehicleReservation = $query->first([
+            'id',
+            'user_id',
+            'vehicle_id',
+            'renter_id',
+            'status'
+        ]);
+
+        if (!$vehicleReservation) {
+            return [
+                'status' => false,
+                'message' => "Sorry, Reservation data not found",
+                'result' => []
+            ];
+        }
+
+        $loggedUserId = session('SESSION_ADMIN.id')
+            ?? session('userParentId')
+            ?? session('userid')
+            ?? auth()->id()
+            ?? 0;
+        $note = $input['note'] ?? '';
+        $logData = [
+            'user_id' => $loggedUserId,
+            'reservation_id' => $vehicleReservation->id,
+            'status' => $status,
+        ];
+
+        $previousStatusTitle = $this->commonService->getReservationStatus(false, $vehicleReservation->status);
+
+        if ($status !== 10) {
+            $vehicleReservation->update(['status' => $status]);
+        }
+
+        $msg = '';
+
+        if ($status === 4) {
+            $dealer = User::find($vehicleReservation->user_id, ['first_name', 'last_name']);
+            $msg = ($dealer->first_name ?? '') . ' ' . ($dealer->last_name ?? '') . ' has approved order and is now planning to prep the vehicle. We will be in touch soon with a pick up time.';
+            $note = !empty($note) ? $note : "The dealer is aware of your booking and is now planning to prep the vehicle. We will be in touch soon with a pick up time.";
+        }
+
+        if ($status === 5) {
+            $driver = User::find($vehicleReservation->renter_id, ['first_name', 'last_name', 'contact_number']);
+            $msg = ($driver->first_name ?? '') . ' ' . ($driver->last_name ?? '') . ', your vehicle is now being prepped. We will know shortly the pick up time.';
+            $note = !empty($note) ? $note : "Your vehicle is now being prepped. We will know shortly the pick up time.";
+        }
+
+        if ($status === 6) {
+            $driver = User::find($vehicleReservation->renter_id, ['first_name', 'last_name', 'contact_number']);
+            $msg = ($driver->first_name ?? '') . ' ' . ($driver->last_name ?? '') . ', your vehicle will be ready at ' . ($input['note'] ?? '') . '. Please bring your driver’s license with you when picking up the vehicle.';
+            $note = 'Your vehicle will be ready at ' . ($input['note'] ?? '') . '. Please bring your driver’s license with you when picking up the vehicle.';
+        }
+
+        if ($status === 7) {
+            $driver = User::find($vehicleReservation->renter_id, ['first_name', 'last_name', 'contact_number']);
+            $msg = ($driver->first_name ?? '') . ' ' . ($driver->last_name ?? '') . ', your vehicle is ready for pick up! Congrats again on your order. We look forward to seeing you soon. If you cannot pick up the vehicle up at this time, please let us know.';
+            $note = 'Your vehicle is ready for pick up! Congrats again on your order. We look forward to seeing you soon. If you cannot pick up the vehicle up at this time, please let us know.';
+        }
+
+        if ($status !== 10) {
+            $logData['note'] = $note;
+        } else {
+            $logData['note'] = $input['note'] ?? '';
+        }
+
+        VehicleReservationLog::create($logData);
+
+        if ($status !== 10) {
+            $newStatusTitle = $this->commonService->getReservationStatus(false, $status);
+
+            Notifier::createIntercomeUserEvent([
+                "event_name" => "pending_booking_update",
+                "created_at" => time(),
+                "external_id" => $vehicleReservation->renter_id,
+                "user_id" => $vehicleReservation->renter_id,
+                "metadata" => [
+                    "id" => $vehicleReservation->id,
+                    "pending_booking_id" => $vehicleReservation->id,
+                    "previous_status" => $previousStatusTitle,
+                    "new_status" => $newStatusTitle
+                ]
             ]);
-            return true;
         }
-        return false;
+
+        return [
+            "status" => true,
+            "message" => "Your request saved successfully",
+            "orderid" => $vehicleReservation->id
+        ];
+    }
+    private function _vehicleReservationLog(array $data)
+    {
+        $orderid = base64_decode($data['orderid']);
+
+        if (empty($orderid)) {
+            return [
+                'status' => false,
+                'message' => "Sorry, invalid inputs, please try again",
+                'view' => ""
+            ];
+        }
+
+        $statuslogs = VehicleReservationLog::with('user:id,first_name,last_name')
+            ->where('reservation_id', $orderid)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $allowedstatus = $this->commonService->getReservationStatus(true, true);
+        $view = view('vehicle_reservations.reservation_status_log', compact('statuslogs', 'allowedstatus'))->render();
+
+        return [
+            'status' => true,
+            'message' => "",
+            'view' => $view
+        ];
     }
 
-    public function _changeSaveStatus($reservationId, $saveStatus)
-    {
-        $reservation = VehicleReservation::find($reservationId);
-        if ($reservation) {
-            $reservation->update(['save_status' => $saveStatus]);
-            return true;
-        }
-        return false;
-    }
+
+
+
 
     protected function _changeInsuranceTypePopup(...$args)
     {
@@ -576,16 +946,7 @@ trait VehicleReservationsTrait
     {
         return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
     }
-    protected function _updateDatetime(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
-    protected function _updateReservationVehicle(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
-    protected function _vehicleReservationLog(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
+
+
+
 }

@@ -19,4 +19,9 @@ class VehicleReservationLog extends LegacyModel
         'created',
         'updated',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }
