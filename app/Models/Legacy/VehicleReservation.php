@@ -74,11 +74,14 @@ class VehicleReservation extends LegacyModel
         return $this->belongsTo(User::class, 'renter_id');
     }
 
-    public function depositRule(): HasOne
+    public function orderDepositRule(): HasOne
     {
         return $this->hasOne(OrderDepositRule::class, 'vehicle_reservation_id');
     }
-
+    public function depositRule(): HasOne
+    {
+        return $this->hasOne(DepositRule::class, 'vehicle_id', 'vehicle_id');
+    }
     public static function updatePendingBooking($renterId, $type = 1): void
     {
         $pendingBooking = self::where('status', 0)

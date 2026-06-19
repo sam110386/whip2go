@@ -51,7 +51,7 @@
 </td>
 
 <td style="text-align:center;">
-    {{ data_get($trip, 'depositRule.downpayment') }}
+    {{ data_get($trip, 'orderDepositRule.downpayment') }}
 </td>
 
 <td style="text-align:center;">
@@ -107,7 +107,7 @@
 </td>
 
 <td class="text-center">
-    @if (in_array((int) (data_get($trip, 'depositRule.insurance_payer')), [3, 4, 5, 6]))
+    @if (in_array((int) (data_get($trip, 'orderDepositRule.insurance_payer')), [3, 4, 5, 6]))
         <a href="#" class="gpsedit" data-type="select" data-inputclass="form-control" data-pk="{{ data_get($trip, 'id') }}"
             data-value="{{ data_get($trip, 'docusign') }}" data-title="Select status" id="docusign"
             data-url="{{ url('admin/vehicle_reservations/updatelist') }}">
@@ -190,7 +190,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ url('admin/vehicle_reservations/goalrecalculate' . base64_encode(data_get($trip, 'depositRule.id'))) }}"
+                <a href="{{ url('admin/vehicle_reservations/goalrecalculate' . base64_encode(data_get($trip, 'orderDepositRule.id'))) }}"
                     title="Edit Goal Calculations"
                     onclick="return confirm('Are you sure you want to edit this booking goal calculations?')">
                     <i class="icon-cog3"></i> Edit Goal Calculations

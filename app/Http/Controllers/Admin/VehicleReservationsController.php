@@ -2,24 +2,27 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Services\Legacy\Emailnotify;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Http\Controllers\Traits\VehicleReservationsTrait;
 use App\Models\Legacy\CsReservationPayment;
 use App\Models\Legacy\CsSetting;
 use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\PlaidUser;
+use App\Models\Legacy\PrepaidPlan;
 use App\Models\Legacy\User;
 use App\Models\Legacy\UserIncome;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleReservation;
 use App\Models\Legacy\VehicleReservationLog;
 use App\Services\Legacy\Passtime;
+use App\Services\Legacy\PaymentProcessor;
 use App\Services\Legacy\PlaidClient;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\File;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Traits\VehicleReservationsTrait;
+use App\Services\Legacy\PromoService;
 use Carbon\Carbon;
 
 class VehicleReservationsController extends LegacyAppController
@@ -39,7 +42,7 @@ class VehicleReservationsController extends LegacyAppController
 
         $bookings = VehicleReservation::with([
             'vehicle:id,msrp,vin_no,vehicle_name',
-            'depositRule:id,vehicle_reservation_id,insurance,insurance_payer,insu_agreed,financing',
+            'orderDepositRule:id,vehicle_reservation_id,insurance,insurance_payer,insu_agreed,financing',
             'renter:id,first_name,last_name,state'
         ])
             ->whereIn('status', $allowedStatus)
@@ -752,7 +755,7 @@ class VehicleReservationsController extends LegacyAppController
         $orderId = $request->input('orderid');
         $booking = VehicleReservation::with([
             'vehicle:id,msrp,vin_no,vehicle_name',
-            'depositRule:id,vehicle_reservation_id,downpayment',
+            'orderDepositRule:id,vehicle_reservation_id,downpayment',
             'renter:id,first_name,last_name'
         ])->find($orderId);
 
@@ -763,422 +766,563 @@ class VehicleReservationsController extends LegacyAppController
         $return = $this->_vehicleReservationLog($request->all());
         return response()->json($return);
     }
-
-
-
-
-
-
-
-
-    public function loadstatuschecklist(Request $request)
-    {
-        $id = $this->decodeId((string) $request->input('id', $request->input('lease_id', '')));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-
-        return response()->view('admin.vehicle_reservations._status_checklist', ['id' => $id]);
-    }
-
-    public function updatechecklist(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'Checklist updated successfully']);
-    }
-
-    public function loadcancelblock(Request $request)
-    {
-        $id = $this->decodeId((string) $request->input('lease_id', ''));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-
-        return response()->view('admin.vehicle_reservations._cancel_popup', ['id' => base64_encode((string) $id)]);
-    }
-
-    public function loadinsurancepopup(Request $request)
-    {
-        $id = $this->decodeId((string) $request->input('lease_id', ''));
-        if (!$id) {
-            return response('Invalid reservation', 400);
-        }
-
-        return response()->view('admin.vehicle_reservations._insurance_popup', ['id' => base64_encode((string) $id)]);
-    }
-
-    public function changeinsurancepopup(Request $request)
-    {
-        return $this->loadinsurancepopup($request);
-    }
-
-    public function changeinsurancesave(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'Insurance settings updated']);
-    }
-
-    public function changeinsurancetypepopup(Request $request)
-    {
-        return $this->loadinsurancepopup($request);
-    }
-
-    public function saveinsurancepayer(Request $request): JsonResponse
-    {
-        $id = $this->decodeId((string) $request->input('lease_id', ''));
-        $payer = (string) $request->input('insurance_payer', '');
-        if (!$id || $payer === '') {
-            return response()->json(['status' => false, 'message' => 'Invalid request']);
-        }
-        DB::table('cs_order_deposit_rules')
-            ->where('vehicle_reservation_id', $id)
-            ->update(['insurance_payer' => $payer]);
-
-        return response()->json(['status' => true, 'message' => 'Insurance payer updated']);
-    }
-
-    public function generateAgrement(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'Agreement generation queued']);
-    }
-
     public function capturepayment(Request $request)
     {
-        $id = $this->decodeId((string) $request->input('lease_id', ''));
-        if (!$id) {
-            return response('Invalid reservation', 400);
+        if (!$request->has('lease_id') || empty($request->input('lease_id'))) {
+            return response()->json(['error' => 'Lease ID missing'], 400);
         }
 
-        return response()->view('admin.vehicle_reservations._capture_payment', ['id' => base64_encode((string) $id)]);
-    }
+        $leaseId = $this->decodeId($request->input('lease_id'));
+        $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
+        $reserveData = VehicleReservation::with('vehicle')
+            ->where('id', $leaseId)
+            ->where('buy', 0)
+            ->whereIn('status', $allowedStatus)
+            ->first();
 
-    public function processcapturepayment(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'Payment capture processed']);
-    }
-
-    public function paymentcapturevehiclereservation(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'Payment captured']);
-    }
-
-    public function recapturevehiclereservation(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'message' => 'Payment recapture queued']);
-    }
-
-    protected function reservationQuery(?array $statuses = null)
-    {
-        $q = DB::table('vehicle_reservations as vr')
-            ->leftJoin('vehicles as v', 'v.id', '=', 'vr.vehicle_id')
-            ->leftJoin('users as owner', 'owner.id', '=', 'vr.user_id')
-            ->leftJoin('users as renter', 'renter.id', '=', 'vr.renter_id')
-            ->leftJoin('cs_order_deposit_rules as odr', 'odr.vehicle_reservation_id', '=', 'vr.id')
-            ->select([
-                'vr.*',
-                'v.vehicle_name',
-                'v.vehicle_unique_id',
-                'v.vin_no',
-                'owner.first_name as owner_first_name',
-                'owner.last_name as owner_last_name',
-                'renter.first_name as renter_first_name',
-                'renter.last_name as renter_last_name',
-                'odr.id as order_rule_id',
-                'odr.downpayment',
-                'odr.insurance',
-                'odr.insurance_payer',
-                'odr.insu_agreed',
-                'odr.financing',
-            ]);
-
-        if ($statuses !== null) {
-            $q->whereIn('vr.status', $statuses);
+        if (!$reserveData) {
+            return redirect()->to('/admin/vehicle_reservations/index');
         }
 
-        return $q;
-    }
+        $vehicle = $reserveData->vehicle;
+        $orderDepositRule = OrderDepositRule::where('vehicle_reservation_id', $reserveData->id)->first();
 
-    public function insudoc(Request $request): JsonResponse
+        $csReservationPayments = CsReservationPayment::select('type', 'amount', 'txntype', 'id')
+            ->where('reservation_id', $reserveData->id)
+            ->whereIn('type', [1, 3])
+            ->where('status', 1)
+            ->get();
+
+        $priceRulesAmt = (new DepositRule())->getPendingBookingFee($reserveData, $orderDepositRule);
+
+        $startDate = Carbon::parse($reserveData->start_datetime, $reserveData->timezone)->format('m/d/Y');
+        $endDate = Carbon::parse($reserveData->end_datetime, $reserveData->timezone)->format('m/d/Y');
+
+        $rentalOpt = json_decode($orderDepositRule->rental_opt ?? '{}', true);
+        $initialFeeOpt = json_decode($orderDepositRule->initial_fee_opt ?? '{}', true);
+        $depositOpt = json_decode($orderDepositRule->deposit_opt ?? '{}', true);
+
+        $paidRental = CsReservationPayment::getTotalRentalTax($reserveData->id);
+        $paidInsurance = CsReservationPayment::getTotalInsurance($reserveData->id);
+        $prepaidPlans = PrepaidPlan::where('reservation_id', $reserveData->id)->get();
+
+        $chargeButton = $prepaidPlans->contains(function ($plan) {
+            return $plan->status != 3;
+        });
+
+        $promo = (new PromoService())->getUserPromo($reserveData->renter_id);
+        $paidDeposit = $csReservationPayments->where('type', 1)->sum('amount');
+        $tax = $orderDepositRule->tax ?? 0;
+
+        return view('admin.vehicle_reservations._capture_payment', compact(
+            'reserveData',
+            'vehicle',
+            'orderDepositRule',
+            'csReservationPayments',
+            'priceRulesAmt',
+            'startDate',
+            'endDate',
+            'rentalOpt',
+            'initialFeeOpt',
+            'depositOpt',
+            'paidRental',
+            'paidInsurance',
+            'prepaidPlans',
+            'chargeButton',
+            'tax',
+            'promo',
+            'paidDeposit'
+        ));
+    }
+    public function processcapturepayment(Request $request)
     {
-        $id = (int) $this->decodeId((string) $request->input('id', ''));
-        if ($id <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid reservation id']);
+        $return = ["status" => false, "message" => "Sorry, something went wrong"];
+
+        if (!$request->has('orderid') || empty($request->input('orderid'))) {
+            return response()->json($return);
         }
 
-        $reservation = DB::table('vehicle_reservations as vr')
-            ->leftJoin('cs_order_deposit_rules as odr', 'odr.vehicle_reservation_id', '=', 'vr.id')
-            ->leftJoin('vehicles as v', 'v.id', '=', 'vr.vehicle_id')
-            ->leftJoin('users as renter', 'renter.id', '=', 'vr.renter_id')
-            ->leftJoin('users as owner', 'owner.id', '=', 'vr.user_id')
-            ->where('vr.id', $id)
-            ->first([
-                'vr.id',
-                'vr.user_id',
-                'odr.id as odr_id',
-                'odr.insurance_payer',
-                'v.make',
-                'v.year',
-                'v.model',
-                'v.vin_no',
-                'v.insurance_company',
-                'v.insurance_policy_no',
-                'v.insurance_policy_date',
-                'v.insurance_policy_exp_date',
-                'renter.first_name as renter_first_name',
-                'renter.last_name as renter_last_name',
-                'owner.first_name as owner_first_name',
-                'owner.last_name as owner_last_name',
-            ]);
+        $type = $request->input('type');
+        $amt = $request->input('amt');
+        $opt = $request->has('opt') ? json_decode($request->input('opt'), true) : [];
+        $orderId = $this->decodeId($request->input('orderid'));
+        $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
+
+        $reservation = VehicleReservation::with(['owner:id,currency', 'orderDepositRule:vehicle_reservation_id,insurance_payer'])
+            ->where('id', $orderId)
+            ->where('buy', 0)
+            ->whereIn('status', $allowedStatus)
+            ->first();
 
         if (!$reservation) {
-            return response()->json(['status' => false, 'message' => "Sorry, you can't perform this action now."]);
+            return redirect()->to('/admin/vehicle_reservations/index');
         }
 
-        if ((int) ($reservation->insurance_payer ?? 0) === 3) {
-            $payerDoc = DB::table('insurance_payers')
-                ->where('order_deposit_rule_id', $reservation->odr_id)
-                ->first(['insurance_card']);
+        $paymentProcessor = new PaymentProcessor();
 
-            if (!$payerDoc || empty($payerDoc->insurance_card)) {
-                return response()->json([
-                    'status' => false,
-                    'message' => "Sorry, Driver didnt upload insurance token yet. He agreed to manage it himself.",
-                ]);
-            }
+        if ($type == 4 && $amt > 0) {
+            $return = $paymentProcessor->chargeInsuranceForVehicleReservation($amt, $reservation);
+        }
 
+        if ($type == 2 && $amt > 0) {
+            $mergedData = array_merge($reservation->toArray(), $opt);
+            $currency = data_get($reservation, 'owner.currency');
+
+            $return = $paymentProcessor->chargeRentalForVehicleReservation($mergedData, $currency);
+        }
+
+        if ($type == 1 && $amt > 0) {
+            $return = $paymentProcessor->chargeDepositForVehicleReservation($amt, $reservation);
+        }
+
+        return response()->json($return);
+    }
+    public function paymentcapturevehiclereservation(Request $request)
+    {
+        $return = ["status" => 'error', "message" => "Sorry, something went wrong", 'retrynew' => 0, 'paymentid' => 0];
+
+        if (!$request->isMethod('post') || !$request->has('paymentid')) {
+            return response()->json($return);
+        }
+
+        $paymentId = $request->input('paymentid');
+        $payment = CsReservationPayment::where('id', $paymentId)
+            ->where('txntype', 'P')
+            ->where('status', 1)
+            ->first();
+
+        if (!$payment) {
+            $return["message"] = "Sorry, payment transaction is already captured or not found";
+            return response()->json($return);
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $result = $paymentProcessor->UberPaymentCaptureOnly($payment->toArray(), 'DIA initial fee ');
+
+        if (data_get($result, 'status') !== 'success') {
+            $result['retrynew'] = 1;
+            $result['paymentid'] = $paymentId;
+            return response()->json($result);
+        }
+
+        $payment->txntype = 'C';
+        $payment->save();
+
+        return response()->json(['status' => 'success', 'message' => 'Payment released successfully']);
+    }
+    public function recapturevehiclereservation(Request $request)
+    {
+        $return = ["status" => 'error', "message" => "Sorry, something went wrong", 'retrynew' => 0, 'paymentid' => 0];
+
+        if (!$request->isMethod('post') || !$request->has('paymentid')) {
+            return response()->json($return);
+        }
+
+        $paymentId = $request->input('paymentid');
+        $payment = CsReservationPayment::with('vehicleReservation:id,renter_id')->find($paymentId);
+
+        if (!$payment) {
+            $return["message"] = "Sorry, payment transaction is not found";
+            return response()->json($return);
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $statement = $payment->type == 1 ? 'DIA Initial Fee ' : 'DIA deposit Fee ';
+        $renterId = data_get($payment, 'vehicleReservation.renter_id');
+
+        $result = $paymentProcessor->PaymentAuthorizeOnly(
+            $payment->amount,
+            $renterId,
+            $payment->type,
+            $statement,
+            true,
+            $payment->currency
+        );
+
+        if (data_get($result, 'status') === 'success') {
+            $newPayment = $payment->replicate();
+            $newPayment->transaction_id = data_get($result, 'transaction_id');
+            $newPayment->txntype = 'C';
+            $newPayment->created_at = Carbon::now();
+            $newPayment->save();
+
+            $payment->status = 2;
+            $payment->save();
+
+            $result['message'] = "Amount captured successfully";
+        }
+
+        return response()->json($result);
+    }
+    public function insudoc(Request $request)
+    {
+        if (!$request->has('id') || empty($request->input('id'))) {
             return response()->json([
-                'status' => true,
-                'message' => 'Success',
-                'result' => ['file' => '/files/reservation/' . $payerDoc->insurance_card],
+                'status' => false,
+                'message' => 'Missing ID parameter.',
+                'result' => []
             ]);
         }
 
-        \Log::warning("insudoc: Insurance document generation stubbed for reservation {$id}.");
-
-        return response()->json([
-            'status' => false,
-            'message' => 'Insurance document generation not yet ported to Laravel.',
-            'result' => ['file' => null],
-        ]);
+        $id = $this->decodeId($request->input('id'));
+        $return = $this->_insudoc($id);
+        return response()->json($return);
     }
-
+    public function changeinsurancepopup(Request $request)
+    {
+        $return = $this->_changeinsurancepopup($request->all());
+        return response()->json($return);
+    }
+    public function changeinsurancesave(Request $request)
+    {
+        $return = $this->_changeinsurancesave($request->all());
+        return response()->json($return);
+    }
+    public function generateAgrement(Request $request)
+    {
+        $id = $request->input('id');
+        $returnData = $this->_getPendingBookingAgreement($id);
+        return response()->json($returnData);
+    }
+    public function loadcancelblock(Request $request)
+    {
+        return $this->_loadcancelblock($request->all());
+    }
+    public function loadinsurancepopup(Request $request)
+    {
+        return $this->_loadinsurancepopup($request->all());
+    }
+    public function changeinsurancetypepopup(Request $request)
+    {
+        return $this->_changeInsuranceTypePopup($request->all());
+    }
+    public function saveinsurancepayer(Request $request)
+    {
+        return $this->_saveinsurancepayer($request->all());
+    }
     public function goalrecalculate(Request $request, $id = null)
     {
-        $ruleId = $id ? (int) $this->decodeId((string) $id) : 0;
-        if ($ruleId <= 0) {
-            return redirect('/admin/vehicle-reservations');
-        }
+        $id = $this->decodeId($id);
+        $orderDepositRule = OrderDepositRule::findOrFail($id);
+        $orderDepositRule->rent_opt = json_decode($orderDepositRule->rent_opt, true) ?? [];
+        $orderDepositRule->initial_fee_opt = json_decode($orderDepositRule->initial_fee_opt, true) ?? [];
+        $orderDepositRule->deposit_opt = json_decode($orderDepositRule->deposit_opt, true) ?? [];
+        $orderDepositRule->duration_opt = json_decode($orderDepositRule->duration_opt, true) ?? [];
+        $orderDepositRule->calculation = json_decode($orderDepositRule->calculation, true) ?? [];
+        $orderDepositRule->goal = 'custom';
+        $orderDepositRule->miles = floor(($orderDepositRule->miles * 365) / 12);
 
-        $odr = DB::table('cs_order_deposit_rules')->where('id', $ruleId)->first();
-        if (!$odr) {
-            return redirect('/admin/vehicle-reservations');
-        }
+        $vehicleReservation = VehicleReservation::select('id', 'renter_id', 'vehicle_id', 'initial_discount', 'discount_desc')
+            ->findOrFail($orderDepositRule->vehicle_reservation_id);
 
-        $odrArr = (array) $odr;
-        $odrArr['rent_opt'] = !empty($odrArr['rent_opt']) ? json_decode($odrArr['rent_opt'], true) : [];
-        $odrArr['initial_fee_opt'] = !empty($odrArr['initial_fee_opt']) ? json_decode($odrArr['initial_fee_opt'], true) : [];
-        $odrArr['deposit_opt'] = !empty($odrArr['deposit_opt']) ? json_decode($odrArr['deposit_opt'], true) : [];
-        $odrArr['duration_opt'] = !empty($odrArr['duration_opt']) ? json_decode($odrArr['duration_opt'], true) : [];
-        $odrArr['calculation'] = !empty($odrArr['calculation']) ? json_decode($odrArr['calculation'], true) : [];
-        $odrArr['goal'] = 'custom';
-        $odrArr['miles'] = floor(((float) ($odrArr['miles'] ?? 0)) * 365 / 12);
+        $vehicleData = Vehicle::select('id', 'msrp', 'allowed_miles')
+            ->findOrFail($vehicleReservation->vehicle_id);
 
-        $vrId = (int) ($odrArr['vehicle_reservation_id'] ?? 0);
-        $vr = DB::table('vehicle_reservations')
-            ->where('id', $vrId)
-            ->first(['renter_id', 'vehicle_id', 'initial_discount', 'discount_desc']);
-
-        $vehicleId = $vr ? (int) $vr->vehicle_id : 0;
-        $vehicleRow = DB::table('vehicles')
-            ->where('id', $vehicleId)
-            ->first(['id', 'msrp', 'allowed_miles']);
-
-        $allowedMiles = $vehicleRow->allowed_miles ?? 0;
-        $k = $allowedMiles ? (int) ceil($allowedMiles * 30) : 1000;
+        $baseMiles = $vehicleData->allowed_miles ? ceil($vehicleData->allowed_miles * 30) : 1000;
         $milesOptions = [];
-        while ($k <= 15000) {
-            $milesOptions[$k] = $k;
-            $k += 500;
+
+        while ($baseMiles <= 15000) {
+            $milesOptions[$baseMiles] = $baseMiles;
+            $baseMiles += 500;
         }
 
         $vehicles = [
-            'id' => $vehicleRow->id ?? 0,
-            'miles_options' => $milesOptions,
+            'id' => $vehicleData->id,
+            'miles_options' => $milesOptions
         ];
 
-        return view('admin.vehicle_reservations.goalrecalculate', [
-            'OrderDepositRule' => $odrArr,
-            'vehicles' => $vehicles,
-            'VehicleReservationObj' => $vr ? (array) $vr : [],
-        ]);
+        return view('admin.vehicle_reservations.goalrecalculate', compact('orderDepositRule', 'vehicles', 'vehicleReservation'));
     }
-
-    public function getVehicleDynamicFareMatrix(Request $request): JsonResponse
+    public function getVehicleDynamicFareMatrix(Request $request)
     {
         $offer = $request->input('VehicleOffer', []);
-        if (empty($offer)) {
-            return response()->json(['status' => false, 'message' => 'Missing VehicleOffer data']);
+        return $this->_vehicleReservationVehicleDynamicFareMatrix($offer);
+    }
+    public function saveGoalRecalculation(Request $request)
+    {
+        $offerInput = $request->input('VehicleOffer', []);
+        $jsonData = json_decode(data_get($offerInput, 'json', '{}'), true) ?? [];
+        $offer = array_merge($offerInput, $jsonData);
+        $id = data_get($offer, 'id');
+
+        if (empty($id)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, required input data are missing.',
+                'result' => []
+            ]);
         }
 
-        \Log::warning('getVehicleDynamicFareMatrix: fare matrix calculation stubbed.');
+        $orderDepositRule = OrderDepositRule::findOrFail($id);
+        $orderDepositRule->fill([
+            'totalcost' => data_get($offer, 'totalcost'),
+            'goal' => data_get($offer, 'goal'),
+            'downpayment' => data_get($offer, 'downpayment'),
+            'miles' => sprintf('%0.2f', (data_get($offer, 'miles', 0) / 30)),
+            'insurance' => data_get($offer, 'insurance'),
+            'emf' => data_get($offer, 'emf'),
+            'total_program_cost' => data_get($offer, 'total_program_cost'),
+            'rental' => data_get($offer, 'day_rent'),
+            'num_of_days' => data_get($offer, 'days'),
+            'tax' => data_get($offer, 'tax_rate'),
+            'total_initial_fee' => data_get($offer, 'total_initial_fee'),
+            'write_down_allocation' => data_get($offer, 'write_down_allocation'),
+            'finance_allocation' => data_get($offer, 'finance_allocation'),
+            'maintenance_allocation' => data_get($offer, 'maintenance_allocation'),
+            'financing_total' => data_get($offer, 'financing_total'),
+            'disposition_fee' => data_get($offer, 'disposition_fee'),
+            'calculation' => data_get($offer, 'json'),
+        ]);
+        $orderDepositRule->save();
+
+        if (data_get($offer, 'clear_promo') == 1) {
+            if ($orderDepositRule->vehicle_reservation_id) {
+                VehicleReservation::where('id', $orderDepositRule->vehicle_reservation_id)
+                    ->update([
+                        'initial_discount' => 0,
+                        'discount_desc' => null
+                    ]);
+            }
+
+            (new PromoService())->removePromoIdToUser();
+        }
 
         return response()->json([
-            'status' => false,
-            'message' => 'Dynamic fare matrix calculation not yet ported to Laravel',
-            'result' => [],
+            'status' => true,
+            'message' => 'Data updated successfully',
+            'result' => []
         ]);
     }
-
-    public function saveGoalRecalculation(Request $request): JsonResponse
+    public function savemanualcalculation(Request $request)
     {
         $offer = $request->input('VehicleOffer', []);
-        if (!empty($offer['json'])) {
-            $offer = array_merge($offer, json_decode($offer['json'], true) ?: []);
+        $id = data_get($offer, 'id');
+
+        if (empty($id)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, required input data are missing.',
+                'result' => []
+            ]);
         }
 
-        if (empty($offer['id'])) {
-            return response()->json(['status' => false, 'message' => 'Sorry, required input data are missing.']);
+        $orderDepositRule = OrderDepositRule::findOrFail($id);
+        $orderDepositRule->fill([
+            'totalcost' => data_get($offer, 'calculation.totalcost'),
+            'goal' => data_get($offer, 'calculation.goal'),
+            'downpayment' => data_get($offer, 'calculation.downpayment'),
+            'miles' => sprintf('%0.2f', data_get($offer, 'miles', 0)),
+            'insurance' => data_get($offer, 'insurance'),
+            'emf' => data_get($offer, 'emf'),
+            'total_program_cost' => data_get($offer, 'calculation.total_program_cost'),
+            'rental' => data_get($offer, 'calculation.rental'),
+            'base_rent' => data_get($offer, 'calculation.base_dayrent'),
+            'num_of_days' => data_get($offer, 'calculation.num_of_days'),
+            'tax' => data_get($offer, 'calculation.tax_rate'),
+            'initial_fee' => data_get($offer, 'calculation.initial_fee'),
+            'total_initial_fee' => data_get($offer, 'calculation.initial_fee'),
+            'write_down_allocation' => data_get($offer, 'calculation.write_down_allocation'),
+            'finance_allocation' => data_get($offer, 'calculation.finance_allocation'),
+            'maintenance_allocation' => data_get($offer, 'calculation.maintenance_allocation'),
+            'financing_total' => data_get($offer, 'calculation.financing_total'),
+            'disposition_fee' => data_get($offer, 'calculation.disposition_fee'),
+            'calculation' => json_encode(data_get($offer, 'calculation', [])),
+        ]);
+        $orderDepositRule->save();
+
+        return redirect()->back()->with('status', 'Data updated successfully');
+    }
+    public function loadstatuschecklist(Request $request)
+    {
+        $orderid = $this->decodeId($request->input('orderid'));
+        $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
+
+
+        if (empty($orderid)) {
+            return response()->json(["status" => false, "message" => "Sorry, something missing"]);
         }
 
-        $dataToSave = [
-            'totalcost' => $offer['totalcost'] ?? 0,
-            'goal' => $offer['goal'] ?? '',
-            'downpayment' => $offer['downpayment'] ?? 0,
-            'miles' => sprintf('%0.2f', (($offer['miles'] ?? 0) / 30)),
-            'insurance' => $offer['insurance'] ?? 0,
-            'emf' => $offer['emf'] ?? 0,
-            'total_program_cost' => $offer['total_program_cost'] ?? 0,
-            'rental' => $offer['day_rent'] ?? 0,
-            'num_of_days' => $offer['days'] ?? 0,
-            'tax' => $offer['tax_rate'] ?? 0,
-            'total_initial_fee' => $offer['total_initial_fee'] ?? 0,
-            'write_down_allocation' => $offer['write_down_allocation'] ?? 0,
-            'finance_allocation' => $offer['finance_allocation'] ?? 0,
-            'maintenance_allocation' => $offer['maintenance_allocation'] ?? 0,
-            'financing_total' => $offer['financing_total'] ?? 0,
-            'disposition_fee' => $offer['disposition_fee'] ?? 0,
-            'calculation' => $offer['json'] ?? '',
-        ];
+        $bookingData = VehicleReservation::where('id', $orderid)
+            ->whereIn('status', $allowedStatus)
+            ->select('checklists')
+            ->first();
 
-        DB::table('cs_order_deposit_rules')
-            ->where('id', (int) $offer['id'])
-            ->update($dataToSave);
+        if (empty($bookingData)) {
+            return response()->json(["status" => false, "message" => "Sorry, booking not found"]);
+        }
 
-        if (!empty($offer['clear_promo']) && (int) $offer['clear_promo'] === 1) {
-            $rule = DB::table('cs_order_deposit_rules')
-                ->where('id', (int) $offer['id'])
-                ->value('vehicle_reservation_id');
+        $bookingChecks = !empty($bookingData->checklists) ? json_decode($bookingData->checklists, true) : [];
 
-            if ($rule) {
-                VehicleReservation::query()
-                    ->whereKey($rule)
-                    ->update(['initial_discount' => 0, 'discount_desc' => null]);
+        $loadstatuschecklist = view('vehicle_reservations._loadstatuschecklist', [
+            'bookingchecks' => $bookingChecks,
+            'orderid' => $orderid,
+            'checklist' => $this->checklist
+        ])->render();
+
+        return response()->json([
+            "status" => true,
+            "message" => "loaded successfully",
+            "html" => $loadstatuschecklist
+        ]);
+    }
+    public function updatechecklist(Request $request)
+    {
+        if (!$request->isMethod('post')) {
+            return response()->json(["status" => false, "message" => "Sorry, something missing"]);
+        }
+
+        $orderid = $request->input('pk');
+        $key = $request->input('name');
+        $value = $request->input('value');
+        $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
+
+        if (empty($orderid)) {
+            return response()->json(["status" => false, "message" => "Sorry, something missing"]);
+        }
+
+        $bookingData = VehicleReservation::where('id', $orderid)
+            ->whereIn('status', $allowedStatus)
+            ->select('id', 'checklists')
+            ->first();
+
+        if (empty($bookingData)) {
+            return response()->json(["status" => false, "message" => "Sorry, booking not found"]);
+        }
+
+        $checklists = !empty($bookingData->checklists) ? json_decode($bookingData->checklists, true) : [];
+        $checklists = array_merge($checklists, [$key => $value]);
+
+        $bookingData->update([
+            'checklists' => json_encode($checklists)
+        ]);
+
+        return response()->json(["status" => true, "message" => "saved successfully"]);
+    }
+    public function download_vehicle_images(Request $request)
+    {
+        if (!$request->isMethod('post')) {
+            return response()->json(["status" => false, "message" => "Sorry, something missing"]);
+        }
+
+        $vehicleid = $this->decodeId($request->input('vehicleid'));
+
+        if (empty($vehicleid)) {
+            return response()->json(["status" => false, "message" => "Sorry, something missing"]);
+        }
+
+        $this->_CopyVehicleImageFromRemote($vehicleid);
+
+        return response()->json(["status" => true, "message" => "saved successfully"]);
+    }
+    public function vehicleSellingOpions(Request $request)
+    {
+        $orderid = $this->decodeId($request->input('orderid'));
+        $booking = VehicleReservation::select('id', 'vehicle_id')
+            ->with([
+                'orderDepositRule:id,selling_option,vehicle_reservation_id',
+                'depositRule:vehicle_id,free_two_move'
+            ])->find($orderid);
+
+        $free_two_move = [];
+        $selling_option = [];
+
+        if ($booking) {
+            if (!empty($booking->depositRule->free_two_move)) {
+                $free_two_move = json_decode($booking->depositRule->free_two_move, true);
+            }
+            if (!empty($booking->orderDepositRule->selling_option)) {
+                $selling_option = json_decode($booking->orderDepositRule->selling_option, true);
             }
         }
 
-        return response()->json(['status' => true, 'message' => 'Data updated successfully']);
+        $is_admin = 1;
+
+        return view('vehicle_reservations._vehicle_selling_opions', compact('booking', 'free_two_move', 'is_admin', 'selling_option'));
     }
-
-    public function savemanualcalculation(Request $request): JsonResponse
-    {
-        $offer = $request->input('VehicleOffer', []);
-        if (empty($offer['id'])) {
-            return response()->json(['status' => false, 'message' => 'Sorry, required input data are missing.']);
-        }
-
-        $calc = $offer['calculation'] ?? [];
-
-        $dataToSave = [
-            'totalcost' => $calc['totalcost'] ?? 0,
-            'goal' => $calc['goal'] ?? '',
-            'downpayment' => $calc['downpayment'] ?? 0,
-            'miles' => sprintf('%0.2f', ($offer['miles'] ?? 0)),
-            'insurance' => $offer['insurance'] ?? 0,
-            'emf' => $offer['emf'] ?? 0,
-            'total_program_cost' => $calc['total_program_cost'] ?? 0,
-            'rental' => $calc['rental'] ?? 0,
-            'base_rent' => $calc['base_dayrent'] ?? 0,
-            'num_of_days' => $calc['num_of_days'] ?? 0,
-            'tax' => $calc['tax_rate'] ?? 0,
-            'initial_fee' => $calc['initial_fee'] ?? 0,
-            'total_initial_fee' => $calc['initial_fee'] ?? 0,
-            'write_down_allocation' => $calc['write_down_allocation'] ?? 0,
-            'finance_allocation' => $calc['finance_allocation'] ?? 0,
-            'maintenance_allocation' => $calc['maintenance_allocation'] ?? 0,
-            'financing_total' => $calc['financing_total'] ?? 0,
-            'disposition_fee' => $calc['disposition_fee'] ?? 0,
-            'calculation' => json_encode($calc),
-        ];
-
-        DB::table('cs_order_deposit_rules')
-            ->where('id', (int) $offer['id'])
-            ->update($dataToSave);
-
-        return response()->json(['status' => true, 'message' => 'Data updated successfully']);
-    }
-
-    public function download_vehicle_images(Request $request): JsonResponse
-    {
-        \Log::warning('download_vehicle_images: Not yet ported to Laravel.');
-
-        return response()->json(['status' => false, 'message' => 'Not yet ported to Laravel']);
-    }
-
-    public function vehicleSellingOpions(Request $request)
-    {
-        $orderId = (int) $this->decodeId((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response('Invalid reservation', 400);
-        }
-
-        $booking = DB::table('vehicle_reservations as vr')
-            ->leftJoin('cs_order_deposit_rules as odr', 'odr.vehicle_reservation_id', '=', 'vr.id')
-            ->leftJoin('cs_deposit_rules as dr', 'dr.vehicle_id', '=', 'vr.vehicle_id')
-            ->where('vr.id', $orderId)
-            ->first([
-                'vr.id',
-                'odr.id as odr_id',
-                'odr.selling_option',
-                'dr.free_two_move',
-            ]);
-
-        return view('admin.vehicle_reservations.vehicle_selling_options', [
-            'booking' => $booking,
-            'free_two_move' => !empty($booking->free_two_move) ? json_decode($booking->free_two_move, true) : [],
-            'selling_option' => !empty($booking->selling_option) ? json_decode($booking->selling_option, true) : [],
-            'is_admin' => 1,
-        ]);
-    }
-
     public function vehicleSellingOpionAgreeToSell(Request $request)
     {
-        $orderId = (int) $request->input('orderid', 0);
-        if ($orderId <= 0) {
-            return response('Invalid order', 400);
-        }
+        $orderid = $request->input('orderid');
+        $booking = OrderDepositRule::select('id', 'selling_option')->find($orderid);
 
-        $booking = DB::table('cs_order_deposit_rules')
-            ->where('id', $orderId)
-            ->first(['id', 'selling_option']);
-
-        $sellingOption = [];
         if ($booking && !empty($booking->selling_option)) {
-            $sellingOption = json_decode($booking->selling_option, true) ?: [];
+            $booking->selling_option = json_decode($booking->selling_option, true);
         }
 
-        return view('admin.vehicle_reservations.vehicle_selling_agree', [
-            'booking' => $booking,
-            'selling_option' => $sellingOption,
-        ]);
+        return view('vehicle_reservations._vehicle_selling_opion_agree_to_sell', compact('booking'));
     }
-
-    public function saveVehicleAgreeToSell(Request $request): JsonResponse
+    public function saveVehicleAgreeToSell(Request $request)
     {
-        \Log::warning('saveVehicleAgreeToSell: File upload and email notification stubbed.');
+        if (!$request->ajax()) {
+            return response()->json(["status" => false, "message" => "Invalid Request Type"]);
+        }
 
-        return response()->json([
-            'status' => false,
-            'message' => 'Vehicle sell agreement save not yet fully ported to Laravel',
+        $return = ["status" => false, "message" => "Sorry, something went wrong."];
+        $orderid = $request->input('OrderDepositRule.id');
+        $booking = OrderDepositRule::select('id', 'selling_option', 'vehicle_reservation_id')->find($orderid);
+
+        if (!$booking) {
+            return response()->json(["status" => false, "message" => "Order details not found."]);
+        }
+
+        $sellingOptionData = !empty($booking->selling_option) ? json_decode($booking->selling_option, true) : [];
+        $allowedSize = $this->commonService->FileSizeInBytes(ini_get('upload_max_filesize'));
+
+        if ($request->hasFile('OrderDepositRule.selling_option.invoice')) {
+            $invoiceFile = $request->file('OrderDepositRule.selling_option.invoice');
+
+            if ($invoiceFile->getSize() > $allowedSize) {
+                $return['message'] = 'Sorry invoice image could not be uploaded, it must be in proper size';
+                return response()->json($return);
+            }
+
+            if (in_array(strtolower($invoiceFile->getClientOriginalExtension()), $this->allowedExtensions)) {
+                $filename = 'vehibooking_' . $orderid . '_invoice.' . $invoiceFile->getClientOriginalExtension();
+                $invoiceFile->move(public_path('img/custom/vehicle_photo'), $filename);
+                $sellingOptionData['invoice'] = $filename;
+            }
+        }
+
+        if ($request->hasFile('OrderDepositRule.selling_option.buyer_order')) {
+            $buyerOrderFile = $request->file('OrderDepositRule.selling_option.buyer_order');
+
+            if ($buyerOrderFile->getSize() > $allowedSize) {
+                $return['message'] = 'Sorry buyer order image could not be uploaded, it must be in proper size';
+                return response()->json($return);
+            }
+
+            if (in_array(strtolower($buyerOrderFile->getClientOriginalExtension()), $this->allowedExtensions)) {
+                $filename = 'vehibooking_' . $orderid . '_buyer_order.' . $buyerOrderFile->getClientOriginalExtension();
+                $buyerOrderFile->move(public_path('img/custom/vehicle_photo'), $filename);
+                $sellingOptionData['buyer_order'] = $filename;
+            }
+        }
+
+        $return['status'] = true;
+        VehicleReservation::where('id', $booking->vehicle_reservation_id)->update(['ready_for_dealer' => 2]);
+
+        $booking->update([
+            'selling_option' => json_encode($sellingOptionData)
         ]);
+
+        (new Emailnotify())->sendEmailToDealerForVehicleSellRequest($booking->vehicle_reservation_id);
+
+        return response()->json($return);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     public function vehicleFree2moveAgreement(Request $request): JsonResponse
     {
@@ -1224,18 +1368,5 @@ class VehicleReservationsController extends LegacyAppController
         return response()->json(['status' => false, 'message' => 'Vehicle selling option save not yet ported to Laravel']);
     }
 
-    protected function resolveLimit(Request $request): int
-    {
-        if ($request->has('Record.limit')) {
-            $lim = (int) $request->input('Record.limit');
-            if ($lim > 0 && $lim <= 500) {
-                session(['vehicle_reservations_limit' => $lim]);
-            }
-        }
-
-        $limit = (int) session('vehicle_reservations_limit', 50);
-
-        return $limit > 0 ? $limit : 50;
-    }
 }
 

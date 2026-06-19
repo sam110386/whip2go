@@ -165,5 +165,6 @@ return [
 
     'DIA_FEE' => 5,
     'COMPANY_DISPACHER' => env('LEGACY_COMPANY_DISPACHER', 73),
+    'SUPPORT_PHONE' => env('SUPPORT_PHONE', '(203) 491-4283)'),
 
 ];

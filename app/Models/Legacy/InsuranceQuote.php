@@ -23,4 +23,9 @@ class InsuranceQuote extends LegacyModel
         'updated',
         'created',
     ];
+
+    public function provider()
+    {
+        return $this->belongsTo(InsuranceProvider::class, 'provider_id');
+    }
 }

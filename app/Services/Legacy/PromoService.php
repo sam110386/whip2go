@@ -340,7 +340,7 @@ class PromoService
         return $returns;
     }
 
-    public function removePromoIdToUser($userid): array
+    public function removePromoIdToUser($userid = ''): array
     {
         DB::table('promo_terms')->where('user_id', $userid)->delete();
         return ['status' => true, 'message' => 'All discounts are cleared, from your account.'];

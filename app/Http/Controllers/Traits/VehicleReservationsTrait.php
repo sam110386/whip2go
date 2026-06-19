@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers\Traits;
 
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\File;
+use App\Models\Legacy\CsInsuranceTemplate;
 use App\Models\Legacy\CsVehicleIssue;
 use App\Models\Legacy\DepositRule;
+use App\Models\Legacy\InsurancePayer;
+use App\Models\Legacy\InsuranceQuote;
 use App\Models\Legacy\PrepaidPlan;
 use App\Models\Legacy\VehicleReservation;
 use App\Models\Legacy\Vehicle;
@@ -15,18 +20,18 @@ use App\Models\Legacy\CsWallet;
 use App\Models\Legacy\CsOrderStatuslog;
 use App\Models\Legacy\CsReservationPayment;
 use App\Models\Legacy\VehicleReservationLog;
+use App\Services\Legacy\AgreementService;
 use App\Services\Legacy\Emailnotify;
 use App\Services\Legacy\Insurance;
 use App\Services\Legacy\Notifier;
 use App\Services\Legacy\PathToOwnership;
 use App\Services\Legacy\PaymentProcessor;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\File;
+use App\Helpers\Legacy\Number as NumberHelper;
 use Carbon\Carbon;
 
 trait VehicleReservationsTrait
 {
-    use CommonTrait, MobileApi, AgreementTrait, VehicleDynamicFareMatrix, CopyVehicleImageTrait;
+    use MobileApi, AgreementTrait, VehicleDynamicFareMatrix, CopyVehicleImageTrait;
 
     protected $checklist = [
         "income_provan" => "Initial Income proven for usage",
@@ -67,6 +72,7 @@ trait VehicleReservationsTrait
         3 => ["Not Interested", "bg-danger"],
         4 => ["Find a Replacement", "bg-info"]
     ];
+    protected $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf'];
     private function _markBookingCancel(VehicleReservation $reservation, string $cancelNote = "")
     {
         $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
@@ -908,44 +914,313 @@ trait VehicleReservationsTrait
             'view' => $view
         ];
     }
+    private function _insudoc($id)
+    {
+        $lease = VehicleReservation::select(['id', 'user_id', 'vehicle_id', 'renter_id'])
+            ->with([
+                'orderDepositRule:id,vehicle_reservation_id,insurance_payer',
+                'vehicle:id,make,year,model,vin_no,insurance_policy_date,insurance_policy_no,insurance_policy_exp_date,insurance_company',
+                'renter:id,first_name,last_name',
+                'owner:id,first_name,last_name,address,city,state,zip'
+            ])
+            ->where('id', $id)
+            ->first();
+
+        if (!$lease) {
+            return [
+                'status' => false,
+                'message' => "Sorry, you can't perform this action now.",
+                'result' => []
+            ];
+        }
+
+        $insurancePayerId = data_get($lease, 'orderDepositRule.insurance_payer');
+        $orderDepositRuleId = data_get($lease, 'orderDepositRule.id');
+
+        if ($insurancePayerId == 3) {
+            $insurancePayerObj = InsurancePayer::where('order_deposit_rule_id', $orderDepositRuleId)->first();
+
+            if (!$insurancePayerObj || empty(data_get($insurancePayerObj, 'insurance_card'))) {
+                return [
+                    'status' => false,
+                    'message' => "Sorry, Driver didn't upload insurance token yet. He agreed to manage it himself.",
+                    'result' => []
+                ];
+            }
+
+            return [
+                'status' => true,
+                'message' => "Success",
+                'result' => [
+                    'file' => url('files/reservation/' . data_get($insurancePayerObj, 'insurance_card'))
+                ]
+            ];
+        }
+
+        $filename = 'reservationinsudoc_' . $lease->id . '.pdf';
+        $pdfPath = public_path('files/insurancedoc/' . $filename);
+
+        if (!file_exists($pdfPath)) {
+            $ownerState = data_get($lease, 'owner.state', '');
+
+            if (!empty($ownerState) && strlen($ownerState) === 2) {
+                $ownerState = $this->commonService->getStateName(strtoupper($ownerState));
+            } else {
+                $ownerState = strtoupper($ownerState);
+            }
+
+            if (empty($ownerState)) {
+                $ownerState = 'NEW JERSEY';
+            }
+
+            if ($lease->owner) {
+                $lease->owner->state = $ownerState;
+            }
+
+            $template = CsInsuranceTemplate::where('user_id', $lease->user_id)->first(['insu_token_name']);
+
+            if ($template && !empty(data_get($template, 'insu_token_name'))) {
+                $lease->owner->first_name = data_get($template, 'insu_token_name');
+                $lease->owner->last_name = '';
+            }
+
+            $lease->insuranceCompany = data_get($lease, 'vehicle.insurance_company', "Voyager Indemnity Insurance Company");
+            $lease->policy_no = data_get($lease, 'vehicle.insurance_policy_no', "");
+            $lease->policy_date = data_get($lease, 'vehicle.insurance_policy_date', Carbon::now()->format('m/d/Y'));
+            $lease->policy_exp_date = data_get($lease, 'vehicle.insurance_policy_exp_date', Carbon::now()->format('m/d/Y'));
+            $lease->SUPPORT_PHONE = config('legacy.SUPPORT_PHONE');
+
+            $agreementService = new AgreementService();
+            $agreementService->generateInsuranceToken($lease, $filename);
+        }
+
+        return [
+            'status' => true,
+            'message' => "Success",
+            'result' => [
+                'file' => url('files/insurancedoc/' . $filename)
+            ]
+        ];
+
+    }
+    private function _changeinsurancepopup(array $data)
+    {
+        if (empty($data['order'])) {
+            return [
+                'status' => false,
+                'message' => "Sorry, invalid inputs, please try again",
+                'view' => ""
+            ];
+        }
+
+        $orderRule = OrderDepositRule::find($data['order']);
+        $view = view('vehicle_reservations._changeinsurancepopup', compact('orderRule'))->render();
+
+        return [
+            'status' => true,
+            'message' => "",
+            'view' => $view
+        ];
+    }
+    private function _changeinsurancesave(array $data, $userid = null)
+    {
+        $ruleId = $data['OrderDepositRule']['id'] ?? null;
+
+        $query = OrderDepositRule::with([
+            'reservation:id,user_id,renter_id,status',
+            'reservation.owner:id,currency'
+        ])->where('id', $ruleId);
+
+        if ($userid) {
+            $query->whereHas('reservation', function ($q) use ($userid) {
+                $q->where('user_id', $userid);
+            });
+        }
+
+        $orderRule = $query->first();
+
+        if (empty($orderRule) || empty($orderRule->reservation)) {
+            return [
+                'status' => false,
+                'message' => "Sorry, Reservation data not found",
+                'result' => []
+            ];
+        }
+
+        $reservation = $orderRule->reservation;
+        $owner = $reservation->owner;
+
+        $insurance = $data['OrderDepositRule']['insurance'];
+        $notifyToDriver = $data['OrderDepositRule']['notify'];
+
+        if ($notifyToDriver == 3) {
+            $orderRule->update(['insurance' => $insurance]);
+            return [
+                'status' => true,
+                'message' => "Booking insurance saved successfully",
+                'result' => []
+            ];
+        }
+
+        $status = $reservation->status;
+        $loggedUserId = Session::get('SESSION_ADMIN.id') ?: (Session::get('userParentId') ?: Session::get('userid', 0));
+
+        $note = "";
+        $currency = $owner ? $owner->currency : 'USD';
+
+        if ($notifyToDriver == 1) {
+            $dIC = NumberHelper::currency($insurance, $currency);
+            $wIC = NumberHelper::currency(number_format(($insurance * 7), 2, '.', ''), $currency);
+            $note = "Because of your driving history, the insurance rate will be " . $dIC . "/day, " . $wIC . "/week. Do you agree?";
+        }
+
+        if ($notifyToDriver == 2) {
+            $providerQuote = InsuranceQuote::with(['provider:id,name'])
+                ->where('order_id', $reservation->id)
+                ->where('selected', 1)
+                ->first();
+
+            if (empty($providerQuote) || empty($providerQuote->provider)) {
+                return [
+                    'status' => false,
+                    'message' => "Sorry, driver didn't choose any quote yet",
+                    'result' => []
+                ];
+            }
+
+            $insurancePayer = InsurancePayer::where('order_deposit_rule_id', $ruleId)->first();
+
+            if (empty($insurancePayer)) {
+                return [
+                    'status' => false,
+                    'message' => "Sorry, admin didn't complete yet insurance quote process",
+                    'result' => []
+                ];
+            }
+
+            $dIC = NumberHelper::currency($insurancePayer->premium_total, $currency);
+            $wIC = NumberHelper::currency(number_format(($insurance * 7), 2, '.', ''), $currency);
+            $note = "Progressive \nFull policy amount " . $dIC . "\nWeekly installment amount through " . $providerQuote->provider->name . " " . $wIC . "/week";
+        }
+
+        $orderRule->update([
+            'insu_agreed' => 0,
+            'insurance' => $insurance
+        ]);
+
+        VehicleReservationLog::create([
+            'user_id' => $loggedUserId,
+            'reservation_id' => $reservation->id,
+            'status' => $status,
+            'note' => $note,
+            'created' => now()
+        ]);
+
+        Notifier::notifyByIntercomWithTag($reservation->renter_id, $note, 'booked', '', ["Booking_Status" => "Pending"]);
+        Notifier::createIntercomeUserEvent([
+            "event_name" => "pending_booking_update",
+            "created_at" => time(),
+            "external_id" => $reservation->renter_id,
+            "user_id" => $reservation->renter_id,
+            "metadata" => [
+                "id" => $reservation->id,
+                "pending_booking_id" => $reservation->id,
+                "note" => $note
+            ]
+        ]);
+
+        return [
+            "status" => true,
+            "message" => "Your request saved successfully",
+            "orderid" => $reservation->id
+        ];
+    }
+    private function _loadcancelblock(array $data)
+    {
+        $lease_id = $data['lease_id'] ?? null;
+        return view('vehicle_reservations._loadcancelblock', compact('lease_id'))->render();
+    }
+    private function _loadinsurancepopup(array $data)
+    {
+        $orderid = $data['order'];
+        $booking = VehicleReservation::with([
+            'vehicle:id,msrp,vin_no,vehicle_name',
+            'orderDepositRule'
+        ])->find($orderid);
+
+        $insuranceQuoteObj = InsuranceQuote::with('provider:id,name,logo')
+            ->where('order_id', $orderid)
+            ->where('selected', 1)
+            ->first();
+
+        return view('admin.vehicle_reservations._insurancepopup', [
+            'trip' => $booking,
+            'InsuranceQuoteObj' => $insuranceQuoteObj
+        ]);
+    }
+    private function _changeInsuranceTypePopup(array $data)
+    {
+        $orderRuleId = $data['orderruleid'];
+        $booking = OrderDepositRule::find($orderRuleId);
+
+        if (!$booking) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, booking details not found',
+                'view' => ''
+            ]);
+        }
+
+        $types = $this->commonService->getInsurancePayer(null);
+        $view = view('vehicle_reservations._openchangeinsurancepayerpopup', [
+            'trip' => $booking,
+            'types' => $types
+        ])->render();
+
+        return response()->json([
+            'status' => true,
+            'message' => '',
+            'view' => $view
+        ]);
+    }
+    private function _saveinsurancepayer(array $data)
+    {
+        $id = $data['OrderDepositRule']['id'];
+        $insurancePayer = $data['OrderDepositRule']['insurance_payer'];
+        $booking = OrderDepositRule::find($id);
+        $allowedTypes = array_keys($this->commonService->getInsurancePayer(null));
+
+        if (!$booking || !in_array($insurancePayer, $allowedTypes)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, booking details not found',
+                'view' => ''
+            ]);
+        }
+
+        $booking->insurance_payer = $insurancePayer;
+        $booking->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Your request saved successfully'
+        ]);
+    }
 
 
 
 
 
-    protected function _changeInsuranceTypePopup(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
-    protected function _changeinsurancepopup(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
-    protected function _changeinsurancesave(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
 
-    protected function _insudoc(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
-    protected function _loadcancelblock(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
-    protected function _loadinsurancepopup(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
+
+
+
+
     protected function _saveVehicleSellingOption(...$args)
     {
         return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
     }
-    protected function _saveinsurancepayer(...$args)
-    {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
-    }
+
 
 
 

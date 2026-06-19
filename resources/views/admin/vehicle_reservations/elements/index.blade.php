@@ -77,7 +77,7 @@
                     </td>
 
                     <td class="text-center">
-                        {{ $trip->buy == 1 ? 'Buy' : ($commonService->getVehicleFinancing($trip?->depositRule?->financing ?? 0)) }}
+                        {{ $trip->buy == 1 ? 'Buy' : ($commonService->getVehicleFinancing($trip?->orderDepositRule?->financing ?? 0)) }}
                     </td>
 
                     <td class="text-center">
@@ -143,7 +143,7 @@
                     </td>
 
                     <td class="text-center">
-                        @if (in_array($trip?->depositRule?->insurance_payer, [3, 4, 5, 6]))
+                        @if (in_array($trip?->orderDepositRule?->insurance_payer, [3, 4, 5, 6]))
                             <a herf="javascript:void(0)" id="docusign" class="gpsedit" data-type="select"
                                 data-inputclass="form-control" data-pk="{{ $trip->id }}" data-value="{{ $trip->docusign }}"
                                 data-title="Select status" data-url="{{ url('admin/vehicle_reservations/updatelist') }}">

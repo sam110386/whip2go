@@ -38,6 +38,13 @@ class CsReservationPayment extends LegacyModel
     public $dia_fee = 0;
     public $payerid = null;
 
+
+    public function vehicleReservation()
+    {
+        return $this->belongsTo(VehicleReservation::class, 'reservation_id', 'id');
+    }
+
+
     // Legacy setters
     public function setOrderId($orderid)
     {
