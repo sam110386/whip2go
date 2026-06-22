@@ -1,4 +1,7 @@
 <?php
+
+namespace Salesforce;
+
 /*
  * Copyright (c) 2007, salesforce.com, inc.
  * All rights reserved.
@@ -58,15 +61,15 @@ class SforceEnterpriseClient extends SforceBaseClient {
     	}
     	// ------
     	
-      $soapObject = new SoapVar($sObject, SOAP_ENC_OBJECT, $type, $this->namespace);
+      $soapObject = new \SoapVar($sObject, SOAP_ENC_OBJECT, $type, $this->namespace);
     	// FIX for fieldsToNull issue - allow array in fieldsToNull (STEP #2)
     	if($xmlStr != '') {
-    		$soapObject->enc_value->fieldsToNull = new SoapVar(new SoapVar($xmlStr, XSD_ANYXML), SOAP_ENC_ARRAY);
+    		$soapObject->enc_value->fieldsToNull = new \SoapVar(new \SoapVar($xmlStr, XSD_ANYXML), SOAP_ENC_ARRAY);
     	}
     	// ------
     	$arg[] = $soapObject;
     }
-    return parent::_create(new SoapParam($arg, "sObjects"));
+    return parent::_create(new \SoapParam($arg, "sObjects"));
   }
   /**
    * Updates one or more new individual objects to your organization's data.
@@ -76,7 +79,7 @@ class SforceEnterpriseClient extends SforceBaseClient {
    * @return UpdateResult
    */
   public function update($sObjects, $type, $assignment_header = NULL, $mru_header = NULL) {
-	$arg = new stdClass;
+	$arg = new \stdClass;
     	$arg->sObjects = [];
     foreach ($sObjects as $sObject) {
     	// FIX for fieldsToNull issue - allow array in fieldsToNull (STEP #1)
@@ -88,11 +91,11 @@ class SforceEnterpriseClient extends SforceBaseClient {
     	}
     	// ------
     	
-    	$soapObject = new SoapVar($sObject, SOAP_ENC_OBJECT, $type, $this->namespace);
+    	$soapObject = new \SoapVar($sObject, SOAP_ENC_OBJECT, $type, $this->namespace);
     	
     	// FIX for fieldsToNull issue - allow array in fieldsToNull (STEP #2)
     	if($xmlStr != '') {
-    		$soapObject->enc_value->fieldsToNull = new SoapVar(new SoapVar($xmlStr, XSD_ANYXML), SOAP_ENC_ARRAY);
+    		$soapObject->enc_value->fieldsToNull = new \SoapVar(new \SoapVar($xmlStr, XSD_ANYXML), SOAP_ENC_ARRAY);
     	}
     	// ------
     	$arg->sObjects[] = $soapObject;
@@ -112,9 +115,9 @@ class SforceEnterpriseClient extends SforceBaseClient {
    * @return UpsertResult
    */
   public function upsert($ext_Id, $sObjects, $type = 'Contact') {
-    $arg = new stdClass;
+    $arg = new \stdClass;
     $arg->sObjects = [];
-    $arg->externalIDFieldName = new SoapVar($ext_Id, XSD_STRING, 'string', 'http://www.w3.org/2001/XMLSchema');
+    $arg->externalIDFieldName = new \SoapVar($ext_Id, XSD_STRING, 'string', 'http://www.w3.org/2001/XMLSchema');
     foreach ($sObjects as $sObject) {
       // FIX for fieldsToNull issue - allow array in fieldsToNull (STEP #1)
    	  $xmlStr = '';
@@ -125,10 +128,10 @@ class SforceEnterpriseClient extends SforceBaseClient {
       }
       // ------
     	
-      $soapObject = new SoapVar($sObject, SOAP_ENC_OBJECT, $type, $this->namespace);
+      $soapObject = new \SoapVar($sObject, SOAP_ENC_OBJECT, $type, $this->namespace);
 	  // FIX for fieldsToNull issue - allow array in fieldsToNull (STEP #2)
 	  if($xmlStr != '') {
-	  	$soapObject->enc_value->fieldsToNull = new SoapVar(new SoapVar($xmlStr, XSD_ANYXML), SOAP_ENC_ARRAY);
+	  	$soapObject->enc_value->fieldsToNull = new \SoapVar(new \SoapVar($xmlStr, XSD_ANYXML), SOAP_ENC_ARRAY);
 	  }
 	  // ------
 	  $arg->sObjects[] = $soapObject;
@@ -144,9 +147,9 @@ class SforceEnterpriseClient extends SforceBaseClient {
    * @return unknown
    */
   public function merge($mergeRequest, $type) {
-    $mergeRequest->masterRecord = new SoapVar($mergeRequest->masterRecord, SOAP_ENC_OBJECT, $type, $this->namespace);
-    $arg = new stdClass;
-    $arg->request = new SoapVar($mergeRequest, SOAP_ENC_OBJECT, 'MergeRequest', $this->namespace);
+    $mergeRequest->masterRecord = new \SoapVar($mergeRequest->masterRecord, SOAP_ENC_OBJECT, $type, $this->namespace);
+    $arg = new \stdClass;
+    $arg->request = new \SoapVar($mergeRequest, SOAP_ENC_OBJECT, 'MergeRequest', $this->namespace);
     return parent::_merge($arg);
   }
 }

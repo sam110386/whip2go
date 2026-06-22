@@ -28,18 +28,69 @@ namespace Salesforce;
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
- */
+class SingleEmailMessage extends Email
+{
+    public function __construct() {}
+
+    public function setBccAddresses($addresses)
+    {
+        $this->bccAddresses = $addresses;
+    }
+
+    public $ccAddresses;
+
+    public function setCcAddresses($addresses)
+    {
+        $this->ccAddresses = $addresses;
+    }
+
+    public function setCharset($charset)
+    {
+        $this->charset = $charset;
+    }
+
+    public function setHtmlBody($htmlBody)
+    {
+        $this->htmlBody = $htmlBody;
+    }
+
+    public function setOrgWideEmailAddressId($orgWideEmailAddressId)
+    {
+        $this->orgWideEmailAddressId = $orgWideEmailAddressId;
+    }
+
+    public function setPlainTextBody($plainTextBody)
+    {
+        $this->plainTextBody = $plainTextBody;
+    }
+
+    public function setTargetObjectId($targetObjectId)
+    {
+        $this->targetObjectId = $targetObjectId;
+    }
+
+    public function setTemplateId($templateId)
+    {
+        $this->templateId = $templateId;
+    }
+
+    public function setToAddresses($array)
+    {
+        $this->toAddresses = $array;
+    }
+
+    public function setWhatId($whatId)
+    {
+        $this->whatId = $whatId;
+    }
+
+    public function setFileAttachments($array)
+    {
+        $this->fileAttachments = $array;
+    }
+
+    public function setDocumentAttachments($array)
+    {
+        $this->documentAttachments = $array;
+    }
+}

@@ -4,9 +4,9 @@ namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\Log;
 use Exception;
-use SforcePartnerClient;
-use QueryOptions;
-use SObject;
+use Salesforce\SforcePartnerClient;
+use Salesforce\QueryOptions;
+use Salesforce\SObject;
 use SoapFault;
 
 /**

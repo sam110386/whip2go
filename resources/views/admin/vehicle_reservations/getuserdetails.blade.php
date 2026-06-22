@@ -45,7 +45,7 @@
             <div class="row">
                 <label class="col-lg-4 control-label">Income Stated :</label>
                 <div class="col-lg-8 control-label">
-                    <a href="javascript:;" id="statedIncome" data-title="Edit" data-pk="{{ data_get($user, 'id', '') }}"
+                    <a href="javascript:void(0)"  id="statedIncome" data-title="Edit" data-pk="{{ data_get($user, 'id', '') }}"
                         data-url="{{ url('admin/vehicle_reservations/provenincome') }}">
                         {{ data_get($user, 'income.income', 0) }}
                     </a>
@@ -55,7 +55,7 @@
             <div class="row">
                 <label class="col-lg-4 control-label">Income Proven :</label>
                 <div class="col-lg-8 control-label">
-                    <a href="javascript:;" id="provenIncome" data-title="Edit" data-pk="{{ data_get($user, 'id', '') }}"
+                    <a href="javascript:void(0)"  id="provenIncome" data-title="Edit" data-pk="{{ data_get($user, 'id', '') }}"
                         data-url="{{ url('admin/vehicle_reservations/provenincome') }}">
                         {{ data_get($user, 'income.provenincome', 0) }}
                     </a>
@@ -65,7 +65,7 @@
             <div class="row">
                 <label class="col-lg-4 control-label">Income Required :</label>
                 <div class="col-lg-2 control-label">
-                    <a href="javascript:;">{{ $incomeRequired }}</a>
+                    <a href="javascript:void(0)" >{{ $incomeRequired }}</a>
                 </div>
                 <div class="col-lg-6 control-label">
                     (<strong>Monthly Rent: </strong>{{ $monthlyRent }},<br><strong>Monthly Insurance:
@@ -117,7 +117,7 @@
                         @endforeach
                     @endif
 
-                    <a href="javascript:;" title="Upload Address Proof"
+                    <a href="javascript:void(0)"  title="Upload Address Proof"
                         onclick="uploadAddressProof('{{ data_get($user, 'id', '') }}')">
                         <i class="icon-upload"></i>
                     </a>
@@ -152,7 +152,7 @@
                 <div class="row">
                     <label class="col-lg-7 control-label">Initiate MVR Report</label>
                     <div class="col-lg-5 control-label">
-                        <a href="javascript:;" title="Check MVR report"
+                        <a href="javascript:void(0)"  title="Check MVR report"
                             onclick="getCheckrReport('{{ data_get($user, 'id', '') }}', {{ $owner }})">
                             <i class="icon-unfold"></i>
                         </a>
@@ -167,7 +167,7 @@
                 <div class="row">
                     <label class="col-lg-7 control-label">Re-Create MVR Report</label>
                     <div class="col-lg-5 control-label">
-                        <a href="javascript:;" title="Request Report Again"
+                        <a href="javascript:void(0)"  title="Request Report Again"
                             onclick="reGenerateReport('{{ base64_encode(data_get($user, 'id', '')) }}', '{{ base64_encode($owner) }}', '{{ !empty($booking) ? base64_encode($booking) : '' }}')">
                             <i class="icon icon-spinner11"></i>
                         </a>
@@ -183,7 +183,7 @@
                 <div class="row">
                     <label class="col-lg-7 control-label">Initiate MVR Report</label>
                     <div class="col-lg-5 control-label">
-                        <a href="javascript:;" title="Check MVR report"
+                        <a href="javascript:void(0)"  title="Check MVR report"
                             onclick="getCheckrReport('{{ data_get($user, 'id', '') }}', {{ $owner }})">
                             <i class="icon-unfold"></i>
                         </a>
@@ -198,7 +198,7 @@
                 <div class="row">
                     <label class="col-lg-7 control-label">Get MVR Vehicle Report</label>
                     <div class="col-lg-5 control-label">
-                        <a href="javascript:;" title="Vehicle Report"
+                        <a href="javascript:void(0)"  title="Vehicle Report"
                             onclick="getVehicleReport('{{ data_get($user, 'report.motor_vehicle_report_id') }}', 'statementModal')">
                             <i class="icon icon-magazine"></i>
                         </a>
@@ -231,7 +231,7 @@
                 <label class="col-lg-7 control-label">Payment Source</label>
                 <div class="col-lg-5 control-label">
                     @if(filled(data_get($user, 'measureOne.id')))
-                        <a href="javascript:;" title="Check Income"
+                        <a href="javascript:void(0)"  title="Check Income"
                             onclick="return checkMeasureOneIncome('{{ base64_encode(data_get($user, 'id', '')) }}');">
                             <i class="icon-magazine"></i>
                         </a>
@@ -243,7 +243,7 @@
                 <label class="col-lg-7 control-label">Bank Statement</label>
                 <div class="col-lg-5 control-label">
                     @if(isset($paybank) && $paybank)
-                        <a href="javascript:;" title="Check Plaid Income"
+                        <a href="javascript:void(0)"  title="Check Plaid Income"
                             onclick="return pullPlaidBank('{{ base64_encode(data_get($user, 'id', '')) }}', 'plaidModal');">
                             <i class="icon-magazine"></i>
                         </a>
@@ -257,7 +257,7 @@
                 <label class="col-lg-7 control-label">Paystub</label>
                 <div class="col-lg-5 control-label">
                     @if(isset($paystub) && $paystub)
-                        <a href="javascript:;" title="Check Plaid Uploaded Paystubs"
+                        <a href="javascript:void(0)"  title="Check Plaid Uploaded Paystubs"
                             onclick="return pullPlaidPaystub('{{ base64_encode(data_get($user, 'id', '')) }}', 'plaidModal');">
                             <i class="icon-magazine"></i>
                         </a>

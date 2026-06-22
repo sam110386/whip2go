@@ -25,7 +25,7 @@
                     <td>{{ $account['subtype'] }}</td>
                     <td>
                         <span class="plaidbalance" rel-token="{{ $account['id'] }}"></span>
-                        <a href="javascript:;" title="Bank Statement"
+                        <a href="javascript:void(0)"  title="Bank Statement"
                             onclick="loadbankstatement('{{ $plaid->token }}', '{{ $plaid->user_id }}', '{{ $account['id'] }}')">
                             <i class="icon-magazine"></i>
                         </a>

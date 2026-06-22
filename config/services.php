@@ -55,4 +55,5 @@ return [
         'mode' => env('STRIPE_MODE', 'test'),
     ],
 
+
 ];

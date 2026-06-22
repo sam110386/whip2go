@@ -28,18 +28,14 @@ namespace Salesforce;
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
- */
+class CallOptions
+{
+    public $client;
+    public $defaultNamespace;
+
+    public function __construct($client, $defaultNamespace = null)
+    {
+        $this->client           = $client;
+        $this->defaultNamespace = $defaultNamespace;
+    }
+}

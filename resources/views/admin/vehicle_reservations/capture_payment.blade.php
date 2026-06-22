@@ -1,5 +1,5 @@
 <script type="text/javascript">
-    jQuery(document).ready(function() {
+    jQuery(document).ready(function () {
         $("#captureForm").validate();
     });
 </script>
@@ -12,7 +12,7 @@
             <div class="panel panel-flat">
                 <div class="panel-body">
                     <legend class="text-semibold">Payment Information</legend>
-                    
+
                     @foreach ($csReservationPayments as $payment)
                         <div class="form-group row">
                             <label class="col-lg-4 control-label">
@@ -22,7 +22,8 @@
                                 {{ data_get($payment, 'amount') }}
                                 @if (data_get($payment, 'txntype') == 'P')
                                     &nbsp;&nbsp;
-                                    <button type="button" class="btn btn-primary" onclick="capturePaymentVehicleReservation({{ data_get($payment, 'id') }})">
+                                    <button type="button" class="btn btn-primary"
+                                        onclick="capturePaymentVehicleReservation({{ data_get($payment, 'id') }})">
                                         <i class="icon-coin-dollar"></i>
                                     </button>
                                 @endif
@@ -30,7 +31,7 @@
                         </div>
                     @endforeach
 
-                    @php 
+                    @php
                         $totalRentalPaid = data_get($paidRental, 'rent', 0) + data_get($paidRental, 'tax', 0) + data_get($paidRental, 'dia_fee', 0); 
                     @endphp
 
@@ -55,9 +56,10 @@
                             @endphp
 
                             {{ sprintf('%0.2f', $diff) }}
-                            
+
                             @if ($diff > 0)
-                                <button type="button" class="btn btn-primary" onclick="authorizePaymentVehicleReservation({{ $diff }}, '{{ $lease_id }}', 2, '{{ json_encode($priceRulesAmt) }}')">
+                                <button type="button" class="btn btn-primary"
+                                    onclick="authorizePaymentVehicleReservation({{ $diff }}, '{{ $lease_id }}', 2, '{{ json_encode($priceRulesAmt) }}')">
                                     <i class="icon-coin-dollar"></i>
                                 </button>
                             @endif
@@ -91,16 +93,17 @@
                                 $insuDiff = $insu - $paidInsurance;
                             @endphp
                             {{ sprintf('%0.2f', $insuDiff) }}
-                            
+
                             @if ($insuDiff > 0)
                                 &nbsp;&nbsp;
-                                <button type="button" class="btn btn-primary" onclick="authorizePaymentVehicleReservation({{ $insuDiff }}, '{{ $lease_id }}', 4)">
+                                <button type="button" class="btn btn-primary"
+                                    onclick="authorizePaymentVehicleReservation({{ $insuDiff }}, '{{ $lease_id }}', 4)">
                                     <i class="icon-coin-dollar"></i>
                                 </button>
                             @endif
                         </div>
                     </div>
-                    
+
                     @if (data_get($orderDepositRule, 'deposit_amt', 0) > $paidDeposit)
                         <div class="form-group row">
                             <label class="col-lg-4 control-label"><strong>Deposit - Unpaid</strong></label>
@@ -109,10 +112,11 @@
                                     $depositDiff = data_get($orderDepositRule, 'deposit_amt') - $paidDeposit;
                                 @endphp
                                 {{ sprintf('%0.2f', $depositDiff) }}
-                                
+
                                 @if ($depositDiff > 0)
                                     &nbsp;&nbsp;
-                                    <button type="button" class="btn btn-primary" onclick="authorizePaymentVehicleReservation({{ $depositDiff }}, '{{ $lease_id }}', 1)">
+                                    <button type="button" class="btn btn-primary"
+                                        onclick="authorizePaymentVehicleReservation({{ $depositDiff }}, '{{ $lease_id }}', 1)">
                                         <i class="icon-coin-dollar"></i>
                                     </button>
                                 @endif
@@ -124,7 +128,7 @@
         </div>
 
         <div class="item" id="capturepaypopupprepaidplans">
-            @include('admin.vehicle_reservations.elements._prepaidplan')
+            @include('vehicle_reservations.elements._prepaidplan')
         </div>
 
         @if ($promo)
@@ -133,10 +137,12 @@
                     <div class="panel-body">
                         <legend class="text-semibold">Attached Promo Rule To Driver</legend>
                         <div class="col-lg-6 control-label">
-                            <strong>Code: </strong>{{ data_get($promo, 'promotionRule.promo', data_get($promo, 'PromotionRule.promo', '')) }}
+                            <strong>Code:
+                            </strong>{{ data_get($promo, 'promotionRule.promo', data_get($promo, 'PromotionRule.promo', '')) }}
                         </div>
                         <div class="col-lg-6 control-label">
-                            <strong>Title: </strong>{{ data_get($promo, 'promotionRule.title', data_get($promo, 'PromotionRule.title', '')) }}
+                            <strong>Title:
+                            </strong>{{ data_get($promo, 'promotionRule.title', data_get($promo, 'PromotionRule.title', '')) }}
                         </div>
                     </div>
                 </div>
@@ -184,7 +190,7 @@
                             {{ data_get($orderDepositRule, 'total_initial_fee', '') }}
                         </div>
                     </div>
-                    
+
                     @if (!empty($initialFeeOpt))
                         <div class="form-group row">
                             <label class="col-lg-4 control-label"><strong>Scheduled Fee:</strong></label>
@@ -192,7 +198,8 @@
                                 <ul class="no-padding">
                                     @foreach ($initialFeeOpt as $val)
                                         <li>
-                                            <span>{{ data_get($val, 'after_day_date') }}</span> : <span>$ {{ data_get($val, 'amount') }}</span>
+                                            <span>{{ data_get($val, 'after_day_date') }}</span> : <span>$
+                                                {{ data_get($val, 'amount') }}</span>
                                         </li>
                                     @endforeach
                                 </ul>
@@ -249,7 +256,7 @@
                             {{ sprintf('%0.2f', (data_get($priceRulesAmt, 'time_fee', 0) + data_get($priceRulesAmt, 'tax', 0) + data_get($priceRulesAmt, 'dia_fee', 0) + data_get($priceRulesAmt, 'discount', 0))) }}
                         </div>
                     </div>
-                    
+
                     @if (data_get($priceRulesAmt, 'discount', 0) > 0)
                         <div class="form-group row">
                             <label class="col-lg-4 control-label"><strong>Usage - Discount</strong></label>
@@ -258,7 +265,7 @@
                             </div>
                         </div>
                     @endif
-                    
+
                     <div class="form-group row">
                         <label class="col-lg-4 control-label"><strong>Day Miles:</strong></label>
                         <div class="col-lg-8 control-label">
@@ -286,7 +293,7 @@
                                     @foreach ($rentalOpt as $val)
                                         <li>
                                             <span>
-                                                After 
+                                                After
                                                 @if (data_get($val, 'after_day_date'))
                                                     {{ date('m/d/Y', strtotime(data_get($val, 'after_day_date'))) }}
                                                 @else
@@ -314,14 +321,15 @@
                                 <ul class="no-padding">
                                     @foreach ($depositOpt as $val)
                                         <li>
-                                            <span>{{ data_get($val, 'after_day_date') }}</span> : <span>$ {{ data_get($val, 'amount') }}</span>
+                                            <span>{{ data_get($val, 'after_day_date') }}</span> : <span>$
+                                                {{ data_get($val, 'amount') }}</span>
                                         </li>
                                     @endforeach
                                 </ul>
                             </div>
                         </div>
                     @endif
-                    
+
                     @if (!empty($durationOpt))
                         <div class="form-group row">
                             <label class="col-lg-4 control-label"><strong>Renewal Schedules:</strong></label>
@@ -332,7 +340,8 @@
                                     </li>
                                     @foreach ($durationOpt as $val)
                                         <li>
-                                            <span>After {{ data_get($val, 'after_date') }}</span> : <span> {{ data_get($val, 'duration') }} Days</span>
+                                            <span>After {{ data_get($val, 'after_date') }}</span> : <span>
+                                                {{ data_get($val, 'duration') }} Days</span>
                                         </li>
                                     @endforeach
                                 </ul>

@@ -3,9 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Services\Legacy\Emailnotify;
-use Illuminate\Http\JsonResponse;
+use App\Services\Legacy\Free2MoveService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Http\Controllers\Traits\VehicleReservationsTrait;
 use App\Models\Legacy\CsReservationPayment;
@@ -814,7 +813,7 @@ class VehicleReservationsController extends LegacyAppController
         $paidDeposit = $csReservationPayments->where('type', 1)->sum('amount');
         $tax = $orderDepositRule->tax ?? 0;
 
-        return view('admin.vehicle_reservations._capture_payment', compact(
+        return view('admin.vehicle_reservations.capture_payment', compact(
             'reserveData',
             'vehicle',
             'orderDepositRule',
@@ -1308,65 +1307,50 @@ class VehicleReservationsController extends LegacyAppController
 
         return response()->json($return);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    public function vehicleFree2moveAgreement(Request $request): JsonResponse
+    public function vehicleFree2moveAgreement(Request $request)
     {
-        $reference = $request->input('reference', '');
-        if (empty($reference)) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.', 'agreement' => []]);
+        $reference = $request->input('reference');
+
+        $response = [
+            "status" => false,
+            "message" => "Sorry, something went wrong.",
+            "agreement" => []
+        ];
+
+        if (!empty($reference)) {
+            $response = Free2MoveService::_callAgreementApi(['reference' => $reference]);
         }
 
-        \Log::warning("vehicleFree2moveAgreement: Free2Move API stubbed for reference {$reference}.");
-
-        return response()->json([
-            'status' => false,
-            'message' => 'Free2Move agreement API not yet ported to Laravel',
-            'agreement' => [],
-        ]);
+        return response()->json($response);
     }
-
-    public function pushToDealer(Request $request, $id = null, $flag = 0): JsonResponse
+    public function pushToDealer($id = null, $flag = 0)
     {
-        $decodedId = $id ? (int) $this->decodeId((string) $id) : 0;
-        if ($decodedId <= 0) {
-            return response()->json(['status' => false, 'message' => "Sorry, you can't perform this action now"]);
+        $decodedId = $this->decodeId($id);
+
+        if (!empty($decodedId)) {
+            $booking = VehicleReservation::select('id', 'ready_for_dealer')
+                ->where('id', $decodedId)
+                ->first();
+
+            if ($booking) {
+                $booking->update(['ready_for_dealer' => $flag]);
+            }
+
+            $message = "Booking has been " . ($flag == 1 ? "pushed to dealer" : "removed from dealer list") . " successfully";
+            session()->flash('success', $message);
+
+            $emailNotify = new Emailnotify();
+            $emailNotify->sendEmailToPushToDealer($booking->id, $flag);
+
+        } else {
+            session()->flash('error', "Sorry, you can't perform this action now");
         }
 
-        $booking = DB::table('vehicle_reservations')->where('id', $decodedId)->first(['id', 'ready_for_dealer']);
-        if (!$booking) {
-            return response()->json(['status' => false, 'message' => 'Reservation not found']);
-        }
-
-        DB::table('vehicle_reservations')->where('id', $decodedId)->update(['ready_for_dealer' => (int) $flag]);
-
-        \Log::warning("pushToDealer: Email notification stubbed for reservation {$decodedId}, flag={$flag}.");
-
-        $msg = (int) $flag === 1 ? 'pushed to dealer' : 'removed from dealer list';
-
-        return response()->json(['status' => true, 'message' => "Booking has been {$msg} successfully"]);
+        return redirect()->back();
     }
-
-    public function saveVehicleSellingOption(Request $request): JsonResponse
+    public function saveVehicleSellingOption(Request $request)
     {
-        \Log::warning('saveVehicleSellingOption: Not yet ported to Laravel.');
-
-        return response()->json(['status' => false, 'message' => 'Vehicle selling option save not yet ported to Laravel']);
+        return $this->_saveVehicleSellingOption($request->all());
     }
-
 }
 

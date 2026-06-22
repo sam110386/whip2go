@@ -1,4 +1,7 @@
 <?php
+
+namespace Salesforce;
+
 /*
  * Copyright (c) 2007, salesforce.com, inc.
  * All rights reserved.
@@ -56,17 +59,17 @@ class SforceMetadataClient {
       'sessionId' => $loginResult->sessionId
       );
     }
-    $this->sforce = new SoapClient($wsdl,$soapClientArray);
+    $this->sforce = new \SoapClient($wsdl,$soapClientArray);
     //$this->sforce->__setSoapHeaders($header_array);
 
 
     $sessionVar = array(
-      'sessionId' => new SoapVar($loginResult->sessionId, XSD_STRING)
+      'sessionId' => new \SoapVar($loginResult->sessionId, XSD_STRING)
     );
 
-    $headerBody = new SoapVar($sessionVar, SOAP_ENC_OBJECT);
+    $headerBody = new \SoapVar($sessionVar, SOAP_ENC_OBJECT);
 
-    $session_header = new SoapHeader($this->namespace, 'SessionHeader', $headerBody, false);
+    $session_header = new \SoapHeader($this->namespace, 'SessionHeader', $headerBody, false);
 
     $header_array = array (
     $session_header
@@ -106,7 +109,7 @@ class SforceMetadataClient {
    */
   public function setSessionHeader($sessionId) {
     $this->sforce->__setSoapHeaders(NULL);
-    $session_header = new SoapHeader($this->namespace, 'SessionHeader', array (
+    $session_header = new \SoapHeader($this->namespace, 'SessionHeader', array (
     'sessionId' => $sessionId
     ));
     $this->sessionId = $sessionId;
@@ -127,23 +130,23 @@ class SforceMetadataClient {
   }
 
   public function create($obj) {
-    $encodedObj = new stdClass();
-    $encodedObj->metadata = new SoapVar($obj, SOAP_ENC_OBJECT, $this->getObjtype($obj), $this->namespace);
+    $encodedObj = new \stdClass();
+    $encodedObj->metadata = new \SoapVar($obj, SOAP_ENC_OBJECT, $this->getObjtype($obj), $this->namespace);
      
     return $this->sforce->create($encodedObj);
   }
   
   public function update($obj) {    
-    $encodedObj = new stdClass();
+    $encodedObj = new \stdClass();
     $encodedObj->UpdateMetadata = $obj;
-    $encodedObj->UpdateMetadata->metadata = new SoapVar($obj->metadata, SOAP_ENC_OBJECT, $this->getObjtype($obj->metadata), $this->namespace);
+    $encodedObj->UpdateMetadata->metadata = new \SoapVar($obj->metadata, SOAP_ENC_OBJECT, $this->getObjtype($obj->metadata), $this->namespace);
     
     return $this->sforce->update($encodedObj);
   }
   
   public function delete($obj) {
-    $encodedObj = new stdClass();
-    $encodedObj->metadata = new SoapVar($obj, SOAP_ENC_OBJECT, $this->getObjtype($obj), $this->namespace);
+    $encodedObj = new \stdClass();
+    $encodedObj->metadata = new \SoapVar($obj, SOAP_ENC_OBJECT, $this->getObjtype($obj), $this->namespace);
      
     return $this->sforce->delete($encodedObj);
   }  

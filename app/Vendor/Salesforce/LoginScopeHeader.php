@@ -29,17 +29,18 @@ namespace Salesforce;
  */
 
 /**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
+ * To be used with the Login operation.
+ *
+ * @package SalesforceSoapClient
  */
+class LoginScopeHeader
+{
+    public $organizationId;
+    public $portalId;
+
+    public function __construct($orgId = null, $portalId = null)
+    {
+        $this->organizationId = $orgId;
+        $this->portalId       = $portalId;
+    }
+}

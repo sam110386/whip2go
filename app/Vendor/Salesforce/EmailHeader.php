@@ -28,18 +28,16 @@ namespace Salesforce;
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
- */
+class EmailHeader
+{
+    public $triggerAutoResponseEmail;
+    public $triggerOtherEmail;
+    public $triggerUserEmail;
+
+    public function __construct($triggerAutoResponseEmail = false, $triggerOtherEmail = false, $triggerUserEmail = false)
+    {
+        $this->triggerAutoResponseEmail = $triggerAutoResponseEmail;
+        $this->triggerOtherEmail        = $triggerOtherEmail;
+        $this->triggerUserEmail         = $triggerUserEmail;
+    }
+}

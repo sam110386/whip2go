@@ -1,4 +1,7 @@
 <?php
+
+namespace Salesforce;
+
 /*
  * Copyright (c) 2007, salesforce.com, inc.
  * All rights reserved.

@@ -29,17 +29,20 @@ namespace Salesforce;
  */
 
 /**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
+ * To be used with Retrieve, Query, and QueryMore operations.
+ *
+ * @package SalesforceSoapClient
  */
+class QueryOptions
+{
+    /** @var int Batch size for query calls. Default 500; min 200; max 2000. */
+    public $batchSize;
+
+    /**
+     * @param int $limit Batch size
+     */
+    public function __construct($limit)
+    {
+        $this->batchSize = $limit;
+    }
+}

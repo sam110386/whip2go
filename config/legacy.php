@@ -163,8 +163,21 @@ return [
         'enabled' => env('SALESFORCE_ENABLED', false),
     ],
 
+    'Agreement' => [
+        'api_url' => env('AGREEMENT_API_URL', 'http://localhost:3000/'),
+    ],
+
     'DIA_FEE' => 5,
     'COMPANY_DISPACHER' => env('LEGACY_COMPANY_DISPACHER', 73),
     'SUPPORT_PHONE' => env('SUPPORT_PHONE', '(203) 491-4283)'),
+
+    'plaid' => [
+        'client_id' => env('PLAID_CLIENT_ID', ''),
+        'secret' => env('PLAID_SECRET', ''),
+        'key' => env('PLAID_PUBLIC_KEY', ''),
+        'env' => env('PLAID_ENV', 'sandbox'),
+        'url' => env('PLAID_URL', 'https://sandbox.plaid.com'),
+        'identifier' => env('PLAID_IDENTIFIER', 'driveitaway_'),
+    ],
 
 ];

@@ -9,13 +9,13 @@
 </td>
 
 <td style="text-align:center;">
-    <a href="javascript:;" onclick="changeReservationStatus('{{ base64_encode(data_get($trip, 'id')) }}')">
+    <a href="javascript:void(0)"  onclick="changeReservationStatus('{{ base64_encode(data_get($trip, 'id')) }}')">
         {{ $commonService->getReservationStatus(false, data_get($trip, 'status')) }}
     </a>
 </td>
 
 <td style="text-align:center;">
-    <a href="javascript:;" onclick="changeReservationVehicle('{{ base64_encode(data_get($trip, 'id')) }}')">
+    <a href="javascript:void(0)"  onclick="changeReservationVehicle('{{ base64_encode(data_get($trip, 'id')) }}')">
         {{ data_get($trip, 'vehicle.vehicle_name')}}
     </a>
 </td>
@@ -29,7 +29,7 @@
 </td>
 
 <td style="text-align:center;">
-    <a href="javascript:;"
+    <a href="javascript:void(0)" 
         onclick="getuserdetails('{{ base64_encode(data_get($trip, 'renter_id')) }}','{{ base64_encode(data_get($trip, 'user_id')) }}','{{ base64_encode(data_get($trip, 'id')) }}')">
         {{ data_get($trip, 'renter.first_name', '') . ' ' . data_get($trip, 'renter.last_name', '') }}
     </a>
@@ -40,7 +40,7 @@
 </td>
 
 <td style="text-align:center;">
-    <a href="javascript:;"
+    <a href="javascript:void(0)" 
         onclick="getvehicledetails('{{ base64_encode(data_get($trip, 'vehicle.id')) }}','{{ base64_encode(data_get($trip, 'id')) }}')">
         {{ data_get($trip, 'vehicle.vin_no')}}
     </a>
@@ -103,7 +103,7 @@
 </td>
 
 <td class="text-center">
-    <a href="javascript:;" onclick="loadInsurancePopUp({{ data_get($trip, 'id') }})"><i class="icon-menu2"></i></a>
+    <a href="javascript:void(0)"  onclick="loadInsurancePopUp({{ data_get($trip, 'id') }})"><i class="icon-menu2"></i></a>
 </td>
 
 <td class="text-center">

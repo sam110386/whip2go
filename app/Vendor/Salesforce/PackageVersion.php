@@ -29,17 +29,24 @@ namespace Salesforce;
  */
 
 /**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
+ * Used by PackageVersionHeader.
+ * @see PackageVersionHeader
  */
+class PackageVersion
+{
+    public $majorNumber;
+    public $minorNumber;
+    public $namespace;
+
+    /**
+     * @param int    $majorNumber
+     * @param int    $minorNumber
+     * @param string $namespace
+     */
+    public function __construct($majorNumber, $minorNumber, $namespace)
+    {
+        $this->majorNumber = $majorNumber;
+        $this->minorNumber = $minorNumber;
+        $this->namespace   = $namespace;
+    }
+}

@@ -1,4 +1,7 @@
 <?php
+
+namespace Salesforce;
+
 /*
  * Copyright (c) 2007, salesforce.com, inc.
  * All rights reserved.
@@ -41,7 +44,7 @@ require_once ('SforceBaseClient.php');
  // the element has a xsi:type attribute with value 'string', it drops the
  // string content into the parsed output and loses the tag name. Removing the
  // xsi:type forces PHP SOAP to just leave the tags intact
- class SforceSoapClient extends SoapClient {
+ class SforceSoapClient extends \SoapClient {
    function __doRequest($request, $location, $action, $version, $one_way=0) {
      $response = parent::__doRequest($request, $location, $action, $version, $one_way);
 
@@ -89,7 +92,7 @@ class SforcePartnerClient extends SforceBaseClient {
    * @return SaveResult
    */
   public function create($sObjects) {
-    $arg = new stdClass;
+    $arg = new \stdClass;
     foreach ($sObjects as $sObject) {
       if (isset ($sObject->fields)) {
         $sObject->any = $this->_convertToAny($sObject->fields);
@@ -125,7 +128,7 @@ class SforcePartnerClient extends SforceBaseClient {
     if (is_array($request)) {
       $messages = array();
       foreach ($request as $r) {
-        $email = new SoapVar($r, SOAP_ENC_OBJECT, 'SingleEmailMessage', $this->namespace);
+        $email = new \SoapVar($r, SOAP_ENC_OBJECT, 'SingleEmailMessage', $this->namespace);
         array_push($messages, $email);
       }
       $arg->messages = $messages;
@@ -144,7 +147,7 @@ class SforcePartnerClient extends SforceBaseClient {
     if (is_array($request)) {
       $messages = array();
       foreach ($request as $r) {
-        $email = new SoapVar($r, SOAP_ENC_OBJECT, 'MassEmailMessage', $this->namespace);
+        $email = new \SoapVar($r, SOAP_ENC_OBJECT, 'MassEmailMessage', $this->namespace);
         array_push($messages, $email);
       }
       $arg->messages = $messages;
@@ -161,7 +164,7 @@ class SforcePartnerClient extends SforceBaseClient {
    * @return UpdateResult
    */
   public function update($sObjects) {
-    $arg = new stdClass;
+    $arg = new \stdClass;
     foreach ($sObjects as $sObject) {
       if (isset($sObject->fields)) {
         $sObject->any = $this->_convertToAny($sObject->fields);
@@ -183,8 +186,8 @@ class SforcePartnerClient extends SforceBaseClient {
    */
   public function upsert($ext_Id, $sObjects) {
     //		$this->_setSessionHeader();
-    $arg = new stdClass;
-    $arg->externalIDFieldName = new SoapVar($ext_Id, XSD_STRING, 'string', 'http://www.w3.org/2001/XMLSchema');
+    $arg = new \stdClass;
+    $arg->externalIDFieldName = new \SoapVar($ext_Id, XSD_STRING, 'string', 'http://www.w3.org/2001/XMLSchema');
     foreach ($sObjects as $sObject) {
       if (isset ($sObject->fields)) {
         $sObject->any = $this->_convertToAny($sObject->fields);

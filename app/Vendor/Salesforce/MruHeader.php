@@ -29,17 +29,17 @@ namespace Salesforce;
  */
 
 /**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
+ * To be used with Create and Update operations.
+ *
+ * @package SalesforceSoapClient
  */
+class MruHeader
+{
+    /** @var bool Indicates whether to update the list of most recently used items. */
+    public $updateMruFlag;
+
+    public function __construct($bool)
+    {
+        $this->updateMruFlag = $bool;
+    }
+}

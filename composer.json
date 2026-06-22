@@ -25,10 +25,11 @@
     },
     "autoload": {
         "classmap": [
-            "app/Vendor/Salesforce"
         ],
         "psr-4": {
             "App\\": "app/",
+            "Salesforce\\": "app/Vendor/Salesforce/",
+            "Plaid\\": "app/Vendor/Plaid/",
             "Plugins\\Api\\": "plugins/Api/src/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"

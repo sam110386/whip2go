@@ -28,18 +28,48 @@ namespace Salesforce;
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
- */
+if (!defined('EMAIL_PRIORITY_HIGHEST')) {
+    define('EMAIL_PRIORITY_HIGHEST', 'Highest');
+    define('EMAIL_PRIORITY_HIGH',    'High');
+    define('EMAIL_PRIORITY_NORMAL',  'Normal');
+    define('EMAIL_PRIORITY_LOW',     'Low');
+    define('EMAIL_PRIORITY_LOWEST',  'Lowest');
+}
+
+class Email
+{
+    public function setBccSender($bccSender)
+    {
+        $this->bccSender = $bccSender;
+    }
+
+    public function setEmailPriority($priority)
+    {
+        $this->emailPriority = $priority;
+    }
+
+    public function setSubject($subject)
+    {
+        $this->subject = $subject;
+    }
+
+    public function setSaveAsActivity($saveAsActivity)
+    {
+        $this->saveAsActivity = $saveAsActivity;
+    }
+
+    public function setReplyTo($replyTo)
+    {
+        $this->replyTo = $replyTo;
+    }
+
+    public function setUseSignature($useSignature)
+    {
+        $this->useSignature = $useSignature;
+    }
+
+    public function setSenderDisplayName($name)
+    {
+        $this->senderDisplayName = $name;
+    }
+}

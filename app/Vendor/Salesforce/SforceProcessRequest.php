@@ -1,4 +1,7 @@
 <?php
+
+namespace Salesforce;
+
 /*
  * Copyright (c) 2007, salesforce.com, inc.
  * All rights reserved.
@@ -24,17 +27,11 @@
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-abstract class ProcessRequest {
-	public $comments;
-	public $nextApproverIds;
-}
 
-class ProcessSubmitRequest extends ProcessRequest {
-	public $objectId;
-}
-
-class ProcessWorkitemRequest extends ProcessRequest {
-  public $action;
-  public $workitemId;
-}
-?>
+/**
+ * This file is a legacy stub retained for compatibility.
+ * All process-request classes have been moved to individual PSR-4 compliant files:
+ *   ProcessRequest        -> ProcessRequest.php
+ *   ProcessSubmitRequest  -> ProcessSubmitRequest.php
+ *   ProcessWorkitemRequest-> ProcessWorkitemRequest.php
+ */

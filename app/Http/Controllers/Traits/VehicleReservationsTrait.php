@@ -20,7 +20,7 @@ use App\Models\Legacy\CsWallet;
 use App\Models\Legacy\CsOrderStatuslog;
 use App\Models\Legacy\CsReservationPayment;
 use App\Models\Legacy\VehicleReservationLog;
-use App\Services\Legacy\AgreementService;
+use App\Services\Legacy\Agreement;
 use App\Services\Legacy\Emailnotify;
 use App\Services\Legacy\Insurance;
 use App\Services\Legacy\Notifier;
@@ -78,11 +78,11 @@ trait VehicleReservationsTrait
         $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
 
         if (!in_array($reservation->status, $allowedStatus)) {
-            return response()->json([
+            return [
                 'status' => false,
                 'message' => "Sorry, you don't have permission to cancel it.",
                 'result' => []
-            ]);
+            ];
         }
 
         $leaseId = $reservation->id;
@@ -990,8 +990,8 @@ trait VehicleReservationsTrait
             $lease->policy_exp_date = data_get($lease, 'vehicle.insurance_policy_exp_date', Carbon::now()->format('m/d/Y'));
             $lease->SUPPORT_PHONE = config('legacy.SUPPORT_PHONE');
 
-            $agreementService = new AgreementService();
-            $agreementService->generateInsuranceToken($lease, $filename);
+            $agreementService = new Agreement();
+            $agreementService->generateInsuranceToken($lease->toArray(), $filename);
         }
 
         return [
@@ -1148,14 +1148,14 @@ trait VehicleReservationsTrait
             'orderDepositRule'
         ])->find($orderid);
 
-        $insuranceQuoteObj = InsuranceQuote::with('provider:id,name,logo')
+        $insuranceQuote = InsuranceQuote::with('provider:id,name,logo')
             ->where('order_id', $orderid)
             ->where('selected', 1)
             ->first();
 
         return view('admin.vehicle_reservations._insurancepopup', [
             'trip' => $booking,
-            'InsuranceQuoteObj' => $insuranceQuoteObj
+            'insuranceQuote' => $insuranceQuote
         ]);
     }
     private function _changeInsuranceTypePopup(array $data)
@@ -1206,22 +1206,38 @@ trait VehicleReservationsTrait
             'message' => 'Your request saved successfully'
         ]);
     }
-
-
-
-
-
-
-
-
-
-
-    protected function _saveVehicleSellingOption(...$args)
+    private function _saveVehicleSellingOption(array $data)
     {
-        return ['status' => false, 'message' => __FUNCTION__ . ' pending migration'];
+        $return = ["status" => false, "message" => "Sorry, something went wrong."];
+
+        if (!empty($data)) {
+            $orderId = $data['orderid'] ?? null;
+            $status = $data['status'] ?? null;
+            $vehicleReplacement = (!empty($data['vehicle_replacement']) && !empty($data['vehicle_id']));
+
+            $booking = OrderDepositRule::select('id', 'selling_option', 'vehicle_reservation_id')
+                ->where('id', $orderId)
+                ->first();
+
+            if ($booking) {
+                $sellingOption = !empty($booking->selling_option)
+                    ? json_encode($booking->selling_option, true)
+                    : [];
+
+                if ($vehicleReplacement) {
+                    $sellingOption['vehicle_replacement'] = $data['vehicle_id'];
+                    $booking->selling_option = json_encode($sellingOption, true);
+                    $booking->save();
+                }
+
+                VehicleReservation::where('id', $booking->vehicle_reservation_id)
+                    ->update(['ready_for_dealer' => $status]);
+
+                $return['status'] = true;
+                $return['message'] = "Your request saved successfully";
+            }
+        }
+
+        return response()->json($return);
     }
-
-
-
-
 }

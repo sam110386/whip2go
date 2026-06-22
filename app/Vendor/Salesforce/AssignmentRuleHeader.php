@@ -29,17 +29,31 @@ namespace Salesforce;
  */
 
 /**
- * This file is a legacy stub retained for compatibility.
- * All header-option classes have been moved to individual PSR-4 compliant files:
- *   CallOptions               -> CallOptions.php
- *   AssignmentRuleHeader      -> AssignmentRuleHeader.php
- *   MruHeader                 -> MruHeader.php
- *   LoginScopeHeader          -> LoginScopeHeader.php
- *   QueryOptions              -> QueryOptions.php
- *   EmailHeader               -> EmailHeader.php
- *   UserTerritoryDeleteHeader -> UserTerritoryDeleteHeader.php
- *   AllowFieldTruncationHeader-> AllowFieldTruncationHeader.php
- *   LocaleOptions             -> LocaleOptions.php
- *   PackageVersionHeader      -> PackageVersionHeader.php
- *   PackageVersion            -> PackageVersion.php
+ * To be used with Create and Update operations.
+ * Only one attribute can be set at a time.
+ *
+ * @package SalesforceSoapClient
  */
+class AssignmentRuleHeader
+{
+    /** @var int */
+    public $assignmentRuleId;
+    /** @var bool */
+    public $useDefaultRuleFlag;
+
+    /**
+     * Constructor. Only one param can be set.
+     *
+     * @param int|null  $id   AssignmentRuleId
+     * @param bool|null $flag UseDefaultRule flag
+     */
+    public function __construct($id = null, $flag = null)
+    {
+        if ($id !== null) {
+            $this->assignmentRuleId = $id;
+        }
+        if ($flag !== null) {
+            $this->useDefaultRuleFlag = $flag;
+        }
+    }
+}
