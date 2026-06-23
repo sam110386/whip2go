@@ -31,10 +31,10 @@ namespace Salesforce;
 // Email constants — defined here so they are always loaded regardless of which class file is included first.
 if (!defined('EMAIL_PRIORITY_HIGHEST')) {
     define('EMAIL_PRIORITY_HIGHEST', 'Highest');
-    define('EMAIL_PRIORITY_HIGH',    'High');
-    define('EMAIL_PRIORITY_NORMAL',  'Normal');
-    define('EMAIL_PRIORITY_LOW',     'Low');
-    define('EMAIL_PRIORITY_LOWEST',  'Lowest');
+    define('EMAIL_PRIORITY_HIGH', 'High');
+    define('EMAIL_PRIORITY_NORMAL', 'Normal');
+    define('EMAIL_PRIORITY_LOW', 'Low');
+    define('EMAIL_PRIORITY_LOWEST', 'Lowest');
 }
 
 // Classes have been split into individual PSR-4 compliant files:

@@ -27,8 +27,6 @@ namespace Salesforce;
  * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-require_once ('SforceBaseClient.php');
-//require_once ('SforceEmail.php');
 
 
 /**
@@ -40,50 +38,55 @@ require_once ('SforceBaseClient.php');
  *
  * @package SalesforceSoapClient
  */
- // When parsing partner WSDL, when PHP SOAP sees NewValue and OldValue, since
- // the element has a xsi:type attribute with value 'string', it drops the
- // string content into the parsed output and loses the tag name. Removing the
- // xsi:type forces PHP SOAP to just leave the tags intact
- class SforceSoapClient extends \SoapClient {
-   function __doRequest($request, $location, $action, $version, $one_way=0) {
-     $response = parent::__doRequest($request, $location, $action, $version, $one_way);
+// When parsing partner WSDL, when PHP SOAP sees NewValue and OldValue, since
+// the element has a xsi:type attribute with value 'string', it drops the
+// string content into the parsed output and loses the tag name. Removing the
+// xsi:type forces PHP SOAP to just leave the tags intact
+class SforceSoapClient extends \SoapClient
+{
+  public function __doRequest($request, $location, $action, $version, $one_way = 0)
+  {
+    $response = parent::__doRequest($request, $location, $action, $version, $one_way);
 
-     // Quick check to only parse the XML here if we think we need to
-     if (strpos($response, '<sf:OldValue') === false && strpos($response, '<sf:NewValue') === false) {
-       return $response;
-     }
+    // Quick check to only parse the XML here if we think we need to
+    if (strpos($response, '<sf:OldValue') === false && strpos($response, '<sf:NewValue') === false) {
+      return $response;
+    }
 
-     $dom = new DOMDocument();
-     $dom->loadXML($response);
+    $dom = new \DOMDocument();
+    $dom->loadXML($response);
 
-     $nodeList = $dom->getElementsByTagName('NewValue');
-     foreach ($nodeList as $node) {
-       $node->removeAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type');
-     }
-     $nodeList = $dom->getElementsByTagName('OldValue');
-     foreach ($nodeList as $node) {
-       $node->removeAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type');
-     }
+    $nodeList = $dom->getElementsByTagName('NewValue');
+    foreach ($nodeList as $node) {
+      $node->removeAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type');
+    }
+    $nodeList = $dom->getElementsByTagName('OldValue');
+    foreach ($nodeList as $node) {
+      $node->removeAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type');
+    }
 
-     return $dom->saveXML();      
-   }
- }
+    return $dom->saveXML();
+  }
+}
 
 /**
  * SforcePartnerClient class.
  *
  * @package SalesforceSoapClient
  */
-class SforcePartnerClient extends SforceBaseClient {
+class SforcePartnerClient extends SforceBaseClient
+{
   const PARTNER_NAMESPACE = 'urn:partner.soap.sforce.com';
-	
-  public function __construct() {
+
+  public function __construct()
+  {
     $this->namespace = self::PARTNER_NAMESPACE;
   }
-  
-  protected function getSoapClient($wsdl, $options) {
+
+  protected function getSoapClient($wsdl, $options)
+  {
     // Workaround an issue in parsing OldValue and NewValue in histories
-		return new SforceSoapClient($wsdl, $options);      
+    return new SforceSoapClient($wsdl, $options);
   }
 
   /**
@@ -91,10 +94,11 @@ class SforcePartnerClient extends SforceBaseClient {
    * @param array $sObjects Array of one or more sObjects (up to 200) to create.
    * @return SaveResult
    */
-  public function create($sObjects) {
+  public function create($sObjects)
+  {
     $arg = new \stdClass;
     foreach ($sObjects as $sObject) {
-      if (isset ($sObject->fields)) {
+      if (isset($sObject->fields)) {
         $sObject->any = $this->_convertToAny($sObject->fields);
       }
     }
@@ -109,7 +113,8 @@ class SforcePartnerClient extends SforceBaseClient {
    * @param String $type
    * @return mixed
    */
-  public function merge($mergeRequest) {
+  public function merge($mergeRequest)
+  {
     if (isset($mergeRequest->masterRecord)) {
       if (isset($mergeRequest->masterRecord->fields)) {
         $mergeRequest->masterRecord->any = $this->_convertToAny($mergeRequest->masterRecord->fields);
@@ -124,7 +129,8 @@ class SforcePartnerClient extends SforceBaseClient {
    * 
    * @param array $request
    */
-  public function sendSingleEmail($request) {
+  public function sendSingleEmail($request)
+  {
     if (is_array($request)) {
       $messages = array();
       foreach ($request as $r) {
@@ -135,7 +141,7 @@ class SforcePartnerClient extends SforceBaseClient {
       return parent::_sendEmail($arg);
     } else {
       $backtrace = debug_backtrace();
-      die('Please pass in array to this function:  '.$backtrace[0]['function']);
+      die('Please pass in array to this function:  ' . $backtrace[0]['function']);
     }
   }
 
@@ -143,7 +149,8 @@ class SforcePartnerClient extends SforceBaseClient {
    *
    * @param array $request
    */
-  public function sendMassEmail($request) {
+  public function sendMassEmail($request)
+  {
     if (is_array($request)) {
       $messages = array();
       foreach ($request as $r) {
@@ -154,7 +161,7 @@ class SforcePartnerClient extends SforceBaseClient {
       return parent::_sendEmail($arg);
     } else {
       $backtrace = debug_backtrace();
-      die('Please pass in array to this function:  '.$backtrace[0]['function']);
+      die('Please pass in array to this function:  ' . $backtrace[0]['function']);
     }
   }
 
@@ -163,7 +170,8 @@ class SforcePartnerClient extends SforceBaseClient {
    * @param array sObjects    Array of sObjects
    * @return UpdateResult
    */
-  public function update($sObjects) {
+  public function update($sObjects)
+  {
     $arg = new \stdClass;
     foreach ($sObjects as $sObject) {
       if (isset($sObject->fields)) {
@@ -184,46 +192,50 @@ class SforcePartnerClient extends SforceBaseClient {
    * @param array  $sObjects  Array of sObjects
    * @return UpsertResult
    */
-  public function upsert($ext_Id, $sObjects) {
+  public function upsert($ext_Id, $sObjects)
+  {
     //		$this->_setSessionHeader();
     $arg = new \stdClass;
     $arg->externalIDFieldName = new \SoapVar($ext_Id, XSD_STRING, 'string', 'http://www.w3.org/2001/XMLSchema');
     foreach ($sObjects as $sObject) {
-      if (isset ($sObject->fields)) {
+      if (isset($sObject->fields)) {
         $sObject->any = $this->_convertToAny($sObject->fields);
       }
     }
     $arg->sObjects = $sObjects;
     return parent::_upsert($arg);
   }
-  
+
   /**
    * @param string $fieldList
    * @param string $sObjectType
    * @param array $ids
    * @return string
    */
-  public function retrieve($fieldList, $sObjectType, $ids) {
-  	return $this->_retrieveResult(parent::retrieve($fieldList, $sObjectType, $ids));
-  }  
+  public function retrieve($fieldList, $sObjectType, $ids)
+  {
+    return $this->_retrieveResult(parent::retrieve($fieldList, $sObjectType, $ids));
+  }
 
   /**
    *
    * @param mixed $response
    * @return array
    */
-  private function _retrieveResult($response) {
-  	$arr = array();
-  	if(is_array($response)) {
-  		foreach($response as $r) {
-  			$sobject = new SObject($r);
-  			array_push($arr,$sobject);
-  		};
-  	}else {
-  		$sobject = new SObject($response);
+  private function _retrieveResult($response)
+  {
+    $arr = array();
+    if (is_array($response)) {
+      foreach ($response as $r) {
+        $sobject = new SObject($r);
         array_push($arr, $sobject);
-  	}
-  	return $arr;
+      }
+      ;
+    } else {
+      $sobject = new SObject($response);
+      array_push($arr, $sobject);
+    }
+    return $arr;
   }
-  
+
 }

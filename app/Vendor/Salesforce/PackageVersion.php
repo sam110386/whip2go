@@ -47,6 +47,6 @@ class PackageVersion
     {
         $this->majorNumber = $majorNumber;
         $this->minorNumber = $minorNumber;
-        $this->namespace   = $namespace;
+        $this->namespace = $namespace;
     }
 }

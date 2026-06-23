@@ -2,7 +2,6 @@
 
 namespace App\Services\Legacy;
 
-
 use Plaid\Client;
 use Exception;
 use App\Models\Legacy\PlaidUser;
@@ -32,8 +31,6 @@ class PlaidClient
         $this->env = config('legacy.plaid.env');
         $this->identifier = config('legacy.plaid.identifier', 'driveitaway_');
     }
-
-    /****function get auth toekn pdf***/
     public function generateAuthToken($publicToken)
     {
         try {
@@ -42,30 +39,35 @@ class PlaidClient
         } catch (Exception $e) {
             $actualReport = $e->getMessage();
         }
+
         if (isset($actualReport['access_token'])) {
-            return array("status" => true, "message" => "", "access_token" => $actualReport['access_token'], "item_id" => $actualReport['item_id'] ?? null);
+            return [
+                "status" => true,
+                "message" => "",
+                "access_token" => $actualReport['access_token'],
+            ];
         }
-        return array("status" => false, "message" => $actualReport, "access_token" => "");
+
+        return [
+            "status" => false,
+            "message" => $actualReport,
+            "access_token" => ""
+        ];
     }
-
-
-    //new function added to get token
-    //link/token/create
     public function create_link_token($userObj, $user_token, $deviceOS = '')
     {
         $webhook = url('plaid/webhook');
 
-        // Handling User object array conversion if it's an eloquent model
         if (is_object($userObj) && method_exists($userObj, 'toArray')) {
             $userObj = $userObj->toArray();
         }
-        // In cakephp it was $userObj['User']['id'], handle both structures
+
         $userData = isset($userObj['User']) ? $userObj['User'] : $userObj;
 
         $tempObj = [
             "user_token" => $user_token,
-            "client_id" => config('legacy.plaid.client_id'),
-            "secret" => config('legacy.plaid.secret'),
+            "client_id" => $this->client_id,
+            "secret" => $this->secret,
             "income_verification" => [
                 'income_source_types' => ["bank"],
                 "bank_income" => [
@@ -93,6 +95,7 @@ class PlaidClient
             ]
 
         ];
+
         if ($deviceOS === 'ios') {
             $tempObj['redirect_uri'] = 'https://w2272m466y.com.mindseye.carshare/';
         } elseif ($deviceOS == 'android') {
@@ -101,9 +104,9 @@ class PlaidClient
             $tempObj['redirect_uri'] = url('plaid/callback');
             $tempObj["webhook"] = $webhook;
         }
+
         return $this->createTokenLink($tempObj, $user_token);
     }
-    //generate token link 
     public function incomeLinkToken($userObj, $user_token, $deviceOS = '')
     {
         $webhook = url('plaid/webhook');
@@ -111,6 +114,7 @@ class PlaidClient
         if (is_object($userObj) && method_exists($userObj, 'toArray')) {
             $userObj = $userObj->toArray();
         }
+
         $userData = isset($userObj['User']) ? $userObj['User'] : $userObj;
 
         $tempObj = [
@@ -118,11 +122,11 @@ class PlaidClient
             "income_verification" => [
                 'income_source_types' => ["payroll"],
                 "payroll_income" => [
-                    "flow_types" => ["document"/*,"digital"*/]
+                    "flow_types" => ["document"]
                 ]
             ],
-            "client_id" => config('legacy.plaid.client_id'),
-            "secret" => config('legacy.plaid.secret'),
+            "client_id" => $this->client_id,
+            "secret" => $this->secret,
             "user" => [
                 "client_user_id" => $this->identifier . ($userData['id'] ?? ''),
                 "legal_name" => ($userData['first_name'] ?? '') . ' ' . ($userData['last_name'] ?? ''),
@@ -143,10 +147,9 @@ class PlaidClient
             $tempObj['redirect_uri'] = url('plaid/callback');
             $tempObj["webhook"] = $webhook;
         }
+
         return $this->createTokenLink($tempObj, $user_token);
     }
-
-
     public function getAccounts($accessToken)
     {
         try {
@@ -155,27 +158,44 @@ class PlaidClient
         } catch (Exception $e) {
             $accounts = $e->getMessage();
         }
+
         if (isset($accounts['accounts'])) {
-            return array("status" => true, "message" => "", "accounts" => $accounts);
+            return [
+                "status" => true,
+                "message" => "",
+                "accounts" => $accounts
+            ];
         }
-        return array("status" => false, "message" => $accounts, "accounts" => "");
+
+        return [
+            "status" => false,
+            "message" => $accounts,
+            "accounts" => ""
+        ];
     }
-    /****function get auth toekn pdf***/
-    public function getBalance($accessToken, $otp = array(), $accountIds = [])
+    public function getBalance($accessToken, $otp = [], $accountIds = [])
     {
         try {
             $client = new Client($this->client_id, $this->secret, $this->key, $this->env);
-
             $balance = $client->balance()->get($accessToken, $otp, $accountIds);
         } catch (Exception $e) {
             $balance = $e->getMessage();
         }
-        if (isset($balance['accounts'])) {
-            return array("status" => true, "message" => "", "accounts" => $balance['accounts']);
-        }
-        return array("status" => false, "message" => $balance, "accounts" => "");
-    }
 
+        if (isset($balance['accounts'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "accounts" => $balance['accounts']
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $balance,
+            "accounts" => ""
+        ];
+    }
     public function getTransactionHistory($accessToken, $startDate, $endDate, $options = [], $accountIds = null, $count = null, $offset = null)
     {
         try {
@@ -184,26 +204,49 @@ class PlaidClient
         } catch (Exception $e) {
             $transactions = $e->getMessage();
         }
-        if (isset($transactions['transactions'])) {
-            return array("status" => true, "message" => "", "transactions" => $transactions['transactions']);
-        }
-        return array("status" => false, "message" => $transactions, "transactions" => "");
-    }
 
+        if (isset($transactions['transactions'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "transactions" => $transactions['transactions']
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $transactions,
+            "transactions" => ""
+        ];
+    }
     public function getIncomeHistory($user_token, $accountCount = 1)
     {
         try {
             $client = new Client($this->client_id, $this->secret, $this->key, $this->env);
-            $income = $client->post('/credit/bank_income/get', ['user_token' => $user_token, "options" => ["count" => $accountCount]]);
+            $income = $client->post('/credit/bank_income/get', [
+                'user_token' => $user_token,
+                "options" => [
+                    "count" => $accountCount
+                ]
+            ]);
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
-        if (isset($income['bank_income'])) {
-            return array("status" => true, "message" => "", "income" => $income);
-        }
-        return array("status" => false, "message" => $income, "transactions" => "");
-    }
 
+        if (isset($income['bank_income'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "income" => $income
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $income,
+            "transactions" => ""
+        ];
+    }
     public function getIncomeTransactions($access_token, $account_id)
     {
         try {
@@ -212,15 +255,27 @@ class PlaidClient
                 'access_token' => $access_token,
                 "start_date" => date('Y-m-d', strtotime('-200 days')),
                 "end_date" => date('Y-m-d'),
-                "options" => ["account_ids" => [$account_id]]
+                "options" => [
+                    "account_ids" => [$account_id]
+                ]
             ]);
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
+
         if (isset($income['accounts'])) {
-            return array("status" => true, "message" => "", "income" => $income);
+            return [
+                "status" => true,
+                "message" => "",
+                "income" => $income
+            ];
         }
-        return array("status" => false, "message" => $income, "transactions" => "");
+
+        return [
+            "status" => false,
+            "message" => $income,
+            "transactions" => ""
+        ];
     }
     public function getStatements($access_token)
     {
@@ -232,12 +287,21 @@ class PlaidClient
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
-        if (isset($income['item_id'])) {
-            return array("status" => true, "message" => "", "income" => $income);
-        }
-        return array("status" => false, "message" => $income, "transactions" => "");
-    }
 
+        if (isset($income['item_id'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "income" => $income
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $income,
+            "transactions" => ""
+        ];
+    }
     public function createIncomeVerification($webhook)
     {
         try {
@@ -246,12 +310,21 @@ class PlaidClient
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
-        if (isset($income['income_verification_id'])) {
-            return array("status" => true, "message" => "", "income_verification_id" => $income['income_verification_id']);
-        }
-        return array("status" => false, "message" => $income, "income_verification_id" => "");
-    }
 
+        if (isset($income['income_verification_id'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "income_verification_id" => $income['income_verification_id']
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $income,
+            "income_verification_id" => ""
+        ];
+    }
     public function createTokenLink($data, $user_token = '')
     {
         try {
@@ -262,11 +335,21 @@ class PlaidClient
         }
 
         if (isset($income['link_token'])) {
-            return array("status" => true, "message" => "", "link_token" => $income['link_token'], "user_token" => $user_token);
+            return [
+                "status" => true,
+                "message" => "",
+                "link_token" => $income['link_token'],
+                "user_token" => $user_token
+            ];
         }
-        return array("status" => false, "message" => $income, "link_token" => "", "user_token" => $user_token);
-    }
 
+        return [
+            "status" => false,
+            "message" => $income,
+            "link_token" => "",
+            "user_token" => $user_token
+        ];
+    }
     public function getIncomeSummery($data)
     {
         try {
@@ -275,10 +358,20 @@ class PlaidClient
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
+
         if (isset($income['ytd_earnings'])) {
-            return array("status" => true, "message" => "", "earnings" => $income['ytd_earnings']);
+            return [
+                "status" => true,
+                "message" => "",
+                "earnings" => $income['ytd_earnings']
+            ];
         }
-        return array("status" => false, "message" => $income, "earnings" => 0);
+
+        return [
+            "status" => false,
+            "message" => $income,
+            "earnings" => 0
+        ];
     }
     public function getPaystubSummery($data)
     {
@@ -288,14 +381,15 @@ class PlaidClient
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
+
         return $income;
     }
-
     public function downloadPaystub($data)
     {
         try {
             $client = new Client($this->client_id, $this->secret, $this->key, $this->env);
             $income = $client->post('/income/verification/documents/download', $data, false);
+
             ob_clean();
             header("Pragma: public");
             header("Expires: 0");
@@ -305,20 +399,13 @@ class PlaidClient
             header("Content-type: application/octet-stream");
             header('Content-Disposition: attachment; filename="paystub.zip"');
             header("Content-Transfer-Encoding: binary");
-            //header("Content-Length: ".filesize($income));
             ob_end_flush();
             echo $income;
             die;
         } catch (Exception $e) {
             $income = $e->getMessage();
         }
-        //return $income;
-        /*if(isset($income['link_token'])){
-            return array("status"=>true,"message"=>"","link_token"=>$income['link_token']);
-        }
-        return array("status"=>false,"message"=>$income,"link_token"=>"");*/
     }
-
     public function CreatePayrollUser($user)
     {
         try {
@@ -327,28 +414,46 @@ class PlaidClient
         } catch (Exception $e) {
             $usertoken = $e->getMessage();
         }
+
         if (!isset($usertoken['user_token'])) {
-            return array("status" => false, "message" => $usertoken, "transactions" => "");
+            return [
+                "status" => false,
+                "message" => $usertoken,
+                "transactions" => ""
+            ];
         }
-        return array("status" => true, "message" => '', "user_token" => $usertoken['user_token']);
+
+        return [
+            "status" => true,
+            "message" => '',
+            "user_token" => $usertoken['user_token']
+        ];
     }
     public function payrollIncome($user_token)
     {
         try {
             $client = new Client($this->client_id, $this->secret, $this->key, $this->env);
             $income = $client->payrollincome()->get($user_token);
-            return array("status" => true, "message" => "", "transactions" => $income);
+            return [
+                "status" => true,
+                "message" => "",
+                "transactions" => $income
+            ];
         } catch (Exception $e) {
             $income = $e->getMessage();
-            return array("status" => false, "message" => $income, "transactions" => []);
+            return [
+                "status" => false,
+                "message" => $income,
+                "transactions" => []
+            ];
         }
     }
-
     public function createUser($userObj)
     {
         if (is_object($userObj) && method_exists($userObj, 'toArray')) {
             $userObj = $userObj->toArray();
         }
+
         $userData = isset($userObj['User']) ? $userObj['User'] : $userObj;
 
         try {
@@ -360,8 +465,9 @@ class PlaidClient
                     "last_name" => $userData['last_name'] ?? '',
                     "date_of_birth" => date('Y-m-d', strtotime($userData['dob'] ?? '')),
                     "emails" => [$userData['email'] ?? ''],
-                    "phone_numbers" => [(!empty($userData['contact_number']) ? '+1' . substr(preg_replace('/[^0-9]/', '', $userData['contact_number']), -10) : '')],
-
+                    "phone_numbers" => [
+                        (!empty($userData['contact_number']) ? '+1' . substr(preg_replace('/[^0-9]/', '', $userData['contact_number']), -10) : '')
+                    ],
                     "primary_address" =>
                         [
                             "street" => $userData['address'] ?? '',
@@ -377,18 +483,30 @@ class PlaidClient
             if (empty($userData['address']) || empty($userData['city'])) {
                 unset($requestBody['consumer_report_user_identity']['primary_address']);
             }
+
             Log::info('create user requestBody:', $requestBody);
             $user = $client->post('/user/create', $requestBody);
             Log::info('create user response:===>', (array) $user);
         } catch (Exception $e) {
             $user = $e->getMessage();
         }
-        if (isset($user['user_id'])) {
-            return array("status" => true, "message" => "", "user_token" => $user['user_token'], "user_id" => $user['user_id']);
-        }
-        return array("status" => false, "message" => $user, "user_token" => "", "user_id" => "");
-    }
 
+        if (isset($user['user_id'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "user_token" => $user['user_token'],
+                "user_id" => $user['user_id']
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $user,
+            "user_token" => "",
+            "user_id" => ""
+        ];
+    }
     public function removeUser($access_token)
     {
         try {
@@ -397,52 +515,83 @@ class PlaidClient
         } catch (Exception $e) {
             $resp = $e->getMessage();
         }
-        if (isset($resp['request_id'])) {
-            return array("status" => true, "message" => "removed successfully");
-        }
-        return array("status" => false, "message" => $resp);
-    }
 
+        if (isset($resp['request_id'])) {
+            return [
+                "status" => true,
+                "message" => "removed successfully"
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $resp
+        ];
+    }
     public function accountIdentity($accessToken, $account_ids)
     {
         try {
             $client = new Client($this->client_id, $this->secret, $this->key, $this->env);
             $identities = $client->identity()->get($accessToken, ["account_ids" => $account_ids]);
-            return array("status" => true, "message" => "", "identities" => $identities);
+            return [
+                "status" => true,
+                "message" => "",
+                "identities" => $identities
+            ];
         } catch (Exception $e) {
             $income = $e->getMessage();
-            return array("status" => false, "message" => $income, "identities" => []);
+            return [
+                "status" => false,
+                "message" => $income,
+                "identities" => []
+            ];
         }
     }
-
     public function checkIfPlaidInstitutionIdExits($oldmetas, $newmetas)
     {
         $return = false;
+
         if (empty($oldmetas) || empty($newmetas)) {
             return $return;
         }
+
         $oldmetas = is_string($oldmetas) ? json_decode($oldmetas, true) : $oldmetas;
-        $oldMetadataJson = isset($oldmetas['metadataJson']) ? (is_string($oldmetas['metadataJson']) ? json_decode($oldmetas['metadataJson'], true) : $oldmetas['metadataJson']) : $oldmetas;
+        $oldMetadataJson = isset($oldmetas['metadataJson'])
+            ? (is_string($oldmetas['metadataJson']) ? json_decode($oldmetas['metadataJson'], true) : $oldmetas['metadataJson'])
+            : $oldmetas;
 
         $newmetas = is_string($newmetas) ? json_decode($newmetas, true) : $newmetas;
-        $newMetadataJson = isset($newmetas['metadataJson']) ? (is_string($newmetas['metadataJson']) ? json_decode($newmetas['metadataJson'], true) : $newmetas['metadataJson']) : $newmetas;
+        $newMetadataJson = isset($newmetas['metadataJson'])
+            ? (is_string($newmetas['metadataJson']) ? json_decode($newmetas['metadataJson'], true) : $newmetas['metadataJson'])
+            : $newmetas;
 
         if (empty($oldMetadataJson) || empty($newMetadataJson)) {
             return $return;
         }
-        $accountNew = isset($newMetadataJson['accounts']) ? $newMetadataJson['accounts'] : [$newMetadataJson['account']];
-        $accountOld = isset($oldMetadataJson['accounts']) ? $oldMetadataJson['accounts'] : [$oldMetadataJson['account']];
+
+        $accountNew = isset($newMetadataJson['accounts'])
+            ? $newMetadataJson['accounts']
+            : [$newMetadataJson['account']];
+        $accountOld = isset($oldMetadataJson['accounts'])
+            ? $oldMetadataJson['accounts']
+            : [$oldMetadataJson['account']];
+
         foreach ($accountOld as $accOld) {
             foreach ($accountNew as $accNew) {
-                if (isset($newMetadataJson['institution']['institution_id'], $oldMetadataJson['institution']['institution_id']) && $newMetadataJson['institution']['institution_id'] == $oldMetadataJson['institution']['institution_id'] && trim($accOld['name']) == trim($accNew['name']) && $accOld['mask'] == $accNew['mask']) {
+                if (
+                    isset($newMetadataJson['institution']['institution_id'], $oldMetadataJson['institution']['institution_id'])
+                    && $newMetadataJson['institution']['institution_id'] == $oldMetadataJson['institution']['institution_id']
+                    && trim($accOld['name']) == trim($accNew['name'])
+                    && $accOld['mask'] == $accNew['mask']
+                ) {
                     $return = true;
                     break 2;
                 }
             }
         }
+
         return $return;
     }
-
     private function _savePaystub($data, $userId, $newRecords = null)
     {
         $token = $data['token'];
@@ -450,8 +599,8 @@ class PlaidClient
         $user_token = isset($data['user_token']) ? $data['user_token'] : '';
 
         $oldRecords = PlaidUser::where('user_id', $userId)->whereNotNull('token')->get();
-
         $isDuplicate = false;
+
         if ($oldRecords->isNotEmpty()) {
             foreach ($oldRecords as $oldRecord) {
                 $isDuplicate = $this->checkIfPlaidInstitutionIdExits($oldRecord->metadata, $metadata);
@@ -466,7 +615,6 @@ class PlaidClient
 
         $exists = $oldRecords->last();
 
-        //create Plaid User
         if (empty($exists)) {
             $authtoken = $this->generateAuthToken($token);
             $access_token = $authtoken['access_token'];
@@ -484,6 +632,7 @@ class PlaidClient
         ];
 
         $idToUpdate = null;
+
         if (!empty($exists) && $exists->paystub) {
             $idToUpdate = $exists->id;
         } elseif (!empty($newRecords)) {
@@ -500,40 +649,43 @@ class PlaidClient
 
         User::where('id', $userId)->update(["bank" => $plaidUserId]);
 
-        //Update Pending booking if there is any
-        (new VehicleReservation())->updatePendingBooking($userId, 2);
+        VehicleReservation::updatePendingBooking($userId, 2);
 
-        return array("status" => true, "message" => "You are succcessfully connected now");
+        return [
+            "status" => true,
+            "message" => "You are succcessfully connected now"
+        ];
     }
-
     public function saveUser($data, $userId)
     {
-        $return = array("status" => false, "message" => "Sorry, something went wrong, please try again");
+        $return = [
+            "status" => false,
+            "message" => "Sorry, something went wrong, please try again"
+        ];
         $token = $data['token'] ?? '';
         $metadata = $data['metadata'] ?? [];
         $paystub = isset($data['paystub']) && $data['paystub'] ? true : false;
         $user_token = isset($data['user_token']) ? $data['user_token'] : '';
 
         $userObj = User::select('id')->find($userId);
+
         if (empty($userObj)) {
             return $return;
         }
 
         $newRecords = PlaidUser::where('user_id', $userId)->whereNull('token')->first();
 
-        //if plaid is paystub record
         if ($paystub) {
             return $this->_savePaystub($data, $userId, $newRecords);
         }
 
-        //if plaid is not paystub record
         $oldRecords = PlaidUser::where('user_id', $userId)->whereNotNull('token')->get();
         $isDuplicate = false;
+
         if ($oldRecords->isNotEmpty()) {
             foreach ($oldRecords as $oldRecord) {
                 $isDuplicate = $this->checkIfPlaidInstitutionIdExits($oldRecord->metadata, $metadata);
                 if ($isDuplicate) {
-                    //delete old record
                     $deleted = $this->removeUser($oldRecord->token);
                     if ($deleted['status']) {
                         $oldRecord->delete();
@@ -548,19 +700,20 @@ class PlaidClient
         }
 
         $authtoken = $this->generateAuthToken($token);
+
         if (!$authtoken['status']) {
             return $authtoken;
         }
 
         $access_token = $authtoken['access_token'];
 
-        $dataToSave = array(
+        $dataToSave = [
             'item_id' => ($authtoken['item_id'] ?? ""),
             "user_id" => $userId,
             "token" => $access_token,
             "user_token" => $user_token,
             'metadata' => is_string($metadata) ? $metadata : json_encode($metadata)
-        );
+        ];
 
         if (!empty($newRecords)) {
             PlaidUser::where('id', $newRecords->id)->update($dataToSave);
@@ -571,13 +724,13 @@ class PlaidClient
         }
 
         User::where('id', $userId)->update(["bank" => $plaidUserId]);
+        VehicleReservation::updatePendingBooking($userId, 2);
 
-        //Update Pending booking is there is any
-        (new VehicleReservation())->updatePendingBooking($userId, 2);
-
-        return array("status" => true, "message" => "You are succcessfully connected now");
+        return [
+            "status" => true,
+            "message" => "You are succcessfully connected now"
+        ];
     }
-
     private function _createSandboxPublicToken($institution_id, $initial_products)
     {
         try {
@@ -589,12 +742,21 @@ class PlaidClient
         } catch (Exception $e) {
             $publicToken = $e->getMessage();
         }
-        if (isset($publicToken['public_token'])) {
-            return array("status" => true, "message" => "", "public_token" => $publicToken['public_token']);
-        }
-        return array("status" => false, "message" => $publicToken, "public_token" => "");
-    }
 
+        if (isset($publicToken['public_token'])) {
+            return [
+                "status" => true,
+                "message" => "",
+                "public_token" => $publicToken['public_token']
+            ];
+        }
+
+        return [
+            "status" => false,
+            "message" => $publicToken,
+            "public_token" => ""
+        ];
+    }
     public function getItem($access_token)
     {
         try {
@@ -603,9 +765,9 @@ class PlaidClient
         } catch (Exception $e) {
             $resp = $e->getMessage();
         }
+
         return $resp;
     }
-
     public function getCraBaseReport($user_id)
     {
         try {
@@ -621,6 +783,7 @@ class PlaidClient
         } catch (Exception $e) {
             $resp = $e->getMessage();
         }
+
         return $resp;
     }
     public function getCraIncomeInsights($user_id)
@@ -638,6 +801,7 @@ class PlaidClient
         } catch (Exception $e) {
             $resp = $e->getMessage();
         }
+
         return $resp;
     }
     public function getCraCheckReportPdf($user_id)
@@ -655,6 +819,7 @@ class PlaidClient
         } catch (Exception $e) {
             $resp = $e->getMessage();
         }
+
         return $resp;
     }
     public function getCraCashflowInsights($user_id)
@@ -672,6 +837,7 @@ class PlaidClient
         } catch (Exception $e) {
             $resp = $e->getMessage();
         }
+
         return $resp;
     }
 }

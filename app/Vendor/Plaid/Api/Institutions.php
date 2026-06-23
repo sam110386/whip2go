@@ -10,9 +10,11 @@ class Institutions extends Api
             'count' => $count,
             'offset' => $offset
         ];
-        if($options != null) {
+
+        if ($options != null) {
             $post['options'] = $options;
         }
+
         return $this->client()->post('/institutions/get', $post);
     }
 

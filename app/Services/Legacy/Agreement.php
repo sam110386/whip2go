@@ -4,7 +4,7 @@ namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use App\Helpers\Legacy\Number as NumberHelper;
+use App\Helpers\Legacy\Number as LegacyNumber;
 
 /**
  * Ported from CakePHP app/Controller/Component/AgreementComponent.php
@@ -147,7 +147,7 @@ class Agreement
             $method = 'generateLeaseAgreementpdf';
         }
 
-        $obj['currency'] = NumberHelper::getCurrencySymbol($obj['currency'] ?? 'USD');
+        $obj['currency'] = LegacyNumber::getCurrencySymbol($obj['currency'] ?? 'USD');
         $actualReport = $this->sendHttpRequest($obj, $method);
 
         if (isset($actualReport['error'])) {
@@ -168,7 +168,7 @@ class Agreement
     {
         $obj['filename'] = $filename;
         $method = 'powerofatorny';
-        $obj['currency'] = NumberHelper::getCurrencySymbol($obj['currency'] ?? 'USD');
+        $obj['currency'] = LegacyNumber::getCurrencySymbol($obj['currency'] ?? 'USD');
         $actualReport = $this->sendHttpRequest($obj, $method);
 
         if (isset($actualReport['error'])) {
@@ -189,7 +189,7 @@ class Agreement
     {
         $obj['filename'] = $filename;
         $method = 'loanagreement';
-        $obj['currency'] = NumberHelper::getCurrencySymbol($obj['currency'] ?? 'USD');
+        $obj['currency'] = LegacyNumber::getCurrencySymbol($obj['currency'] ?? 'USD');
         $actualReport = $this->sendHttpRequest($obj, $method);
 
         if (isset($actualReport['error'])) {
@@ -210,7 +210,7 @@ class Agreement
     {
         $obj['filename'] = $filename;
         $method = 'loanagreement';
-        $obj['currency'] = NumberHelper::getCurrencySymbol($obj['currency'] ?? 'USD');
+        $obj['currency'] = LegacyNumber::getCurrencySymbol($obj['currency'] ?? 'USD');
         $actualReport = $this->sendHttpRequest($obj, $method);
 
         if (isset($actualReport['error'])) {
@@ -252,7 +252,7 @@ class Agreement
     {
         $obj['filename'] = $filename;
         $method = 'paymentreciept';
-        $obj['currency'] = NumberHelper::getCurrencySymbol($obj['currency'] ?? 'USD');
+        $obj['currency'] = LegacyNumber::getCurrencySymbol($obj['currency'] ?? 'USD');
         $actualReport = $this->sendHttpRequest($obj, $method);
 
         if (isset($actualReport['error'])) {

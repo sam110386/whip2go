@@ -12,7 +12,7 @@ use App\Models\Legacy\User;
 use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\CsWorkingHour;
 use App\Models\Legacy\CsTrackVehicle;
-use App\Helpers\Legacy\Number as CakeNumber;
+use App\Helpers\Legacy\Number as LegacyNumber;
 use App\Services\Legacy\TinnyUrlService;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
@@ -1464,7 +1464,7 @@ class Common
 
             if (isset($item['after_day_date']) && !empty($item['after_day_date'])) {
                 $item['expected'] = Carbon::parse($item['after_day_date'])->format('m/d/Y');
-                $item['amount'] = CakeNumber::currency($item['amount'], $currency, $basecurrency);
+                $item['amount'] = LegacyNumber::currency($item['amount'], $currency, $basecurrency);
                 $temp[] = $item;
                 continue;
             }
@@ -1473,7 +1473,7 @@ class Common
                 continue;
             }
 
-            $item['amount'] = CakeNumber::currency($item['amount'], $currency, $basecurrency);
+            $item['amount'] = LegacyNumber::currency($item['amount'], $currency, $basecurrency);
 
             $item['expected'] = Carbon::parse($basedate)
                 ->addDays("{$item['after_day']}")
@@ -1536,7 +1536,7 @@ class Common
         $baseCarbon = Carbon::parse($baseDate);
 
         foreach ($sortedData as $item) {
-            $amount = CakeNumber::currency($item['amount'] ?? 0, $currency);
+            $amount = LegacyNumber::currency($item['amount'] ?? 0, $currency);
 
             if (isset($item['after_day_date']) && !empty($item['after_day_date'])) {
                 $formattedDate = Carbon::parse($item['after_day_date'])->format('m/d/Y');
@@ -1874,7 +1874,7 @@ class Common
         $totalAmount = $payments->sum('amount');
         $currencyCode = $payments->first()->currency ?? 'USD';
 
-        return CakeNumber::currency($totalAmount, "{$currencyCode}");
+        return LegacyNumber::currency($totalAmount, "{$currencyCode}");
     }
 
     public function getBookingTotalInitialFee($bookingId)
@@ -1899,7 +1899,7 @@ class Common
         $totalAmount = $payments->sum('amount');
         $currencyCode = $payments->first()->currency ?? 'USD';
 
-        return CakeNumber::currency($totalAmount, "{$currencyCode}");
+        return LegacyNumber::currency($totalAmount, "{$currencyCode}");
     }
 
     public function getBookingTotalInsurance($bookingId)
@@ -1925,7 +1925,7 @@ class Common
         $totalAmount = $payments->sum('amount');
         $currencyCode = $payments->first()->currency ?? 'USD';
 
-        return CakeNumber::currency($totalAmount, "{$currencyCode}");
+        return LegacyNumber::currency($totalAmount, "{$currencyCode}");
     }
 
     public function days_between_dates($start, $end)

@@ -26,7 +26,7 @@ use App\Services\Legacy\Insurance;
 use App\Services\Legacy\Notifier;
 use App\Services\Legacy\PathToOwnership;
 use App\Services\Legacy\PaymentProcessor;
-use App\Helpers\Legacy\Number as NumberHelper;
+use App\Helpers\Legacy\Number as LegacyNumber;
 use Carbon\Carbon;
 
 trait VehicleReservationsTrait
@@ -1069,8 +1069,8 @@ trait VehicleReservationsTrait
         $currency = $owner ? $owner->currency : 'USD';
 
         if ($notifyToDriver == 1) {
-            $dIC = NumberHelper::currency($insurance, $currency);
-            $wIC = NumberHelper::currency(number_format(($insurance * 7), 2, '.', ''), $currency);
+            $dIC = LegacyNumber::currency($insurance, $currency);
+            $wIC = LegacyNumber::currency(number_format(($insurance * 7), 2, '.', ''), $currency);
             $note = "Because of your driving history, the insurance rate will be " . $dIC . "/day, " . $wIC . "/week. Do you agree?";
         }
 
@@ -1098,8 +1098,8 @@ trait VehicleReservationsTrait
                 ];
             }
 
-            $dIC = NumberHelper::currency($insurancePayer->premium_total, $currency);
-            $wIC = NumberHelper::currency(number_format(($insurance * 7), 2, '.', ''), $currency);
+            $dIC = LegacyNumber::currency($insurancePayer->premium_total, $currency);
+            $wIC = LegacyNumber::currency(number_format(($insurance * 7), 2, '.', ''), $currency);
             $note = "Progressive \nFull policy amount " . $dIC . "\nWeekly installment amount through " . $providerQuote->provider->name . " " . $wIC . "/week";
         }
 

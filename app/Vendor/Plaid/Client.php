@@ -14,6 +14,8 @@ use Plaid\Api\Institutions;
 use Plaid\Api\Item;
 use Plaid\Api\Transactions;
 use Plaid\Api\PayrollIncome;
+use Plaid\Requester;
+
 class Client
 {
     const VERSION = '0.4.1';
@@ -42,13 +44,32 @@ class Client
      */
     private $env;
 
+    private $suppressWarnings;
+    private $timeout;
+    private $apiVersion;
+    private $requester;
+    private $accounts;
+    private $assetReport;
+    private $auth;
+    private $balance;
+    private $categories;
+    private $creditDetails;
+    private $identity;
+    private $income;
+    private $institutions;
+    private $item;
+    private $transactions;
+    private $payrollincome;
+
+
     /**
      * Plaid constructor.
      * @param $clientId
      * @param $secret
      */
-    
-    public function test(){
+
+    public function test()
+    {
         return $this->clientId;
     }
     public function __construct($clientId, $secret, $publicKey, $env, $apiVersion = null, $suppressWarnings = false, $timeout = self::DEFAULT_TIMEOUT)
@@ -60,9 +81,7 @@ class Client
         $this->suppressWarnings = $suppressWarnings;
         $this->timeout = $timeout;
         $this->apiVersion = $apiVersion;
-
         $this->requester = new Requester();
-
         $this->accounts = new Accounts($this);
         $this->assetReport = new AssetReport($this);
         $this->auth = new Auth($this);
@@ -132,7 +151,8 @@ class Client
         return $this->transactions;
     }
 
-    public function payrollincome(){
+    public function payrollincome()
+    {
         return $this->payrollincome;
     }
 
@@ -160,7 +180,7 @@ class Client
     }
 
     private function _post($path, $data, $autoDecode = true)
-    {   
+    {
         return $this->requester()->postRequest(
             implode(['https://', $this->env, '.plaid.com', $path]),
             $data,

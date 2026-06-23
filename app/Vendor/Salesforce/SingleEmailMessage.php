@@ -30,7 +30,9 @@ namespace Salesforce;
 
 class SingleEmailMessage extends Email
 {
-    public function __construct() {}
+    public function __construct()
+    {
+    }
 
     public function setBccAddresses($addresses)
     {

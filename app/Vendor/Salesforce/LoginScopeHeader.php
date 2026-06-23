@@ -41,6 +41,6 @@ class LoginScopeHeader
     public function __construct($orgId = null, $portalId = null)
     {
         $this->organizationId = $orgId;
-        $this->portalId       = $portalId;
+        $this->portalId = $portalId;
     }
 }

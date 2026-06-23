@@ -1,19 +1,12 @@
 <?php
 
 namespace Plaid;
+use Exception;
 
-class PlaidException extends \Exception
+class PlaidException extends Exception
 {
-    /**
-     * @var type
-     */
     protected $type;
-
-    /**
-     * @var displayMessage
-     */
     protected $displayMessage;
-
 
     public function __construct($message, $type, $code, $displayMessage)
     {
@@ -25,7 +18,7 @@ class PlaidException extends \Exception
 
     public static function fromResponse($response)
     {
-        $e = new \Exception();
+        $e = new Exception();
 
         switch ($response['error_type']) {
             case 'INVALID_REQUEST':
@@ -77,22 +70,34 @@ class PlaidException extends \Exception
         return $e;
     }
 
-    public function getType() {
+    public function getType()
+    {
         return $this->type;
     }
 
-    public function getDisplayMessage() {
+    public function getDisplayMessage()
+    {
         return $this->displayMessage;
     }
 
 }
 
-class InvalidRequestError extends PlaidException {}
+class InvalidRequestError extends PlaidException
+{
+}
 
-class InvalidInputError extends PlaidException {}
+class InvalidInputError extends PlaidException
+{
+}
 
-class RateLimitExceededError extends PlaidException {}
+class RateLimitExceededError extends PlaidException
+{
+}
 
-class APIError extends PlaidException {}
+class APIError extends PlaidException
+{
+}
 
-class ItemError extends PlaidException {}
+class ItemError extends PlaidException
+{
+}

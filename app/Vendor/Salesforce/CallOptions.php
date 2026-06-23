@@ -35,7 +35,7 @@ class CallOptions
 
     public function __construct($client, $defaultNamespace = null)
     {
-        $this->client           = $client;
+        $this->client = $client;
         $this->defaultNamespace = $defaultNamespace;
     }
 }

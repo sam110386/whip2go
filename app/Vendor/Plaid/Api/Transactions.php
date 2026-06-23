@@ -9,14 +9,15 @@ class Transactions extends Api
         parent::__construct($client);
     }
 
-    public function get($accessToken,
-                        $startDate,
-                        $endDate,
-                        $options = [],
-                        $accountIds = null,
-                        $count = null,
-                        $offset = null)
-    {
+    public function get(
+        $accessToken,
+        $startDate,
+        $endDate,
+        $options = [],
+        $accountIds = null,
+        $count = null,
+        $offset = null
+    ) {
         // This will map to a JSON object even if it's empty
         $optionsObj = new \ArrayObject($options);
 

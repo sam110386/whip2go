@@ -2,6 +2,9 @@
 
 namespace Plaid;
 
+use Exception;
+use Plaid\PlaidException;
+
 class Requester
 {
     public function postRequest($url, $data, $timeout, $apiVersion = null, $autoDecode = true)
@@ -9,7 +12,7 @@ class Requester
         try {
             $jsonResponse = $this->httpRequest('POST', $url, $data, $timeout, $apiVersion);
             $response = ($autoDecode) ? json_decode($jsonResponse, true) : $jsonResponse;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw PlaidException::fromResponse([
                 'error_message' => $e->getMessage(),
                 'error_type' => 'API_ERROR',
@@ -33,12 +36,15 @@ class Requester
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
         curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonStr);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Content-Length: ' . strlen($jsonStr),
-            'User-Agent: Plaid PHP v' . Client::VERSION,
-            'Plaid-Version: ' . ($apiVersion ? $apiVersion : Client::DEFAULT_API_VERSION),
-        ]
+        curl_setopt(
+            $ch,
+            CURLOPT_HTTPHEADER,
+            [
+                'Content-Type: application/json',
+                'Content-Length: ' . strlen($jsonStr),
+                'User-Agent: Plaid PHP v' . Client::VERSION,
+                'Plaid-Version: ' . ($apiVersion ? $apiVersion : Client::DEFAULT_API_VERSION),
+            ]
         );
 
         $result = curl_exec($ch);
