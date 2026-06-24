@@ -560,15 +560,15 @@ class DepositRule extends LegacyModel
     public function getInsuranceFee(array $CsOrder, $insurance_days, $insurance_fee = '')
     {
         $return = [
-            'time_fee' => $CsOrder['rent'],
+            'time_fee' => $CsOrder['rent'] ?? 0,
             'charge_rent_event' => 'N',
-            'deposit_amt' => $CsOrder['deposit'],
+            'deposit_amt' => $CsOrder['deposit'] ?? 0,
             'deposit_event' => 'N',
             'deposit_type' => 'P',
             'tax' => 0,
             'insurance_amt' => 0,
             'insurance_event' => 'N',
-            'initial_fee' => $CsOrder['initial_fee'],
+            'initial_fee' => $CsOrder['initial_fee'] ?? 0,
             'initial_event' => 'P',
             'discount' => 0,
             'dia_fee' => isset($CsOrder['dia_fee']) ? $CsOrder['dia_fee'] : 0
@@ -590,28 +590,28 @@ class DepositRule extends LegacyModel
             $emf_rate = $this->_depositObj->emf;
 
             $return = [
-                'time_fee' => $CsOrder['rent'],
+                'time_fee' => $CsOrder['rent'] ?? 0,
                 'charge_rent_event' => $this->_depositObj->charge_rent,
-                'deposit_amt' => $CsOrder['deposit'],
+                'deposit_amt' => $CsOrder['deposit'] ?? 0,
                 'deposit_event' => $this->_depositObj->deposit_event,
                 'deposit_type' => $this->_depositObj->deposit_type,
                 'tax' => $tax,
                 'insurance_amt' => sprintf('%0.2f', $insurance_fee),
                 'insurance_event' => $this->_depositObj->insurance_event,
-                'initial_fee' => $CsOrder['initial_fee'],
+                'initial_fee' => $CsOrder['initial_fee'] ?? 0,
                 'initial_event' => $this->_depositObj->initial_event,
                 'days' => $insurance_days,
                 'discount' => 0,
-                'dia_fee' => $CsOrder['dia_fee'],
+                'dia_fee' => $CsOrder['dia_fee'] ?? 0,
                 'lateness_fee' => $this->_depositObj->lateness_fee,
                 'tax_rate' => $this->_depositObj->tax,
                 'dia_insu' => $dia_insu,
                 'extra_mileage_fee' => $emf_rate,
-                'emf_tax' => $CsOrder['emf_tax'],
+                'emf_tax' => $CsOrder['emf_tax'] ?? 0,
                 'emf_insu_rate' => $emf_insu_rate,
                 'insurance_payer' => $this->_depositObj->insurance_payer,
                 'insurance_lender' => $this->_depositObj->insurance_lender,
-                'initial_fee_tax' => sprintf('%0.2f', ($CsOrder['initial_fee'] * $this->_depositObj->tax / 100))
+                'initial_fee_tax' => sprintf('%0.2f', ($CsOrder['initial_fee'] ?? 0 * $this->_depositObj->tax / 100))
             ];
         }
 

@@ -113,16 +113,16 @@ class Agreement
         $method = 'generateagreementpdf';
         $obj['template'] = $this->_RentalAgreementTemplate;
 
-        if (file_exists(public_path('files/agreement_templates/' . $obj['owner']['id'] . '_rental.html'))) {
-            $obj['template'] = public_path('files/agreement_templates/' . $obj['owner']['id'] . '_rental.html');
+        if (file_exists(public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_rental.html'))) {
+            $obj['template'] = public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_rental.html');
         }
 
         if ($obj['financing'] == 2) {
             $obj['template'] = $this->_RentToOwnAgreementTemplate;
             $method = 'generateRentToOwnAgreementpdf';
 
-            if (file_exists(public_path('files/agreement_templates/' . $obj['owner']['id'] . '_rent_to_own.html'))) {
-                $obj['template'] = public_path('files/agreement_templates/' . $obj['owner']['id'] . '_rent_to_own.html');
+            if (file_exists(public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_rent_to_own.html'))) {
+                $obj['template'] = public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_rent_to_own.html');
             }
         }
 
@@ -132,15 +132,15 @@ class Agreement
         ) {
             $obj['template'] = $this->_LeaseAgreementTemplate;
 
-            if (file_exists(public_path('files/agreement_templates/' . $obj['owner']['id'] . '_lease.html'))) {
-                $obj['template'] = public_path('files/agreement_templates/' . $obj['owner']['id'] . '_lease.html');
+            if (file_exists(public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_lease.html'))) {
+                $obj['template'] = public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_lease.html');
             }
 
             if ($obj['financing'] == 4) { // Lease to Own
                 $obj['template'] = $this->_LeaseToOwnAgreementTemplate;
 
-                if (file_exists(public_path('files/agreement_templates/' . $obj['owner']['id'] . '_lease_to_own.html'))) {
-                    $obj['template'] = public_path('files/agreement_templates/' . $obj['owner']['id'] . '_lease_to_own.html');
+                if (file_exists(public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_lease_to_own.html'))) {
+                    $obj['template'] = public_path('files/agreement_templates/' . $obj['Owner']['id'] . '_lease_to_own.html');
                 }
             }
 
