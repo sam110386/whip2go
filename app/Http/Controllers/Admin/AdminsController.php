@@ -10,32 +10,33 @@ use App\Models\Legacy\User as LegacyUser;
 use App\Models\Legacy\AdminRole as LegacyAdminRole;
 use App\Models\Legacy\AdminRolePermission as LegacyAdminRolePermission;
 use App\Models\Legacy\AdminUserRole as LegacyAdminUserRole;
+use App\Models\Legacy\EmailTemplate as LegacyEmailTemplate;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
-/**
- * Admin end stub: CakePHP `AdminsController`.
- * Stored under `App\Http\Controllers\Admin` per migration requirement.
- */
 class AdminsController extends LegacyAppController
 {
     use PerformsSessionLogout;
 
-    protected bool $shouldLoadLegacyModules = false;
+    protected bool $shouldLoadLegacyModules = true;
 
-    // CakePHP action name under `/admin` prefix.
     public function login(Request $request)
     {
-        // If already logged in, redirect to correct dashboard based on role slug.
         $sessionAdmin = session()->get('SESSION_ADMIN', []);
         $adminId = is_array($sessionAdmin) ? ($sessionAdmin['id'] ?? null) : null;
+
         if (!empty($adminId)) {
             $slug = is_array($sessionAdmin) ? ($sessionAdmin['slug'] ?? null) : null;
+
             if (!empty($slug)) {
-                return redirect('/' . $slug . '/homes/dashboard');
+                return redirect("/{$slug}/homes/dashboard");
             }
+
             return redirect('/admin/admins/login');
         }
 
         $referredUrl = $request->input('referred_url') ?? $request->query('referred_url');
+
         if (!empty($referredUrl) && is_string($referredUrl)) {
             $referredUrl = base64_decode(trim($referredUrl), true) ?: $referredUrl;
         }
@@ -58,8 +59,8 @@ class AdminsController extends LegacyAppController
             ]);
         }
 
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
-        $passwordNew = sha1($salt . $passwordPlain);
+        $salt = config('legacy.security.salt', '');
+        $passwordNew = sha1("{$salt}{$passwordPlain}");
 
         $userinfo = LegacyUser::query()
             ->with('role')
@@ -68,6 +69,7 @@ class AdminsController extends LegacyAppController
             ->first();
 
         $userinfoArr = $userinfo ? $userinfo->toArray() : [];
+
         if (!empty($userinfoArr) && !empty($userinfo) && !empty($userinfo->role) && !empty($userinfo->role->slug)) {
             $userinfoArr['slug'] = $userinfo->role->slug;
         }
@@ -80,49 +82,55 @@ class AdminsController extends LegacyAppController
             ]);
         }
 
-        // session payload mimics Cake: write full user row + slug.
         $sessionAdminPayload = $userinfoArr;
 
         session()->put('SESSION_ADMIN', $sessionAdminPayload);
         session()->put('adminRoleId', (int) ($userinfoArr['role_id'] ?? 0));
 
         $fullName = trim((string) ($userinfoArr['first_name'] ?? '') . ' ' . (string) ($userinfoArr['last_name'] ?? ''));
+
         session()->put('adminName', $fullName);
         session()->put('default_timezone', $userinfoArr['timezone'] ?? null);
 
-        // Permissions
         $roleId = (int) ($userinfoArr['role_id'] ?? 0);
         $permissionIds = LegacyAdminRolePermission::query()
             ->where('role_id', $roleId)
             ->pluck('permission_id')
             ->toArray();
+
         session()->put('permissions', $permissionIds);
 
         if (!empty($referredUrl)) {
-            return redirect('/' . $referredUrl);
+            return redirect("/{$referredUrl}");
         }
 
         $slug = (string) ($userinfoArr['slug'] ?? '');
+
         if ($slug === '') {
             return redirect('/admin/admins/login');
         }
-        return redirect('/' . $slug . '/homes/dashboard');
+
+        return redirect("/{$slug}/homes/dashboard");
     }
 
-    // CakePHP: app/Controller/AdminsController.php::admin_logout()
     public function logout(Request $request)
     {
         return $this->performSessionLogout('/admin/admins/login');
     }
 
-    // CakePHP: app/Controller/AdminsController.php::admin_index()
-    // URL: /admin/admins/index
     public function index(Request $request)
     {
-        // Cake supports search/filter via request params; we accept query params for now.
+        $sessionAdmin = session()->get('SESSION_ADMIN', []);
+        $adminRoleId = session()->get('adminRoleId');
+        $currentAdminId = is_array($sessionAdmin) ? ($sessionAdmin['id'] ?? null) : null;
         $keyword = trim((string) ($request->query('keyword') ?? ''));
         $searchin = trim((string) ($request->query('searchin') ?? ''));
         $showtype = trim((string) ($request->query('showtype') ?? ''));
+        $limit = (int) $request->input('limit', 50);
+
+        if (!in_array($limit, [10, 20, 50, 100, 200, 500])) {
+            $limit = 50;
+        }
 
         $status = null;
         if ($showtype !== '') {
@@ -134,17 +142,31 @@ class AdminsController extends LegacyAppController
             }
         }
 
+        $sort = $request->query('sort', 'id');
+        $direction = $request->query('direction', 'desc');
+        $allowedSort = ['id', 'created', 'status'];
+        if (!in_array($sort, $allowedSort)) {
+            $sort = 'id';
+        }
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
         $q = LegacyUser::query()
             ->with('role')
             ->where('is_admin', 1)
-            ->orderByDesc('id');
+            ->whereNotIn('id', array_filter([1, $currentAdminId]))
+            ->orderBy($sort, $direction);
+
+        if ($adminRoleId != 1) {
+            $q->where('parent_id', $currentAdminId);
+        }
 
         if ($status !== null) {
             $q->where('status', $status);
         }
 
         if ($keyword !== '') {
-            $like = '%' . $keyword . '%';
+            $like = "%{$keyword}%";
+
             $q->where(function ($qq) use ($like, $searchin) {
                 if ($searchin === '' || strcasecmp($searchin, 'All') === 0) {
                     $qq->where('username', 'like', $like)
@@ -165,17 +187,27 @@ class AdminsController extends LegacyAppController
             });
         }
 
-        $users = $q->limit(50)->get()->map(function (LegacyUser $u) {
-            $row = $u->toArray();
-            $row['role_name'] = (!empty($u->role) && isset($u->role->name)) ? $u->role->name : '';
-            return (object) $row;
+        $users = $q->paginate($limit);
+
+        // Map role name for use in view
+        $users->getCollection()->transform(function (LegacyUser $u) {
+            $u->role_name = (!empty($u->role) && isset($u->role->name)) ? $u->role->name : '';
+            return $u;
         });
+
+        if ($request->ajax()) {
+            return view('admin.admins._index_table', [
+                'users' => $users,
+                'limit' => $limit,
+            ]);
+        }
 
         return view('admin.admins.index', [
             'users' => $users,
             'keyword' => $keyword,
             'searchin' => $searchin,
             'showtype' => $showtype,
+            'limit' => $limit,
             'showArr' => ['Active' => 'Active', 'Deactive' => 'Inactive'],
             'options' => [
                 'username' => 'Username',
@@ -185,12 +217,15 @@ class AdminsController extends LegacyAppController
         ]);
     }
 
-    // CakePHP: app/Controller/AdminsController.php::admin_status($id, $status)
-    // URL: /admin/admins/admin_status/{base64_user_id}/{status}
+    public function dashboard()
+    {
+        return redirect('/admin/homes/dashboard');
+    }
+
     public function status(Request $request, $id = null, $status = null)
     {
-        // Cake sends base64-encoded user id in the URL.
         $decodedId = null;
+
         if (is_string($id) && $id !== '') {
             $tmp = base64_decode($id, true);
             $decodedId = $tmp !== false ? $tmp : null;
@@ -200,14 +235,20 @@ class AdminsController extends LegacyAppController
 
         if ($decodedId !== null && $decodedId !== '') {
             $newStatus = ((string) $status === '1') ? 1 : 0;
-            LegacyUser::query()
+            $user = LegacyUser::query()
                 ->whereKey((int) $decodedId)
                 ->where('is_admin', 1)
-                ->update(['status' => $newStatus]);
+                ->first();
+
+            if ($user) {
+                $user->update(['status' => $newStatus]);
+            }
+
+            session()->flash('success', 'Status updated successfully.');
         }
 
-        // Keep navigation parity with Cake's `$this->redirect($this->referer())`.
         $referer = $request->headers->get('referer');
+
         if (!empty($referer)) {
             return redirect()->to($referer);
         }
@@ -215,16 +256,12 @@ class AdminsController extends LegacyAppController
         return redirect('/admin/admins/index');
     }
 
-    // CakePHP: app/Controller/AdminsController.php::admin_add($id = null)
-    // URL examples:
-    // - /admin/admins/admin_add
-    // - /admin/admins/admin_add/{base64_user_id}
     public function add(Request $request, $id = null)
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
-
+        $salt = config('legacy.security.salt', '');
         $isEditing = !empty($id);
         $decodedId = null;
+
         if (is_string($id) && $id !== '') {
             $tmp = base64_decode($id, true);
             $decodedId = $tmp !== false ? $tmp : null;
@@ -233,6 +270,7 @@ class AdminsController extends LegacyAppController
         }
 
         $user = null;
+
         if ($isEditing && $decodedId !== null) {
             $user = LegacyUser::query()
                 ->whereKey((int) $decodedId)
@@ -249,6 +287,7 @@ class AdminsController extends LegacyAppController
                 ->toArray();
 
             $userStaffRoleIds = [];
+
             if ($isEditing && $user) {
                 $userStaffRoleIds = LegacyAdminUserRole::query()
                     ->where('user_id', (int) $user->id)
@@ -261,7 +300,7 @@ class AdminsController extends LegacyAppController
                 'user' => $user,
                 'roles' => $roles,
                 'userStaffRoleIds' => $userStaffRoleIds,
-                'formAction' => $isEditing ? '/admin/admins/add/' . $id : '/admin/admins/add',
+                'formAction' => $isEditing ? "/admin/admins/add/{$id}" : "/admin/admins/add",
             ]);
         }
 
@@ -275,14 +314,19 @@ class AdminsController extends LegacyAppController
         $status = ((string) ($payload['status'] ?? '1') === '0') ? 0 : 1;
         $staffRoleIds = $payload['staff_role_id'] ?? [];
 
-        if ($username === '' || $firstName === '' || $lastName === '' || $email === '') {
+        $userId = $isEditing && $decodedId !== null ? (int) $decodedId : null;
+        if (!$userId && !empty($payload['id']) && is_numeric($payload['id'])) {
+            $userId = (int) $payload['id'];
+        }
+
+        if ($firstName === '' || $lastName === '' || $email === '' || (!$userId && $username === '')) {
             return view('admin.admins.add', [
                 'listTitle' => $isEditing ? 'Update Admin User' : 'Add Admin User',
                 'user' => $user,
                 'roles' => $this->getAdminRolesForForm(),
                 'userStaffRoleIds' => $staffRoleIds,
                 'error' => 'Please fill required fields.',
-                'formAction' => $isEditing ? '/admin/admins/add/' . $id : '/admin/admins/add',
+                'formAction' => $isEditing ? "/admin/admins/add/{$id}" : "/admin/admins/add",
             ]);
         }
 
@@ -290,21 +334,22 @@ class AdminsController extends LegacyAppController
         $firstName = ucwords(strtolower($firstName));
         $lastName = ucwords(strtolower($lastName));
 
-        $userId = $isEditing && $decodedId !== null ? (int) $decodedId : null;
-        if (!$userId && !empty($payload['id']) && is_numeric($payload['id'])) {
-            $userId = (int) $payload['id'];
-        }
-
         $nowUser = [
-            'username' => $username,
             'first_name' => $firstName,
             'last_name' => $lastName,
             'email' => $email,
             'contact_number' => $contact,
+            'address' => trim((string) ($payload['address'] ?? '')),
+            'city' => trim((string) ($payload['city'] ?? '')),
+            'state' => trim((string) ($payload['state'] ?? '')),
             'role_id' => $roleId,
             'is_admin' => 1,
             'status' => $status,
         ];
+
+        if (!$userId) {
+            $nowUser['username'] = $username;
+        }
 
         // Password handling follows Cake’s legacy sha1(salt+password).
         if ($isEditing) {
@@ -333,7 +378,10 @@ class AdminsController extends LegacyAppController
         }
 
         if ($userId) {
-            LegacyUser::query()->whereKey((int) $userId)->update($nowUser);
+            $existingUser = LegacyUser::query()->whereKey((int) $userId)->first();
+            if ($existingUser) {
+                $existingUser->update($nowUser);
+            }
         } else {
             $userId = LegacyUser::query()->create($nowUser)->id;
         }
@@ -370,10 +418,9 @@ class AdminsController extends LegacyAppController
             ->toArray();
     }
 
-    // CakePHP: app/Controller/AdminsController.php::admin_change_password()
     public function change_password(Request $request)
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $admin = session()->get('SESSION_ADMIN');
         $adminId = is_array($admin) ? ($admin['id'] ?? null) : null;
 
@@ -420,15 +467,14 @@ class AdminsController extends LegacyAppController
             ]);
         }
 
-        LegacyUser::query()
-            ->whereKey((int) $adminId)
-            ->update(['password' => sha1($salt . $newPassword)]);
+        $user = LegacyUser::query()->whereKey((int) $adminId)->where('is_admin', 1)->first();
+        if ($user) {
+            $user->update(['password' => sha1($salt . $newPassword)]);
+        }
 
         return redirect('/admin/homes/dashboard');
     }
 
-    // CakePHP: app/Controller/AdminsController.php::admin_profile()
-    // URL: /admin/admins/admin_profile
     public function profile(Request $request)
     {
         $admin = session()->get('SESSION_ADMIN');
@@ -437,12 +483,12 @@ class AdminsController extends LegacyAppController
             return redirect('/admin/admins/login');
         }
 
-        if (!$request->isMethod('POST')) {
-            $user = LegacyUser::query()
-                ->whereKey((int) $adminId)
-                ->where('is_admin', 1)
-                ->first();
+        $user = LegacyUser::query()
+            ->whereKey((int) $adminId)
+            ->where('is_admin', 1)
+            ->first();
 
+        if (!$request->isMethod('POST')) {
             return view('admin.admins.profile', [
                 'listTitle' => 'Update Profile',
                 'user' => $user,
@@ -471,11 +517,9 @@ class AdminsController extends LegacyAppController
             'last_name' => $lastName !== '' ? $lastName : null,
             'email' => $email !== '' ? $email : null,
             'contact_number' => $contact !== '' ? $contact : null,
-            // Optional address/profile fields (if present in schema).
-            'address1' => isset($payload['address1']) ? (string) $payload['address1'] : null,
-            'address2' => isset($payload['address2']) ? (string) $payload['address2'] : null,
+            'address' => isset($payload['address']) ? (string) $payload['address'] : null,
             'city' => isset($payload['city']) ? (string) $payload['city'] : null,
-            'state_id' => isset($payload['state_id']) ? (string) $payload['state_id'] : null,
+            'state' => isset($payload['state']) ? (string) $payload['state'] : null,
             'timezone' => isset($payload['timezone']) ? (string) $payload['timezone'] : null,
             'status' => $status !== null && $status !== '' ? (int) $status : null,
         ];
@@ -483,10 +527,7 @@ class AdminsController extends LegacyAppController
         $update = $this->filterExistingUserColumns($candidateUpdate);
 
         if (!empty($update)) {
-            LegacyUser::query()
-                ->whereKey((int) $adminId)
-                ->where('is_admin', 1)
-                ->update($update);
+            $user->update($update);
         }
 
         // Keep session payload roughly in sync for anything consuming these fields.
@@ -514,6 +555,89 @@ class AdminsController extends LegacyAppController
             }
         }
         return $filtered;
+    }
+
+    public function delete(Request $request, $id = null)
+    {
+        $decodedId = null;
+
+        if (is_string($id) && $id !== '') {
+            $tmp = base64_decode($id, true);
+            $decodedId = $tmp !== false ? $tmp : null;
+        } elseif (is_numeric($id)) {
+            $decodedId = (string) $id;
+        }
+
+        if ($decodedId !== null && $decodedId !== '') {
+            LegacyUser::query()
+                ->whereKey((int) $decodedId)
+                ->where('is_admin', 1)
+                ->delete();
+
+            session()->flash('success', 'Admin user deleted successfully.');
+        }
+
+        return redirect('/admin/admins/index');
+    }
+
+    public function multiplAction(Request $request)
+    {
+        $payload = $request->input('User', []);
+        $action = $payload['status'] ?? '';
+        $selectedIds = $request->input('select', []);
+
+        if (!empty($selectedIds) && is_array($selectedIds)) {
+            if ($action === 'active') {
+                LegacyUser::query()->whereIn('id', $selectedIds)->where('is_admin', 1)->update(['status' => 1]);
+                session()->flash('success', 'Selected users activated.');
+            } elseif ($action === 'inactive') {
+                LegacyUser::query()->whereIn('id', $selectedIds)->where('is_admin', 1)->update(['status' => 0]);
+                session()->flash('success', 'Selected users deactivated.');
+            } elseif ($action === 'del') {
+                LegacyUser::query()->whereIn('id', $selectedIds)->where('is_admin', 1)->delete();
+                session()->flash('success', 'Selected users deleted.');
+            }
+        }
+
+        return redirect('/admin/admins/index');
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        if (!$request->isMethod('POST')) {
+            return view('admin.admins.forgot_password');
+        }
+
+        $email = $request->input('User.email');
+        $user = LegacyUser::query()->where('email', $email)->where('is_admin', 1)->first();
+
+        if ($user) {
+            $newPassword = Str::random(8);
+            $salt = config('legacy.security.salt', '');
+            $user->password = sha1($salt . $newPassword);
+            $user->save();
+
+            $template = LegacyEmailTemplate::find(2);
+            if ($template) {
+                $body = $template->description;
+                $body = str_replace('[USERNAME]', $user->username, $body);
+                $body = str_replace('[PASSWORD]', $newPassword, $body);
+                $body = str_replace('[FIRST_NAME]', $user->first_name, $body);
+                $body = str_replace('[LAST_NAME]', $user->last_name, $body);
+                $body = str_replace('[DATE]', date('m-d-Y'), $body);
+                $body = str_replace('[LOGIN_LINK]', url('/admin/admins/login'), $body);
+
+                Mail::html($body, function ($message) use ($user, $template) {
+                    $message->to($user->email, $user->first_name . ' ' . $user->last_name)
+                        ->subject($template->subject)
+                        ->from($template->from_email ?: config('mail.from.address'));
+                });
+
+                return redirect('/admin/admins/login')->with('success', 'New password sent to your email.');
+            }
+        }
+
+        return back()->with('error', 'Email not found or invalid.');
     }
 }
 

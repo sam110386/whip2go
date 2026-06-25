@@ -26,7 +26,7 @@
                     <ul class="dropdown-menu dropdown-menu-right">
                         <li><a href="{{ url('admin/driver_credit/records/credit') }}">Direct To Driver</a></li>
                         <li class="divider"></li>
-                        <li><a href="javascript:;" onclick="openBooking()">To Booking</a></li>
+                        <li><a href="javascript:void(0)" onclick="openBooking()">To Booking</a></li>
                     </ul>
                 </div>
             </div>
@@ -160,7 +160,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -221,5 +221,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

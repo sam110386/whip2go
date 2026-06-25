@@ -1,0 +1,10 @@
+.origimgwrapper,.refimgwrapper{
+    max-width: 100px;width: 100%;
+    margin-bottom:0;
+}
+
+.d-inline-flex {
+    display: inline-flex;
+    justify-content: space-between;
+    width: 100%;
+  }

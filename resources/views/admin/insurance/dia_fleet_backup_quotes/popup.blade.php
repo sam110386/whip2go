@@ -5,7 +5,7 @@
     <div class="panel-body">
         @if (1)
             <div class="col-lg-12 col-sm-12">
-                <a href="javascript:;" onclick="(function(){window.open('{{ config('app.url') }}/insurance/roi/diafleetbackupreview/{{ $orderandusers }}/true','diawindow','directories=no,titlebar=no,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no,width=400,height=850');return false;})();" class="btn btn-info">Update Details By Driver</a>
+                <a href="javascript:void(0)" onclick="(function(){window.open('{{ config('app.url') }}/insurance/roi/diafleetbackupreview/{{ $orderandusers }}/true','diawindow','directories=no,titlebar=no,toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no,width=400,height=850');return false;})();" class="btn btn-info">Update Details By Driver</a>
             </div>
         @endif
         <div class="col-lg-12 col-sm-12">
@@ -86,7 +86,7 @@
                 <legend class="text-size-large text-bold"> Signed Documents :</legend>
                 <div class="form-group">
                     <div class="col-sm-12 control-label">
-                        <a href="javascript:;" onclick="OpenSignatureDocPopUp('','{{ $orderDepositRuleObj['OrderDepositRule']['id'] }}','plaidModal')"><i class="icon-image2 icon-2x"></i></a>
+                        <a href="javascript:void(0)" onclick="OpenSignatureDocPopUp('','{{ $orderDepositRuleObj['OrderDepositRule']['id'] }}','plaidModal')"><i class="icon-image2 icon-2x"></i></a>
                     </div>
                 </div>
             </div>
@@ -111,11 +111,11 @@
                 <div class="form-group">
                     <div class="col-lg-12 control-label text-center">
                         @if (empty($orderDepositRuleObj['AxleStatus']) || ($orderDepositRuleObj['AxleStatus']['axle_status'] ?? 0) == 0)
-                            <a href="{{ config('app.url') }}/admin/axle/axledocs/connect/{{ $orderDepositRuleObj['OrderDepositRule']['id'] }}" title="Connect to Axle" class="btn btn-success" target="_blank">Connect to Axle <i class="icon-arrow-resize7 position-right"></i></a>
+                            <a href="{{ config('app.url') }}/admin/axledocs/connect/{{ $orderDepositRuleObj['OrderDepositRule']['id'] }}" title="Connect to Axle" class="btn btn-success" target="_blank">Connect to Axle <i class="icon-arrow-resize7 position-right"></i></a>
                         @endif
                         @if (($orderDepositRuleObj['AxleStatus']['axle_status'] ?? 0) != 0)
-                            <a href="javascript:;" class="btn btn-success" onclick="getAxlePolicyDetails({{ $orderDepositRuleObj['OrderDepositRule']['id'] }},'statementModal')">Connected <i class="icon-connection position-right"></i></a>
-                            <a href="javascript:;" class="btn btn-warning" onclick="axlePolicyDetailsPopup({{ $orderDepositRuleObj['OrderDepositRule']['id'] }},'statementModal')">Policy Checklist <i class="icon-pencil7 position-right"></i></a>
+                            <a href="javascript:void(0)" class="btn btn-success" onclick="getAxlePolicyDetails({{ $orderDepositRuleObj['OrderDepositRule']['id'] }},'statementModal')">Connected <i class="icon-connection position-right"></i></a>
+                            <a href="javascript:void(0)" class="btn btn-warning" onclick="axlePolicyDetailsPopup({{ $orderDepositRuleObj['OrderDepositRule']['id'] }},'statementModal')">Policy Checklist <i class="icon-pencil7 position-right"></i></a>
                         @endif
                     </div>
                 </div>

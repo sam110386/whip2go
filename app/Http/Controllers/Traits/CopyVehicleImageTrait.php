@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Traits;
 
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use App\Models\Legacy\VehicleImage;
 
 /**
  * Ported from CakePHP app/Controller/Traits/CopyVehicleImageTrait.php
@@ -11,27 +13,34 @@ use Illuminate\Support\Facades\DB;
  */
 trait CopyVehicleImageTrait
 {
-    private function _CopyVehicleImageFromRemote($vehicleid)
+    private function _CopyVehicleImageFromRemote($vehicleId)
     {
-        $images = DB::table('vehicle_images')
-            ->where('vehicle_id', $vehicleid)
+        $images = VehicleImage::where('vehicle_id', $vehicleId)
             ->where('remote', 1)
             ->get();
 
         $imageCount = 1;
+
         foreach ($images as $image) {
             $url = $image->filename;
-            $fileformat = pathinfo($url, PATHINFO_EXTENSION);
-            $filename = public_path('img/custom/vehicle_photo/vehi_' . $vehicleid . '_1_' . $imageCount . '.' . $fileformat);
+            $fileFormat = pathinfo($url, PATHINFO_EXTENSION);
+            $newFileName = "vehi_{$vehicleId}_1_{$imageCount}.{$fileFormat}";
+            $storagePath = "custom/vehicle_photo/{$newFileName}";
 
-            if (file_put_contents($filename, file_get_contents($url))) {
-                DB::table('vehicle_images')
-                    ->where('id', $image->id)
-                    ->update([
-                        'filename' => 'vehi_' . $vehicleid . '_1_' . $imageCount . '.' . $fileformat,
-                        'remote' => 0,
+            try {
+                $response = Http::get($url);
+
+                if ($response->successful()) {
+                    Storage::disk('public')->put($storagePath, $response->body());
+                    $image->update([
+                        'filename' => $newFileName,
+                        'remote' => 0
                     ]);
-                $imageCount++;
+
+                    $imageCount++;
+                }
+            } catch (\Exception $e) {
+                logger()->error("Failed to copy remote image from {$url}: " . $e->getMessage());
             }
         }
     }

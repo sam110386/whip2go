@@ -4,10 +4,10 @@ namespace App\Models\Legacy;
 
 class InsuranceProvider extends LegacyModel
 {
-    protected $table = 'insurance_providers';
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = 'modified';
+    protected $table = 'insurance_providers';
 
     protected $fillable = [
         'name',

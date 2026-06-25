@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\InspectionSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -25,31 +26,17 @@ class InspectionSettingsController extends LegacyAppController
 
         if ($request->isMethod('post') || $request->isMethod('put')) {
             $input = $request->input('InspectionSetting', []);
-            if (!empty($input['id'])) {
-                DB::table('inspection_settings')->where('id', $input['id'])->update([
-                    'status'   => $input['status'] ?? 0,
-                    'schedule' => $input['schedule'] ?? 1,
-                ]);
-            } else {
-                DB::table('inspection_settings')->updateOrInsert(
-                    ['id' => 1],
-                    [
-                        'status'   => $input['status'] ?? 0,
-                        'schedule' => $input['schedule'] ?? 1,
-                    ]
-                );
-            }
-
+            $setting = InspectionSetting::findOrNew(1);
+            $setting->fill($input)->save();
             return redirect()->back()->with('success', 'Request saved successfully');
         }
 
-        $setting = DB::table('inspection_settings')->where('id', 1)->first();
-        $settingData = $setting ? (array) $setting : ['id' => '', 'status' => 1, 'schedule' => 1];
+        $settingData = InspectionSetting::find(1);
 
         return view('admin.inspection_settings.index', [
-            'listTitle'   => $listTitle,
-            'scheduels'   => $this->schedules,
+            'listTitle' => $listTitle,
             'settingData' => $settingData,
+            'scheduels' => $this->schedules,
         ]);
     }
 }

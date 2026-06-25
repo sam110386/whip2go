@@ -94,7 +94,7 @@ class ServicesController extends LegacyApiBaseController
 
     public function loginadvance(Request $request): JsonResponse
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $pepper = 'mindseye1';
         $raw = (string) $request->getContent();
         $dataValues = json_decode($raw, true);
@@ -260,7 +260,7 @@ class ServicesController extends LegacyApiBaseController
 
     public function register(Request $request): JsonResponse
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $raw = (string) $request->getContent();
         $dataValues = json_decode($raw, true);
         if (!is_array($dataValues)) {
@@ -424,7 +424,7 @@ class ServicesController extends LegacyApiBaseController
 
     public function updatePassword(Request $request): JsonResponse
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $raw = (string) $request->getContent();
         $dataValues = json_decode($raw, true);
         if (!is_array($dataValues)) {
@@ -617,7 +617,7 @@ class ServicesController extends LegacyApiBaseController
 
     public function changePassword(Request $request): JsonResponse
     {
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $user = $this->requireWebJwtUser($request);
         if (empty($user)) {
             return response()->json([
@@ -2255,7 +2255,7 @@ class ServicesController extends LegacyApiBaseController
     protected function cakeDecrypt(string $cipher): string
     {
         $encryptKey = 'DYhG93b0qyJfIxfs2guR2G0FgaC9mixf';
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $decoded = base64_decode($cipher, true);
         if ($decoded === false || strlen($decoded) < 48) {
             return '';
@@ -2275,7 +2275,7 @@ class ServicesController extends LegacyApiBaseController
     protected function cakeEncrypt(string $plain): string
     {
         $encryptKey = 'DYhG93b0qyJfIxfs2guR2G0FgaC9mixf';
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         $key = hash('sha256', $encryptKey . $salt, true);
         $iv = random_bytes(16);
         $cipher = openssl_encrypt($plain, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);

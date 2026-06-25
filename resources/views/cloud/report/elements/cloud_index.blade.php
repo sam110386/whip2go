@@ -91,7 +91,7 @@
                     <td style="text-align:center;">{{ ($list['ReportCustomer']['transferred'] ?? 0) - ($list['ReportCustomer']['insurance'] ?? 0) }}</td>
                     <td style="text-align:center;">{{ $list['ReportCustomer']['pending'] ?? '' }}</td>
                     <td style="text-align:center;">
-                        <a href="javascript:;" title="Refresh" onclick="CloudcustomerReportRefresh({{ $list['ReportCustomer']['id'] ?? 0 }})"><i class="glyphicon glyphicon-refresh"></i></a>
+                        <a href="javascript:void(0)" title="Refresh" onclick="CloudcustomerReportRefresh({{ $list['ReportCustomer']['id'] ?? 0 }})"><i class="glyphicon glyphicon-refresh"></i></a>
                     </td>
                 </tr>
             @endforeach

@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class CsTwilioLog extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'cs_twilio_logs';
 
     protected $fillable = [

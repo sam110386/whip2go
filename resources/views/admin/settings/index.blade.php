@@ -355,5 +355,5 @@
             jQuery.ajaxSetup({ cache: false });
         });
     </script>
-    <script src="{{ asset('js/admin_setting.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_setting.js') }}"></script>
 @endpush

@@ -115,7 +115,7 @@
     <input type="hidden" name="AirwallexCredit[user_id]" value="{{ $user->id }}">
 </form>
 
-<script src="{{ asset('js/jquery.maskedinput.js') }}"></script>
+<script src="{{ legacy_asset('js/jquery.maskedinput.js') }}"></script>
 <script type="text/javascript">
 jQuery(document).ready(function() {
     jQuery("#AirwallexCreditAdminIssueForm").validate();

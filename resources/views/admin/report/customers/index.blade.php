@@ -1,12 +1,16 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Customer - Cash Flow')
+@section('title', $title ?? 'Customer - Cash Flow')
 
 @php
     $keyword ??= '';
     $dealerid ??= '';
     $renterid ??= '';
 @endphp
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+@endpush
 
 @section('content')
     <div class="page-header">
@@ -26,36 +30,33 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="POST" action="{{ url('admin/report/customers') }}" class="form-horizontal">
-                @csrf
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/report/customers/index') }}"
+                class="form-horizontal">
                 <div class="row">
-                    <div class="col-md-10">
-                        <div class="col-md-3">
-                            Dealer :
-                            <input type="text" name="Search[dealerid]" id="SearchDealerid" class="form-control" style="width:100%;" value="{{ $dealerid }}" placeholder="Dealers">
-                        </div>
-                        <div class="col-md-3">
-                            Driver :
-                            <input type="text" name="Search[renterid]" id="SearchRenterid" class="form-control" style="width:100%;" value="{{ $renterid }}" placeholder="Driver">
-                        </div>
-                        <div class="col-md-3">
-                            Booking# :
-                            <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}" placeholder="Booking#">
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="Search">SEARCH</button>
-                        </div>
+                    <div class="col-md-2">
+                        <input type="text" name="dealerid" id="SearchDealerid" style="width:100%;"
+                            value="{{ $dealerid }}" placeholder="Dealers">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="renterid" id="SearchRenterid" style="width:100%;"
+                            value="{{ $renterid }}" placeholder="Driver">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="keyword" class="form-control" maxlength="50" value="{{ $keyword }}"
+                            placeholder="Booking#">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" name="search" value="search" class="btn btn-primary"
+                            alt="Search">SEARCH</button>
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
 
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.report.elements.admin_index')
-            </div>
-
+    <div class="panel">
+        <div style="width:100%; overflow: visible;" id="postsPaging" class="panel-body">
+            @include('admin.report.customers.elements.index')
         </div>
     </div>
 
@@ -69,24 +70,8 @@
 
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
-    <script src="{{ legacy_asset('Report/js/report.js') }}"></script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
     <script type="text/javascript">
         function format(item) {
             return item.tag;
@@ -168,7 +153,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -184,18 +169,18 @@
                 if (typeof historyUrl === 'undefined') {
                     historyUrl = url;
                 }
-                $('#listing').css('opacity', '0.5');
+                $('#postsPaging').css('opacity', '0.5');
 
                 $.ajax({
                     url: url,
                     type: "GET",
                     success: function (data) {
-                        $('#listing').html(data);
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').html(data);
+                        $('#postsPaging').css('opacity', '1');
                         window.history.pushState(null, null, historyUrl);
                     },
                     error: function (xhr) {
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').css('opacity', '1');
                         console.error('AJAX Load Error:', xhr);
                     }
                 });
@@ -205,5 +190,7 @@
                 loadListing(window.location.href);
             };
         });
+
     </script>
+    <script src="{{ legacy_asset('js/report/report.js') }}"></script>
 @endpush

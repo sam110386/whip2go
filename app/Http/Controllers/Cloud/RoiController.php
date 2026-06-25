@@ -678,7 +678,7 @@ class RoiController extends LegacyAppController
         }
 
         if (!$force && !empty($quoteObj) && $quoteObj->quote_approved !== null && $quoteObj->docusign_status == 1) {
-            $axleurl = '/axle/axledocs/connect/' . base64_encode($booking->order_deposit_rule_id . '|' . $user);
+            $axleurl = '/axledocs/connect/' . base64_encode($booking->order_deposit_rule_id . '|' . $user);
             return redirect($axleurl);
         }
 

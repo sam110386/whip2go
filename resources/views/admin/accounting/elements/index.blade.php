@@ -9,16 +9,16 @@
                 <thead>
                     <tr>
                         @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'created', 'title' => 'Time'],
-                            ['field' => 'amt', 'title' => 'Debit'],
-                            ['field' => 'amt', 'title' => 'Credit'],
-                            ['field' => 'running_bal', 'title' => 'Running Bal.', 'sortable' => false],
-                            ['field' => 'type', 'title' => 'Type'],
-                            ['field' => 'source', 'title' => 'Source'],
-                            ['field' => 'action', 'title' => 'Action', 'sortable' => false],
-                            ['field' => 'increment_id', 'title' => 'Booking#'],
-                            ['field' => 'transaction_id', 'title' => 'Transaction'],
-                            ['field' => 'note', 'title' => 'Note', 'style' => 'width:160px;']
+                            ['title' => 'Time', 'field' => 'created'],
+                            ['title' => 'Debit', 'field' => 'amt'],
+                            ['title' => 'Credit', 'field' => 'amt'],
+                            ['title' => 'Running Bal.', 'sortable' => false],
+                            ['title' => 'Type', 'field' => 'type'],
+                            ['title' => 'Source', 'field' => 'source'],
+                            ['title' => 'Action', 'sortable' => false],
+                            ['title' => 'Booking#', 'field' => 'increment_id'],
+                            ['title' => 'Transaction', 'field' => 'transaction_id'],
+                            ['title' => 'Note', 'field' => 'note', 'style' => 'width:160px;']
                         ]])
                     </tr>
                 </thead>
@@ -57,15 +57,15 @@
                             <td>{{ $reportlib->getPaymentTypeAction($trip->type, $trip->rtype, $trip->source) }}</td>
                             <td>
                                 @if(!empty($trip->increment_id))
-                                    <a href="javascript:;" onclick="bookingDetail({{ $trip->cs_order_id }})">{{ $trip->increment_id }}</a>
+                                    <a href="javascript:void(0)" onclick="bookingDetail({{ $trip->cs_order_id }})">{{ $trip->increment_id }}</a>
                                 @endif
                             </td>
                             <td>
                                 @if(!empty($trip->transaction_id))
                                     @if($trip->type == 12)
-                                        <a href="javascript:;" onclick="payoutDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
+                                        <a href="javascript:void(0)" onclick="payoutDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
                                     @else
-                                        <a href="javascript:;" onclick="transactionDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
+                                        <a href="javascript:void(0)" onclick="transactionDetail('{{ $trip->transaction_id }}')">{{ $trip->transaction_id }}</a>
                                     @endif
                                 @endif
                             </td>

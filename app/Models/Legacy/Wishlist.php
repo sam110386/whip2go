@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Wishlist extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'wishlists';
 
     protected $fillable = [

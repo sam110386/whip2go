@@ -3,20 +3,20 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['field' => 'id', 'title' => '#'],
-                            ['field' => 'first_name', 'title' => 'First Name'],
-                            ['field' => 'last_name', 'title' => 'Last Name'],
-                            ['field' => 'email', 'title' => 'Email', 'style' => 'width: 30px;'],
-                            ['field' => 'contact_number', 'title' => 'Contact#'],
-                            ['field' => 'created', 'title' => 'Created'],
-                            ['field' => 'status', 'title' => 'Status'],
-                            ['field' => 'is_verified', 'title' => 'Verified'],
-                            ['field' => 'is_renter', 'title' => 'Renter'],
-                            ['field' => 'is_driver', 'title' => 'Driver'],
-                            ['field' => 'is_dealer', 'title' => 'Dealer'],
-                            ['field' => 'checkr_status', 'title' => 'Checkr Status'],
-                            ['field' => 'trash', 'title' => 'Deleted'],
-                            ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                            ['title' => '#', 'field' => 'id'],
+                            ['title' => 'First Name', 'field' => 'first_name'],
+                            ['title' => 'Last Name', 'field' => 'last_name'],
+                            ['title' => 'Email', 'field' => 'email', 'style' => 'width: 30px;'],
+                            ['title' => 'Contact#', 'field' => 'contact_number'],
+                            ['title' => 'Created', 'field' => 'created'],
+                            ['title' => 'Status', 'field' => 'status'],
+                            ['title' => 'Verified', 'field' => 'is_verified'],
+                            ['title' => 'Renter', 'field' => 'is_renter'],
+                            ['title' => 'Driver', 'field' => 'is_driver'],
+                            ['title' => 'Dealer', 'field' => 'is_dealer'],
+                            ['title' => 'Checkr Status', 'field' => 'checkr_status'],
+                            ['title' => 'Deleted', 'field' => 'trash'],
+                            ['title' => 'Actions', 'sortable' => false]
                         ]])
             </tr>
         </thead>
@@ -33,7 +33,7 @@
                     <td align="center" valign="bottom">
                         <a href="{{ url('admin/users/status/' . base64_encode($user->id) . '/' . ($user->status == 1 ? 0 : 1)) }}"
                             onclick="return confirm('Are you sure to update this User?')">
-                            <img src="{{ asset($user->status == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                            <img src="{{ legacy_asset($user->status == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 title="Status" alt="Status">
                         </a>
                     </td>
@@ -41,11 +41,11 @@
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
                             @if ($user->is_verified == 1)
-                                <img src="{{ asset('img/green2.jpg') }}" alt="Status">
+                                <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status">
                             @else
                                 <a href="{{ url('admin/users/verify/' . base64_encode($user->id)) }}"
                                     onclick="return confirm('Are you sure?')">
-                                    <img src="{{ asset('img/red3.jpg') }}" alt="Verify">
+                                    <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Verify">
                                 </a>
                             @endif
                         @endif
@@ -53,7 +53,7 @@
 
                     <td align="center" valign="bottom">
                         @if (!$user->is_admin)
-                            <img src="{{ asset($user->is_renter == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                            <img src="{{ legacy_asset($user->is_renter == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 alt="Renter">
                         @endif
                     </td>
@@ -62,7 +62,7 @@
                         @if (!$user->is_admin)
                             <a href="{{ url('admin/users/driverstatus/' . base64_encode($user->id) . '/' . ($user->is_driver == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Update Driver?')">
-                                <img src="{{ asset($user->is_driver == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                                <img src="{{ legacy_asset($user->is_driver == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                     alt="Driver">
                             </a>
                         @endif
@@ -73,7 +73,7 @@
                             @if ($user->is_dealer == 1)
                                 <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/2') }}"
                                     onclick="return confirm('Reject dealer?')">
-                                    <img src="{{ asset('img/green2.jpg') }}">
+                                    <img src="{{ legacy_asset('img/green2.jpg') }}">
                                 </a>
                             @elseif($user->is_dealer == 2)
                                 <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/1') }}"
@@ -81,7 +81,7 @@
                                     <i class='fa fa-frown-o fa-2x'></i>
                                 </a>
                             @else
-                                <img src="{{ asset('img/red3.jpg') }}" alt="Dealer">
+                                <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Dealer">
                             @endif
                         @endif
                     </td>
@@ -93,7 +93,7 @@
                             @endphp
                             @switch($user->checkr_status)
                                 @case(1)
-                                    <img src="{{ asset('img/green2.jpg') }}" title="Approved">
+                                    <img src="{{ legacy_asset('img/green2.jpg') }}" title="Approved">
                                 @break
 
                                 @case(0)
@@ -116,14 +116,14 @@
 
                                 @case(3)
                                 @case(4)
-                                    <a href="javascript:;">
+                                    <a href="javascript:void(0)">
                                         <i class="icon-blocked"></i>
                                     </a>
                                 @break
 
                                 @default
                                     <a href="{{ $checkrUrl }}">
-                                        <img src="{{ asset('img/red3.jpg') }}">
+                                        <img src="{{ legacy_asset('img/red3.jpg') }}">
                                     </a>
                             @endswitch
                         @endif
@@ -133,7 +133,7 @@
                         @if (!$user->is_admin)
                             <a href="{{ url('admin/users/trash/' . base64_encode($user->id) . '/' . ($user->trash == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Are you sure?')">
-                                <img src="{{ asset($user->trash == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
+                                <img src="{{ legacy_asset($user->trash == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
                                     title="Delete Toggle">
                             </a>
                         @endif

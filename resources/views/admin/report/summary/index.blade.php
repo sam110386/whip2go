@@ -1,6 +1,6 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Revenue - Report')
+@section('title', $title ?? 'Summary Report')
 
 @php
     $datefrom ??= '';
@@ -26,36 +26,34 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="POST" action="{{ url('admin/report/summary/generatereport') }}" class="form-horizontal">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="POST"
+                action="{{ url('admin/report/summary/generatereport') }}" class="form-horizontal">
                 @csrf
                 <div class="row">
-                    <div class="col-md-10">
-                        <div class="col-md-3">
-                            Date from :
-                            <input type="text" name="Search[datefrom]" id="SearchDatefrom" class="date form-control" value="{{ $datefrom }}" placeholder="Date from">
-                        </div>
-                        <div class="col-md-3">
-                            Date to :
-                            <input type="text" name="Search[dateto]" id="SearchDateto" class="date form-control" value="{{ $dateto }}" placeholder="Date to">
-                        </div>
-                        <div class="col-md-2">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="pull" value="search" class="btn btn-primary" alt="Generate Report">Generate Report</button>
-                        </div>
-                        <div class="col-md-2">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="export" value="export" class="btn btn-warning" alt="Export Report">Export Report</button>
-                        </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[datefrom]" id="SearchDatefrom" class="date form-control"
+                            value="{{ $datefrom }}" placeholder="Date from">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="text" name="Search[dateto]" id="SearchDateto" class="date form-control"
+                            value="{{ $dateto }}" placeholder="Date to">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" name="pull" value="search" class="btn btn-primary"
+                            alt="Generate Report">Generate Report</button>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" name="export" value="export" class="btn btn-warning"
+                            alt="Export Report">Export Report</button>
                     </div>
                 </div>
             </form>
+        </div>
+    </div>
 
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.report.elements.admin_summary')
-            </div>
-
+    <div class="panel">
+        <div style="width:100%; overflow: visible;" id="postsPaging" class="panel-body">
+            @include('admin.report.summary.elements.summary')
         </div>
     </div>
 
@@ -68,19 +66,6 @@
     </div>
 
 @endsection
-
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
 
 @push('scripts')
     <script type="text/javascript">
@@ -96,7 +81,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -112,18 +97,18 @@
                 if (typeof historyUrl === 'undefined') {
                     historyUrl = url;
                 }
-                $('#listing').css('opacity', '0.5');
+                $('#postsPaging').css('opacity', '0.5');
 
                 $.ajax({
                     url: url,
                     type: "GET",
                     success: function (data) {
-                        $('#listing').html(data);
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').html(data);
+                        $('#postsPaging').css('opacity', '1');
                         window.history.pushState(null, null, historyUrl);
                     },
                     error: function (xhr) {
-                        $('#listing').css('opacity', '1');
+                        $('#postsPaging').css('opacity', '1');
                         console.error('AJAX Load Error:', xhr);
                     }
                 });
@@ -134,7 +119,7 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+
     @if (!empty($process) && (int) $process === 1)
         <script>
             $(function () {
@@ -149,7 +134,7 @@
 
                 }).done(function () {
                     jQuery.unblockUI();
-                    window.location = "{{ url('admin/report/summary') }}";
+                    window.location = "{{ url('admin/report/summary/index') }}";
                 });
             });
         </script>

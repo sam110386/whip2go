@@ -9,15 +9,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-/**
- * CakePHP `AdminStaffsController` (admin + cloud) — staff admin users scoped by parent.
- */
 class AdminStaffsController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = true;
-
-    private const PASSWORD_SALT = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
-
     protected function staffBasePath(): string
     {
         return '/admin/admin_staffs';
@@ -28,8 +22,9 @@ class AdminStaffsController extends LegacyAppController
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
+
         $admin = $this->getAdminUserid();
-        $currentUserId = (int)($admin['admin_id'] ?? 0);
+        $currentUserId = (int) ($admin['admin_id'] ?? 0);
 
         $limit = $this->resolveLimit($request, 'admin_staffs_limit');
 
@@ -38,12 +33,20 @@ class AdminStaffsController extends LegacyAppController
         $show = $this->searchInput($request, 'show') ?? $this->searchInput($request, 'showtype');
         $fieldname = $searchin === '' ? 'All' : $searchin;
 
+        $sort = $request->query('sort', 'id');
+        $direction = $request->query('direction', 'desc');
+        $allowedSort = ['id', 'created', 'status'];
+        if (!in_array($sort, $allowedSort)) {
+            $sort = 'id';
+        }
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
         $q = LegacyUser::query()
             ->select('users.*', 'admin_roles.name as role_name')
             ->join('admin_roles', 'users.role_id', '=', 'admin_roles.id')
             ->where('users.is_admin', 1)
             ->where('users.id', '!=', $currentUserId)
-            ->orderByDesc('users.id');
+            ->orderBy($sort, $direction);
 
         $this->applyStaffScope($q, $admin);
 
@@ -62,15 +65,22 @@ class AdminStaffsController extends LegacyAppController
             }
         }
 
-        if ($show !== '' && $show !== null && strcasecmp((string)$show, 'All') !== 0) {
-            if (strcasecmp((string)$show, 'Active') === 0) {
+        if ($show !== '' && $show !== null && strcasecmp((string) $show, 'All') !== 0) {
+            if (strcasecmp((string) $show, 'Active') === 0) {
                 $q->where('users.status', 1);
-            } elseif (strcasecmp((string)$show, 'Deactive') === 0 || strcasecmp((string)$show, 'Inactive') === 0) {
+            } elseif (strcasecmp((string) $show, 'Deactive') === 0 || strcasecmp((string) $show, 'Inactive') === 0) {
                 $q->where('users.status', 0);
             }
         }
 
         $users = $q->paginate($limit)->withQueryString();
+
+        if ($request->ajax()) {
+            return view('admin.admin_staffs._index_table', [
+                'users' => $users,
+                'limit' => $limit,
+            ]);
+        }
 
         return view('admin.admin_staffs.index', [
             'users' => $users,
@@ -93,7 +103,7 @@ class AdminStaffsController extends LegacyAppController
             return $redirect;
         }
         $admin = $this->getAdminUserid();
-        $status = (string)$request->input('User.status', $request->input('data.User.status', ''));
+        $status = (string) $request->input('User.status', $request->input('data.User.status', ''));
         $select = $request->input('select', $request->input('data.select', []));
         if (!is_array($select)) {
             $select = [];
@@ -117,15 +127,15 @@ class AdminStaffsController extends LegacyAppController
             }
         }
 
-        $kw = trim((string)$request->input('Search.keyword', $request->input('data.Search.keyword', '')));
-        $si = trim((string)$request->input('Search.searchin', $request->input('data.Search.searchin', '')));
-        $st = trim((string)$request->input('Search.show', $request->input('data.Search.show', '')));
+        $kw = trim((string) $request->input('Search.keyword', $request->input('data.Search.keyword', '')));
+        $si = trim((string) $request->input('Search.searchin', $request->input('data.Search.searchin', '')));
+        $st = trim((string) $request->input('Search.show', $request->input('data.Search.show', '')));
 
         if ($kw !== '' && $si !== '' && $st !== '') {
             return redirect($this->adminsSearchRedirectUrl($kw, $si, $st));
         }
 
-        return redirect($this->staffBasePath() . '/index');
+        return redirect('/admin/admin_staffs/index');
     }
 
     public function add(Request $request, $id = null)
@@ -135,9 +145,9 @@ class AdminStaffsController extends LegacyAppController
         }
         $admin = $this->getAdminUserid();
         if (!empty($admin['administrator'])) {
-            return redirect($this->staffBasePath() . '/index')->with('error', 'Sorry, you are not authorized user for this action');
+            return redirect('/admin/admin_staffs/index')->with('error', 'Sorry, you are not authorized user for this action');
         }
-        $parentId = (int)($admin['parent_id'] ?? 0);
+        $parentId = (int) ($admin['parent_id'] ?? 0);
 
         $decodedId = $this->decodeIdParam($id);
         $user = $decodedId
@@ -148,13 +158,13 @@ class AdminStaffsController extends LegacyAppController
             : null;
 
         if ($user && !$this->staffRowAllowed($user, $parentId)) {
-            return redirect($this->staffBasePath() . '/index')->with('error', 'Staff user not found.');
+            return redirect('/admin/admin_staffs/index')->with('error', 'Staff user not found.');
         }
 
         $roles = $this->rolesForParent($parentId);
 
         if ($request->isMethod('POST')) {
-            $payload = (array)$request->input('User', []);
+            $payload = (array) $request->input('User', []);
             $saved = $this->saveStaffUser($payload, $parentId, $user);
             if ($saved instanceof \Illuminate\Http\RedirectResponse) {
                 return $saved;
@@ -166,8 +176,8 @@ class AdminStaffsController extends LegacyAppController
                 'roles' => $roles,
                 'basePath' => $this->staffBasePath(),
                 'formAction' => $user
-                    ? $this->staffBasePath() . '/add/' . base64_encode((string)$user->id)
-                    : $this->staffBasePath() . '/add',
+                    ? '/admin/admin_staffs/add/' . base64_encode((string) $user->id)
+                    : '/admin/admin_staffs/add',
             ]);
         }
 
@@ -177,8 +187,8 @@ class AdminStaffsController extends LegacyAppController
             'roles' => $roles,
             'basePath' => $this->staffBasePath(),
             'formAction' => $user
-                ? $this->staffBasePath() . '/add/' . base64_encode((string)$user->id)
-                : $this->staffBasePath() . '/add',
+                ? '/admin/admin_staffs/add/' . base64_encode((string) $user->id)
+                : '/admin/admin_staffs/add',
         ]);
     }
 
@@ -191,8 +201,8 @@ class AdminStaffsController extends LegacyAppController
         $decoded = $this->decodeIdParam($id);
         if ($decoded) {
             $user = LegacyUser::query()->whereKey($decoded)->where('is_admin', 1)->first();
-            if ($user && $this->staffRowAllowed($user, (int)($admin['parent_id'] ?? 0))) {
-                $newStatus = ((string)$status === '1') ? 1 : 0;
+            if ($user && $this->staffRowAllowed($user, (int) ($admin['parent_id'] ?? 0))) {
+                $newStatus = ((string) $status === '1') ? 1 : 0;
                 LegacyUser::query()->whereKey($decoded)->update(['status' => $newStatus]);
             }
         }
@@ -202,7 +212,7 @@ class AdminStaffsController extends LegacyAppController
             return redirect()->to($referer);
         }
 
-        return redirect($this->staffBasePath() . '/index')->with('success', 'Status updated.');
+        return redirect('/admin/admin_staffs/index')->with('success', 'Status updated.');
     }
 
     public function delete(Request $request, $id = null)
@@ -211,16 +221,16 @@ class AdminStaffsController extends LegacyAppController
             return $redirect;
         }
         $admin = $this->getAdminUserid();
-        $decoded = $this->decodeIdParam($id) ?? (is_numeric($id) ? (int)$id : null);
+        $decoded = $this->decodeIdParam($id) ?? (is_numeric($id) ? (int) $id : null);
         if ($decoded) {
             $user = LegacyUser::query()->whereKey($decoded)->where('is_admin', 1)->first();
-            if ($user && $this->staffRowAllowed($user, (int)($admin['parent_id'] ?? 0))) {
+            if ($user && $this->staffRowAllowed($user, (int) ($admin['parent_id'] ?? 0))) {
                 AdminUserRole::query()->where('user_id', $decoded)->delete();
                 LegacyUser::query()->whereKey($decoded)->delete();
             }
         }
 
-        return redirect($this->staffBasePath() . '/index')->with('success', 'User deleted.');
+        return redirect('/admin/admin_staffs/index')->with('success', 'User deleted.');
     }
 
     protected function applyStaffScope($query, array $admin): void
@@ -228,7 +238,7 @@ class AdminStaffsController extends LegacyAppController
         if (!empty($admin['administrator'])) {
             $query->where('users.parent_id', '!=', 0);
         } else {
-            $query->where('users.parent_id', (int)($admin['parent_id'] ?? 0));
+            $query->where('users.parent_id', (int) ($admin['parent_id'] ?? 0));
         }
     }
 
@@ -241,7 +251,7 @@ class AdminStaffsController extends LegacyAppController
             return false;
         }
 
-        return (int)$user->parent_id === $parentId;
+        return (int) $user->parent_id === $parentId;
     }
 
     private function rolesForParent(int $parentId): array
@@ -255,7 +265,7 @@ class AdminStaffsController extends LegacyAppController
             ->where('aur.user_id', $parentId)
             ->orderBy('ar.name')
             ->pluck('ar.name', 'ar.id')
-            ->mapWithKeys(fn ($name, $id) => [(string)$id => $name])
+            ->mapWithKeys(fn($name, $id) => [(string) $id => $name])
             ->toArray();
     }
 
@@ -265,27 +275,27 @@ class AdminStaffsController extends LegacyAppController
     private function saveStaffUser(array $payload, int $parentId, ?LegacyUser $existing)
     {
         $roleId = $payload['role_id'] ?? null;
-        $firstName = ucwords(strtolower(trim((string)($payload['first_name'] ?? ''))));
-        $lastName = ucwords(strtolower(trim((string)($payload['last_name'] ?? ''))));
-        $email = trim((string)($payload['email'] ?? ''));
-        $username = trim((string)($payload['username'] ?? ''));
-        $status = ((string)($payload['status'] ?? '1') === '0') ? 0 : 1;
-        $address1 = trim((string)($payload['address1'] ?? ''));
-        $city = trim((string)($payload['city'] ?? ''));
-        $otherState = trim((string)($payload['other_state'] ?? ''));
-        $contact = trim((string)($payload['contact_number'] ?? ''));
+        $firstName = ucwords(strtolower(trim((string) ($payload['first_name'] ?? ''))));
+        $lastName = ucwords(strtolower(trim((string) ($payload['last_name'] ?? ''))));
+        $email = trim((string) ($payload['email'] ?? ''));
+        $username = trim((string) ($payload['username'] ?? ''));
+        $status = ((string) ($payload['status'] ?? '1') === '0') ? 0 : 1;
+        $address1 = trim((string) ($payload['address1'] ?? ''));
+        $city = trim((string) ($payload['city'] ?? ''));
+        $otherState = trim((string) ($payload['other_state'] ?? ''));
+        $contact = trim((string) ($payload['contact_number'] ?? ''));
 
         if ($roleId === null || $roleId === '' || $firstName === '' || $lastName === '' || $email === '') {
             session()->flash('error', 'Please fill required fields.');
 
-            return (object)array_merge($payload, ['id' => $existing ? $existing->id : null]);
+            return (object) array_merge($payload, ['id' => $existing ? $existing->id : null]);
         }
 
-        $roleIdInt = (int)$roleId;
+        $roleIdInt = (int) $roleId;
         if (!$this->roleAllowedForParent($parentId, $roleIdInt)) {
             session()->flash('error', 'Invalid role selection.');
 
-            return (object)array_merge($payload, ['id' => $existing ? $existing->id : null]);
+            return (object) array_merge($payload, ['id' => $existing ? $existing->id : null]);
         }
 
         $now = [
@@ -303,42 +313,42 @@ class AdminStaffsController extends LegacyAppController
         ];
 
         if ($existing) {
-            $newPassword = (string)($payload['newpassword'] ?? '');
-            $cnfPassword = (string)($payload['cnfpassword'] ?? '');
+            $newPassword = (string) ($payload['newpassword'] ?? '');
+            $cnfPassword = (string) ($payload['cnfpassword'] ?? '');
             if ($newPassword !== '' || $cnfPassword !== '') {
                 if ($newPassword !== $cnfPassword) {
                     session()->flash('error', 'Passwords do not match.');
 
-                    return (object)array_merge($existing->toArray(), $payload);
+                    return (object) array_merge($existing->toArray(), $payload);
                 }
-                $now['password'] = sha1(self::PASSWORD_SALT . $newPassword);
+                $now['password'] = sha1(config('legacy.security.salt', '') . $newPassword);
             }
-            LegacyUser::query()->whereKey((int)$existing->id)->update($now);
+            LegacyUser::query()->whereKey((int) $existing->id)->update($now);
 
-            return redirect($this->staffBasePath() . '/index')->with('success', 'Staff user updated.');
+            return redirect('/admin/admin_staffs/index')->with('success', 'Staff user updated.');
         }
 
         if ($username === '') {
             session()->flash('error', 'Username is required.');
 
-            return (object)array_merge($payload, ['id' => null]);
+            return (object) array_merge($payload, ['id' => null]);
         }
 
-        $passwordPlain = (string)($payload['npwd'] ?? '');
-        $confirmPlain = (string)($payload['conpwd'] ?? '');
+        $passwordPlain = (string) ($payload['npwd'] ?? '');
+        $confirmPlain = (string) ($payload['conpwd'] ?? '');
         if ($passwordPlain === '' || $confirmPlain === '' || $passwordPlain !== $confirmPlain) {
             session()->flash('error', 'Password/confirm password mismatch.');
 
-            return (object)array_merge($payload, ['id' => null]);
+            return (object) array_merge($payload, ['id' => null]);
         }
 
         $now['username'] = $username;
-        $now['password'] = sha1(self::PASSWORD_SALT . $passwordPlain);
+        $now['password'] = sha1(config('legacy.security.salt', '') . $passwordPlain);
         $now['created'] = now()->toDateTimeString();
 
         LegacyUser::query()->create($now);
 
-        return redirect($this->staffBasePath() . '/index')->with('success', 'Admin user created successfully');
+        return redirect('/admin/admin_staffs/index')->with('success', 'Admin user created successfully');
     }
 
     private function roleAllowedForParent(int $parentId, int $roleId): bool
@@ -359,7 +369,7 @@ class AdminStaffsController extends LegacyAppController
             $v = $request->input("Search.$key");
         }
 
-        return trim((string)$v);
+        return trim((string) $v);
     }
 
     protected function resolveLimit(Request $request, string $sessionKey): int
@@ -367,7 +377,7 @@ class AdminStaffsController extends LegacyAppController
         $allowed = [25, 50, 100, 200];
         $fromForm = $request->input('Record.limit');
         if ($fromForm !== null && $fromForm !== '') {
-            $lim = (int)$fromForm;
+            $lim = (int) $fromForm;
             if (in_array($lim, $allowed, true)) {
                 session()->put($sessionKey, $lim);
 
@@ -375,7 +385,7 @@ class AdminStaffsController extends LegacyAppController
             }
         }
 
-        $sess = (int)session()->get($sessionKey, 0);
+        $sess = (int) session()->get($sessionKey, 0);
         if (in_array($sess, $allowed, true)) {
             return $sess;
         }
@@ -390,12 +400,12 @@ class AdminStaffsController extends LegacyAppController
         }
         if (is_string($id)) {
             $tmp = base64_decode($id, true);
-            if ($tmp !== false && ctype_digit((string)$tmp)) {
-                return (int)$tmp;
+            if ($tmp !== false && ctype_digit((string) $tmp)) {
+                return (int) $tmp;
             }
         }
         if (is_numeric($id)) {
-            return (int)$id;
+            return (int) $id;
         }
 
         return null;

@@ -36,7 +36,7 @@
 @endsection
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('assets/css/plugins/forms/editable/editable.css') }}">
+    <link rel="stylesheet" href="{{ legacy_asset('assets/css/plugins/forms/editable/editable.css') }}">
     <style type="text/css">
         .datepicker .prev, .datepicker .next { background: none; }
         .table > thead > tr > th,
@@ -51,9 +51,9 @@
 @endpush
 
 @push('scripts')
-    <script src="{{ asset('assets/js/plugins/forms/editable/editable.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
-    <script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/forms/editable/editable.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
     <script src="{{ legacy_asset('Reservation/js/admin_reservation.js') }}"></script>
     <script type="text/javascript">
         $(document).ready(function () {
@@ -70,7 +70,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -131,5 +131,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

@@ -1,34 +1,46 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Payouts Transactions')
+@section('title', $title ?? 'Payouts Transactions')
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+    <style type="text/css">
+        tbody tr {
+            cursor: pointer;
+        }
+    </style>
+@endpush
 
 @php
-    $user_id ??= '';
-    $payout_id ??= '';
-    $date_from ??= '';
-    $date_to ??= '';
-    $limit ??= 50;
-    $listtype ??= '';
-    $batchMode ??= empty($listtype);
+    $user_id ??= null;
+    $payout_id ??= null;
+    $date_from ??= null;
+    $date_to ??= null;
+    $listtype ??= null;
     $paymentTypeValue ??= null;
-    $payoutlists ??= null;
+    $payoutlists ??= [];
+    $limit ??= 50;
 @endphp
 
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Payouts</span>
-                    Transactions
+                    <span class="text-semibold">Payouts</span> Transactions
                 </h4>
             </div>
             <div class="heading-elements">
-                @if ($batchMode)
-                    <a href="{{ request()->fullUrlWithQuery(['listtype' => 'all', 'page' => null]) }}" class="btn btn-success">Show All</a>
+                @if (empty($listtype))
+                    <a href="{{ url('admin/payouts/index?listtype=all') }}" class="btn btn-success">
+                        Show All
+                    </a>
                 @else
-                    <a href="{{ request()->fullUrlWithQuery(['listtype' => null, 'page' => null]) }}" class="btn btn-success">Show Batches</a>
+                    <a href="{{ url('admin/payouts/index') }}" class="btn btn-success">
+                        Show Batches
+                    </a>
                 @endif
             </div>
         </div>
@@ -40,96 +52,58 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/payouts/index') }}">
-                <input type="hidden" name="listtype" value="{{ $listtype }}">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="POST" action="{{ url('admin/payouts/index') }}">
                 <div class="row">
                     <div class="col-md-12">
                         <div class="col-md-3">
-                            Dealer :
-                            <input type="text" id="SearchUserId" name="Search[user_id]" class="form-control" style="width:100%;" value="{{ $user_id }}" placeholder="Select Dealer">
+                            <input type="text" id="SearchUserId" name="Search[user_id]" style="width:100%;"
+                                value="{{ $user_id }}" placeholder="Select Dealer">
                         </div>
                         <div class="col-md-2">
-                            Payout # :
-                            <input type="text" name="Search[payout_id]" class="form-control" value="{{ $payout_id }}" placeholder="Payout #">
+                            <input type="text" name="Search[payout_id]" class="form-control" value="{{ $payout_id }}"
+                                placeholder="Payout #">
                         </div>
                         <div class="col-md-2">
-                            Date From :
-                            <input type="text" id="SearchDateFrom" name="Search[date_from]" class="form-control" value="{{ $date_from }}" placeholder="Date Range From">
+                            <input type="text" id="SearchDateFrom" name="Search[date_from]" class="form-control"
+                                value="{{ $date_from }}" placeholder="Date Range From">
                         </div>
                         <div class="col-md-2">
-                            Date To :
-                            <input type="text" id="SearchDateTo" name="Search[date_to]" class="form-control" value="{{ $date_to }}" placeholder="Date Range To">
+                            <input type="text" id="SearchDateTo" name="Search[date_to]" class="form-control"
+                                value="{{ $date_to }}" placeholder="Date Range To">
                         </div>
                         <div class="col-md-1">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="Next">APPLY</button>
+                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="Next">
+                                APPLY
+                            </button>
                         </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="search" value="EXPORT" class="btn btn-primary pull-right" alt="Export">EXPORT</button>
+                        <div class="col-md-2">
+                            <button type="submit" name="search" value="EXPORT" class="btn btn-primary pull-right"
+                                alt="Export">
+                                EXPORT
+                            </button>
                         </div>
                     </div>
                 </div>
             </form>
-
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.payouts.listing', [
-                    'payoutlists' => $payoutlists,
-                    'batchMode' => $batchMode,
-                    'paymentTypeValue' => $paymentTypeValue,
-                ])
-            </div>
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
+    <div class="panel">
+        <div class="panel-body" id="listing">
+            @include('admin.payouts.elements.index')
         </div>
     </div>
 
-    <div id="plaidModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-        tbody tr { cursor: pointer; }
-    </style>
-@endpush
+
 
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
-    <script type="text/javascript">
-        function format(item) { return item.tag; }
 
-        function getTransactions(payoutid) {
-            if (typeof jQuery.blockUI === 'function') {
-                jQuery.blockUI({ message: '<h1>Just a moment...</h1>' });
-            }
-            jQuery.post("{{ url('admin/payouts/transactions') }}", { payoutid: payoutid }, function (data) {
-                $("#plaidModal .modal-content").html(data);
-                $("#plaidModal").modal('show').find('.modal-dialog').css('width', '800px');
-            }).done(function () {
-                if (typeof jQuery.unblockUI === 'function') {
-                    jQuery.unblockUI();
-                }
-            });
-            return false;
+    <script type="text/javascript">
+        function format(item) {
+            return item.tag;
         }
 
         jQuery(document).ready(function () {
@@ -176,13 +150,12 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
 
             $(document).on('submit', '#frmSearchadmin', function (e) {
-                e.preventDefault();
                 var form = $(this);
                 var isClearFilter = false;
 
@@ -191,7 +164,12 @@
                     if (btn.attr('name') === 'ClearFilter') {
                         isClearFilter = true;
                     }
+                    if (btn.val() === 'EXPORT') {
+                        return; // Let standard form submission download the CSV
+                    }
                 }
+
+                e.preventDefault();
 
                 if (isClearFilter) {
                     form[0].reset();
@@ -236,6 +214,21 @@
                 loadListing(window.location.href);
             };
         });
+
+        function getTransactions(payoutid) {
+            if (typeof jQuery.blockUI === 'function') {
+                jQuery.blockUI({ message: '<h1>Just a moment...</h1>' });
+            }
+            jQuery.post("{{ url('admin/payouts/transactions') }}", { payoutid: payoutid }, function (data) {
+                $("#plaidModal .modal-content").html(data);
+                $("#plaidModal").modal('show').find('.modal-dialog').css('width', '800px');
+            }).done(function () {
+                if (typeof jQuery.unblockUI === 'function') {
+                    jQuery.unblockUI();
+                }
+            });
+            return false;
+        }
+
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
 @endpush

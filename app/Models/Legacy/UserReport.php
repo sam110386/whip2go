@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class UserReport extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'user_reports';
 
     protected $fillable = [

@@ -100,6 +100,41 @@ class LegacyDispatcherController extends BaseController
         return $this->invokeLegacyAction($instance, $methodName, $request, $routeParams);
     }
 
+    // Dispatches /admin/report/{controller}/{action} → Admin\Report\{Studly}Controller.
+    public function dispatchAdminReport(Request $request, string $controller, string $action)
+    {
+        $controllerClass = $this->resolveControllerClass($controller, true, null, 'Report');
+        if ($controllerClass === null) {
+            abort(404);
+        }
+
+        $instance = app()->make($controllerClass);
+        $methodName = $this->resolveMethodName($instance, $action, 'admin');
+        if ($methodName === null) {
+            abort(404);
+        }
+
+        return $this->invokeLegacyAction($instance, $methodName, $request, []);
+    }
+
+    // Same as dispatchAdminReport, but supports additional path params.
+    public function dispatchAdminReportWithPath(Request $request, string $controller, string $action, string $path)
+    {
+        $controllerClass = $this->resolveControllerClass($controller, true, null, 'Report');
+        if ($controllerClass === null) {
+            abort(404);
+        }
+
+        $instance = app()->make($controllerClass);
+        $methodName = $this->resolveMethodName($instance, $action, 'admin');
+        if ($methodName === null) {
+            abort(404);
+        }
+
+        $routeParams = $this->parsePathParams($path);
+        return $this->invokeLegacyAction($instance, $methodName, $request, $routeParams);
+    }
+
     // Same as dispatchWithPrefix, but supports additional path params.
     public function dispatchWithPrefixAndPath(Request $request, string $prefix, string $controller, string $action, string $path)
     {
@@ -118,20 +153,39 @@ class LegacyDispatcherController extends BaseController
         return $this->invokeLegacyAction($instance, $methodName, $request, $routeParams);
     }
 
-    private function resolveControllerClass(string $controllerSegment, bool $adminNamespace, ?string $prefix): ?string
-    {
+    /**
+     * Resolve the FQCN for a Cake-style controller segment.
+     *
+     * @param string      $controllerSegment  URL segment, e.g. "cashflow", "revenue_reports"
+     * @param bool        $adminNamespace     True when the route lives under /admin/...
+     * @param string|null $prefix             Route prefix (e.g. "cloud"), or null
+     * @param string|null $subNamespace       Optional Admin sub-namespace, e.g. "Report"
+     */
+    private function resolveControllerClass(
+        string $controllerSegment,
+        bool $adminNamespace,
+        ?string $prefix,
+        ?string $subNamespace = null
+    ): ?string {
         // Cake controller segments are often lowercase plural: logins -> LoginsController
         $studly = Str::studly($controllerSegment);
 
         $legacyClass = "\\App\\Http\\Controllers\\Legacy\\{$studly}Controller";
-        $adminClass = "\\App\\Http\\Controllers\\Admin\\{$studly}Controller";
-        $cloudClass = "\\App\\Http\\Controllers\\Cloud\\{$studly}Controller";
+        $adminClass  = "\\App\\Http\\Controllers\\Admin\\{$studly}Controller";
+        $cloudClass  = "\\App\\Http\\Controllers\\Cloud\\{$studly}Controller";
 
         // For `/admin/...` routes Cake still uses the same controllers,
         // but some actions we port first live under `Admin/`.
         // So we try `Admin/` first and fall back to `Legacy/`.
         if ($adminNamespace) {
             $candidates = [$adminClass, $legacyClass];
+
+            // When an Admin sub-namespace is given (e.g. "Report"), prepend it
+            // as the highest-priority candidate: Admin\Report\{Studly}Controller.
+            if ($subNamespace !== null) {
+                $subClass   = "\\App\\Http\\Controllers\\Admin\\{$subNamespace}\\{$studly}Controller";
+                $candidates = array_merge([$subClass], $candidates);
+            }
         } elseif ($prefix === 'cloud') {
             $candidates = [$cloudClass, $legacyClass];
         } else {

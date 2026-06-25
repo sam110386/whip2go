@@ -4,6 +4,7 @@ namespace App\Services\Legacy;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
 
 /**
  * Port of CakePHP app/Lib/Geotabkeyless.php
@@ -11,8 +12,18 @@ use Illuminate\Support\Facades\Log;
  */
 class GeotabkeylessClient
 {
-    private const BASE_URL = 'https://keyless.geotab.com/api';
+    private string $apiUrl = 'https://keyless.geotab.com/api';
+    private $logger;
 
+    public function __construct()
+    {
+        $this->logger = Log::build([
+            'driver' => 'daily',
+            'path' => storage_path('logs/geotabkeyless.log'),
+            'level' => 'debug',
+            'days' => 14,
+        ]);
+    }
     public function authenticate(string $server, string $username, string $password, string $database): array
     {
         $payload = [
@@ -21,54 +32,63 @@ class GeotabkeylessClient
             'password' => $password,
             'server' => $server,
         ];
-        $result = $this->httpRequest(self::BASE_URL . '/auth', $payload);
 
-        if (($result['status'] ?? 0) == 200) {
-            return ['status' => 1, 'message' => '', 'data' => $result['response']];
+        $this->apiUrl = "{$this->apiUrl}/auth";
+        $result = $this->HttpRequest($payload);
+
+        if ($result['status'] == 200) {
+            return [
+                'status' => 1,
+                'message' => '',
+                'data' => $result['response']
+            ];
         }
-        return ['status' => 0, 'message' => $result['response']['detail'] ?? 'Auth failed', 'data' => []];
-    }
 
+        return [
+            'status' => 0,
+            'message' => $result['response']['detail'] ?? 'Auth failed',
+            'data' => []
+        ];
+    }
     public function getVehicleLocation(array $vehicledata): array
     {
         return ['status' => false, 'lat' => '', 'lng' => ''];
     }
-
     public function setVehicleLastMile(array $vehicledata): void
     {
         // No-op
+        return;
     }
-
     public function getVehicleLastMile(array $vehicledata): array
     {
-        $lastMile = (int)($vehicledata['Vehicle']['last_mile'] ?? 0);
+        $lastMile = (int) ($vehicledata['last_mile'] ?? 0);
         return ['status' => false, 'miles' => $lastMile];
     }
-
     public function getStartLastMile(array $vehicledata): array
     {
         return $this->getVehicleLastMile($vehicledata);
     }
-
-    public function startPasstime(array $vehicleData, int $orderId): void
+    public function startPasstime(array $vehicledata, int $orderId): void
     {
         // No-op for keyless
+        return;
     }
-
-    public function getPasstimeMiles(array $vehicleData): array
+    public function getPasstimeMiles(array $vehicledata): array
     {
         $return = ['miles' => 0, 'allowed_miles' => 0];
-        if (!empty($vehicleData)) {
-            $resp = $this->getVehicleLastMile($vehicleData);
+
+        if (!empty($vehicledata)) {
+            $resp = $this->getVehicleLastMile($vehicledata);
             $return['miles'] = $resp['miles'];
-            $return['allowed_miles'] = $vehicleData['Vehicle']['allowed_miles'] ?? 0;
+            $return['allowed_miles'] = $vehicledata['allowed_miles'] ?? 0;
         }
+
         return $return;
     }
-
     public function setupTentant(string $server, string $username, string $pwd, string $database = ''): array
     {
         $tokenResp = $this->authenticate($server, $username, $pwd, $database);
+
         if (!$tokenResp['status']) {
             return $tokenResp;
         }
@@ -77,33 +97,122 @@ class GeotabkeylessClient
         $param = [
             'database' => $database,
             'server' => $server,
-            'serviceAccount' => ['username' => $username, 'password' => $pwd],
+            'serviceAccount' => [
+                'username' => $username,
+                'password' => $pwd
+            ],
             'isNotificationEnabled' => false,
         ];
 
-        $result = $this->httpRequest(self::BASE_URL . '/tenants', $param, $token);
-        if (($result['status'] ?? 0) == 200) {
-            return ['status' => 1, 'message' => '', 'data' => $result['response']];
+        $this->apiUrl = "{$this->apiUrl}/tenants";
+        $result = $this->HttpRequest($param, $token);
+
+        if (($result['status']) == 200) {
+            return [
+                'status' => 1,
+                'message' => '',
+                'data' => $result['response']
+            ];
         }
-        return ['status' => 0, 'message' => $result['response']['detail'] ?? 'Tenant setup failed', 'data' => []];
+
+        return [
+            'status' => 0,
+            'message' => $result['response']['detail'] ?? 'Tenant setup failed',
+            'data' => []
+        ];
     }
-
-    public function generateVirtualKeys(array $vehicledata): array
+    private function parseVehicleSetting(array $vehicledata): array
     {
-        $return = ['status' => false, 'message' => 'Passtime dealer # or vehicle serial # not set.'];
-        $settings = $this->parseVehicleSetting($vehicledata);
+        if (
+            !isset($vehicledata['vehicle_setting']) ||
+            empty($vehicledata['vehicle_setting']['data'] ?? null)
+        ) {
+            return $vehicledata;
+        }
 
-        $server = trim($settings['CsSetting']['geotab_server'] ?? '');
-        $usr = trim($settings['CsSetting']['geotab_user'] ?? '');
-        $pwd = trim($settings['CsSetting']['geotab_pwd'] ?? '');
-        $database = trim($settings['CsSetting']['geotab_db'] ?? '');
-        $serial = trim($settings['Vehicle']['passtime_serialno'] ?? '');
+        $toArrayFormat = fn($val) => is_array($val) ? $val : (json_decode($val ?? '', true) ?? []);
+        $json = $toArrayFormat($vehicledata['vehicle_setting']['data']);
+
+        if (
+            isset($json['gps_provider']) &&
+            !empty($json['gps_provider']) &&
+            isset($json['passtime']) &&
+            !empty($json['passtime'])
+        ) {
+            $vehicledata['cs_setting'] = $json;
+        }
+
+        return $vehicledata;
+    }
+    private function command(array $vehicledata, string $cmd): array
+    {
+        $return = [
+            'status' => false,
+            'message' => 'Passtime dealer # or vehicle serial # not set.'
+        ];
+        $vehicledata = $this->parseVehicleSetting($vehicledata);
+
+        $server = trim($vehicledata['cs_setting']['geotab_server'] ?? '');
+        $usr = trim($vehicledata['cs_setting']['geotab_user'] ?? '');
+        $pwd = trim($vehicledata['cs_setting']['geotab_pwd'] ?? '');
+        $database = trim($vehicledata['cs_setting']['geotab_db'] ?? '');
+        $serial = trim($vehicledata['passtime_serialno'] ?? '');
 
         if (empty($server) || empty($usr) || empty($pwd) || empty($database) || empty($serial)) {
             return $return;
         }
 
         $tokenResp = $this->authenticate($server, $usr, $pwd, $database);
+
+        if (!$tokenResp['status']) {
+            return $tokenResp;
+        }
+
+        $token = $tokenResp['data']['accessToken'];
+        $param = [
+            'commands' => [$cmd],
+            'virtualKeyId' => '',
+            'virtualKeyRequest' => null,
+        ];
+
+        $this->apiUrl = "{$this->apiUrl}/tenants/{$database}/devices/{$serial}/commands";
+        $result = $this->HttpRequest($param, $token);
+
+        if (($result['status']) == 200) {
+            return [
+                'status' => true,
+                'message' => 'Your request is processed successfully'
+            ];
+        }
+
+        if (($result['status']) == 202) {
+            return [
+                'status' => false,
+                'message' => 'Device seems not connected or not in range, your request is added into queue.'
+            ];
+        }
+
+        return $return;
+    }
+    public function generateVirtualKeys(array $vehicledata): array
+    {
+        $return = [
+            'status' => false,
+            'message' => 'Passtime dealer # or vehicle serial # not set.'
+        ];
+
+        $server = trim($vehicledata['cs_setting']['geotab_server'] ?? '');
+        $usr = trim($vehicledata['cs_setting']['geotab_user'] ?? '');
+        $pwd = trim($vehicledata['cs_setting']['geotab_pwd'] ?? '');
+        $database = trim($vehicledata['cs_setting']['geotab_db'] ?? '');
+        $serial = trim($vehicledata['passtime_serialno'] ?? '');
+
+        if (empty($server) || empty($usr) || empty($pwd) || empty($database) || empty($serial)) {
+            return $return;
+        }
+
+        $tokenResp = $this->authenticate($server, $usr, $pwd, $database);
+
         if (!$tokenResp['status']) {
             return $tokenResp;
         }
@@ -120,108 +229,174 @@ class GeotabkeylessClient
             'endBookConditions' => ['IgnitionOff'],
         ];
 
-        $url = self::BASE_URL . "/tenants/{$database}/devices/{$serial}/virtual-keys";
-        $result = $this->httpRequest($url, $param, $token);
+        $this->apiUrl = "{$this->apiUrl}/tenants/{$database}/devices/{$serial}/virtual-keys";
+        $result = $this->HttpRequest($param, $token);
 
-        if (($result['status'] ?? 0) == 200) {
+        if (($result['status']) == 200) {
             return ['status' => true, 'result' => $result['response']];
         }
 
         return $return;
     }
-
-    public static function deActivateVehicle(array $vehicledata): array
+    public function deActivateVehicle(array $vehicledata): array
     {
-        return (new self)->command($vehicledata, 'IgnitionInhibit');
+        return $this->command($vehicledata, 'IgnitionInhibit');
     }
-
-    public static function ActivateVehicle(array $vehicledata): array
+    public function ActivateVehicle(array $vehicledata): array
     {
-        return (new self)->command($vehicledata, 'IgnitionEnable');
+        return $this->command($vehicledata, 'IgnitionEnable');
     }
-
-    public static function lock(array $vehicledata): array
+    public function lock(array $vehicledata): array
     {
         return (new self)->command($vehicledata, 'LOCK');
     }
-
-    public static function unlock(array $vehicledata): array
+    public function unlock(array $vehicledata): array
     {
         return (new self)->command($vehicledata, 'UNLOCK');
     }
-
-    private function command(array $vehicledata, string $cmd): array
+    public function getDealerDevices(array $settingdata, array $search = []): array
     {
-        $return = ['status' => false, 'message' => 'Passtime dealer # or vehicle serial # not set.'];
-        $vehicledata = $this->parseVehicleSetting($vehicledata);
-
-        $server = trim($vehicledata['CsSetting']['geotab_server'] ?? '');
-        $usr = trim($vehicledata['CsSetting']['geotab_user'] ?? '');
-        $pwd = trim($vehicledata['CsSetting']['geotab_pwd'] ?? '');
-        $database = trim($vehicledata['CsSetting']['geotab_db'] ?? '');
-        $serial = trim($vehicledata['Vehicle']['passtime_serialno'] ?? '');
-
-        if (empty($server) || empty($usr) || empty($pwd) || empty($database) || empty($serial)) {
-            return $return;
-        }
-
-        $tokenResp = $this->authenticate($server, $usr, $pwd, $database);
-        if (!$tokenResp['status']) {
-            return $tokenResp;
-        }
-
-        $token = $tokenResp['data']['accessToken'];
-        $param = [
-            'commands' => [$cmd],
-            'virtualKeyId' => '',
-            'virtualKeyRequest' => null,
+        $return = [
+            'status' => false,
+            'message' => 'Sorry, no record found matching with given criteria'
         ];
 
-        $url = self::BASE_URL . "/tenants/{$database}/devices/{$serial}/commands";
-        $result = $this->httpRequest($url, $param, $token);
+        $server = trim($settingdata['geotab_server'] ?? '');
+        $usr = trim($settingdata['geotab_user'] ?? '');
+        $pwd = trim($settingdata['geotab_pwd'] ?? '');
+        $database = trim($settingdata['geotab_db'] ?? '');
 
-        if (($result['status'] ?? 0) == 200) {
-            return ['status' => true, 'message' => 'Your request is processed successfully'];
-        }
-        if (($result['status'] ?? 0) == 202) {
-            return ['status' => false, 'message' => 'Device seems not connected or not in range, your request is added into queue.'];
+        if (!empty($server) && !empty($usr) && !empty($pwd) && !empty($database)) {
+            $param = [
+                'method' => 'Get',
+                'params' => [
+                    'typeName' => 'StatusData',
+                    'credentials' => [
+                        'database' => $database,
+                        'userName' => $usr,
+                        'password' => $pwd
+                    ],
+                    'resultsLimit' => 500
+                ]
+            ];
+
+            if (!empty($search)) {
+                $param['params']['search'] = $search;
+            }
+
+            $this->apiUrl = "https://{$server}/apiv1";
+            $result = $this->sendHttpRequest($param);
+
+            if (isset($result['result'])) {
+                $return = [
+                    'status' => true,
+                    'result' => $result['result']
+                ];
+            } else {
+                $return['message'] = $result['error']['message'] ?? 'Unknown error';
+            }
         }
 
         return $return;
     }
-
-    private function parseVehicleSetting(array $vehicleData): array
+    public function sendHttpRequest(array $requestBody = [])
     {
-        if (!isset($vehicleData['VehicleSetting']) || empty($vehicleData['VehicleSetting']['data'] ?? null)) {
-            return $vehicleData;
+        try {
+
+            if (isset($requestBody['params']['credentials']['password'])) {
+                $requestBody['params']['credentials']['password'] = '********';
+            }
+
+            $this->logger->info("GeotabKeyless MyGeotab Request [POST]", [
+                'url' => $this->apiUrl,
+                'body' => $requestBody,
+            ]);
+
+            $response = Http::withHeaders([
+                'User-Agent' => 'mygeotab-php/1.0',
+                'Content-Type' => 'application/json',
+                'Charset' => 'UTF-8',
+                'Cache-Control' => 'no-cache',
+                'Pragma' => 'no-cache'
+            ])
+                ->withoutVerifying()
+                ->timeout(30)
+                ->post($this->apiUrl, $requestBody);
+
+            $this->logger->info("GeotabKeyless MyGeotab Response [{$response->status()}]", [
+                'url' => $this->apiUrl,
+                'response' => is_array($response->json()) ? $response->json() : $response->body(),
+            ]);
+
+            if ($response->failed()) {
+                return ['error' => ['message' => $response->body()]];
+            }
+
+            return $response->json();
+
+        } catch (ConnectionException $e) {
+            $this->logger->error("GeotabKeyless MyGeotab Request Exception: {$e->getMessage()}", [
+                'url' => $this->apiUrl,
+            ]);
+            return ['error' => ['message' => $e->getMessage()]];
         }
-        $json = json_decode($vehicleData['VehicleSetting']['data'], true);
-        if (isset($json['gps_provider']) && !empty($json['gps_provider']) && isset($json['passtime']) && !empty($json['passtime'])) {
-            $vehicleData['CsSetting'] = $json;
-        }
-        return $vehicleData;
     }
-
-    private function httpRequest(string $url, array $body, ?string $token = null): array
+    private function HttpRequest(array $body, ?string $token = null): array
     {
-        $headers = ['X-version' => '1.1', 'Content-Type' => 'application/json'];
+        $headers = [
+            'X-version' => '1.1',
+            'Content-Type' => 'application/json',
+            'Charset' => 'UTF-8',
+            'Cache-Control' => 'no-cache',
+            'Pragma' => 'no-cache'
+        ];
+
         if ($token) {
-            $headers['Authorization'] = "Bearer {$token}";
-            $headers['accept'] = 'application/json';
+            $headers = [
+                'X-version' => '1.1',
+                'Content-Type' => 'application/json',
+                'accept' => 'application/json',
+                'Authorization' => "Bearer {$token}",
+            ];
         }
 
         try {
+
+            if (isset($body['password'])) {
+                $body['password'] = '********';
+            }
+
+            if (isset($body['serviceAccount']['password'])) {
+                $body['serviceAccount']['password'] = '********';
+            }
+
+            $this->logger->info("GeotabKeyless Request", [
+                'url' => $this->apiUrl,
+                'body' => $body,
+            ]);
+
             $response = Http::withHeaders($headers)
                 ->withoutVerifying()
                 ->timeout(60)
-                ->post($url, $body);
+                ->post($this->apiUrl, $body);
+
+            $json = $response->json();
+
+            $this->logger->info("GeotabKeyless Response [{$response->status()}]", [
+                'url' => $this->apiUrl,
+                'response' => is_array($json) ? $json : $response->body(),
+            ]);
 
             return [
                 'status' => $response->status(),
-                'response' => $response->json() ?? [],
+                'response' => $json ?? [],
             ];
+
         } catch (\Throwable $e) {
-            Log::warning("GeotabkeylessClient: request to {$url} failed – {$e->getMessage()}");
+            $this->logger->error("GeotabKeyless Request Exception: {$e->getMessage()}", [
+                'url' => $this->apiUrl,
+            ]);
+
             return ['status' => 0, 'response' => ['detail' => $e->getMessage()]];
         }
     }

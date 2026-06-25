@@ -5,15 +5,15 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'id', 'title' => '#', 'style' => 'width:5px;'],
-                    ['field' => 'logo', 'title' => 'Logo', 'style' => 'width:5px;', 'sortable' => false],
-                    ['field' => 'name', 'title' => 'Name', 'style' => 'width:10px;'],
-                    ['field' => 'address', 'title' => 'Address', 'style' => 'width:5px;', 'sortable' => false],
-                    ['field' => 'city', 'title' => 'City', 'style' => 'width:5px;'],
-                    ['field' => 'state', 'title' => 'State', 'style' => 'width:5px;', 'sortable' => false],
-                    ['field' => 'country', 'title' => 'Country', 'style' => 'width:5px;', 'sortable' => false],
-                    ['field' => 'status', 'title' => 'Status', 'style' => 'width:5px;', 'sortable' => false],
-                    ['field' => 'actions', 'title' => 'Action', 'style' => 'width:10px;', 'sortable' => false],
+                    ['title' => '#', 'field' => 'id', 'style' => 'width:5px;'],
+                    ['title' => 'Logo', 'style' => 'width:5px;', 'sortable' => false],
+                    ['title' => 'Name', 'field' => 'name', 'style' => 'width:10px;'],
+                    ['title' => 'Address', 'style' => 'width:5px;', 'sortable' => false],
+                    ['title' => 'City', 'field' => 'city', 'style' => 'width:5px;'],
+                    ['title' => 'State', 'style' => 'width:5px;', 'sortable' => false],
+                    ['title' => 'Country', 'style' => 'width:5px;', 'sortable' => false],
+                    ['title' => 'Status', 'style' => 'width:5px;', 'sortable' => false],
+                    ['title' => 'Action', 'style' => 'width:10px;', 'sortable' => false],
                 ]])
             </tr>
         </thead>

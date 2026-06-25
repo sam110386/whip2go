@@ -1,6 +1,6 @@
 {{-- Port of Cake `app/View/Layouts/admin.ctp` head. --}}
 <script type="text/javascript">
-    var SITE_URL = @json(rtrim(legacy_site_url(), '/') . '/');
+    var SITE_URL = @json(legacy_site_url());
 </script>
 
 <meta charset="utf-8">

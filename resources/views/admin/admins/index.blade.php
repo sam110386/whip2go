@@ -77,9 +77,10 @@
                     </div>
                 </div>
             </form>
-
-            <div class="row">&nbsp;</div>
-
+        </div>
+    </div>
+    <div class="panel">
+        <div class="panel-body">
             <div id="listing">
                 @include('admin.admins._index_table', [
                     'users' => $users ?? [],
@@ -96,18 +97,7 @@
     </div>
 @endsection
 
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
+
 
 @push('scripts')
     <script type="text/javascript">
@@ -116,7 +106,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -177,5 +167,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

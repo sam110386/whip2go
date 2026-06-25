@@ -2,28 +2,36 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\CsOrder as LegacyCsOrder;
-use App\Models\Legacy\DepositRule as LegacyDepositRule;
-use App\Models\Legacy\OrderDepositRule as LegacyOrderDepositRule;
-use App\Models\Legacy\User as LegacyUser;
-use App\Models\Legacy\Vehicle as LegacyVehicle;
-use App\Models\Legacy\VehicleImage as LegacyVehicleImage;
-use App\Models\Legacy\VehicleLocation as LegacyVehicleLocation;
-use App\Models\Legacy\VehicleSetting as LegacyVehicleSetting;
-use App\Support\VehicleAdminSave;
-use App\Support\VehicleListing;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Validator;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\DepositRule;
+use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\User;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\VehicleImage;
+use App\Models\Legacy\VehicleSetting;
+use App\Services\Legacy\DynamicFare;
+use App\Services\Legacy\Colors;
+use App\Services\Legacy\Free2MoveService;
+use App\Services\Legacy\Passtime;
+use App\Http\Controllers\Traits\VehiclesTrait;
+use App\Http\Controllers\Traits\VehicleLocationTrait;
+use App\Http\Controllers\Traits\CopyVehicleImageTrait;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Carbon\Carbon;
 
 class VehiclesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
+    protected $imageSize = 2097152;
+    protected $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf'];
 
+    use VehiclesTrait, VehicleLocationTrait, CopyVehicleImageTrait;
     public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -31,920 +39,1092 @@ class VehiclesController extends LegacyAppController
         }
 
         $admin = $this->getAdminUserid();
+        $title = 'Manage Vehicles';
+        $sessionLimitName = "vehicles_limit";
+
         if (empty($admin['administrator'])) {
             return redirect('/admin/linked_vehicles/index')
                 ->with('error', 'Sorry, you are not authorized user for this action');
         }
 
-        if ($request->input('export') === 'Export') {
-            return $this->streamAdminVehiclesCsv($request);
-        }
-
-        if ($request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
-            if ($lim > 0 && $lim <= 500) {
-                session(['vehicles_limit' => $lim]);
+        if ($request->has('Search.ClearFilter') || $request->has('ClearFilter')) {
+            $request->offsetUnset('Search');
+            Cookie::queue(Cookie::forget('vehicle_list_search'));
+            $cookies = [];
+        } else {
+            $cookies = $request->cookie('vehicle_list_search', []);
+            if (is_string($cookies)) {
+                $cookies = json_decode($cookies, true) ?? [];
             }
         }
-        $limit = (int)session('vehicles_limit', 50);
-        if ($limit < 1) {
-            $limit = 50;
-        }
 
-        $q = LegacyVehicle::query()->with('owner')->orderByDesc('id');
-        VehicleListing::applyAdminFilters($q, $request);
-        $vehicleDetails = $q->paginate($limit)->withQueryString();
+        $fieldname = $request->input('Search.searchin', $request->query('searchin', $cookies['searchin'] ?? 'All'));
+        $keyword = $request->input('Search.keyword', $request->query('keyword', $cookies['keyword'] ?? ''));
+        $show = $request->input('Search.show', $request->query('showtype', $cookies['show'] ?? ''));
+        $user_id = $request->input('Search.user_id', $request->query('user_id', $cookies['user_id'] ?? ''));
+        $type = $request->input('Search.type', $request->query('type', $cookies['type'] ?? ''));
+        $visibility = $request->input('Search.visibility', $request->query('visibility', $cookies['visibility'] ?? ''));
 
-        $keyword = trim((string)$request->input('Search.keyword', $request->query('keyword', '')));
-        $searchin = trim((string)$request->input('Search.searchin', $request->query('searchin', '')));
-        $show = (string)$request->input('Search.show', $request->query('showtype', ''));
-        $userId = trim((string)$request->input('Search.user_id', $request->query('user_id', '')));
-        $type = trim((string)$request->input('Search.type', $request->query('type', '')));
-        $visibility = trim((string)$request->input('Search.visibility', $request->query('visibility', '')));
-
-        return view('admin.vehicles.index', [
-            'vehicleDetails' => $vehicleDetails,
-            'keyword' => $keyword,
-            'searchin' => $searchin,
-            'show' => $show,
-            'userId' => $userId,
-            'type' => $type,
-            'visibility' => $visibility,
-            'limit' => $limit,
-            'showArr' => VehicleListing::adminStatusLabels(),
-        ]);
-    }
-
-    private function streamAdminVehiclesCsv(Request $request): StreamedResponse
-    {
-        $q = LegacyVehicle::query()->orderByDesc('id');
-        VehicleListing::applyAdminFilters($q, $request);
-        $rows = $q->limit(5000)->get([
-            'id', 'user_id', 'vehicle_name', 'vehicle_unique_id', 'vin_no', 'plate_number',
-            'status', 'booked', 'waitlist', 'passtime_status',
-        ]);
-
-        $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="vehicles.csv"',
+        $options = [
+            'vehicle_name' => "Car #",
+            'vin_no' => "VIN #",
+            'plate_number' => "Plate Number"
         ];
 
-        return response()->stream(function () use ($rows) {
-            $out = fopen('php://output', 'w');
-            fputcsv($out, ['id', 'user_id', 'vehicle_name', 'vehicle_unique_id', 'vin_no', 'plate_number', 'status', 'booked', 'waitlist', 'passtime_status']);
-            foreach ($rows as $r) {
-                fputcsv($out, [
-                    $r->id,
-                    $r->user_id,
-                    $r->vehicle_name,
-                    $r->vehicle_unique_id,
-                    $r->vin_no,
-                    $r->plate_number,
-                    $r->status,
-                    $r->booked,
-                    $r->waitlist,
-                    $r->passtime_status,
-                ]);
+        $vehicleSatatus = $this->commonService->getVehicleStatus();
+        $vehicleSatatus['10'] = "Waitlist";
+
+        $query = Vehicle::query()->with('owner:id,first_name,last_name');
+
+        if (!empty($keyword)) {
+            if (trim($fieldname) === 'All') {
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('vehicle_name', 'LIKE', "%{$keyword}%")
+                        ->orWhere('vin_no', 'LIKE', "%{$keyword}%");
+                });
+            } elseif (!empty(trim($fieldname))) {
+                $query->where("{$fieldname}", 'LIKE', "%{$keyword}%");
             }
-            fclose($out);
-        }, 200, $headers);
+        }
+
+        if (array_key_exists($show, $vehicleSatatus)) {
+            if ($show == 10) {
+                $query->where('waitlist', 1);
+            } else {
+                $query->where('status', $show);
+            }
+        }
+
+        if (!empty($user_id)) {
+            $query->where('user_id', $user_id);
+        }
+
+        if (!empty($type)) {
+            $query->where('is_featured', $type === 'featured' ? 1 : 0);
+        }
+
+        if (!empty($visibility)) {
+            $query->where('visibility', $visibility);
+        }
+
+        $sort = $request->input('sort', 'id');
+        $direction = $request->input('direction', 'desc');
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+        $allowedSorts = ['vehicle_name', 'status'];
+        if (!in_array($sort, $allowedSorts, true)) {
+            $sort = 'id';
+        }
+
+        $query->orderBy($sort, $direction);
+
+        if ($request->input('export') === 'Export') {
+            $vehicles = $query->get();
+            return $this->exportToCsv($vehicles);
+        }
+
+        if (!$request->ajax()) {
+            Cookie::queue('vehicle_list_search', json_encode(compact(
+                'keyword',
+                'show',
+                'fieldname',
+                'user_id',
+                'type',
+                'visibility'
+            )), 60); // Store for 60 minutes
+        }
+
+        if ($request->filled('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            Session::put($sessionLimitName, $limit);
+        } else {
+            $limit = Session::get($sessionLimitName, 50);
+        }
+
+        $vehicleDetails = $query->paginate($limit);
+
+        if ($request->ajax()) {
+            return view('admin.vehicles.elements.index', compact(
+                'options',
+                'title',
+                'keyword',
+                'show',
+                'fieldname',
+                'user_id',
+                'type',
+                'visibility',
+                'vehicleDetails',
+                'limit',
+                'vehicleSatatus'
+            ));
+        }
+
+        return view('admin.vehicles.index', compact(
+            'options',
+            'title',
+            'keyword',
+            'show',
+            'fieldname',
+            'user_id',
+            'type',
+            'visibility',
+            'vehicleDetails',
+            'limit',
+            'vehicleSatatus'
+        ));
     }
 
     public function add(Request $request, $vehicle_id = null)
     {
-        if ($redirect = $this->ensureVehicleAddSession()) {
+        if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $admin = $this->getAdminUserid();
-        $isSuperAdmin = !empty($admin['administrator']);
-        $linkedDealerId = !$isSuperAdmin ? (int)($admin['parent_id'] ?? 0) : 0;
-        if (!$isSuperAdmin && $linkedDealerId <= 0) {
-            return redirect($this->vehicleAddLinkedListPath())->with('error', 'Invalid dealer account.');
-        }
+        $vehicleId = $this->decodeId($vehicle_id);
+        $title = $vehicleId ? 'Edit Vehicle' : 'Add Vehicle';
 
-        $decodedVehicleId = $this->decodeId($vehicle_id);
-        $vehicle = $decodedVehicleId ? LegacyVehicle::query()->find($decodedVehicleId) : null;
+        if ($request->isMethod('get')) {
+            $vehicleData = null;
+            $colors = (new Colors())->getColors();
 
-        if (!$isSuperAdmin && $vehicle !== null && (int)$vehicle->user_id !== $linkedDealerId) {
-            return redirect($this->vehicleAddLinkedListPath())->with('error', 'You cannot edit this vehicle.');
-        }
+            if ($vehicleId) {
+                $vehicleData = Vehicle::with([
+                    'csSetting:user_id,passtime,gps_provider',
+                    'user:id,distance_unit',
+                    'images:id,vehicle_id,filename,iorder,remote',
+                    'locations:id,vehicle_id,lat,lng,address'
+                ])->findOrFail($vehicleId);
 
-        $returnListUrl = $this->vehicleAddReturnListUrl($isSuperAdmin);
+                if (!empty($vehicleData->color)) {
+                    $colors[$vehicleData->color] = $vehicleData->color;
+                }
 
-        if (!$request->isMethod('POST')) {
-            $locations = collect();
-            $vehicleImages = collect();
-            $owner = null;
-            if ($vehicle !== null) {
-                $locations = LegacyVehicleLocation::query()
-                    ->where('vehicle_id', $vehicle->id)
-                    ->orderBy('id')
-                    ->get();
-                $vehicleImages = LegacyVehicleImage::query()
-                    ->where('vehicle_id', $vehicle->id)
-                    ->orderBy('iorder')
-                    ->get();
-                $owner = LegacyUser::query()->find($vehicle->user_id, ['id', 'distance_unit']);
-            } elseif (!$isSuperAdmin && $linkedDealerId > 0) {
-                $owner = LegacyUser::query()->find($linkedDealerId, ['id', 'distance_unit']);
-            }
-            if ($locations->isEmpty()) {
-                $locations = collect([(object)['id' => null, 'address' => '', 'lat' => '', 'lng' => '']]);
+                if (!empty($vehicleData->interior_color)) {
+                    $colors[$vehicleData->interior_color] = $vehicleData->interior_color;
+                }
             }
 
-            return view('admin.vehicles.add', [
-                'listTitle' => $vehicle ? 'Edit Vehicle' : 'Add Vehicle',
-                'vehicle' => $vehicle,
-                'locations' => $locations,
-                'vehicleImages' => $vehicleImages,
-                'owner' => $owner,
-                'availabilityOptions' => VehicleAdminSave::availabilityOptions(),
-                'financingOptions' => VehicleAdminSave::financingOptions(),
-                'colorOptions' => $this->simpleVehicleColorOptions(),
-                'lockedDealerId' => $isSuperAdmin ? null : $linkedDealerId,
-                'returnListUrl' => $returnListUrl,
-                'vehicleFormActionBase' => $this->vehicleAddFormBasePath(),
-            ]);
+            return view('admin.vehicles.add', ['listTitle' => $title, 'vehicle' => $vehicleData, 'colorOptions' => $colors]);
         }
 
-        $payload = $request->input('Vehicle', []);
-        if (!is_array($payload)) {
-            $payload = [];
-        }
-        if (!$isSuperAdmin) {
-            $payload['user_id'] = $linkedDealerId;
-        }
+        $allowedSize = $this->commonService->FileSizeInBytes(ini_get('upload_max_filesize'));
+        $allowedSizeInKb = $allowedSize / 1024;
+        $extensionString = implode(', ', $this->allowedExtensions);
 
-        $data = VehicleAdminSave::buildRow($payload, $vehicle);
-        $data = $this->filterKeysForVehiclesTable($data);
-        if ($data['user_id'] <= 0) {
-            return redirect()->back()->withInput()->with('error', 'Dealer / owner is required.');
-        }
-        if ($data['vin_no'] === '') {
-            return redirect()->back()->withInput()->with('error', 'VIN is required.');
-        }
+        $validatedData = $request->validate([
+            'Vehicle.vehicle_name' => 'bail|required|string',
+            'Vehicle.vin_no' => 'bail|required|unique:vehicles,vin_no' . ($vehicleId ? ',' . $vehicleId : ''),
+            'Vehicle.user_id' => 'bail|required|integer',
 
-        if ($vehicle !== null) {
-            LegacyVehicle::query()->whereKey((int)$vehicle->id)->update($data);
-            $vehicleId = (int)$vehicle->id;
-        } else {
-            $created = LegacyVehicle::query()->create($data);
-            $vehicleId = (int)$created->id;
-            if ($vehicleId > 0 && empty($created->vehicle_unique_id)) {
-                $uniqueNo = ($vehicleId < 999) ? ('1' . sprintf('%04d', $vehicleId)) : (string)$vehicleId;
-                LegacyVehicle::query()->whereKey($vehicleId)->update(['vehicle_unique_id' => $uniqueNo]);
+            // --- Image File Inputs ---
+            'registration_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
+            'insurance_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
+            'inspection_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
+        ], [
+            'Vehicle.vehicle_name.required' => 'Please enter the Vehicle Name.',
+            'Vehicle.vin_no.required' => 'Please enter VIN number.',
+            'Vehicle.vin_no.unique' => 'Entered VIN number already registered.',
+            'Vehicle.user_id.required' => 'Please enter Vehicle owner Id.',
+
+            // Custom error messages for images (Optional, but gives you clean errors)
+            'registration_image.mimes' => 'Registration image must be a valid file type (' . $extensionString . ').',
+            'registration_image.max' => 'Registration image size cannot exceed ' . round($allowedSizeInKb / 1024, 2) . 'MB.',
+            'insurance_image.mimes' => 'Insurance image must be a valid file type.',
+            'insurance_image.max' => 'Insurance image size is too large.',
+            'inspection_image.mimes' => 'Inspection image must be a valid file type.',
+            'inspection_image.max' => 'Inspection image size is too large.',
+        ]);
+
+        $vehicleData = array_merge($request->input('Vehicle', []), $validatedData['Vehicle'] ?? []);
+        $vehicleData['cab_type'] ??= 'Regular Sedan';
+        $dateFields = [
+            'insurance_policy_exp_date',
+            'inspection_exp_date',
+            'state_insp_exp_date',
+            'reg_name_exp_date',
+            'reg_name_date'
+        ];
+
+        foreach ($dateFields as $field) {
+            if (!empty($vehicleData[$field])) {
+                $vehicleData[$field] = Carbon::createFromFormat('m/d/Y', $vehicleData[$field])->format('Y-m-d');
             }
         }
 
-        $docUpdates = $this->mergeVehicleDocumentUploads($request, $vehicleId);
-        if (is_string($docUpdates)) {
-            return redirect()->back()->withInput()->with('error', $docUpdates);
+        if (!empty($vehicleData['availability_date'])) {
+            $vehicleData['availability_date'] = Carbon::parse($vehicleData['availability_date'])->format('Y-m-d');
         }
-        if ($docUpdates !== []) {
-            $docUpdates = $this->filterKeysForVehiclesTable($docUpdates);
-            if ($docUpdates !== []) {
-                LegacyVehicle::query()->whereKey($vehicleId)->update($docUpdates);
+
+        $yearPart = !empty($vehicleData['year']) ? substr($vehicleData['year'], -2) . '-' : '';
+        $makePart = !empty($vehicleData['make']) ? Str::slug($vehicleData['make'], '_') . '-' : '';
+        $modelPart = !empty($vehicleData['model']) ? Str::slug($vehicleData['model'], '_') : '';
+        $vinPart = !empty($vehicleData['vin_no']) ? '-' . substr($vehicleData['vin_no'], -6) : '';
+
+        $vehicleData['vehicle_name'] = "{$yearPart}{$makePart}{$modelPart}{$vinPart}";
+        $vehicleData['rate'] = (float) preg_replace("/[^0-9,.]/", "", $vehicleData['rate'] ?? 0);
+        $vehicleData['status'] = 1;
+        $vehicleData['rent_opt'] = "";
+
+        if (($vehicleData['fare_type']) === 'D') {
+            $vehicleData['day_rent'] = 0;
+        }
+
+        $vehicleData['vehicleCostInclRecon'] = (float) ($vehicleData['vehicleCostInclRecon'] ?? 0);
+        $vehicleData['kbbnadaWholesaleBook'] = (float) ($vehicleData['kbbnadaWholesaleBook'] ?? 0);
+        $vehicleData['doors'] = (int) ($vehicleData['doors'] ?? 0);
+        $vehicleData['total_mileage'] = (int) ($vehicleData['total_mileage'] ?? 0);
+        $vehicleData['allowed_miles'] = (float) ($vehicleData['allowed_miles'] ?? 0);
+        $vehicleData['rate'] = (float) ($vehicleData['rate'] ?? 0);
+        $vehicleData['day_rent'] = (float) ($vehicleData['day_rent'] ?? 0);
+        $vehicleData['vin_no'] = strtoupper($vehicleData['vin_no'] ?? '');
+
+        $vehicle = Vehicle::updateOrCreate(['id' => $vehicleId], $vehicleData);
+
+        if (!$vehicleId) {
+            $uniqueNo = ($vehicle->id < 999) ? '1' . sprintf('%04d', $vehicle->id) : $vehicle->id;
+            $vehicle->update(['vehicle_unique_id' => $uniqueNo]);
+        }
+
+        $imageFields = ['registration_image', 'insurance_image', 'inspection_image'];
+        $imageUpdateData = [];
+
+        foreach ($imageFields as $field) {
+            if ($request->hasFile($field)) {
+                $file = $request->file($field);
+                $suffix = str_replace('_image', '', $field);
+                $extension = $file->getClientOriginalExtension();
+                $filename = "vehi_{$$vehicle->id}_{$suffix}.{$extension}";
+                $destinationPath = public_path('img/custom/vehicle_photo');
+                $file->move($destinationPath, $filename);
+                $imageUpdateData[$field] = $filename;
             }
         }
 
-        $this->replaceVehicleLocationsFromRequest($request, $vehicleId);
-
-        if ($vehicle !== null) {
-            return redirect($returnListUrl)->with('success', 'Vehicle data updated successfully.');
+        if (!empty($imageUpdateData)) {
+            $vehicle->update($imageUpdateData);
         }
 
-        return $this->vehicleAddRedirectAfterCreate($vehicleId);
-    }
+        if ($vehicle->fare_type === 'D') {
+            $farePayload = [
+                'id' => $vehicle->id,
+                'user_id' => $vehicle->user_id,
+                'msrp' => $vehicle->msrp,
+                'fare_type' => $vehicle->fare_type,
+                'vehicleCostInclRecon' => $vehicle->vehicleCostInclRecon,
+            ];
 
-    /**
-     * Session guard for vehicle add/edit (cloud controller overrides for cloud slug).
-     */
-    protected function ensureVehicleAddSession(): ?RedirectResponse
-    {
-        return $this->ensureAdminSession();
-    }
-
-    protected function vehicleAddFormBasePath(): string
-    {
-        return '/admin/vehicles/add';
-    }
-
-    protected function vehicleBasePath(): string
-    {
-        return '/admin/vehicles';
-    }
-
-    protected function vehicleAddReturnListUrl(bool $isSuperAdmin): string
-    {
-        return $isSuperAdmin ? '/admin/vehicles/index' : '/admin/linked_vehicles/index';
-    }
-
-    protected function vehicleAddLinkedListPath(): string
-    {
-        return '/admin/linked_vehicles/index';
-    }
-
-    protected function vehicleAddRedirectAfterCreate(int $vehicleId): RedirectResponse
-    {
-        return redirect($this->vehicleAddFormBasePath() . '/' . base64_encode((string)$vehicleId))
-            ->with('success', 'Vehicle data saved successfully.');
-    }
-
-    public function ownerautocomplete(Request $request)
-    {
-        $term = trim((string)$request->query('term', ''));
-        $userId = trim((string)$request->query('user_id', ''));
-
-        if ($userId !== '' && is_numeric($userId)) {
-            $u = LegacyUser::query()->whereKey((int)$userId)->first(['id', 'first_name', 'contact_number']);
-            $result = [];
-            if ($u) {
-                $result = ['id' => (int)$u->id, 'tag' => trim(($u->first_name ?? '') . ' - ' . ($u->contact_number ?? ''))];
-            }
-            return response()->json($result);
+            DynamicFare::calculateDynamicFare($farePayload, 1);
         }
 
-        $q = LegacyUser::query()->where('status', 1);
-        if ($term !== '') {
-            $like = '%' . $term . '%';
-            $q->where(function ($qq) use ($like) {
-                $qq->where('contact_number', 'like', $like)
-                    ->orWhere('first_name', 'like', $like)
-                    ->orWhere('email', 'like', $like)
-                    ->orWhere('last_name', 'like', $like);
-            });
-        }
-        $users = $q->orderBy('first_name')->limit(10)->get(['id', 'first_name', 'contact_number']);
-
-        return response()->json($users->map(fn ($u) => [
-            'id' => (int)$u->id,
-            'tag' => trim(($u->first_name ?? '') . ' - ' . ($u->contact_number ?? '')),
-        ])->values()->all());
-    }
-
-    public function loadVehicleStatus(Request $request)
-    {
-        $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
-        $vehicle = $vehicleId ? LegacyVehicle::query()->find($vehicleId, ['id', 'status']) : null;
-        return response()->json(['vehicle' => $vehicle]);
-    }
-
-    public function changeVehicleStatus(Request $request)
-    {
-        $payload = $request->input('Vehicle', []);
-        $id = isset($payload['id']) ? (int)$payload['id'] : 0;
-        $status = isset($payload['status']) ? (int)$payload['status'] : null;
-        if ($id <= 0 || $status === null) {
-            return response()->json(['status' => false, 'message' => 'Invalid payload']);
+        if ($vehicle->fare_type === 'L') {
+            Free2MoveService::fetchDynamicFare($vehicle->id, 1);
         }
 
-        if ($status === 11 || $status === 12) {
-            LegacyVehicle::query()->whereKey($id)->update(['trash' => $status === 11 ? 1 : 0]);
-            return response()->json(['status' => true, 'message' => 'Vehicle has been updated successfully', 'vehicleid' => $id]);
+        if ($request->has('VehicleLocation')) {
+            $this->saveVehicleLocation($request->input('VehicleLocation'), $vehicle->id);
         }
 
-        LegacyVehicle::query()->whereKey($id)->update(['status' => $status]);
-        return response()->json(['status' => true, 'message' => 'Vehicle has been updated successfully', 'vehicleid' => $id]);
-    }
+        if (!$vehicleId) {
+            return redirect('admin/vehicles/add/' . base64_encode($vehicle->id))->with('success', 'Vehicle data saved successfully');
+        }
 
-    public function loadSingleRow(Request $request)
-    {
-        $vehicleId = (int)$request->input('vehicleid', 0);
-        $vehicle = LegacyVehicle::query()->with('owner')->whereKey($vehicleId)->first();
-        return response()->json(['vehicle' => $vehicle]);
+        return redirect('admin/vehicles/index')->with('success', 'Vehicle data updated successfully');
     }
 
     public function multiplAction(Request $request)
     {
-        $statusAction = (string)$request->input('Vehicle.status', '');
+        $statusAction = (string) $request->input('Vehicle.status', '');
         $selected = $request->input('select', []);
+
         if (!is_array($selected)) {
             $selected = [];
         }
-        $ids = array_values(array_filter(array_map('intval', array_keys(array_filter($selected)))));
+
+        $ids = array_filter(array_map('intval', array_values($selected)));
+
         if (!empty($ids)) {
             if ($statusAction === 'active') {
-                LegacyVehicle::query()->whereIn('id', $ids)->update(['status' => 1]);
+                Vehicle::query()->whereIn('id', $ids)->update(['status' => 1]);
             } elseif ($statusAction === 'inactive') {
-                LegacyVehicle::query()->whereIn('id', $ids)->update(['status' => 0]);
+                Vehicle::query()->whereIn('id', $ids)->update(['status' => 0]);
             }
         }
+
         return redirect()->to($request->headers->get('referer') ?: '/admin/vehicles/index');
     }
 
-    public function saveImage(Request $request): JsonResponse
+    public function lastlocation($vehicle_id = null)
     {
-        $vehicleId = (int)$request->input('id', 0);
+        $vehicleId = $this->decodeId((string) $vehicle_id);
+        $vehicle = Vehicle::with(['csSetting', 'vehicleSetting'])->find($vehicleId);
+
+        if (!$vehicle) {
+            return redirect('admin/vehicles/index')->with('error', 'Sorry, this vehicle data not found.');
+        }
+
+        $passtime = new Passtime();
+        $vehicleLocation = $passtime->getVehicleLocation($vehicle->toArray() ?: []);
+
+        if (!$vehicleLocation['status']) {
+            return redirect('admin/vehicles/index')->with('error', 'Sorry, this vehicle data not found.');
+        }
+
+        return view('admin.vehicles.lastlocation', compact('vehicleLocation'));
+    }
+
+    public function saveImage(Request $request)
+    {
         $file = $request->file('vehicleimage');
-        if ($vehicleId <= 0 || !$file) {
-            return response()->json(['success' => false, 'message' => 'Invalid upload payload']);
-        }
-
-        $ext = strtolower((string)$file->getClientOriginalExtension());
-        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true)) {
-            return response()->json(['success' => false, 'message' => 'Invalid image type']);
-        }
-
-        $name = 'veh_' . $vehicleId . '_' . time() . '.' . $ext;
-        $targetDir = $this->vehiclePhotoDirectory();
-        if (!is_dir($targetDir)) {
-            @mkdir($targetDir, 0755, true);
-        }
-        $file->move($targetDir, $name);
-
-        $maxOrder = (int)(LegacyVehicleImage::query()->where('vehicle_id', $vehicleId)->max('iorder') ?? 0);
-        $img = LegacyVehicleImage::query()->create([
-            'vehicle_id' => $vehicleId,
-            'filename' => $name,
-            'iorder' => $maxOrder + 1,
-            'remote' => 0,
-        ]);
-
-        return response()->json(['success' => true, 'key' => (int)$img->id, 'file' => $this->vehiclePhotoUrl($name)]);
+        $vehicleId = $request->input('id');
+        $return = $this->handleUpload($file, $vehicleId);
+        return response()->json($return);
     }
 
-    public function deleteImage(Request $request): JsonResponse
+    public function deleteImage(Request $request)
     {
-        $key = (int)$request->input('key', 0);
-        $img = $key > 0 ? LegacyVehicleImage::query()->find($key) : null;
-        if (!$img) {
-            return response()->json(['success' => true, 'key' => '']);
+        $return = ['success' => true, 'key' => ''];
+        $imageId = $request->input('key');
+        $vehicleImage = VehicleImage::find($imageId);
+
+        if ($vehicleImage) {
+            $filePath = public_path('img/custom/vehicle_photo/' . $vehicleImage->filename);
+
+            if (!empty($vehicleImage->filename) && is_file($filePath)) {
+                @unlink($filePath);
+            }
+
+            $vehicleImage->delete();
         }
 
-        $filename = (string)($img->filename ?? '');
-        if ($filename !== '') {
-            $full = $this->vehiclePhotoDirectory() . DIRECTORY_SEPARATOR . $filename;
-            if (is_file($full)) {
-                @unlink($full);
+        return response()->json($return);
+    }
+
+    public function checkVinDetails(Request $request)
+    {
+        $vin = $request->input('vin');
+        $return = [
+            'status' => 'error',
+            'message' => 'Invalid Request or missing VIN',
+            'result' => []
+        ];
+
+        if (!empty($vin)) {
+            $vinInfo = $this->commonService->getVinDetails($vin);
+            $return = [
+                'status' => 'success',
+                'message' => 'Record found',
+                'result' => $vinInfo
+            ];
+        }
+
+        return response()->json($return);
+    }
+
+    public function ownerautocomplete(Request $request)
+    {
+        $searchTerm = $request->query('term');
+        $userId = $request->query('user_id');
+
+        if (!empty($userId)) {
+            $user = User::select('id', 'first_name', 'contact_number')
+                ->where('id', $userId)
+                ->first();
+
+            if ($user) {
+                return response()->json([
+                    'id' => $user->id,
+                    'tag' => $user->first_name . ' - ' . $user->contact_number
+                ]);
+            }
+
+            return response()->json([]);
+        }
+
+        $userLists = User::select('id', 'first_name', 'contact_number')
+            ->where('status', 1)
+            ->where(function ($query) use ($searchTerm) {
+                $query->where('contact_number', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('first_name', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('email', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('last_name', 'LIKE', "%{$searchTerm}%");
+            })
+            ->orderBy('first_name', 'ASC')
+            ->limit(10)
+            ->get();
+
+        $users = $userLists->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'tag' => $user->first_name . ' - ' . $user->contact_number
+            ];
+        });
+
+        return response()->json($users);
+    }
+
+    public function loadVehicleStatus(Request $request)
+    {
+        $vehicleId = $this->decodeId(trim($request->input('vehicleid')));
+        $vehicle = Vehicle::select('id', 'status')->find($vehicleId);
+        return view('admin.vehicles.load_vehicle_status', compact('vehicle'));
+    }
+
+    public function changeVehicleStatus(Request $request)
+    {
+        $vehicleId = $request->input('id');
+        $status = (int) $request->input('status');
+
+        $return = [
+            'status' => true,
+            'message' => 'Vehicle has been updated successfully',
+            'vehicleid' => $vehicleId
+        ];
+
+        if (in_array($status, [8, 9])) {
+            $vehicleData = Vehicle::select([
+                'id',
+                'user_id',
+                'passtime_serialno',
+                'autopi_unit_id',
+                'passtime_status'
+            ])->with(['csSetting', 'vehicleSetting'])
+                ->find($vehicleId);
+
+            if (!$vehicleData) {
+                return response()->json(['status' => false, 'message' => 'Vehicle not found']);
+            }
+
+            if (empty($vehicleData->passtime_serialno)) {
+                $return['message'] = 'Vehicle Passtime serial # not set';
+                $return['status'] = false;
+            }
+
+            $csSetting = $vehicleData->csSetting;
+            if (
+                empty($csSetting?->passtime) ||
+                ($csSetting->passtime === 'passtime' && empty($csSetting->passtime_dealerid)) ||
+                ($csSetting->passtime === 'ituran' && empty($csSetting->ituran_usr))
+            ) {
+                $return['message'] = 'Vehicle Owner\'s GPS provider setting not set';
+                $return['status'] = false;
+            }
+
+            if ($status === 8 && $vehicleData->passtime_status == 0) {
+                $return['message'] = "Vehicle's Starter already Disabled";
+                $return['status'] = false;
+            } elseif ($status === 9 && $vehicleData->passtime_status == 1) {
+                $return['message'] = "Vehicle's Starter already enabled";
+                $return['status'] = false;
+            }
+
+            if (!empty($vehicleData->passtime_serialno) && $return['status']) {
+                $passtime = new Passtime();
+
+                $resp = ($status === 8)
+                    ? $passtime->deActivateVehicle($vehicleData->toArray() ?: [])
+                    : $passtime->ActivateVehicle($vehicleData->toArray() ?: []);
+
+                if ($resp['status']) {
+                    $vehicleData->passtime_status = ($status === 8) ? 0 : 1;
+                    $vehicleData->saveQuietly();
+                    $return['status'] = true;
+                } else {
+                    $return['status'] = false;
+                    $return['message'] = $resp['message'] ?? 'External provider API communication failed.';
+                }
+            }
+
+            return response()->json($return);
+        }
+
+        if (in_array($status, [11, 12])) {
+            Vehicle::where('id', $vehicleId)->updateQuietly([
+                'trash' => ($status === 11) ? 1 : 0
+            ]);
+
+            return response()->json($return);
+        }
+
+        $vehicle = Vehicle::find($vehicleId);
+
+        if ($vehicle) {
+            $vehicle->status = $status;
+            $vehicle->save();
+        }
+
+        return response()->json($return);
+    }
+
+    public function loadSingleRow(Request $request)
+    {
+        $vehicleId = trim($request->input('vehicleid'));
+        $vehicle = Vehicle::with('owner:id,first_name,last_name')->find($vehicleId);
+        $vehicleSatatus = $this->commonService->getVehicleStatus();
+        return view('admin.vehicles.load_single_row', compact('vehicle', 'vehicleSatatus'));
+    }
+
+    public function changePasstimeVehicleStatus(Request $request)
+    {
+        $vehicleId = $this->decodeId($request->input('vehicleid'));
+        $status = trim($request->input('status'));
+        $responseData = [
+            'status' => false,
+            'message' => 'Something went wrong',
+            'vehicleid' => $vehicleId
+        ];
+
+        if (!$vehicleId) {
+            return response()->json($responseData);
+        }
+
+        $vehicle = Vehicle::select([
+            'id',
+            'user_id',
+            'passtime_serialno',
+            'autopi_unit_id',
+            'passtime_status'
+        ])->with(['csSetting', 'vehicleSetting'])->find($vehicleId);
+
+        if (!$vehicle) {
+            $responseData['message'] = 'Vehicle not found';
+            return response()->json($responseData);
+        }
+
+        if (empty($vehicle->passtime_serialno)) {
+            $responseData['message'] = 'Vehicle Passtime serial # not set';
+            return response()->json($responseData);
+        }
+
+        $csSetting = $vehicle->csSetting;
+
+        if (
+            empty($csSetting?->passtime) ||
+            ($csSetting->passtime === 'passtime' && empty($csSetting->passtime_dealerid)) ||
+            ($csSetting->passtime === 'ituran' && empty($csSetting->ituran_usr))
+        ) {
+            $responseData['message'] = "Vehicle Owner's GPS provider setting not set";
+            return response()->json($responseData);
+        }
+
+        $passtimeService = new Passtime();
+
+        if ($status === 'active') {
+            $resp = $passtimeService->ActivateVehicle($vehicle->toArray() ?: []);
+            if (!empty($resp['status'])) {
+                $vehicle->updateQuietly(['passtime_status' => 1]);
+                $responseData['status'] = true;
+                $responseData['message'] = 'Vehicle activated successfully';
             }
         }
-        LegacyVehicleImage::query()->whereKey((int)$img->id)->delete();
-        return response()->json(['success' => true, 'key' => '']);
-    }
 
-    public function reorderImage(Request $request): JsonResponse
-    {
-        $stack = $request->input('stack', []);
-        if (!is_array($stack)) {
-            $stack = [];
-        }
-        $i = 1;
-        foreach ($stack as $item) {
-            $key = isset($item['key']) ? (int)$item['key'] : 0;
-            if ($key > 0) {
-                LegacyVehicleImage::query()->whereKey($key)->update(['iorder' => $i++]);
+        if ($status === 'inactive') {
+            $resp = $passtimeService->deActivateVehicle($vehicle->toArray() ?: []);
+            if (!empty($resp['status'])) {
+                $vehicle->updateQuietly(['passtime_status' => 0]);
+                $responseData['status'] = true;
+                $responseData['message'] = 'Vehicle deactivated successfully';
             }
         }
-        return response()->json(['success' => true]);
+
+        return response()->json($responseData);
     }
 
-    public function getVehicleRegistration(Request $request): JsonResponse
+    public function reorderImage(Request $request)
     {
-        $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
-        if (!$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Invalid Vehicle ID', 'result' => []]);
+        $stacks = $request->input('stack', []);
+        $responseData = ['success' => true];
+
+        if (!empty($stacks) && is_array($stacks)) {
+            DB::transaction(function () use ($stacks) {
+                $order = 1;
+
+                foreach ($stacks as $stack) {
+                    if (isset($stack['key'])) {
+                        VehicleImage::where('id', $stack['key'])->update(['iorder' => $order++]);
+                    }
+                }
+            });
         }
-        $vehicle = LegacyVehicle::query()->find($vehicleId, ['registration_image']);
-        $filename = (string)data_get($vehicle, 'registration_image', '');
-        if ($filename === '') {
-            return response()->json(['status' => false, 'message' => 'sorry, document not added yet by owner', 'result' => []]);
-        }
-        if (!is_file($this->vehiclePhotoDirectory() . DIRECTORY_SEPARATOR . $filename)) {
-            return response()->json(['status' => false, 'message' => 'sorry, document not exists', 'result' => []]);
-        }
-        return response()->json([
-            'status' => true,
-            'message' => 'Success',
-            'result' => ['file' => $this->vehiclePhotoUrl($filename)],
-        ]);
+
+        return response()->json($responseData);
     }
 
-    public function getVehicleInspectionDoc(Request $request): JsonResponse
+    public function getVehicleRegistration(Request $request)
     {
-        $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
-        if (!$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Invalid Vehicle ID', 'result' => []]);
+        $vehicleId = $this->decodeId($request->input('vehicleid'));
+        $responseData = [
+            'status' => false,
+            'message' => 'Invalid Vehicle ID',
+            'result' => []
+        ];
+
+        if (empty($vehicleId)) {
+            return response()->json($responseData);
         }
-        $vehicle = LegacyVehicle::query()->find($vehicleId, ['inspection_image']);
-        $filename = (string)data_get($vehicle, 'inspection_image', '');
-        if ($filename === '') {
-            return response()->json(['status' => false, 'message' => 'sorry, document not added yet by owner', 'result' => []]);
+
+        $vehicle = Vehicle::select('registration_image')->find($vehicleId);
+
+        if (!$vehicle || empty($vehicle->registration_image)) {
+            $responseData['message'] = 'sorry, document not added yet by owner';
+            return response()->json($responseData);
         }
-        if (!is_file($this->vehiclePhotoDirectory() . DIRECTORY_SEPARATOR . $filename)) {
-            return response()->json(['status' => false, 'message' => 'sorry, document not exists', 'result' => []]);
+
+        $relativePath = "img/custom/vehicle_photo/{$vehicle->registration_image}";
+        $absolutePath = public_path($relativePath);
+
+        if (File::exists($absolutePath)) {
+            $responseData = [
+                'status' => true,
+                'message' => 'Success',
+                'result' => [
+                    'file' => asset($relativePath)
+                ]
+            ];
+        } else {
+            $responseData['message'] = 'sorry, document not exists';
         }
-        return response()->json([
-            'status' => true,
-            'message' => 'Success',
-            'result' => ['file' => $this->vehiclePhotoUrl($filename)],
-        ]);
+
+        return response()->json($responseData);
     }
 
     public function rental_setting(Request $request, $id = null)
     {
-        $vehicleId = $this->decodeId((string)$id);
-        if (!$vehicleId) {
-            return redirect($this->vehicleBasePath() . '/index');
+        $id = $this->decodeId($id);
+        $listTitle = !empty($id) ? 'Update Rental Fee Setting' : 'Add Rental Fee Setting';
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $inputData = $request->all();
+
+            $validator = Validator::make($inputData['DepositRule'], [
+                'vehicle_id' => 'bail|required|integer',
+            ], [
+                'vehicle_id.required' => 'Please choose the Vehicle.',
+            ]);
+
+            if ($validator->fails()) {
+                return redirect()->back()->withErrors($validator)->withInput();
+            }
+
+            if (($inputData['DepositRule']['deposit_event'] ?? '') === 'N') {
+                $inputData['DepositRule']['deposit_amt'] = 0;
+            }
+
+            $depositAmt = $inputData['DepositRule']['deposit_amt'] ?? 0;
+            $depositAmtOpt = collect($inputData['DepositRule']['deposit_amt_opt'] ?? []);
+            $totalDepositAmtSum = $depositAmtOpt->sum('amount');
+
+            $inputData['DepositRule']['total_deposit_amt'] = $depositAmt + $totalDepositAmtSum;
+            $inputData['DepositRule']['deposit_amt_opt'] = $totalDepositAmtSum ? json_encode(array_values($depositAmtOpt->toArray())) : "";
+
+            $initialFee = $inputData['DepositRule']['initial_fee'] ?? 0;
+            $initialFeeOpt = collect($inputData['DepositRule']['initial_fee_opt'] ?? []);
+            $totalInitialFeeSum = $initialFeeOpt->sum('amount');
+
+            $inputData['DepositRule']['total_initial_fee'] = $initialFee + $totalInitialFeeSum;
+            $inputData['DepositRule']['initial_fee_opt'] = $totalInitialFeeSum ? json_encode(array_values($initialFeeOpt->toArray())) : "";
+
+            $prepaidData = $inputData['DepositRule']['prepaid_initial_fee_data'] ?? [];
+
+            if (
+                !empty($inputData['DepositRule']['prepaid_initial_fee']) &&
+                !empty($prepaidData['amount']) &&
+                !empty($prepaidData['day'])
+            ) {
+                $inputData['DepositRule']['prepaid_initial_fee_data'] = json_encode($prepaidData);
+                $inputData['DepositRule']['prepaid_initial_fee'] = 1;
+            } else {
+                $inputData['DepositRule']['prepaid_initial_fee_data'] = null;
+                $inputData['DepositRule']['prepaid_initial_fee'] = 0;
+            }
+
+            try {
+                DB::transaction(function () use ($inputData, $id) {
+                    $depositRuleId = $inputData['DepositRule']['id'] ?? null;
+                    DepositRule::updateOrCreate(['id' => $depositRuleId], $inputData['DepositRule']);
+
+                    $rentOpt = $inputData['Vehicle']['rent_opt'] ?? [];
+                    $filteredRentOpt = collect($rentOpt)->map(fn($item) => array_filter($item))->filter()->toArray();
+                    $dayRent = preg_replace("/[^0-9,.]/", "", $inputData['Vehicle']['day_rent'] ?? '');
+                    $rate = preg_replace("/[^0-9,.]/", "", $inputData['Vehicle']['rate'] ?? '');
+                    $vehicle = Vehicle::find($id);
+
+                    if ($vehicle) {
+                        $vehicle->updateQuietly([
+                            'rent_opt' => !empty($filteredRentOpt) ? json_encode($filteredRentOpt) : json_encode([]),
+                            'day_rent' => $dayRent,
+                            'rate' => $rate,
+                            'fare_type' => $inputData['Vehicle']['fare_type'] ?? null,
+                            'auth_require' => $inputData['Vehicle']['auth_require'] ?? null,
+                        ]);
+                    }
+
+                    if (isset($inputData['Vehicle']['updatebooking']) && $dayRent) {
+                        $activeBooking = CsOrder::select('id', 'parent_id')
+                            ->where('vehicle_id', $id)
+                            ->where('status', 1)
+                            ->first();
+
+                        if ($activeBooking) {
+                            $bookingId = !empty($activeBooking->parent_id) ? $activeBooking->parent_id : $activeBooking->id;
+                            OrderDepositRule::where('cs_order_id', $bookingId)->update(['rental' => $dayRent]);
+                        }
+                    }
+
+                    if (empty($depositRuleId)) {
+                        session()->flash('success', 'Rule has been added successfully.');
+                    } else {
+                        session()->flash('success', 'Rule has been updated successfully.');
+                    }
+                });
+
+            } catch (\Exception $e) {
+                //
+            }
         }
 
-        if ($request->isMethod('POST')) {
-            $deposit = $request->input('DepositRule', []);
-            $vehiclePayload = $request->input('Vehicle', []);
+        $formData = [];
+        $vehicle = null;
 
-            $depositAmtOpt = $this->normalizeAmountOptions($deposit['deposit_amt_opt'] ?? []);
-            $initialFeeOpt = $this->normalizeAmountOptions($deposit['initial_fee_opt'] ?? []);
+        if (!empty($id) && !$request->isMethod('post') && !$request->isMethod('put')) {
+            $vehicle = Vehicle::select([
+                'id',
+                'vehicle_unique_id',
+                'rent_opt',
+                'rate',
+                'day_rent',
+                'auth_require',
+                'fare_type',
+                'user_id'
+            ])->with('depositRule')->find($id);
 
-            $depositData = $deposit;
-            $depositData['vehicle_id'] = $vehicleId;
-            $depositData['deposit_amt_opt'] = empty($depositAmtOpt) ? '' : json_encode(array_values($depositAmtOpt));
-            $depositData['initial_fee_opt'] = empty($initialFeeOpt) ? '' : json_encode(array_values($initialFeeOpt));
-            $depositData['total_deposit_amt'] = (float)($deposit['deposit_amt'] ?? 0) + array_sum(array_column($depositAmtOpt, 'amount'));
-            $depositData['total_initial_fee'] = (float)($deposit['initial_fee'] ?? 0) + array_sum(array_column($initialFeeOpt, 'amount'));
-            if (($deposit['prepaid_initial_fee'] ?? null) && !empty(data_get($deposit, 'prepaid_initial_fee_data.amount')) && !empty(data_get($deposit, 'prepaid_initial_fee_data.day'))) {
-                $depositData['prepaid_initial_fee'] = 1;
-                $depositData['prepaid_initial_fee_data'] = json_encode($deposit['prepaid_initial_fee_data']);
-            } else {
-                $depositData['prepaid_initial_fee'] = 0;
-                $depositData['prepaid_initial_fee_data'] = null;
+            $toArrayFormat = fn($val) => is_array($val) ? $val : (json_decode($val ?? '', true) ?? []);
+            $vehicle->rent_opt = $toArrayFormat($vehicle->rent_opt);
+
+            if ($rule = $vehicle->depositRule) {
+                $vehicle->depositRule->deposit_amt_opt = $toArrayFormat($vehicle->depositRule->deposit_amt_opt);
+                $vehicle->depositRule->initial_fee_opt = $toArrayFormat($vehicle->depositRule->initial_fee_opt);
+                $vehicle->depositRule->prepaid_initial_fee_data = $toArrayFormat($vehicle->depositRule->prepaid_initial_fee_data);
             }
-            if (($depositData['deposit_event'] ?? null) === 'N') {
-                $depositData['deposit_amt'] = 0;
+        }
+
+        return view('admin.vehicles.rental_setting', compact('id', 'listTitle', 'vehicle'));
+    }
+
+    public function getVehicleDynamicFare(Request $request)
+    {
+        return $this->_getVehicleDynamicFare($request);
+    }
+    public function getvehicledetails(Request $request)
+    {
+        $vehicleId = $this->decodeId($request->input('vehicleid', ''));
+        $orderId = $this->decodeId($request->input('orderid', ''));
+
+        $vehicle = Vehicle::select([
+            'id',
+            'plate_number',
+            'inspection_image',
+            'registration_image',
+            'gps_serialno',
+            'passtime_serialno',
+            'registered_state',
+            'reg_name_date',
+            'reg_name_exp_date',
+            'wireless_gps_serial'
+        ])
+            ->where('id', $vehicleId)
+            ->first();
+
+        $stateopt = [
+            [
+                'text' => 'United States',
+                'children' => $this->commonService->getStates()
+            ],
+            [
+                'text' => 'Canada',
+                'children' => $this->commonService->getCanadaStates()
+            ]
+        ];
+
+        return view('vehicles.getvehicledetails', compact('vehicle', 'orderId', 'stateopt', ));
+    }
+
+    public function updateVehicleDetails(Request $request)
+    {
+        $return = ["status" => false, "message" => "Sorry, something went wrong."];
+
+        if (!$request->ajax() || empty($request->all())) {
+            return response()->json($return);
+        }
+
+        if ($request->has('pk') && !empty($request->input('pk'))) {
+            $vehicle = Vehicle::find($request->input('pk'));
+
+            if ($vehicle) {
+                $fieldName = $request->input('name');
+                $vehicle->$fieldName = $request->input('value');
+                $vehicle->timestamps = false;
+                $vehicle->save();
+
+                return response()->json(["status" => true]);
             }
 
-            $existing = LegacyDepositRule::query()->where('vehicle_id', $vehicleId)->first();
-            if ($existing) {
-                LegacyDepositRule::query()->whereKey((int)$existing->id)->update($depositData);
-            } else {
-                LegacyDepositRule::query()->create($depositData);
+            return response()->json($return);
+        }
+
+        $vehicleId = $request->input('Vehicle.id');
+        $vehicle = Vehicle::find($vehicleId);
+
+        if (!$vehicle) {
+            return response()->json($return);
+        }
+
+        $maxSizeInBytes = $this->commonService->FileSizeInBytes(ini_get('upload_max_filesize'));
+        $imageTypes = [
+            'registration_image' => 'registration',
+            'insurance_image' => 'insurance',
+            'inspection_image' => 'inspection'
+        ];
+
+        foreach ($imageTypes as $inputName => $prefix) {
+            if ($request->hasFile("Vehicle.{$inputName}")) {
+                $file = $request->file("Vehicle.{$inputName}");
+
+                if (
+                    in_array(strtolower($file->getClientOriginalExtension()), $this->allowedExtensions) &&
+                    $file->getSize() <= $maxSizeInBytes
+                ) {
+                    $fileFormat = $file->getClientOriginalExtension();
+                    $fileName = "vehi_{$vehicleId}_{$prefix}.{$fileFormat}";
+                    $file->move(public_path('img/custom/vehicle_photo'), $fileName);
+
+                    $vehicle->$inputName = $fileName;
+
+                    $return['status'] = true;
+
+                } else if ($file->getSize() > $maxSizeInBytes) {
+                    $return['message'] = "Sorry {$prefix} image could not be uploaded, it must be in proper size";
+                    return response()->json($return);
+                }
             }
+        }
 
-            $vehicleData = [
-                'id' => $vehicleId,
-                'day_rent' => (float)preg_replace('/[^0-9.]/', '', (string)($vehiclePayload['day_rent'] ?? '0')),
-                'rate' => (float)preg_replace('/[^0-9.]/', '', (string)($vehiclePayload['rate'] ?? '0')),
-                'fare_type' => (string)($vehiclePayload['fare_type'] ?? ''),
-                'auth_require' => $vehiclePayload['auth_require'] ?? null,
-                'rent_opt' => !empty($vehiclePayload['rent_opt']) ? json_encode(array_filter(array_map('array_filter', (array)$vehiclePayload['rent_opt']))) : '[]',
-            ];
-            LegacyVehicle::query()->whereKey($vehicleId)->update($vehicleData);
+        $vehicle->timestamps = false;
 
-            if ($request->has('Vehicle.updatebooking') && $vehicleData['day_rent'] > 0) {
-                $active = LegacyCsOrder::query()->where('vehicle_id', $vehicleId)->where('status', 1)->first(['id', 'parent_id']);
-                if ($active) {
-                    $bookingId = !empty($active->parent_id) ? (int)$active->parent_id : (int)$active->id;
-                    LegacyOrderDepositRule::query()->where('cs_order_id', $bookingId)->update(['rental' => $vehicleData['day_rent']]);
+        if ($vehicle->save()) {
+            $return['status'] = true;
+            unset($return['message']);
+        }
+
+        return response()->json($return);
+    }
+
+    public function getVehicleGps(Request $request)
+    {
+        if (!$request->ajax() || !$request->has(['vehicleid', 'type'])) {
+            return response()->json([
+                "status" => false,
+                "message" => "Sorry, something went wrong."
+            ]);
+        }
+
+        $result = $this->_getVehicleGps($request->input('vehicleid'), $request->input('type'));
+        return response()->json($result);
+    }
+
+    public function gps_setting(Request $request)
+    {
+        if (!$request->ajax() || !$request->has('vehicle_id')) {
+            return response()->json(["status" => false, "message" => "Sorry, something went wrong."]);
+        }
+
+        $vehicleId = $this->decodeId($request->input('vehicle_id'));
+        $vehicle = Vehicle::with(['vehicleSetting', 'csSetting'])->find($vehicleId);
+
+        if (!$vehicle) {
+            return response()->json(["status" => false, "message" => "Vehicle not found."]);
+        }
+
+        $toArrayFormat = fn($val) => is_array($val) ? $val : (json_decode($val ?? '', true) ?? []);
+        $exists = $vehicle->vehicleSetting;
+        $csSettingObj = $vehicle->csSetting;
+        $vehicleDependent = (!empty($exists) && !empty($exists->data));
+        $csSettingData = $vehicleDependent ? $toArrayFormat($exists->data) : ($csSettingObj ? $csSettingObj->toArray() : []);
+
+        $html = view('vehicles.gps_setting', [
+            'vehicle' => $request->input('vehicle_id'),
+            'vehicledepndend' => $vehicleDependent,
+            'CsSetting' => $csSettingData
+        ])->render();
+
+        return response()->json([
+            "status" => true,
+            "message" => "",
+            "html" => $html
+        ]);
+    }
+
+    public function save_gpssetting(Request $request)
+    {
+        if (!$request->ajax() || !$request->has('CsSetting')) {
+            return response()->json(["status" => false, "message" => "Sorry, something went wrong."]);
+        }
+
+        $inputData = $request->input('CsSetting');
+        $vehicleId = $this->decodeId($inputData['vehicle_id'] ?? '');
+        $exists = VehicleSetting::where('vehicle_id', $vehicleId)->first();
+
+        if (empty($inputData['gps_provider'])) {
+            if ($exists) {
+                if ($exists->financing !== null) {
+                    $exists->update(['data' => null]);
+                } else {
+                    $exists->delete();
                 }
             }
 
-            return redirect()->to($request->headers->get('referer') ?: $this->vehicleBasePath() . '/rental_setting/' . base64_encode((string)$vehicleId));
+            return response()->json(["status" => true, "message" => "Setting saved successfully"]);
         }
 
-        $vehicle = LegacyVehicle::query()->find($vehicleId, ['id', 'vehicle_unique_id', 'rent_opt', 'rate', 'day_rent', 'auth_require', 'fare_type', 'user_id']);
-        $depositRule = LegacyDepositRule::query()->where('vehicle_id', $vehicleId)->first();
-        if ($vehicle && !empty($vehicle->rent_opt)) {
-            $vehicle->rent_opt = json_decode((string)$vehicle->rent_opt, true) ?: [];
-        }
-        if ($depositRule) {
-            $depositRule->deposit_amt_opt = !empty($depositRule->deposit_amt_opt) ? (json_decode((string)$depositRule->deposit_amt_opt, true) ?: []) : [];
-            $depositRule->initial_fee_opt = !empty($depositRule->initial_fee_opt) ? (json_decode((string)$depositRule->initial_fee_opt, true) ?: []) : [];
-            $depositRule->prepaid_initial_fee_data = !empty($depositRule->prepaid_initial_fee_data) ? (json_decode((string)$depositRule->prepaid_initial_fee_data, true) ?: ['day' => '', 'amount' => '']) : ['day' => '', 'amount' => ''];
+        VehicleSetting::updateOrCreate(
+            ['vehicle_id' => $vehicleId],
+            ['data' => $inputData]
+        );
+
+        return response()->json(["status" => true, "message" => "Setting saved successfully"]);
+    }
+
+    public function delete_gpssetting(Request $request)
+    {
+        if (!$request->ajax() || !$request->has('vehicle_id')) {
+            return response()->json(["status" => false, "message" => "Sorry, something went wrong."]);
         }
 
-        return view('admin.vehicles.rental_setting', [
-            'id' => $vehicleId,
-            'vehicle' => $vehicle,
-            'depositRule' => $depositRule,
-            'listTitle' => 'Update Rental Fee Setting',
-            'vehicleBasePath' => $this->vehicleBasePath(),
-            'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
-        ]);
+        $vehicleId = $this->decodeId($request->input('vehicle_id'));
+        $exists = VehicleSetting::where('vehicle_id', $vehicleId)->first();
+
+        if ($exists) {
+            if ($exists->financing !== null) {
+                $exists->update(['data' => null]);
+            } else {
+                $exists->delete();
+            }
+        }
+
+        return response()->json(["status" => true, "message" => "Setting deleted successfully"]);
+    }
+
+    public function getVehicleInspectionDoc(Request $request)
+    {
+        return $this->_getVehicleInspectionDoc($request);
     }
 
     public function duplicate(Request $request, $vehicleid = '')
     {
-        $sourceId = $this->decodeId((string)$vehicleid);
-        if (!$sourceId) {
-            return redirect($this->vehicleBasePath() . '/index');
+        $vehicleId = $this->decodeId($vehicleid);
+
+        if (empty($vehicleId)) {
+            return redirect()->back();
         }
 
-        $sourceVehicle = LegacyVehicle::query()->find($sourceId);
-        if (!$sourceVehicle) {
-            return redirect($this->vehicleBasePath() . '/index');
-        }
+        if ($request->isMethod('post')) {
 
-        if (!$request->isMethod('POST')) {
-            return view('admin.vehicles.duplicate', [
-                'vehicleid' => $sourceId,
-                'dealerid' => $sourceVehicle->user_id,
-                'vehicleBasePath' => $this->vehicleBasePath(),
-                'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
-            ]);
-        }
+            $sourceVehicle = Vehicle::with([
+                'vehicleSetting',
+                'depositRule',
+                'images',
+                'locations'
+            ])->find($vehicleId);
 
-        $vinNo = preg_replace('/[^0-9A-Z]/', '', strtoupper((string)$request->input('Vehicle.vin_no', '')));
-        $newUserId = (int)$request->input('Vehicle.user_id', $sourceVehicle->user_id);
-        if (strlen($vinNo) !== 17) {
-            return back()->withInput()->with('error', 'Please enter valid VIN');
-        }
-
-        $newVehicle = $sourceVehicle->toArray();
-        unset($newVehicle['id']);
-        $newVehicle['booked'] = 0;
-        $newVehicle['from_feed'] = 0;
-        $newVehicle['trash'] = 0;
-        $newVehicle['vin_no'] = $vinNo;
-        $newVehicle['user_id'] = $newUserId;
-        $newVehicle['vehicle_name'] = $this->buildVehicleName($newVehicle);
-
-        $created = LegacyVehicle::query()->create($newVehicle);
-        $uniqueNo = ((int)$created->id < 999) ? ('1' . sprintf('%04d', (int)$created->id)) : (string)$created->id;
-        LegacyVehicle::query()->whereKey((int)$created->id)->update(['vehicle_unique_id' => $uniqueNo]);
-
-        $sourceImages = LegacyVehicleImage::query()->where('vehicle_id', $sourceId)->get();
-        foreach ($sourceImages as $img) {
-            $copy = $img->toArray();
-            unset($copy['id']);
-            $copy['vehicle_id'] = (int)$created->id;
-            LegacyVehicleImage::query()->create($copy);
-        }
-        $sourceLocations = LegacyVehicleLocation::query()->where('vehicle_id', $sourceId)->get();
-        foreach ($sourceLocations as $loc) {
-            $copy = $loc->toArray();
-            unset($copy['id']);
-            $copy['vehicle_id'] = (int)$created->id;
-            LegacyVehicleLocation::query()->create($copy);
-        }
-        $sourceSetting = LegacyVehicleSetting::query()->where('vehicle_id', $sourceId)->first();
-        if ($sourceSetting) {
-            $copy = $sourceSetting->toArray();
-            unset($copy['id']);
-            $copy['vehicle_id'] = (int)$created->id;
-            LegacyVehicleSetting::query()->create($copy);
-        }
-        $sourceRule = LegacyDepositRule::query()->where('vehicle_id', $sourceId)->first();
-        if ($sourceRule) {
-            $copy = $sourceRule->toArray();
-            unset($copy['id']);
-            $copy['vehicle_id'] = (int)$created->id;
-            $copy['user_id'] = $newUserId;
-            LegacyDepositRule::query()->create($copy);
-        }
-
-        return redirect($this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])));
-    }
-
-    public function checkVinDetails(Request $request): JsonResponse
-    {
-        $vin = strtoupper(trim((string)$request->input('vin', '')));
-        if ($vin === '') {
-            return response()->json(['status' => 'error', 'message' => 'Invalid Json', 'result' => []]);
-        }
-        $result = [
-            'vin' => $vin,
-            'length' => strlen($vin),
-            'valid_length' => strlen($vin) === 17,
-        ];
-        return response()->json(['status' => 'success', 'message' => 'record found', 'result' => $result]);
-    }
-
-    public function lastlocation(Request $request, $vehicle_id = null)
-    {
-        $vehicleId = $this->decodeId((string)$vehicle_id);
-        $vehicle = $vehicleId ? LegacyVehicle::query()->find($vehicleId) : null;
-        return view('admin.vehicles.lastlocation', [
-            'vehicle' => $vehicle,
-            'vehicleLocation' => ['status' => false, 'message' => 'Passtime provider migration pending'],
-            'returnListUrl' => $this->vehicleAddReturnListUrl(!empty($this->getAdminUserid()['administrator'])),
-        ]);
-    }
-
-    public function getVehicleDynamicFare(Request $request): JsonResponse
-    {
-        $vehicleId = (int)$request->input('vehicleid', 0);
-        $tag = (string)$request->input('tag', 'D');
-        $vehicle = $vehicleId > 0 ? LegacyVehicle::query()->find($vehicleId) : null;
-        if (!$vehicle) {
-            return response()->json(['status' => 'error', 'msg' => 'Sorry, something went wrong. Please try again']);
-        }
-        $estimate = $tag === 'D' ? (float)$vehicle->rate : (float)$vehicle->day_rent;
-        return response()->json(['status' => 'success', 'data' => ['estimated_fare' => $estimate], 'msg' => '']);
-    }
-
-    public function getvehicledetails(Request $request): JsonResponse
-    {
-        $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
-        if (!$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Invalid Vehicle ID']);
-        }
-        $vehicle = LegacyVehicle::query()->find($vehicleId, [
-            'id', 'plate_number', 'inspection_image', 'registration_image', 'gps_serialno',
-            'passtime_serialno', 'registered_state', 'reg_name_date', 'reg_name_exp_date', 'wireless_gps_serial',
-        ]);
-        return response()->json(['status' => true, 'vehicle' => $vehicle, 'orderid' => $this->decodeId((string)$request->input('orderid', ''))]);
-    }
-
-    public function updateVehicleDetails(Request $request): JsonResponse
-    {
-        if ($request->ajax() && $request->filled('pk')) {
-            $pk = (int)$request->input('pk');
-            $name = (string)$request->input('name');
-            $value = $request->input('value');
-            if ($pk > 0 && $name !== '') {
-                LegacyVehicle::query()->whereKey($pk)->update([$name => $value]);
-                return response()->json(['status' => true, 'message' => '']);
+            if (!$sourceVehicle) {
+                return redirect()->back()->with('error', 'Sorry, source vehicle not found');
             }
-        }
 
-        $vehicleId = (int)$request->input('Vehicle.id', 0);
-        if ($vehicleId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $dataToSave = ['id' => $vehicleId];
-        foreach (['registration_image', 'insurance_image', 'inspection_image'] as $field) {
-            $file = $request->file('Vehicle.' . $field);
-            if (!$file) {
-                continue;
+            $rawVin = $request->input('Vehicle.vin_no', '');
+            $cleanVin = preg_replace("/[^0-9A-Z]/", "", strtoupper($rawVin));
+
+            if (empty($cleanVin) || strlen($cleanVin) !== 17) {
+                return redirect()->back()->with('error', "Please enter valid VIN=" . strlen($cleanVin));
             }
-            $ext = strtolower((string)$file->getClientOriginalExtension());
-            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'], true)) {
-                continue;
-            }
-            $filename = 'vehi_' . $vehicleId . '_' . str_replace('_image', '', $field) . '.' . $ext;
-            $targetDir = $this->vehiclePhotoDirectory();
-            if (!is_dir($targetDir)) {
-                @mkdir($targetDir, 0755, true);
-            }
-            $file->move($targetDir, $filename);
-            $dataToSave[$field] = $filename;
-        }
-        LegacyVehicle::query()->whereKey($vehicleId)->update($dataToSave);
-        return response()->json(['status' => true, 'message' => '']);
-    }
 
-    public function getVehicleGps(Request $request): JsonResponse
-    {
-        $vehicleId = (int)$request->input('vehicleid', 0);
-        $type = (string)$request->input('type', 'gps_provider');
-        $vehicle = $vehicleId > 0 ? LegacyVehicle::query()->find($vehicleId, ['gps_serialno', 'passtime_serialno']) : null;
-        if (!$vehicle) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $serial = $type === 'passtime' ? (string)($vehicle->passtime_serialno ?? '') : (string)($vehicle->gps_serialno ?? '');
-        return response()->json(['status' => true, 'message' => '', 'gps_serialno' => $serial]);
-    }
+            try {
+                $newVehicle = $sourceVehicle->replicate();
 
-    public function gps_setting(Request $request): JsonResponse
-    {
-        $vehicleId = $this->decodeId((string)$request->input('vehicle_id', ''));
-        if (!$request->ajax() || !$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $exists = LegacyVehicleSetting::query()->where('vehicle_id', $vehicleId)->first();
-        $settingData = [];
-        if ($exists && !empty($exists->data)) {
-            $settingData = json_decode((string)$exists->data, true) ?: [];
-        }
-        $html = view('admin.vehicles.gps_setting', [
-            'vehicle' => base64_encode((string)$vehicleId),
-            'vehicledepndend' => $exists && !empty($exists->data),
-            'csSetting' => $settingData,
-        ])->render();
-        return response()->json(['status' => true, 'message' => '', 'html' => $html]);
-    }
+                $newVehicle->booked = 0;
+                $newVehicle->from_feed = 0;
+                $newVehicle->trash = 0;
+                $newVehicle->vin_no = $cleanVin;
+                $userId = $request->input('Vehicle.user_id') ?: $sourceVehicle->user_id;
+                $newVehicle->user_id = $userId;
 
-    public function save_gpssetting(Request $request): JsonResponse
-    {
-        if (!$request->ajax()) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $payload = $request->input('CsSetting', []);
-        $vehicleId = $this->decodeId((string)data_get($payload, 'vehicle_id', ''));
-        if (!$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $exists = LegacyVehicleSetting::query()->where('vehicle_id', $vehicleId)->first();
-        $gpsProvider = (string)data_get($payload, 'gps_provider', '');
-        $passtime = (string)data_get($payload, 'passtime', '');
-        if ($gpsProvider === '' && $passtime === '') {
-            if ($exists) {
-                if (!empty($exists->financing)) {
-                    LegacyVehicleSetting::query()->whereKey((int)$exists->id)->update(['data' => null]);
-                } else {
-                    LegacyVehicleSetting::query()->whereKey((int)$exists->id)->delete();
+                if (empty($newVehicle->make) || empty($newVehicle->model)) {
+                    return redirect()->back()->with('error', 'Validation failed: Required basic fields missing.');
                 }
-            }
-            return response()->json(['status' => true, 'message' => 'Setting saved successfully']);
-        }
-        $data = json_encode($payload);
-        if ($exists) {
-            LegacyVehicleSetting::query()->whereKey((int)$exists->id)->update(['data' => $data]);
-        } else {
-            LegacyVehicleSetting::query()->create(['vehicle_id' => $vehicleId, 'data' => $data]);
-        }
-        return response()->json(['status' => true, 'message' => 'Setting saved successfully']);
-    }
 
-    public function delete_gpssetting(Request $request): JsonResponse
-    {
-        if (!$request->ajax()) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $vehicleId = $this->decodeId((string)$request->input('vehicle_id', ''));
-        if (!$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong.']);
-        }
-        $exists = LegacyVehicleSetting::query()->where('vehicle_id', $vehicleId)->first();
-        if ($exists) {
-            if (!empty($exists->financing)) {
-                LegacyVehicleSetting::query()->whereKey((int)$exists->id)->update(['data' => null]);
-            } else {
-                LegacyVehicleSetting::query()->whereKey((int)$exists->id)->delete();
-            }
-        }
-        return response()->json(['status' => true, 'message' => 'Setting deleted successfully']);
-    }
+                $newVehicle->save();
+                $newVehicleId = $newVehicle->id;
 
-    public function changePasstimeVehicleStatus(Request $request): JsonResponse
-    {
-        $vehicleId = $this->decodeId((string)$request->input('vehicleid', ''));
-        $status = trim((string)$request->input('status', ''));
-        if (!$vehicleId || !in_array($status, ['active', 'inactive'], true)) {
-            return response()->json(['status' => false, 'message' => 'Something went wrong', 'vehicleid' => $vehicleId]);
-        }
-        // External starter activation/deactivation migration is pending;
-        // preserve DB status toggle endpoint contract for admin UI.
-        LegacyVehicle::query()->whereKey($vehicleId)->update(['passtime_status' => $status === 'active' ? 1 : 0]);
-        return response()->json(['status' => true, 'message' => 'Updated', 'vehicleid' => $vehicleId]);
-    }
+                $vehicleName = (!empty($newVehicle->year) ? substr($newVehicle->year, -2) . '-' : '') .
+                    (!empty($newVehicle->make) ? str_replace(' ', '_', $newVehicle->make) . '-' : '') .
+                    (!empty($newVehicle->model) ? str_replace(' ', '_', $newVehicle->model) : '') .
+                    (!empty($newVehicle->vin_no) ? '-' . substr($newVehicle->vin_no, -6) : '');
 
-    /**
-     * Cake VehicleLocationTrait::saveVehicleLocation (replace-all for this form).
-     *
-     * @return array<string, string>|string
-     */
-    /**
-     * Drop keys that are not real columns on `vehicles` (older DBs may lack newer fields).
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function filterKeysForVehiclesTable(array $data): array
-    {
-        static $allowed = null;
-        if ($allowed === null) {
-            $allowed = array_flip(Schema::getColumnListing((new LegacyVehicle())->getTable()));
-        }
+                $uniqueNo = ($newVehicleId < 999) ? '1' . sprintf('%04d', $newVehicleId) : $newVehicleId;
 
-        return array_intersect_key($data, $allowed);
-    }
+                $newVehicle->update([
+                    'vehicle_name' => $vehicleName,
+                    'vehicle_unique_id' => $uniqueNo
+                ]);
 
-    private function mergeVehicleDocumentUploads(Request $request, int $vehicleId)
-    {
-        if ($vehicleId <= 0) {
-            return [];
-        }
-        $out = [];
-        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'];
-        $max = $this->uploadMaxBytes();
-        $map = [
-            'registration_image' => 'registration',
-            'insurance_image' => 'insurance',
-            'inspection_image' => 'inspection',
-        ];
-        foreach ($map as $inputName => $suffix) {
-            $file = $request->file($inputName);
-            if ($file === null || !$file->isValid()) {
-                continue;
-            }
-            if ($file->getSize() > $max) {
-                return 'Upload too large for ' . $inputName . ' (max ' . ini_get('upload_max_filesize') . ').';
-            }
-            $ext = strtolower((string)$file->getClientOriginalExtension());
-            if (!in_array($ext, $allowed, true)) {
-                return 'Invalid file type for ' . $inputName;
-            }
-            $filename = 'vehi_' . $vehicleId . '_' . $suffix . '.' . $ext;
-            $dir = $this->vehiclePhotoDirectory();
-            if (!is_dir($dir)) {
-                @mkdir($dir, 0755, true);
-            }
-            $file->move($dir, $filename);
-            $out[$inputName] = $filename;
-        }
-
-        return $out;
-    }
-
-    private function replaceVehicleLocationsFromRequest(Request $request, int $vehicleId): void
-    {
-        if ($vehicleId <= 0) {
-            return;
-        }
-        $rows = $request->input('VehicleLocation', []);
-        if (!is_array($rows)) {
-            return;
-        }
-        LegacyVehicleLocation::query()->where('vehicle_id', $vehicleId)->delete();
-        $locTable = (new LegacyVehicleLocation())->getTable();
-        $hasGeoCol = Schema::hasColumn($locTable, 'geo');
-        $geoType = $hasGeoCol ? Schema::getColumnType($locTable, 'geo') : null;
-        foreach ($rows as $loc) {
-            if (!is_array($loc)) {
-                continue;
-            }
-            $lat = isset($loc['lat']) ? trim((string)$loc['lat']) : '';
-            $lng = isset($loc['lng']) ? trim((string)$loc['lng']) : '';
-            if ($lat === '' || $lng === '' || !is_numeric($lat) || !is_numeric($lng)) {
-                continue;
-            }
-            $latf = (float)$lat;
-            $lngf = (float)$lng;
-            $insert = [
-                'vehicle_id' => $vehicleId,
-                'lat' => $latf,
-                'lng' => $lngf,
-                'address' => isset($loc['address']) ? (string)$loc['address'] : '',
-            ];
-            if ($hasGeoCol) {
-                if (in_array($geoType, ['integer', 'bigint', 'smallint', 'tinyint'], true)) {
-                    $insert['geo'] = 0;
-                } else {
-                    $insert['geo'] = DB::raw('POINT(' . $lngf . ',' . $latf . ')');
+                if ($sourceVehicle->images->isNotEmpty()) {
+                    foreach ($sourceVehicle->images as $image) {
+                        $newImage = $image->replicate();
+                        $newImage->vehicle_id = $newVehicleId;
+                        $newImage->save();
+                    }
                 }
+
+                if ($sourceVehicle->vehicleSetting) {
+                    $newSetting = $sourceVehicle->vehicleSetting->replicate();
+                    $newSetting->vehicle_id = $newVehicleId;
+                    $newSetting->save();
+                }
+
+                if ($sourceVehicle->depositRule) {
+                    $newDepositRule = $sourceVehicle->depositRule->replicate();
+                    $newDepositRule->vehicle_id = $newVehicleId;
+                    $newDepositRule->user_id = $userId;
+                    $newDepositRule->save();
+                }
+
+                if ($sourceVehicle->locations->isNotEmpty()) {
+                    foreach ($sourceVehicle->locations as $location) {
+                        $newLocation = $location->replicate();
+                        $newLocation->vehicle_id = $newVehicleId;
+                        $newLocation->save();
+                    }
+                }
+
+                $this->_CopyVehicleImageFromRemote($newVehicleId);
+
+                return redirect()->route('vehicles.index')->with('success', 'Vehicle duplicated successfully');
+
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', $e->getMessage());
             }
-            LegacyVehicleLocation::query()->create($insert);
-        }
-    }
-
-    private function uploadMaxBytes(): int
-    {
-        return min($this->iniToBytes((string)ini_get('upload_max_filesize')), $this->iniToBytes((string)ini_get('post_max_size')));
-    }
-
-    private function iniToBytes(string $val): int
-    {
-        $val = trim($val);
-        if ($val === '') {
-            return 0;
-        }
-        $n = (int)$val;
-        $u = strtolower(substr($val, -1));
-        if ($u === 'g') {
-            return $n * 1024 * 1024 * 1024;
-        }
-        if ($u === 'm') {
-            return $n * 1024 * 1024;
-        }
-        if ($u === 'k') {
-            return $n * 1024;
         }
 
-        return $n;
-    }
+        $vehicleObj = Vehicle::find($vehicleId);
 
-    /** @return array<string, string> */
-    private function simpleVehicleColorOptions(): array
-    {
-        $c = ['Black', 'White', 'Silver', 'Gray', 'Red', 'Blue', 'Brown', 'Green', 'Beige', 'Gold', 'Orange', 'Yellow', 'Purple'];
-
-        return array_combine($c, $c);
-    }
-
-    private function buildVehicleName(array $data): string
-    {
-        $year = isset($data['year']) && $data['year'] !== '' ? substr((string)$data['year'], -2) . '-' : '';
-        $make = isset($data['make']) && $data['make'] !== '' ? str_replace(' ', '_', (string)$data['make']) . '-' : '';
-        $model = isset($data['model']) && $data['model'] !== '' ? str_replace(' ', '_', (string)$data['model']) : '';
-        $vinTail = isset($data['vin_no']) && $data['vin_no'] !== '' ? '-' . substr((string)$data['vin_no'], -6) : '';
-        return $year . $make . $model . $vinTail;
-    }
-
-    private function normalizeAmountOptions($input): array
-    {
-        if (!is_array($input)) {
-            return [];
+        if (empty($vehicleObj)) {
+            return redirect()->back()->with('error', 'Sorry, vehicle is not found');
         }
-        $rows = [];
-        foreach ($input as $row) {
-            $day = (int)data_get($row, 'after_day', 0);
-            $amount = (float)data_get($row, 'amount', 0);
-            if ($day <= 0 && $amount <= 0) {
-                continue;
-            }
-            $rows[] = ['after_day' => $day, 'amount' => $amount];
-        }
-        return $rows;
+
+        return view('admin.vehicles.duplicate', [
+            'vehicleid' => $vehicleId,
+            'dealerid' => $vehicleObj->user_id
+        ]);
+
     }
 
-    private function vehiclePhotoDirectory(): string
-    {
-        return base_path('app/webroot/img/custom/vehicle_photo');
-    }
-
-    private function vehiclePhotoUrl(string $filename): string
-    {
-        return '/img/custom/vehicle_photo/' . ltrim($filename, '/');
-    }
 }
 

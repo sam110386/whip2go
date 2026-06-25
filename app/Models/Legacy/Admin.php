@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class Admin extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'users';
 
     protected $fillable = [

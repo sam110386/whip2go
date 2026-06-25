@@ -15,9 +15,11 @@ config/legacy.php). --}}
     <link rel="stylesheet" href="{{ legacy_asset('css/theme2/components.css') }}">
     <link rel="stylesheet" href="{{ legacy_asset('css/theme2/colors.css') }}">
     <link rel="stylesheet" href="{{ legacy_asset('css/driveitawaystyle.css') }}">
+
     <script type="text/javascript">
-        var SITE_URL = @json(rtrim(legacy_site_url(), '/') . '/');
+        var SITE_URL = @json(legacy_site_url());
     </script>
+
     @php
         $gaId = (string) config('legacy.analytics_measurement_id', '');
     @endphp

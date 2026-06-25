@@ -90,8 +90,8 @@
 @endpush
 
 @push('scripts')
-    <script src="{{ asset('js/report/papaparser.js') }}"></script>
-    <script src="{{ asset('js/report/excellentexport.js') }}"></script>
+    <script src="{{ legacy_asset('js/report/papaparser.js') }}"></script>
+    <script src="{{ legacy_asset('js/report/excellentexport.js') }}"></script>
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
     <script type="text/javascript">
         jQuery(document).ready(function () {
@@ -139,7 +139,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -200,5 +200,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

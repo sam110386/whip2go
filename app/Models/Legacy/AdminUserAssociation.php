@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class AdminUserAssociation extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'admin_user_associations';
 
     protected $fillable = [

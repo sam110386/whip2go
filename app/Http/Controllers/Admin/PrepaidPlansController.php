@@ -42,7 +42,7 @@ class PrepaidPlansController extends LegacyAppController
         $tax = $orderDepositRule->tax ?? 0;
         $encodedLeaseId = base64_encode($leaseId);
 
-        $prepaidplanView = view('elements.vehiclereservation._prepaidplan', compact(
+        $prepaidplanView = view('vehicle_reservations.elements._prepaidplan', compact(
             'chargeButton', 'prepaidPlans', 'tax', 'encodedLeaseId'
         ))->render();
 

@@ -2,47 +2,66 @@
 
 namespace App\Services\Legacy;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Intercom\IntercomClient as IntercomSDK;
+use Intercom\Legacy\IntercomClient as IntercomSDK;
+use App\Models\Legacy\CsTwilioLog;
+use App\Models\Legacy\IntercomeOrder;
 use Exception;
 
 /**
  * Port of CakePHP app/Lib/Intercom.php
- *
- * Wraps the Intercom PHP SDK for contact search/create, messaging,
- * conversations with tags, events, tickets, and contact cleanup.
- *
  * Requires: intercom/intercom-php composer package.
  */
 class IntercomClient
 {
     private array $_tags = [
-        'accident' => ['id' => 4899908, 'name' => 'Accident'],
-        'billing' => ['id' => 5512941, 'name' => 'Billing'],
-        'booked' => ['id' => 5001674, 'name' => 'Booked'],
-        'maintenance' => ['id' => 5517619, 'name' => 'Maintenance'],
-        'midway' => ['id' => 5399976, 'name' => 'Midway'],
-        'roadside_assistance' => ['id' => 5517627, 'name' => 'Roadside Assistance'],
-        'insurance_quote' => ['id' => 8199472, 'name' => 'Insurance Quote'],
-        'payment_request' => ['id' => 8645239, 'name' => 'Payment Request'],
-        'vehicle_scan_alert' => ['id' => 8991028, 'name' => 'Vehicle Scan Alert'],
-        'insurance_type_changed' => ['id' => 10637681, 'name' => 'Insurance Type Changed'],
+        'accident' => [
+            'id' => 4899908,
+            'name' => 'Accident'
+        ],
+        'billing' => [
+            'id' => 5512941,
+            'name' => 'Billing'
+        ],
+        'booked' => [
+            'id' => 5001674,
+            'name' => 'Booked'
+        ],
+        'maintenance' => [
+            'id' => 5517619,
+            'name' => 'Maintenance'
+        ],
+        'midway' => [
+            'id' => 5399976,
+            'name' => 'Midway'
+        ],
+        'roadside_assistance' => [
+            'id' => 5517627,
+            'name' => 'Roadside Assistance'
+        ],
+        'insurance_quote' => [
+            'id' => 8199472,
+            'name' => 'Insurance Quote'
+        ],
+        'payment_request' => [
+            'id' => 8645239,
+            'name' => 'Payment Request'
+        ],
+        'vehicle_scan_alert' => [
+            'id' => 8991028,
+            'name' => 'Vehicle Scan Alert'
+        ],
+        'insurance_type_changed' => [
+            'id' => 10637681,
+            'name' => 'Insurance Type Changed'
+        ],
     ];
 
     private function client(string $version = '2.0'): IntercomSDK
     {
-        return new IntercomSDK(config('services.intercom.access_token'), null, ['Intercom-Version' => $version]);
+        return new IntercomSDK(config('legacy.intercom.access_token'), null, ['Intercom-Version' => $version]);
     }
 
-    private function adminId(): string
-    {
-        return (string) config('services.intercom.admin_id');
-    }
-
-    /**
-     * Search or create an Intercom contact from user info.
-     */
     private function resolveContact(IntercomSDK $client, array $userinfo): ?string
     {
         try {
@@ -56,7 +75,9 @@ class IntercomClient
                     ],
                 ],
             ]);
+
             $user = isset($resp->data[0]) ? $resp->data[0]->id : '';
+
             if (empty($user)) {
                 $resp = $client->contacts->create([
                     'role' => 'user',
@@ -69,15 +90,13 @@ class IntercomClient
                 ]);
                 $user = $resp->id;
             }
+
             return $user ?: null;
         } catch (Exception $e) {
             return null;
         }
     }
 
-    /**
-     * Resolve contact with extended_id field search too.
-     */
     private function resolveContactExtended(IntercomSDK $client, array $userinfo): ?string
     {
         try {
@@ -118,15 +137,21 @@ class IntercomClient
                 'intercom_user_id' => $user,
                 'body' => $msg,
                 'type' => 'admin',
-                'admin_id' => $this->adminId(),
+                'admin_id' => config('legacy.intercom.admin_id', ''),
                 'message_type' => 'comment',
             ]);
         } catch (Exception $e) {
             $clientV2->messages->create([
                 'message_type' => 'inapp',
                 'body' => $msg,
-                'from' => ['type' => 'admin', 'id' => $this->adminId()],
-                'to' => ['type' => 'user', 'id' => $user],
+                'from' => [
+                    'type' => 'admin',
+                    'id' => config('legacy.intercom.admin_id', '')
+                ],
+                'to' => [
+                    'type' => 'user',
+                    'id' => $user
+                ],
             ]);
         }
     }
@@ -135,6 +160,7 @@ class IntercomClient
     {
         $client = $this->client('2.0');
         $user = $this->resolveContact($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
@@ -143,13 +169,11 @@ class IntercomClient
         $this->replyOrNewConversation($client, $clientV14, $user, $msg);
 
         if (!empty($cs_twilio_order_id)) {
-            DB::table('cs_twilio_logs')->insert([
+            CsTwilioLog::create([
                 'cs_twilio_order_id' => $cs_twilio_order_id,
                 'renter_phone' => substr(preg_replace('/[^0-9]/', '', $userinfo['contact_number']), -10),
                 'user_id' => $userid,
                 'msg' => $msg,
-                'created' => now(),
-                'modified' => now(),
             ]);
         }
 
@@ -160,6 +184,7 @@ class IntercomClient
     {
         $client = $this->client('2.0');
         $user = $this->resolveContact($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
@@ -168,19 +193,16 @@ class IntercomClient
         $this->replyOrNewConversation($client, $clientV14, $user, $msg);
 
         if (!empty($userinfo['username'])) {
-            $old = DB::table('cs_twilio_logs')
-                ->where('user_id', $userid)
+            $old = CsTwilioLog::where('user_id', $userid)
                 ->where('renter_phone', $userinfo['username'])
                 ->value('cs_twilio_order_id');
 
             if ($old) {
-                DB::table('cs_twilio_logs')->insert([
+                CsTwilioLog::create([
                     'cs_twilio_order_id' => $old,
                     'renter_phone' => $userinfo['username'],
                     'user_id' => $userid,
                     'msg' => $msg,
-                    'created' => now(),
-                    'modified' => now(),
                 ]);
             }
         }
@@ -192,9 +214,11 @@ class IntercomClient
     {
         $client = $this->client('2.0');
         $user = $this->resolveContact($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
+
         try {
             $client->events->create([
                 'event_name' => $event,
@@ -213,6 +237,7 @@ class IntercomClient
     {
         $client = $this->client('2.0');
         $user = '';
+
         try {
             $resp = $client->contacts->search([
                 'query' => [
@@ -223,7 +248,9 @@ class IntercomClient
                     ],
                 ],
             ]);
+
             $user = isset($resp->data[0]) ? $resp->data[0]->id : '';
+
             if (empty($user)) {
                 $resp = $client->contacts->create([
                     'role' => 'user',
@@ -244,24 +271,26 @@ class IntercomClient
         } catch (Exception $e) {
             return null;
         }
+
         if (empty($user)) {
             return null;
         }
 
         $clientV14 = $this->client('1.4');
+
         try {
             $clientV14->conversations->replyToLastConversation([
                 'intercom_user_id' => $user,
                 'body' => $msg,
                 'type' => 'user',
-                'admin_id' => $this->adminId(),
+                'admin_id' => config('legacy.intercom.admin_id', ''),
                 'message_type' => 'comment',
             ]);
         } catch (Exception $e) {
             $client->messages->create([
                 'message_type' => 'inapp',
                 'body' => $msg,
-                'to' => ['type' => 'admin', 'id' => $this->adminId()],
+                'to' => ['type' => 'admin', 'id' => config('legacy.intercom.admin_id', '')],
                 'from' => ['type' => 'user', 'id' => $user],
             ]);
         }
@@ -269,72 +298,56 @@ class IntercomClient
         return ['status' => true, 'message' => 'Your message is sent successfully.'];
     }
 
-    public function searchAndDeleteContact(array $data = []): void
+    private function deleteContactsByQuery(array $query, int $limit = 100, string $logContext = ''): void
     {
         $client = $this->client('2.0');
+
         try {
             $resp = $client->contacts->search([
-                'pagination' => ['page' => 1, 'per_page' => 100],
-                'query' => [
-                    'field' => 'last_seen_at',
-                    'operator' => '<',
-                    'value' => strtotime('-30 days'),
-                ],
+                'pagination' => ['page' => 1, 'per_page' => $limit],
+                'query' => $query,
             ]);
+
             $contacts = $resp->data ?? [];
+
             foreach ($contacts as $contact) {
                 $client->contacts->deleteContact($contact->id);
             }
         } catch (Exception $e) {
-            // silently fail
+            Log::error("IntercomClient::{$logContext}: " . $e->getMessage());
         }
+    }
+
+    public function searchAndDeleteContact(array $data = []): void
+    {
+        $this->deleteContactsByQuery([
+            'field' => 'last_seen_at',
+            'operator' => '<',
+            'value' => strtotime('-30 days'),
+        ], 100, __FUNCTION__);
     }
 
     public function searchAndDeleteNonRegisteredContact(array $data = []): void
     {
-        $client = $this->client('2.0');
-        try {
-            $resp = $client->contacts->search([
-                'pagination' => ['page' => 1, 'per_page' => 100],
-                'query' => [
-                    'operator' => 'AND',
-                    'value' => [
-                        ['field' => 'last_seen_at', 'operator' => '<', 'value' => strtotime('-3 days')],
-                        ['field' => 'email', 'operator' => '=', 'value' => null],
-                    ],
-                ],
-            ]);
-            $contacts = $resp->data ?? [];
-            foreach ($contacts as $contact) {
-                $client->contacts->deleteContact($contact->id);
-            }
-        } catch (Exception $e) {
-            // silently fail
-        }
+        $this->deleteContactsByQuery([
+            'operator' => 'AND',
+            'value' => [
+                ['field' => 'last_seen_at', 'operator' => '<', 'value' => strtotime('-3 days')],
+                ['field' => 'email', 'operator' => '=', 'value' => null],
+            ],
+        ], 100, __FUNCTION__);
     }
 
     public function searchAndDeleteDeuplicateContact(int $limit = 20): void
     {
-        $client = $this->client('2.0');
-        try {
-            $resp = $client->contacts->search([
-                'pagination' => ['page' => 1, 'per_page' => $limit],
-                'query' => [
-                    'operator' => 'AND',
-                    'value' => [
-                        ['field' => 'email', 'operator' => '!=', 'value' => null],
-                        ['field' => 'phone', 'operator' => '=', 'value' => null],
-                        ['field' => 'role', 'operator' => '!=', 'value' => 'lead'],
-                    ],
-                ],
-            ]);
-            $contacts = $resp->data ?? [];
-            foreach ($contacts as $contact) {
-                $client->contacts->deleteContact($contact->id);
-            }
-        } catch (Exception $e) {
-            Log::error('IntercomClient::searchAndDeleteDeuplicateContact: ' . $e->getMessage());
-        }
+        $this->deleteContactsByQuery([
+            'operator' => 'AND',
+            'value' => [
+                ['field' => 'email', 'operator' => '!=', 'value' => null],
+                ['field' => 'phone', 'operator' => '=', 'value' => null],
+                ['field' => 'role', 'operator' => '!=', 'value' => 'lead'],
+            ],
+        ], $limit, __FUNCTION__);
     }
 
     public function getIntercomTags()
@@ -347,6 +360,7 @@ class IntercomClient
     {
         $client = $this->client('2.3');
         $user = $this->resolveContactExtended($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
@@ -363,40 +377,43 @@ class IntercomClient
             $conversationId = '';
 
             if (!empty($bookingid)) {
-                $conversationId = DB::table('intercome_orders')
-                    ->where('order_id', $bookingid)
+                $conversationId = IntercomeOrder::where('order_id', $bookingid)
                     ->value('conversation_id') ?: '';
             }
 
             if (!$conversationId) {
-                $conversation = $clientObj->conversations->createConversation([
+                $conversation = $clientObj->conversations->create([
                     'message_type' => 'inapp',
                     'type' => 'conversation',
                     'body' => 'hey',
                     'from' => ['type' => 'user', 'id' => $user],
                     'custom_attributes' => ['booking_message_type' => $tag, 'booking_id' => $bookingid],
                 ]);
+
                 $conversationId = $conversation->conversation_id;
-                $clientObj->conversations->attachTagToConversation($conversationId, [
+                $clientObj->post("conversations/{$conversationId}/tags", [
                     'id' => (string) $this->_tags[$tag]['id'],
-                    'admin_id' => $this->adminId(),
+                    'admin_id' => config('legacy.intercom.admin_id', ''),
                     'custom_attributes' => ['booking_message_type' => $tag, 'booking_id' => $bookingid],
                 ]);
+
                 if (!empty($bookingid)) {
-                    DB::table('intercome_orders')->insert([
+                    IntercomeOrder::create([
                         'order_id' => $bookingid,
                         'conversation_id' => $conversationId,
                     ]);
                 }
             }
+
             if (empty($conversationId)) {
                 return null;
             }
+
             $clientObj->conversations->replyToConversation($conversationId, [
                 'intercom_user_id' => $user,
                 'body' => $msg,
                 'type' => 'admin',
-                'admin_id' => $this->adminId(),
+                'admin_id' => config('legacy.intercom.admin_id', ''),
                 'message_type' => 'comment',
                 'custom_attributes' => ['booking_message_type' => $tag],
             ]);
@@ -411,6 +428,7 @@ class IntercomClient
     {
         $client = $this->client('2.3');
         $user = $this->resolveContactExtended($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
@@ -428,12 +446,13 @@ class IntercomClient
                     ],
                 ],
             ]);
+
             if (isset($resp->total_count) && $resp->total_count > 0) {
                 $conversationId = isset($resp->conversations[0]) ? $resp->conversations[0]->id : '';
             }
 
             if (!isset($resp->total_count) || $resp->total_count == 0) {
-                $conversation = $clientObj->conversations->createConversation([
+                $conversation = $clientObj->conversations->create([
                     'message_type' => 'inapp',
                     'type' => 'conversation',
                     'body' => $msg,
@@ -441,9 +460,9 @@ class IntercomClient
                     'custom_attributes' => ['booking_message_type' => $tag],
                 ]);
                 $conversationId = $conversation->conversation_id;
-                $clientObj->conversations->attachTagToConversation($conversationId, [
+                $clientObj->post("conversations/{$conversationId}/tags", [
                     'id' => (string) $this->_tags[$tag]['id'],
-                    'admin_id' => $this->adminId(),
+                    'admin_id' => config('legacy.intercom.admin_id', ''),
                     'custom_attributes' => ['booking_message_type' => $tag],
                 ]);
                 return null;
@@ -461,7 +480,7 @@ class IntercomClient
                 'custom_attributes' => ['booking_message_type' => $tag],
             ]);
         } catch (Exception $e) {
-            // silently fail
+            Log::error('IntercomClient::sendMessageWithTagAsRenter: ' . $e->getMessage());
         }
         return ['status' => true, 'message' => 'Your message is sent successfully.'];
     }
@@ -469,6 +488,7 @@ class IntercomClient
     public function pushEmployeBridgeLead(array $data): array
     {
         $client = $this->client('2.0');
+
         try {
             $client->contacts->create([
                 'role' => 'user',
@@ -480,8 +500,9 @@ class IntercomClient
                 'unsubscribed_from_emails' => false,
             ]);
         } catch (Exception $e) {
-            // user already exists
+            Log::info('IntercomClient::pushEmployeBridgeLead (already exists): ' . $e->getMessage());
         }
+
         return ['status' => true, 'message' => 'Your message is sent successfully.'];
     }
 
@@ -515,6 +536,7 @@ class IntercomClient
                 $user = $resp->id;
             }
         } catch (Exception $e) {
+            Log::error('IntercomClient::updateUserAttrbute: ' . $e->getMessage());
             return;
         }
         if (empty($user)) {
@@ -616,16 +638,18 @@ class IntercomClient
         }
     }
 
-    public function createTicket(array $userinfo, $ticket_type_id, string $title = '', string $description = ''): ?array
+    public function createTicket(array $userinfo, $ticket_type_id, string $title = '', string $description = '')
     {
         $client = $this->client('2.0');
         $user = $this->resolveContact($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
 
         try {
-            $clientObj = new IntercomSDK(config('services.intercom.access_token'), null, ['Intercom-Version:2.13', 'Content-Type: application/json']);
+            $clientObj = new IntercomSDK(config('legacy.intercom.access_token'), null, ['Intercom-Version' => '2.13', 'Content-Type' => 'application/json']);
+
             $ticket = [
                 'ticket_type_id' => $ticket_type_id,
                 'contacts' => [['id' => $user]],
@@ -634,16 +658,17 @@ class IntercomClient
                     '_default_description_' => $description,
                 ],
             ];
+
             return $clientObj->post('tickets', $ticket);
         } catch (Exception $e) {
             return ['status' => false, 'message' => $e->getMessage()];
         }
     }
 
-    public function updateTicketSatatus(string $ticketid): ?array
+    public function updateTicketSatatus(string $ticketid)
     {
         try {
-            $clientObj = new IntercomSDK(config('services.intercom.access_token'), null, ['Intercom-Version:2.13', 'Content-Type: application/json']);
+            $clientObj = new IntercomSDK(config('legacy.intercom.access_token'), null, ['Intercom-Version' => '2.13', 'Content-Type' => 'application/json']);
             return $clientObj->put('tickets/' . $ticketid, ['open' => false]);
         } catch (Exception $e) {
             return ['status' => false, 'message' => $e->getMessage()];
@@ -654,6 +679,7 @@ class IntercomClient
     {
         $client = $this->client('2.3');
         $user = $this->resolveContactExtended($client, $userinfo);
+
         if (empty($user)) {
             return null;
         }
@@ -671,7 +697,7 @@ class IntercomClient
             $client->messages->create([
                 'message_type' => 'inapp',
                 'body' => $msg,
-                'to' => ['type' => 'admin', 'id' => $this->adminId()],
+                'to' => ['type' => 'admin', 'id' => config('legacy.intercom.admin_id', '')],
                 'from' => ['type' => 'user', 'id' => $user],
             ]);
         }

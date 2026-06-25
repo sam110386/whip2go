@@ -3,10 +3,10 @@
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <tr>
             @include('partials.dispacher.sortable_header', ['columns' => [
-                ['field' => 'id', 'title' => '#'],
-                ['field' => 'vehicle_name', 'title' => 'Vehicle', 'sortable' => false],
-                ['field' => 'first_name', 'title' => 'Driver', 'sortable' => false],
-                ['field' => 'created', 'title' => 'Date'],
+                ['title' => '#', 'field' => 'id'],
+                ['title' => 'Vehicle', 'sortable' => false],
+                ['title' => 'Driver', 'sortable' => false],
+                ['title' => 'Date', 'field' => 'created'],
             ]])
         </tr>
         @forelse(($trackings ?? collect()) as $row)

@@ -1,113 +1,139 @@
 @extends('admin.layouts.app')
 @section('title', 'Fleet - P&L')
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+@endpush
+
 @section('content')
-<script src="{{ asset('js/report/papaparser.js') }}"></script>
-<script src="{{ asset('js/report/excellentexport.js') }}"></script>
-<script src="{{ legacy_asset('js/select2.js') }}"></script>
-<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-<script type="text/javascript">
-    jQuery(document).ready(function() {
-        jQuery("body").addClass('sidebar-xs');
-    });
-</script>
-<div class="page-header">
-    <div class="page-header-content">
-        <div class="page-title">
-            <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Fleet </span> - P&L</h4>
+    <div class="page-header">
+        <div class="page-header-content">
+            <div class="page-title">
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Fleet </span> - P&L
+                </h4>
+            </div>
         </div>
     </div>
-</div>
-<div class="row">
-    @includeif('partials.flash')
-</div>
-<div class="panel">
-    <div class="panel-body">
-        <form method="POST" action="{{ url('/admin/report/portfolios') }}" id="frmSearchadmin" name="frmSearchadmin" class="form-horizontal">
-            @csrf
-            <div class="row pb-10">
-                <div class="col-md-12">
-                    <div class="col-md-4">
-                        <input type="text" name="Search[user_id]" id="SearchUserId" value="{{ old('Search.user_id', $user_id ?? '') }}" class="focus_text textfield" placeholder="Select Dealer.." style="width:100%;">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" name="search" value="search" class="btn btn-primary">APPLY</button>
-                    </div>
-                    <div class="col-md-2">
-                        <a href="#" download="portfolio.csv" class="btn btn-primary" onclick="return ExcellentExport.csv(this, 'portfolio');">Export</a>
+
+    <div class="row">
+        @includeif('partials.flash')
+    </div>
+
+    <div class="panel">
+        <div class="panel-body">
+            <form method="POST" action="{{ url('/admin/report/portfolios/index') }}" id="frmSearchadmin"
+                name="frmSearchadmin" class="form-horizontal">
+                @csrf
+                <div class="row pb-10">
+                    <div class="col-md-12">
+                        <div class="col-md-4">
+                            <input type="text" name="Search[user_id]" id="SearchUserId"
+                                value="{{ old('Search.user_id', $user_id ?? '') }}" class="focus_text textfield"
+                                placeholder="Select Dealer.." style="width:100%;">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" name="search" value="search" class="btn btn-primary">
+                                APPLY
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="#" download="portfolio.csv" class="btn btn-primary"
+                                onclick="return ExcellentExport.csv(this, 'portfolio');">
+                                Export
+                            </a>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
-</div>
-<div class="panel">
-    <div class="panel-body" id="listing">
-        @if(!empty($vehicles))
-            @include('admin.report.elements._portfolio')
-            <style type="text/css">
-                .table.panel{border-color:unset;border: none;}
-            </style>
-        @else
-            <div class="table-responsive">
-                <table class="table table-bordered">
+
+    <div class="panel">
+        <div class="panel-body" id="listing">
+            @if(!empty($vehicles))
+                @include('report.portfolios.elements._portfolio')
+                <style type="text/css">
+                    .table.panel {
+                        border-color: unset;
+                        border: none;
+                    }
+                </style>
+            @else
+                <table width="100%" cellpadding="1" cellspacing="1" border="0" class="borderTable">
                     <tr>
                         <td colspan="7" class="text-center">No record found</td>
                     </tr>
                 </table>
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
-</div>
-<script type="text/javascript">
-    function format(item) {
-        return item.tag;
-    }
-    jQuery(document).ready(function() {
-        jQuery("#SearchUserId").select2({
-            data: {
-                results: {},
-                text: 'tag'
-            },
-            formatSelection: format,
-            formatResult: format,
-            placeholder: "Select Customer ",
-            minimumInputLength: 1,
-            ajax: {
-                url: "{{ config('app.url') }}/admin/bookings/customerautocomplete",
-                dataType: "json",
-                type: "GET",
-                data: function(params) {
-                    return {
-                        term: params,
-                        is_dealer: true
+
+@endsection
+
+
+@push('scripts')
+    <script src="{{ legacy_asset('js/report/papaparser.js') }}"></script>
+    <script src="{{ legacy_asset('js/report/excellentexport.js') }}"></script>
+    <script src="{{ legacy_asset('js/select2.js') }}"></script>
+
+    <script type="text/javascript">
+
+        function format(item) {
+            return item.tag;
+        }
+
+        jQuery(document).ready(function () {
+            jQuery("body").addClass('sidebar-xs');
+
+            jQuery("#SearchUserId").select2({
+                data: {
+                    results: {},
+                    text: 'tag'
+                },
+                formatSelection: format,
+                formatResult: format,
+                placeholder: "Select Customer ",
+                minimumInputLength: 1,
+                ajax: {
+                    url: "{{ url('/admin/bookings/customerautocomplete') }}",
+                    dataType: "json",
+                    type: "GET",
+                    data: function (params) {
+                        return {
+                            term: params,
+                            is_dealer: true
+                        }
+                    },
+                    processResults: function (data) {
+                        return {
+                            results: jQuery.map(data, function (item) {
+                                return {
+                                    tag: item.tag,
+                                    id: item.id
+                                }
+                            })
+                        };
                     }
                 },
-                processResults: function(data) {
-                    return {
-                        results: jQuery.map(data, function(item) {
-                            return {
-                                tag: item.tag,
-                                id: item.id
+                initSelection: function (element, callback) {
+                    var id = $(element).val();
+                    if (id !== "") {
+                        $.ajax("{{ url('/admin/bookings/customerautocomplete') }}", {
+                            dataType: "json",
+                            type: 'GET',
+                            data: {
+                                id: id
                             }
-                        })
-                    };
+                        }).done(function (data) {
+                            callback(data[0]);
+                        });
+                    }
                 }
-            },
-            initSelection: function(element, callback) {
-                var id = $(element).val();
-                if (id !== "") {
-                    $.ajax("{{ config('app.url') }}/admin/bookings/customerautocomplete", {
-                        dataType: "json",
-                        type: 'GET',
-                        data: {
-                            id: id
-                        }
-                    }).done(function(data) {
-                        callback(data[0]);
-                    });
-                }
-            }
+            });
         });
-    });
-</script>
-@endsection
+
+    </script>
+
+@endpush

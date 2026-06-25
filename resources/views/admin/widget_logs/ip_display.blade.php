@@ -1,3 +1,9 @@
+@php
+    $records ??= [];
+    $filename ??= [];
+    $ipRecords ??= [];
+@endphp
+
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
@@ -11,11 +17,13 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($ipRecords as $ip => $records)
-                @php $row = reset($records); @endphp
+            @foreach($ipRecords as $ip => $record)
+                @php
+                    $row = current($record);
+                @endphp
                 <tr class="anchor" onclick="WidgetLogSubView('{{ $filename }}','{{ $ip }}')">
                     <td style="text-align:center;">
-                        {{ $ip }}
+                        {{ e($ip) }}
                     </td>
                     <td style="text-align:center;">
                         {{ e($row['vin'] ?? '') }}

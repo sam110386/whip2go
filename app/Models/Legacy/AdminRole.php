@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AdminRole extends LegacyModel
 {
+     
     protected $table = 'admin_roles';
 
     protected $fillable = [

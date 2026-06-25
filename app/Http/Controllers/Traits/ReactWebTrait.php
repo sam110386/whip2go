@@ -206,7 +206,7 @@ trait ReactWebTrait
             'ADDRESS'      => ($dataValues['address'] ?? '') . ' ' . ($dataValues['city'] ?? '') . ' ' . ($dataValues['state'] ?? '') . ' ' . ($dataValues['zip'] ?? ''),
         ];
 
-        Mail::send('emails.contact_us', $JSONDATA, function ($message) use ($email) {
+        Mail::send('emails.html.contact_us', $JSONDATA, function ($message) use ($email) {
             $message->from('support@whip2go.com', 'DriveItAway Team')
                 ->replyTo('no-reply@whip2go.com')
                 ->to('adam@whip2go.com')

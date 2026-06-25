@@ -35,10 +35,10 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => '#', 'sortable'=>false, 'style' => 'width: 5%;'],
-                                    ['field' => 'first_name', 'title' => 'Name', 'sortable'=>false,],
-                                    ['field' => 'status', 'title' => 'Status', 'sortable'=>false,],
-                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
+                                    ['title' => '#', 'sortable' => false, 'style' => 'width: 5%;'],
+                                    ['title' => 'Name', 'sortable' => false],
+                                    ['title' => 'Status', 'sortable' => false],
+                                    ['title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
                                 ]])
                             </tr>
                         </thead>
@@ -99,7 +99,7 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -160,5 +160,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

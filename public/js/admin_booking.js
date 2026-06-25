@@ -105,31 +105,31 @@ function completeBooking(orderid, autorenew = 0) {
 function processComplete(btn) {
 	$(btn).prop("disabled", true);
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Sending...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
 		css: { "z-index": "9999" },
 	});
 	var params = $("#completeForm").serialize({ checkboxesAsBools: true });
-	$.post(SITE_URL + "admin/bookings/completeBooking",params,function (data) {
-			jQuery.unblockUI();
-			if (data.status) {
-				$("#myModal").modal("hide");
-				swal({
-					title: data.message,
-					text: "I will close in 2 seconds.",
-					confirmButtonColor: "#2196F3",
-					timer: 2000,
-				});
-				$("#update_log table").find("tr#tripRow" + data.orderid).hide();
-			} else {
-				alert(data.message);
-			}
-		},
+	$.post(SITE_URL + "admin/bookings/completeBooking", params, function (data) {
+		jQuery.unblockUI();
+		if (data.status) {
+			$("#myModal").modal("hide");
+			swal({
+				title: data.message,
+				text: "I will close in 2 seconds.",
+				confirmButtonColor: "#2196F3",
+				timer: 2000,
+			});
+			$("#update_log table").find("tr#tripRow" + data.orderid).hide();
+		} else {
+			alert(data.message);
+		}
+	},
 		"json"
 	);
 }
 function downloadBookingDoc(orderid, showupload = 0) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
 	$.post(
@@ -145,17 +145,17 @@ function downloadBookingDoc(orderid, showupload = 0) {
 
 function getinsurancedoc(orderid) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
-	$.post(SITE_URL + "admin/bookings/getinsurancetoken",{ orderid: orderid },function (data) {
-			jQuery.unblockUI();
-			if (!data.status) {
-				alert(data.message);
-			} else {
-				window.open(data.result.file);
-			}
+	$.post(SITE_URL + "admin/bookings/getinsurancetoken", { orderid: orderid }, function (data) {
+		jQuery.unblockUI();
+		if (!data.status) {
+			alert(data.message);
+		} else {
+			window.open(data.result.file);
 		}
+	}
 	);
 }
 /**to get vehicle registration doc***/
@@ -966,7 +966,7 @@ function getReport(reportid) {
 }
 
 /***MVR reports page related functions***/
-function getVehicleReport(reportid,mymodal='myModal') {
+function getVehicleReport(reportid, mymodal = 'myModal') {
 	jQuery.blockUI({
 		message:
 			'<h1><img src="' +
@@ -979,8 +979,8 @@ function getVehicleReport(reportid,mymodal='myModal') {
 		{ reportid: reportid },
 		function (data) {
 			jQuery.unblockUI();
-			$("#"+mymodal+" .modal-content").html(data);
-			$("#"+mymodal).modal("show").find(".modal-dialog").css("width", "650px");
+			$("#" + mymodal + " .modal-content").html(data);
+			$("#" + mymodal).modal("show").find(".modal-dialog").css("width", "650px");
 		}
 	);
 }
@@ -1417,24 +1417,24 @@ function changeEndTiming() {
 /*****Reopen booking from Booking Review waiting page****/
 function reopenbooking(orderid) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
-	$.post(SITE_URL + "admin/booking_reviews/reopenbookingpopup",{ orderid: orderid },
+	$.post(SITE_URL + "admin/booking_reviews/reopenbookingpopup", { orderid: orderid },
 		function (data) {
 			jQuery("#plaidModal .modal-content").html(data);
 			jQuery("#plaidModal").modal("show");
-		}).done(function(){
-		jQuery.unblockUI();
-	});
+		}).done(function () {
+			jQuery.unblockUI();
+		});
 }
-function ReopenBooking(){
+function ReopenBooking() {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
-	var params=$("#BookingReviewReopenForm").serialize();
-	$.post(SITE_URL + "admin/booking_reviews/reopenbooking",params,
+	var params = $("#BookingReviewReopenForm").serialize();
+	$.post(SITE_URL + "admin/booking_reviews/reopenbooking", params,
 		function (data) {
 			if (data.status) {
 				$("table.table-responsive tbody tr#tripRow" + data.orderid).hide();
@@ -1448,10 +1448,10 @@ function ReopenBooking(){
 				alert(data.message);
 			}
 		},
-	"json").done(function(){
-		jQuery.unblockUI();
-		jQuery("#plaidModal").modal("hide");
-	});
+		"json").done(function () {
+			jQuery.unblockUI();
+			jQuery("#plaidModal").modal("hide");
+		});
 }
 /**Update Vehicle GPS info**/
 function changeVehicleGps(booking) {
@@ -2277,7 +2277,7 @@ function capturePaymentVehicleReservation(paymentid) {
 						if (isConfirm) {
 							$.post(
 								SITE_URL +
-									"admin/vehicle_reservations/recapturevehiclereservation",
+								"admin/vehicle_reservations/recapturevehiclereservation",
 								{ paymentid: paymentid },
 								function (data) {
 									if (data.status != "success") {
@@ -2411,11 +2411,11 @@ function openUserTransactions(userid, bookingid, currency) {
 				).val();
 				$.post(
 					SITE_URL +
-						"admin/transactions/usertransactions/" +
-						user +
-						"/" +
-						time +
-						"/1",
+					"admin/transactions/usertransactions/" +
+					user +
+					"/" +
+					time +
+					"/1",
 					{ bookingid: bookingid, currency: currency },
 					function (data) {
 						jQuery.unblockUI();
@@ -2517,7 +2517,7 @@ function getReservationInsuranceDoc(orderid) {
 			}
 		},
 		"json"
-	).done(function () {});
+	).done(function () { });
 }
 
 function chargePartialAmtPopup(userid, booking = "", currency = "") {
@@ -3176,7 +3176,7 @@ function OpenInspektScanPopUp(orderId, model = "myModal") {
 	});
 	jQuery
 		.post(
-			SITE_URL + "admin/inspekt/inspektdocs/index",
+			SITE_URL + "admin/inspektdocs/index",
 			{ orderid: orderId, model: model },
 			function (data) {
 				jQuery.unblockUI();
@@ -3232,22 +3232,22 @@ function reGenerateReport(user, owner, booking = "") {
 		return;
 	}
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Requesting...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Requesting...</h1>',
 		css: { "z-index": "9999" },
 	});
 	$("#myModal").modal("hide");
-	var params = { userid: user};
-	$.post(SITE_URL + "admin/mvr_reports/ajaxrequestagain",params,function (data) {
-			if (data.status) {
-				alert(data.message);
-			} else {
-				alert(data.message);
-			}
-		},
+	var params = { userid: user };
+	$.post(SITE_URL + "admin/mvr_reports/ajaxrequestagain", params, function (data) {
+		if (data.status) {
+			alert(data.message);
+		} else {
+			alert(data.message);
+		}
+	},
 		"json"
 	).done(function () {
 		jQuery.unblockUI();
-		getuserdetails(user, owner, booking );
+		getuserdetails(user, owner, booking);
 	});
 }
 function getVehicleScanRequestPopup(booking) {
@@ -3259,7 +3259,7 @@ function getVehicleScanRequestPopup(booking) {
 		css: { "z-index": "9999" },
 	});
 	$.post(
-		SITE_URL + "admin/inspekt/Inspektdocs/openVehicleScanRequestPopup",
+		SITE_URL + "admin/inspektdocs/openVehicleScanRequestPopup",
 		{ booking: booking },
 		function (data) {
 			$("#myModal .modal-content").html(data);
@@ -3281,7 +3281,7 @@ function saveVehicleScanPopupRequest() {
 		});
 		jQuery
 			.post(
-				SITE_URL + "admin/inspekt/Inspektdocs/saveVehicleScanPopupRequest",
+				SITE_URL + "admin/inspektdocs/saveVehicleScanPopupRequest",
 				$("#openVehicleScanRequestPopup").serialize(),
 				function (data) {
 					alert(data.message);
@@ -3358,7 +3358,7 @@ function SaveInsurancePayerChanges(model = "statementModal") {
 function vehicleReservationCalculateFareMatrix() {
 	if (!$("#VehicleOfferForm").valid({ ignore: ":hidden" })) return;
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Sending...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
 		css: { "z-index": "9999" },
 	});
 	var formdata = $("#VehicleOfferForm").serialize();
@@ -3405,7 +3405,7 @@ function vehicleReservationCalculateFareMatrix() {
 				obj.weekkEmfRent +
 				"</li></ul>";
 			$("#calculations").html(program);
-			$("#VehicleOfferForm button#saveGoalRecalculation").prop("disabled",false);
+			$("#VehicleOfferForm button#saveGoalRecalculation").prop("disabled", false);
 		},
 		"json"
 	).done(function () {
@@ -3562,13 +3562,13 @@ function sendAxleShareDetails(orderid) {
 			'img/select2-spinner.gif" /> Sending...</h1>',
 	});
 	jQuery.post(
-			SITE_URL + "admin/bookings/sendAxleShareDetails",
-			{ orderid: orderid },
-			function (data) {
-				alert(data.message);
-			},
-			"json"
-		)
+		SITE_URL + "admin/bookings/sendAxleShareDetails",
+		{ orderid: orderid },
+		function (data) {
+			alert(data.message);
+		},
+		"json"
+	)
 		.done(function () {
 			jQuery.unblockUI();
 		});
@@ -3577,58 +3577,58 @@ function sendAxleShareDetails(orderid) {
 
 function sendDirectAxleLink(orderid) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Sending...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
 	});
-	jQuery.post(SITE_URL + "admin/bookings/sendDirectAxleLink",{ orderid: orderid },
+	jQuery.post(SITE_URL + "admin/bookings/sendDirectAxleLink", { orderid: orderid },
 		function (data) {
 			alert(data.message);
-		},"json").done(function () {
+		}, "json").done(function () {
 			jQuery.unblockUI();
 		});
 	return false;
 }
 
 function inspektScanReport(orderid) {
-    jQuery.blockUI({message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Loading...</h1>'});
-    $.post(SITE_URL + "admin/inspekt/inspektdocs/getOrderBasedReport", {orderid: orderid}, function(resp) {
-        if (resp.status) {
-            $("#myModal .modal-content").html(resp.view);
+	jQuery.blockUI({ message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Loading...</h1>' });
+	$.post(SITE_URL + "admin/inspektdocs/getOrderBasedReport", { orderid: orderid }, function (resp) {
+		if (resp.status) {
+			$("#myModal .modal-content").html(resp.view);
 			$("#myModal").modal("show").find(".modal-dialog").css("width", "850px");
-        }else{
-            alert(resp.message);
-        }
-    }, 'json').done(function() {
-        jQuery.unblockUI();
-    });
-    return false;
-}
-
-
-function downloadVehicleImage(vehicleid) {
-	
-	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Sending...</h1>',
-		css: { "z-index": "9999" },
-	});
-	
-	$.post(SITE_URL + "admin/vehicle_reservations/download_vehicle_images",{vehicleid:vehicleid},
-		function (obj) {
-			alert(obj.message);
-		},"json").done(function () {
+		} else {
+			alert(resp.message);
+		}
+	}, 'json').done(function () {
 		jQuery.unblockUI();
 	});
 	return false;
 }
 
 
+function downloadVehicleImage(vehicleid) {
+
+	jQuery.blockUI({
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
+		css: { "z-index": "9999" },
+	});
+
+	$.post(SITE_URL + "admin/vehicle_reservations/download_vehicle_images", { vehicleid: vehicleid },
+		function (obj) {
+			alert(obj.message);
+		}, "json").done(function () {
+			jQuery.unblockUI();
+		});
+	return false;
+}
+
+
 function bookingInsurancePopup(orderid) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
 	$.post(
 		SITE_URL + "admin/bookings/insurancepopup",
-		{ orderid: orderid},
+		{ orderid: orderid },
 		function (data) {
 			jQuery.unblockUI();
 			$("#myModal .modal-content").html(data);
@@ -3639,12 +3639,12 @@ function bookingInsurancePopup(orderid) {
 
 function vehicleSellingOpionsPopup(orderid) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
 	$.post(
 		SITE_URL + "admin/vehicle_reservations/vehicleSellingOpions",
-		{ orderid: orderid},
+		{ orderid: orderid },
 		function (data) {
 			jQuery.unblockUI();
 			$("#myModal .modal-content").html(data);
@@ -3652,14 +3652,14 @@ function vehicleSellingOpionsPopup(orderid) {
 		}
 	);
 }
-function vehicleSellingOptionAgreeToSellPopup(modalName,orderid) {
+function vehicleSellingOptionAgreeToSellPopup(modalName, orderid) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
 	$.post(
 		SITE_URL + "admin/vehicle_reservations/vehicleSellingOpionAgreeToSell",
-		{ orderid: orderid},
+		{ orderid: orderid },
 		function (data) {
 			jQuery.unblockUI();
 			$("#" + modalName + " .modal-content").html(data);
@@ -3668,41 +3668,40 @@ function vehicleSellingOptionAgreeToSellPopup(modalName,orderid) {
 	);
 }
 
-function saveVehicleAgreeToSell(){
-    jQuery.blockUI({
-        message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Saving...</h1>',
-        css: {'z-index': '9999'}
-    });
-    var data = new FormData($("#vehicleSellingOpionAgreeToSellForm").get(0));
-    $.ajax({
-        url: SITE_URL + "admin/vehicle_reservations/saveVehicleAgreeToSell",
-        type: 'post',
-        dataType: "JSON",
-        data: data,
-        processData: false,
-        contentType: false,
-        success: function (data, status)
-        {
-            if(!data.status){
-                alert(data.message);
-            }else{
-                alert("Updated successfully");
-            }
-        },
-        complete:function(){
-            jQuery.unblockUI();
-        }
-    });
+function saveVehicleAgreeToSell() {
+	jQuery.blockUI({
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Saving...</h1>',
+		css: { 'z-index': '9999' }
+	});
+	var data = new FormData($("#vehicleSellingOpionAgreeToSellForm").get(0));
+	$.ajax({
+		url: SITE_URL + "admin/vehicle_reservations/saveVehicleAgreeToSell",
+		type: 'post',
+		dataType: "JSON",
+		data: data,
+		processData: false,
+		contentType: false,
+		success: function (data, status) {
+			if (!data.status) {
+				alert(data.message);
+			} else {
+				alert("Updated successfully");
+			}
+		},
+		complete: function () {
+			jQuery.unblockUI();
+		}
+	});
 }
 
-function vehicleFree2moveAgreement(modalName,reference) {
+function vehicleFree2moveAgreement(modalName, reference) {
 	jQuery.blockUI({
-		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> loading...</h1>',
+		message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
 		css: { "z-index": "9999" },
 	});
 	$.post(
 		SITE_URL + "admin/vehicle_reservations/vehicleFree2moveAgreement",
-		{ reference: reference},
+		{ reference: reference },
 		function (data) {
 			jQuery.unblockUI();
 			$("#myModal .modal-content").html(data);
@@ -3712,10 +3711,10 @@ function vehicleFree2moveAgreement(modalName,reference) {
 }
 
 function vehicleSellingOptionNotInterested(orderid) {
-    var confirmResult = confirm("Are you sure you want to mark this reservation as Not Interested?");
-    if (!confirmResult) {
-        return false;
-    }
+	var confirmResult = confirm("Are you sure you want to mark this reservation as Not Interested?");
+	if (!confirmResult) {
+		return false;
+	}
 	jQuery.blockUI({
 		message:
 			'<h1><img src="' +
@@ -3724,20 +3723,20 @@ function vehicleSellingOptionNotInterested(orderid) {
 		css: { "z-index": "9999" },
 	});
 	$.post(SITE_URL + "vehicle_reservations/saveVehicleSellingOption",
-		{ orderid: orderid,status: 3 },
+		{ orderid: orderid, status: 3 },
 		function (data) {
 			alert(data.message);
 			location.reload();
-		},"json").done(function () {
-            jQuery.unblockUI();
-        });
+		}, "json").done(function () {
+			jQuery.unblockUI();
+		});
 }
 
 function vehicleSellingOptionFindReplacement(orderid) {
-    var confirmResult = confirm("Are you sure you want to mark this reservation as find replacement?");
-    if (!confirmResult) {
-        return false;
-    }
+	var confirmResult = confirm("Are you sure you want to mark this reservation as find replacement?");
+	if (!confirmResult) {
+		return false;
+	}
 	jQuery.blockUI({
 		message:
 			'<h1><img src="' +
@@ -3746,11 +3745,11 @@ function vehicleSellingOptionFindReplacement(orderid) {
 		css: { "z-index": "9999" },
 	});
 	$.post(SITE_URL + "vehicle_reservations/saveVehicleSellingOption",
-		{ orderid: orderid,status: 4 },
+		{ orderid: orderid, status: 4 },
 		function (data) {
 			alert(data.message);
 			location.reload();
-		},"json").done(function () {
-            jQuery.unblockUI();
-        });
+		}, "json").done(function () {
+			jQuery.unblockUI();
+		});
 }

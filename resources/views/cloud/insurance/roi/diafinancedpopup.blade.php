@@ -34,8 +34,8 @@
     <input type="hidden" name="DriverFinancedInsurance[orderandusers]" value="{{ $orderandusers }}" />
     </form>
 </div>
-<script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
-<script src="{{ asset('assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
 <script type="text/javascript">
     $(document).ready(function() {
         $("#DriverFinancedInsuranceSave").click(function(){

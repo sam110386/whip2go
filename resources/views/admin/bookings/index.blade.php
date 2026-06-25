@@ -8,8 +8,7 @@
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Rental</span>
-                    Orders
+                    <span class="text-semibold">Rental</span> Orders
                 </h4>
             </div>
             <div class="heading-elements"></div>
@@ -24,7 +23,7 @@
         <div class="panel-body">
             <div id="listing">
                 <div style="width:100%; overflow: visible;" id="update_log">
-                    @include('admin.bookings.booking_table', ['trips' => $trips])
+                    @include('admin.bookings.elements.booking', ['tripLog' => $tripLog])
                 </div>
             </div>
         </div>
@@ -38,33 +37,25 @@
 @endsection
 
 @push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
 @endpush
 
 @push('scripts')
     <script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
     <script src="{{ legacy_asset('js/assets/js/plugins/uploaders/fileinput.min.js') }}"></script>
-    <script src="{{ legacy_asset('MeasureOne/js/functions.js') }}"></script>
-    <script src="{{ legacy_asset('Insurance/js/insurance.js') }}"></script>
-    <script src="{{ legacy_asset('Insurance/js/driverfinancedquote.js') }}"></script>
-    <script src="{{ legacy_asset('Intercom/js/intercom.js') }}"></script>
-    <script src="{{ legacy_asset('OrderNote/js/order_note.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/measureone/functions.js') }}"></script>
+    <script src="{{ legacy_asset('js/insurance/insurance.js') }}"></script>
+    <script src="{{ legacy_asset('js/insurance/driverfinancedquote.js') }}"></script>
+    <script src="{{ legacy_asset('js/intercom/intercom.js') }}"></script>
+    <script src="{{ legacy_asset('js/ordernote/order_note.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function () {
 
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -102,5 +93,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+
 @endpush

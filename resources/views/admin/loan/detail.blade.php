@@ -6,7 +6,7 @@
         jQuery("#addVehicleForm").validate();
     });
 </script>
-<script src="{{ asset('assets/js/plugins/forms/editable/editable.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/editable/editable.min.js') }}"></script>
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">
@@ -38,13 +38,13 @@
                             <div class="form-group">
                                 <label class="col-lg-4 control-label">Income Stated :</label>
                                 <div class="col-lg-8 control-label">
-                                    <a href="javascript:;" id="statedIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->income ?? 0 }}</a>
+                                    <a href="javascript:void(0)" id="statedIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->income ?? 0 }}</a>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label class="col-lg-4 control-label">Income Proven :</label>
                                 <div class="col-lg-8 control-label">
-                                    <a href="javascript:;" id="provenIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->provenincome ?? 0 }}</a>
+                                    <a href="javascript:void(0)" id="provenIncome" data-title="Edit" data-pk="{{ $detail->user_id ?? '' }}" data-url="{{ config('app.url') }}admin/vehicle_reservations/provenincome">{{ $detail->provenincome ?? 0 }}</a>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -99,7 +99,7 @@
         </div>
     </div>
 </form>
-<script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
 <script type="text/javascript">
     $(document).ready(function() {
         $(".fancybox").fancybox();
@@ -110,8 +110,8 @@
         });
     });
 </script>
-<script src="{{ asset('Loan/js/loan.js') }}"></script>
-<script src="{{ asset('js/admin_plaid.js') }}"></script>
+<script src="{{ legacy_asset('Loan/js/loan.js') }}"></script>
+<script src="{{ legacy_asset('js/admin_plaid.js') }}"></script>
 <script type="text/javascript">
     var userid = "{{ $userid }}";
     var encodeduserid = "{{ base64_encode($userid) }}";

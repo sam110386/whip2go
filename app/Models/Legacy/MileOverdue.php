@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class MileOverdue extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'mile_overdues';
 
     protected $fillable = [

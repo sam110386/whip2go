@@ -6,8 +6,8 @@
         jQuery("#frmadmin").validate();
     });
 </script>
-<script src="{{ asset('js/select2.js') }}"></script>
-<link rel="stylesheet" href="{{ asset('css/select2.css') }}">
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
+<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 <script type="text/javascript">
     function format(item) {
         return item.tag;

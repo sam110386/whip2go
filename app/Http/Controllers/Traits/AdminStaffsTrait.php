@@ -178,7 +178,7 @@ trait AdminStaffsTrait
             $data['status'] = $payload['status'];
         }
 
-        $salt = 'DYhG93b0qyJfIxfs2guVoUubWwvniR2G0FgaC9mi';
+        $salt = config('legacy.security.salt', '');
         
         if ($isEditing) {
             $newPassword = (string)($payload['newpassword'] ?? '');

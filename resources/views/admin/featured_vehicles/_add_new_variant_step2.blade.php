@@ -1,8 +1,11 @@
 <div class="panel">
     <div class="panel-body">
-        <form action="{{ config('app.url') }}admin/featured_vehicles/addExistingStep3" method="POST" class="form-horizontal" id="FeaturedVehicleAddNewVariantStep2Form">
+        <form action="{{ url('admin/featured_vehicles/addExistingStep3') }}" method="POST" class="form-horizontal"
+            id="FeaturedVehicleAdminAddExistingStep2Form">
             @csrf
+
             <input type="hidden" name="attributes" value='{{ json_encode($attributes) }}' />
+
             @if(!empty($variations))
                 <div class="row">
                     <div class="col-md-12">
@@ -27,17 +30,27 @@
                                     <tr>
                                         <td>
                                             {{ $variation['stock_no'] }}
-                                            <input name="variations[{{ $variation['stock_no'] }}][id]" type="hidden" value="{{ $variation['id'] }}" />
+                                            <input name="variations[{{ $variation['stock_no'] }}][id]" type="hidden"
+                                                value="{{ $variation['id'] }}" />
                                         </td>
                                         <td>
                                             {{ $variation['vin_no'] }}
-                                            <input name="variations[{{ $variation['stock_no'] }}][vin_no]" type="hidden" value="{{ $variation['vin_no'] }}" />
+                                            <input name="variations[{{ $variation['stock_no'] }}][vin_no]" type="hidden"
+                                                value="{{ $variation['vin_no'] }}" />
                                         </td>
-                                        <td><input name="variations[{{ $variation['stock_no'] }}][dprice]" class="form-control required number" value="{{ $variation['msrp'] }}" /></td>
-                                        <td><input name="variations[{{ $variation['stock_no'] }}][lprice]" class="form-control required number" value="{{ $variation['premium_msrp'] }}" /></td>
+                                        <td>
+                                            <input name="variations[{{ $variation['stock_no'] }}][dprice]"
+                                                class="form-control required number" value="{{ $variation['msrp'] }}" />
+                                        </td>
+                                        <td>
+                                            <input name="variations[{{ $variation['stock_no'] }}][lprice]"
+                                                class="form-control required number" value="{{ $variation['premium_msrp'] }}" />
+                                        </td>
                                         @foreach($attributes as $key => $attribute)
                                             <td width="5%">
-                                                <input type="text" value='{{ $config[$key] ?? '' }}' name="variations[{{ $variation['stock_no'] }}][config][{{ $key }}]" class="form-control required" />
+                                                <input type="text" value='{{ $config[$key] ?? '' }}'
+                                                    name="variations[{{ $variation['stock_no'] }}][config][{{ $key }}]"
+                                                    class="form-control required" />
                                             </td>
                                         @endforeach
                                     </tr>
@@ -47,7 +60,10 @@
                         <div class="form-group pt-10">
                             <label class="col-lg-6 control-label">&nbsp;</label>
                             <div class="col-lg-2">
-                                <button type="button" class="btn left-margin btn-primary w-100" onClick="addExistingStep3()">Next</button>
+                                <button type="button" class="btn left-margin btn-primary w-100"
+                                    onClick="addExistingStep3()">
+                                    Next
+                                </button>
                             </div>
                         </div>
                     </div>

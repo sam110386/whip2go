@@ -28,7 +28,7 @@
             <td valign="top">{{ $record->txn_id }}</td>
             <td valign="top">
                 @if ($record->status == 0)
-                    <a href="javascript:;" onclick="paymentRetry('{{ base64_encode($record->id) }}')"><i class="icon-spinner9"></i> Retry</a>
+                    <a href="javascript:void(0)" onclick="paymentRetry('{{ base64_encode($record->id) }}')"><i class="icon-spinner9"></i> Retry</a>
                 @endif
             </td>
         </tr>

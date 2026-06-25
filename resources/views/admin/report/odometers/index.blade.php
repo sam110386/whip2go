@@ -121,18 +121,31 @@
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
 
             $(document).on('submit', '#frmSearchadmin', function (e) {
+                var submitter = e.originalEvent && e.originalEvent.submitter;
+                if (!submitter) {
+                    submitter = document.activeElement;
+                }
+
+                if (submitter) {
+                    var btn = $(submitter);
+                    var btnVal = btn.val();
+                    if (btnVal && btnVal.toUpperCase() === 'EXPORT') {
+                        return; // Let standard form submission download the CSV
+                    }
+                }
+
                 e.preventDefault();
                 var form = $(this);
                 var isClearFilter = false;
 
-                if (e.originalEvent && e.originalEvent.submitter) {
-                    var btn = $(e.originalEvent.submitter);
+                if (submitter) {
+                    var btn = $(submitter);
                     if (btn.attr('name') === 'ClearFilter') {
                         isClearFilter = true;
                     }
@@ -182,5 +195,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

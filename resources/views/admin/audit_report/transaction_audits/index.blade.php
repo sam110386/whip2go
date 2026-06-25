@@ -1,8 +1,15 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Transaction Audits')
+@section('title', $title ?? 'Manage Transaction Audits')
 
 @section('content')
+
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content"></div>
+        </div>
+    </div>
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -12,7 +19,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="{{ url('admin/audit_report/transaction_audits/add') }}" class="btn btn-success">
+                <a href="{{ url('admin/transaction_audits/add') }}" class="btn btn-success">
                     {{ 'Add New' }}
                 </a>
             </div>
@@ -24,33 +31,55 @@
     </div>
 
     <div class="panel">
-        <div class="panel-body" id="postsPaging">
-            <div id="listing">
-                @include('admin.audit_report.transaction_audits._transaction')
-            </div>
+        <div style="width:100%; overflow: visible;" id="postsPaging" class="panel-body">
+            @include('admin.audit_report.elements._transaction')
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
 
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
 @push('scripts')
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $(document).on('click', '.page-link, .sort-link', function (e) {
+                e.preventDefault();
+                var url = $(this).attr('href');
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
+                    loadListing(url);
+                }
+            });
+
+            $(document).on('change', '.ajax-limit', function (e) {
+                e.preventDefault();
+                var form = $(this).closest('form');
+                var url = window.location.pathname + '?' + form.serialize();
+                loadListing(url);
+            });
+
+            function loadListing(url, historyUrl) {
+                if (typeof historyUrl === 'undefined') {
+                    historyUrl = url;
+                }
+                $('#postsPaging').css('opacity', '0.5');
+
+                $.ajax({
+                    url: url,
+                    type: "GET",
+                    success: function (data) {
+                        $('#postsPaging').html(data);
+                        $('#postsPaging').css('opacity', '1');
+                        window.history.pushState(null, null, historyUrl);
+                    },
+                    error: function (xhr) {
+                        $('#postsPaging').css('opacity', '1');
+                        console.error('AJAX Load Error:', xhr);
+                    }
+                });
+            }
+
+            window.onpopstate = function () {
+                loadListing(window.location.href);
+            };
+        });
+    </script>
 @endpush

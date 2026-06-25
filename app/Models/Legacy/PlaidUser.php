@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class PlaidUser extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'plaid_users';
 
     protected $fillable = [
@@ -23,5 +26,19 @@ class PlaidUser extends LegacyModel
     protected $guarded = [
         'id',
     ];
+
+
+    public static function getUserFlags($userId)
+    {
+        $plaids = self::where('user_id', $userId)
+            ->whereNotNull('token')
+            ->where('token', '!=', '')
+            ->get();
+
+        $paystub = $plaids->contains('paystub', 1);
+        $paybank = $plaids->contains('paystub', 0);
+
+        return [$paystub, $paybank];
+    }
 
 }

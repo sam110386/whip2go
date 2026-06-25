@@ -1,8 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Insurance Connections')
+@section('title', $title ?? 'Axle Connected Insurance Report')
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/axle/axle.css') }}">
+@endpush
 
 @section('content')
+    <div id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+            </div>
+        </div>
+    </div>
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -20,44 +31,24 @@
 
     <div class="panel">
         <div class="panel-body">
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.axle._index')
+            <div style="width:100%; overflow: visible;" id="listing">
+                @include('admin.axle.elements._index')
             </div>
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('Axle/css/axle.css') }}">
-    <style type="text/css">
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
 @push('scripts')
-    <script src="{{ legacy_asset('Axle/js/axle.js') }}"></script>
+    <script src="{{ legacy_asset('js/axle/axle.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function () {
 
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -118,5 +109,4 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
 @endpush

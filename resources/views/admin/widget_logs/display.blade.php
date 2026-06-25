@@ -1,3 +1,9 @@
+@php
+    $records ??= [];
+    $filename ??= [];
+    $ipRecords ??= [];
+@endphp
+
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>

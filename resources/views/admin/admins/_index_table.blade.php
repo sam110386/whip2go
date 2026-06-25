@@ -1,6 +1,5 @@
 @php
     $users ??= [];
-    $limit ??= 50;
 @endphp
 
 <div class="table-responsive">
@@ -8,16 +7,16 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'id', 'title' => '#'],
-                    ['field' => 'username', 'title' => 'Username'],
-                    ['field' => 'first_name', 'title' => 'First Name'],
-                    ['field' => 'last_name', 'title' => 'Last Name'],
-                    ['field' => 'email', 'title' => 'Email'],
-                    ['field' => 'contact_number', 'title' => 'Contact#'],
-                    ['field' => 'created', 'title' => 'Created'],
-                    ['field' => 'status', 'title' => 'Status'],
-                    ['field' => 'role_id', 'title' => 'Role', 'sortable' => false],
-                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                    ['title' => '#', 'field' => 'id'],
+                    ['title' => 'Username', 'sortable' => false],
+                    ['title' => 'First Name', 'sortable' => false],
+                    ['title' => 'Last Name', 'sortable' => false],
+                    ['title' => 'Email', 'sortable' => false],
+                    ['title' => 'Contact#', 'sortable' => false],
+                    ['title' => 'Created', 'field' => 'created'],
+                    ['title' => 'Status', 'field' => 'status'],
+                    ['title' => 'Role', 'sortable' => false],
+                    ['title' => 'Actions', 'sortable' => false]
                 ]])
             </tr>
         </thead>
@@ -55,5 +54,3 @@
         </tbody>
     </table>
 </div>
-
-@include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit])

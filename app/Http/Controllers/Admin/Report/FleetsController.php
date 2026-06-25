@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers\Admin\Report;
 
-use App\Http\Controllers\Admin\Report\Concerns\UsesReportPageLimit;
 use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Session;
+use App\Models\Legacy\ReportCustomer;
 use Illuminate\Support\Facades\DB;
+
 
 class FleetsController extends LegacyAppController
 {
-    use UsesReportPageLimit;
-
     public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -18,52 +18,56 @@ class FleetsController extends LegacyAppController
         }
 
         $title = 'Vehicle Report';
-        $keyword = '';
-        $dealerid = '';
-        $vehicleid = '';
+        $sessionLimitKey = "report_customer_limit";
+        $keyword = $request->input('Search.keyword', $request->query('Search.keyword', ''));
+        $dealerid = $request->input('Search.dealerid', $request->query('Search.dealerid', ''));
+        $vehicleid = $request->input('Search.vehicleid', $request->query('Search.vehicleid', ''));
 
-        if ($request->filled('Search') || $request->query->count() > 0) {
-            $dealerid = $request->input('Search.dealerid', $request->query('dealerid', ''));
-            $vehicleid = $request->input('Search.vehicleid', $request->query('vehicleid', ''));
-            $keyword = $request->input('Search.keyword', $request->query('keyword', ''));
+        if ($request->filled('Record.limit')) {
+            $limit = (int) $request->input('Record.limit');
+            Session::put($sessionLimitKey, $limit);
+        } elseif ($request->filled('limit')) {
+            $limit = (int) $request->input('limit');
+            Session::put($sessionLimitKey, $limit);
+        } else {
+            $limit = Session::get($sessionLimitKey, 50);
         }
 
-        $limit = $this->getPageLimit($request, 'fleets_limit', 50);
+        $query = ReportCustomer::query()
+            ->select([
+                'report_customers.vehicle_id',
+                'vehicles.id as vehicles_id',
+                'vehicles.vehicle_name',
+                'vehicles.created',
+                'vehicles.user_id',
+                'vehicles.vehicleCostInclRecon',
+                DB::raw('SUM(report_customers.days) as days'),
+                DB::raw('SUM(report_customers.miles) as miles'),
+                DB::raw('SUM(report_customers.total_collected - report_customers.tax_collected) as total_collected'),
+                DB::raw('SUM(report_customers.write_down_allocation) as write_down_allocation'),
+                DB::raw('(SELECT SUM(amount) FROM cs_vehicle_expenses WHERE cs_vehicle_expenses.vehicle_id = report_customers.vehicle_id) as expenses')
+            ])
+            ->leftJoin('vehicles', 'vehicles.id', '=', 'report_customers.vehicle_id')
+            ->groupBy('report_customers.vehicle_id', 'vehicles.id', 'vehicles.vehicle_name', 'vehicles.created', 'vehicles.user_id', 'vehicles.vehicleCostInclRecon');
 
-        $query = DB::table('report_customers as rc')
-            ->leftJoin('vehicles as v', 'v.id', '=', 'rc.vehicle_id')
-            ->select(
-                'rc.vehicle_id',
-                'v.id as vehicle_table_id',
-                'v.vehicle_name',
-                'v.created as vehicle_created',
-                'v.user_id as vehicle_user_id',
-                'v.vehicleCostInclRecon',
-                DB::raw('SUM(rc.days) as days'),
-                DB::raw('SUM(rc.miles) as miles'),
-                DB::raw('SUM(rc.total_collected - rc.tax_collected) as total_collected'),
-                DB::raw('SUM(rc.write_down_allocation) as write_down_allocation'),
-                DB::raw('(select SUM(amount) from cs_vehicle_expenses as CVE where CVE.vehicle_id=rc.vehicle_id) as expenses')
-            )
-            ->groupBy('rc.vehicle_id', 'v.id', 'v.vehicle_name', 'v.created', 'v.user_id', 'v.vehicleCostInclRecon')
-            ->orderByDesc('rc.vehicle_id');
-
-        if ($keyword !== '') {
-            $query->where('rc.increment_id', 'like', '%'.$keyword.'%');
-        }
-        if ($dealerid !== '') {
-            $query->where('rc.user_id', $dealerid);
-        }
-        if ($vehicleid !== '') {
-            $query->where('rc.vehicle_id', $vehicleid);
+        if (!empty($keyword)) {
+            $query->where('report_customers.increment_id', 'LIKE', "%{$keyword}%");
         }
 
-        $lists = $query->paginate($limit)->withQueryString();
+        if (!empty($dealerid)) {
+            $query->where('report_customers.user_id', $dealerid);
+        }
+
+        if (!empty($vehicleid)) {
+            $query->where('report_customers.vehicle_id', $vehicleid);
+        }
+
+        $lists = $query->orderBy('report_customers.vehicle_id', 'DESC')->paginate($limit);
 
         if ($request->ajax()) {
-            return view('admin.report.elements.admin_fleet', compact('lists', 'keyword', 'dealerid', 'vehicleid', 'title'));
+            return view('admin.report.fleets.elements.fleet', compact('title', 'lists', 'keyword', 'dealerid', 'vehicleid', 'limit'));
         }
 
-        return view('admin.report.fleets.index', compact('title', 'lists', 'keyword', 'dealerid', 'vehicleid'));
+        return view('admin.report.fleets.index', compact('title', 'lists', 'keyword', 'dealerid', 'vehicleid', 'limit'));
     }
 }

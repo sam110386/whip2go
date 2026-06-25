@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class CsTwilioOrder extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'cs_twilio_orders';
 
     protected $fillable = [
@@ -26,5 +29,8 @@ class CsTwilioOrder extends LegacyModel
     protected $guarded = [
         'id',
     ];
-
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'cs_order_id');
+    }
 }

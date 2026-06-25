@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class CsUserBalance extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = null;
     protected $table = 'cs_user_balances';
 
     protected $fillable = [

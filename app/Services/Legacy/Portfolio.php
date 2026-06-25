@@ -18,6 +18,7 @@ class Portfolio
         if (!empty($dateFrom)) {
             $query->where('start_datetime', '>=', $dateFrom);
         }
+
         if (!empty($dateTo)) {
             $query->where('end_datetime', '<=', $dateTo);
         }
@@ -28,22 +29,26 @@ class Portfolio
             SUM(extra_mileage_fee) as extra_mileage_fee,
             SUM(lateness_fee) as lateness_fee
         ")
-        ->groupBy('vehicle_id')
-        ->first();
+            ->groupBy('vehicle_id')
+            ->first();
 
         if ($row) {
             return [
-                'totalrent'         => $row->totalrent ?? 0.00,
-                'totaldays'         => $row->totaldays ?? 0.00,
+                'totalrent' => $row->totalrent ?? 0.00,
+                'totaldays' => $row->totaldays ?? 0.00,
                 'extra_mileage_fee' => $row->extra_mileage_fee ?? 0.00,
-                'lateness_fee'      => $row->lateness_fee ?? 0.00,
+                'lateness_fee' => $row->lateness_fee ?? 0.00,
             ];
         }
 
         return [
-            'totalrent' => 0.00, 'totaldays' => 0.00,
-            'deposit' => 0.00, 'initial_fee' => 0.00,
-            'extra_mileage_fee' => 0.00, 'lateness_fee' => 0.00, 'toll' => 0.00,
+            'totalrent' => 0.00,
+            'totaldays' => 0.00,
+            'deposit' => 0.00,
+            'initial_fee' => 0.00,
+            'extra_mileage_fee' => 0.00,
+            'lateness_fee' => 0.00,
+            'toll' => 0.00,
         ];
     }
 
@@ -52,8 +57,8 @@ class Portfolio
         $query = DB::table('cs_orders')
             ->leftJoin('cs_order_payments', function ($join) {
                 $join->on('cs_order_payments.cs_order_id', '=', 'cs_orders.id')
-                     ->where('cs_order_payments.type', 4)
-                     ->whereColumn('cs_order_payments.payer_id', 'cs_orders.user_id');
+                    ->where('cs_order_payments.type', 4)
+                    ->whereColumn('cs_order_payments.payer_id', 'cs_orders.user_id');
             })
             ->where('cs_orders.vehicle_id', $vehicleId);
 
@@ -90,7 +95,7 @@ class Portfolio
             ->get();
 
         foreach ($rows as $row) {
-            match ((int)$row->type) {
+            match ((int) $row->type) {
                 1 => $return['depreciation'] = $row->total,
                 2 => $return['mechdamage'] = $row->total,
                 3 => $return['bodydamage'] = $row->total,

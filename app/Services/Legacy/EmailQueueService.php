@@ -3,12 +3,14 @@
 namespace App\Services\Legacy;
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use App\Services\Legacy\Common;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\CsOrderPayment;
+use App\Models\Legacy\EmailQueue;
 
 /**
  * Migrated from: app/Plugin/EmailQueue/Lib/EmailQueuelib.php
- *
  * Handles email queue processing and payment receipt generation.
  */
 class EmailQueueService
@@ -20,61 +22,53 @@ class EmailQueueService
         $this->paymentTypes = (new Common())->getPayoutTypeValue(true);
     }
 
-    public function saveEmailToQueue(int $paymentId, float $amount, string $msg, int $orderId, string $source = 'card'): void
+    public function saveEmailToQueue($paymentId, $amount, $msg, $orderId, $source = 'card'): void
     {
-        DB::table('email_queues')->insert([
-            'order_id'   => $orderId,
-            'amount'     => $amount,
+        EmailQueue::create([
+            'order_id' => $orderId,
+            'amount' => $amount,
             'payment_id' => $paymentId,
-            'text'       => $msg,
-            'source'     => $source,
+            'text' => $msg,
+            'source' => $source,
         ]);
     }
 
     public function processEmailQueue(): void
     {
-        $queues = DB::table('email_queues')
-            ->where('status', 0)
+        $queues = EmailQueue::where('status', 0)
             ->orderBy('id')
             ->limit(5)
             ->get();
 
         foreach ($queues as $queue) {
-            DB::table('email_queues')->where('id', $queue->id)->update(['status' => 1]);
+            $queue->update(['status' => 1]);
 
             if (!empty($queue->payment_id)) {
-                $orderData = DB::table('cs_order_payments as CsOrderPayment')
-                    ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'CsOrderPayment.cs_order_id')
-                    ->where('CsOrderPayment.id', $queue->payment_id)
-                    ->select(
-                        'CsOrderPayment.*',
-                        'CsOrder.increment_id', 'CsOrder.renter_id',
-                        'CsOrder.start_datetime', 'CsOrder.end_datetime',
-                        'CsOrder.timezone', 'CsOrder.vehicle_name'
-                    )
+                $orderData = CsOrderPayment::with([
+                    'csOrder:id,increment_id,renter_id,start_datetime,end_datetime,timezone,vehicle_name',
+                    'csOrder.renter:id,first_name,last_name,email,address,city,state,zip'
+                ])
+                    ->where('id', $queue->payment_id)
                     ->first();
 
-                $renter = DB::table('users')
-                    ->where('id', $orderData->renter_id)
-                    ->select('first_name', 'last_name', 'email', 'address', 'city', 'state', 'zip')
-                    ->first();
-
+                $renter = $orderData->csOrder->renter;
+                $orderData = $orderData->csOrder;
                 $resp = $this->generateReceipt($orderData, $renter, $queue->source, $queue->text);
             } else {
-                $orderData = DB::table('cs_orders as CsOrder')
-                    ->where('CsOrder.id', $queue->order_id)
-                    ->select(
-                        'CsOrder.increment_id', 'CsOrder.renter_id',
-                        'CsOrder.start_datetime', 'CsOrder.end_datetime',
-                        'CsOrder.timezone', 'CsOrder.vehicle_name', 'CsOrder.currency'
-                    )
+                $orderData = CsOrder::select([
+                    'id',
+                    'increment_id',
+                    'renter_id',
+                    'start_datetime',
+                    'end_datetime',
+                    'timezone',
+                    'vehicle_name',
+                    'currency'
+                ])
+                    ->with('renter:id,first_name,last_name,email,address,city,state,zip')
+                    ->where('id', $queue->order_id)
                     ->first();
-
-                $renter = DB::table('users')
-                    ->where('id', $orderData->renter_id)
-                    ->select('first_name', 'last_name', 'email', 'address', 'city', 'state', 'zip')
-                    ->first();
-
+                $renter = $orderData->renter;
                 $resp = $this->generateReceiptForAdvancePayment($orderData, $renter, $queue);
             }
 
@@ -101,22 +95,22 @@ class EmailQueueService
 
         $tz = $orderData->timezone ?? 'UTC';
         $data = [
-            'logo'            => '<img src="' . config('app.url') . '/img/DriveitawayBluelogo.png" alt="logo" width="150"/>',
-            'date'            => date('F j, Y'),
-            'RENTERNAME'      => $renter->first_name . ' ' . $renter->last_name,
-            'RENTERSTREET1'   => $renter->address,
-            'RENTERSTREET2'   => $renter->city . ' ' . $renter->state . ' ' . $renter->zip,
-            'RENTEREMAIL'     => $renter->email,
+            'logo' => '<img src="' . legacy_asset('/img/DriveitawayBluelogo.png') . '" alt="logo" width="150"/>',
+            'date' => date('F j, Y'),
+            'RENTERNAME' => $renter->first_name . ' ' . $renter->last_name,
+            'RENTERSTREET1' => $renter->address,
+            'RENTERSTREET2' => $renter->city . ' ' . $renter->state . ' ' . $renter->zip,
+            'RENTEREMAIL' => $renter->email,
             'TRANSACTIONDATE' => date('F j, Y'),
-            'currency'        => $orderData->currency,
-            'amount'          => $queue->amount,
-            'VEHICLE'         => $orderData->vehicle_name,
-            'BOOKINGID'       => $orderData->increment_id,
-            'STARTDATETIME'   => Carbon::parse($orderData->start_datetime)->timezone($tz)->format('m/d/Y h:i A'),
-            'ENDDATETIME'     => Carbon::parse($orderData->end_datetime)->timezone($tz)->format('m/d/Y h:i A'),
-            'TRANSACTIONID'   => '',
-            'SOURCE'          => $queue->source === 'card' ? 'Stripe' : 'Wallet',
-            'NOTE'            => $queue->text . $orderData->increment_id,
+            'currency' => $orderData->currency,
+            'amount' => $queue->amount,
+            'VEHICLE' => $orderData->vehicle_name,
+            'BOOKINGID' => $orderData->increment_id,
+            'STARTDATETIME' => Carbon::parse($orderData->start_datetime)->timezone($tz)->format('m/d/Y h:i A'),
+            'ENDDATETIME' => Carbon::parse($orderData->end_datetime)->timezone($tz)->format('m/d/Y h:i A'),
+            'TRANSACTIONID' => '',
+            'SOURCE' => $queue->source === 'card' ? 'Stripe' : 'Wallet',
+            'NOTE' => $queue->text . $orderData->increment_id,
         ];
 
         $summaryTable = '<table class="totalsummery" width="100%">
@@ -153,22 +147,22 @@ class EmailQueueService
 
         $tz = $orderData->timezone ?? 'UTC';
         $data = [
-            'logo'            => '<img src="' . config('app.url') . '/img/DriveitawayBluelogo.png" alt="logo" width="150"/>',
-            'date'            => date('F j, Y'),
-            'RENTERNAME'      => $renter->first_name . ' ' . $renter->last_name,
-            'RENTERSTREET1'   => $renter->address,
-            'RENTERSTREET2'   => $renter->city . ' ' . $renter->state . ' ' . $renter->zip,
-            'RENTEREMAIL'     => $renter->email,
+            'logo' => '<img src="' . legacy_asset('/img/DriveitawayBluelogo.png') . '" alt="logo" width="150"/>',
+            'date' => date('F j, Y'),
+            'RENTERNAME' => $renter->first_name . ' ' . $renter->last_name,
+            'RENTERSTREET1' => $renter->address,
+            'RENTERSTREET2' => $renter->city . ' ' . $renter->state . ' ' . $renter->zip,
+            'RENTEREMAIL' => $renter->email,
             'TRANSACTIONDATE' => date('F j, Y', strtotime($orderData->charged_at)),
-            'currency'        => $orderData->currency,
-            'amount'          => $orderData->amount,
-            'VEHICLE'         => $orderData->vehicle_name,
-            'BOOKINGID'       => $orderData->increment_id,
-            'STARTDATETIME'   => Carbon::parse($orderData->start_datetime)->timezone($tz)->format('m/d/Y h:i A'),
-            'ENDDATETIME'     => Carbon::parse($orderData->end_datetime)->timezone($tz)->format('m/d/Y h:i A'),
-            'TRANSACTIONID'   => $orderData->transaction_id,
-            'SOURCE'          => $source === 'card' ? 'Stripe' : 'Wallet',
-            'NOTE'            => $msg . $orderData->increment_id,
+            'currency' => $orderData->currency,
+            'amount' => $orderData->amount,
+            'VEHICLE' => $orderData->vehicle_name,
+            'BOOKINGID' => $orderData->increment_id,
+            'STARTDATETIME' => Carbon::parse($orderData->start_datetime)->timezone($tz)->format('m/d/Y h:i A'),
+            'ENDDATETIME' => Carbon::parse($orderData->end_datetime)->timezone($tz)->format('m/d/Y h:i A'),
+            'TRANSACTIONID' => $orderData->transaction_id,
+            'SOURCE' => $source === 'card' ? 'Stripe' : 'Wallet',
+            'NOTE' => $msg . $orderData->increment_id,
         ];
 
         $summaryTable = '<table class="totalsummery" width="100%">

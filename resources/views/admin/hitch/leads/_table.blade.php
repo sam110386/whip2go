@@ -42,7 +42,7 @@
                         @if ($lead->status != 3)
                             &nbsp;<a href="/admin/hitch/leads/add/{{ base64_encode($lead->id) }}"><i class="glyphicon glyphicon-edit"></i></a>
                             &nbsp;<a href="/admin/hitch/leads/delete/{{ base64_encode($lead->id) }}"><i class="glyphicon glyphicon-trash"></i></a>
-                            &nbsp;<a href="javascript:;" onclick="refreshLead('{{ $lead->id }}')"><i class="icon-spinner9"></i></a>
+                            &nbsp;<a href="javascript:void(0)" onclick="refreshLead('{{ $lead->id }}')"><i class="icon-spinner9"></i></a>
                         @endif
                     </td>
                 </tr>

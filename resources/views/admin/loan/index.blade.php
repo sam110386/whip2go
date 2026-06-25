@@ -38,5 +38,5 @@
         @include('admin.loan._admin_index')
     </div>
 </div>
-<script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
 @endsection

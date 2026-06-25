@@ -56,7 +56,7 @@ class LeadsController extends AdminLeadsController
         $adminUser = $this->getAdminUserid();
 
         if ($adminUser['administrator']) {
-            return redirect('/cloud/lead/leads/index')
+            return redirect('/cloud/leads/index')
                 ->with('error', 'Sorry, you are not authorized user for this action');
         }
 
@@ -75,7 +75,7 @@ class LeadsController extends AdminLeadsController
                 ->first();
 
             if (empty($data)) {
-                return redirect('/cloud/lead/leads/index')
+                return redirect('/cloud/leads/index')
                     ->with('error', 'Sorry, you are not authorized user for this action');
             }
             $data = (array) $data;
@@ -93,7 +93,7 @@ class LeadsController extends AdminLeadsController
         $decodedId = $this->decodeId($id);
         \DB::table('cs_leads')->where('id', $decodedId)->delete();
 
-        return redirect('/cloud/lead/leads/index')
+        return redirect('/cloud/leads/index')
             ->with('success', 'Record has been deleted, succesfully');
     }
 

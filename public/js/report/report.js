@@ -9,15 +9,15 @@ function showUIBlocker(ele) {
         overlayCSS: {
             backgroundColor: '#fff', opacity: 0.8, cursor: 'wait'
         },
-        css: {border: 0, padding: 0, backgroundColor: 'transparent'}
+        css: { border: 0, padding: 0, backgroundColor: 'transparent' }
     });
 }
-    
+
 function customerReportRefresh(rowid) {
     var ele = $("#postsPaging table tbody tr#" + rowid);
     showUIBlocker(ele);
-    
-    $.post(SITE_URL + "report/customers/refresh", {'rowid': rowid}, function (resp) {
+
+    $.post(SITE_URL + "report/customers/refresh", { 'rowid': rowid }, function (resp) {
         if (resp.status) {
             ele.html(resp.result);
 
@@ -33,8 +33,8 @@ function customerReportRefresh(rowid) {
 function AdmincustomerReportRefresh(rowid) {
     var ele = $("#postsPaging table tbody tr#" + rowid);
     showUIBlocker(ele);
-    
-    $.post(SITE_URL + "admin/report/customers/refresh", {'rowid': rowid}, function (resp) {
+
+    $.post(SITE_URL + "admin/report/customers/refresh", { 'rowid': rowid }, function (resp) {
         if (resp.status) {
             ele.html(resp.result);
 
@@ -46,13 +46,13 @@ function AdmincustomerReportRefresh(rowid) {
     });
 }
 
-function ShowPastDueLogs(order,all=false){
-    if(!order) return;
+function ShowPastDueLogs(order, all = false) {
+    if (!order) return;
     jQuery.blockUI({
-        message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> loading...</h1>', 
-        css:{'z-index':'9999'}
+        message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
+        css: { 'z-index': '9999' }
     });
-    $.post(SITE_URL+"admin/report/pastdues/logs", {'order':order,all:all},function (data) {
+    $.post(SITE_URL + "admin/report/pastdues/logs", { 'order': order, all: all }, function (data) {
         jQuery.unblockUI();
         $("#myModal .modal-content").html(data);
         $("#myModal").modal('show');
@@ -63,8 +63,8 @@ function ShowPastDueLogs(order,all=false){
 function CloudcustomerReportRefresh(rowid) {
     var ele = $("#postsPaging table tbody tr#" + rowid);
     showUIBlocker(ele);
-    
-    $.post(SITE_URL + "cloud/report/customers/refresh", {'rowid': rowid}, function (resp) {
+
+    $.post(SITE_URL + "cloud/report/customers/refresh", { 'rowid': rowid }, function (resp) {
         if (resp.status) {
             ele.html(resp.result);
 
@@ -76,17 +76,16 @@ function CloudcustomerReportRefresh(rowid) {
     });
 }
 
-function CloudShowPastDueLogs(order){
-    if(!order) return;
-    
+function CloudShowPastDueLogs(order) {
+    if (!order) return;
+
     jQuery.blockUI({
-        message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> loading...</h1>', 
-        css:{'z-index':'9999'}
+        message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> loading...</h1>',
+        css: { 'z-index': '9999' }
     });
-    $.post(SITE_URL+"cloud/report/pastdues/logs", {'order':order},function (data) {
+    $.post(SITE_URL + "cloud/report/pastdues/logs", { 'order': order }, function (data) {
         jQuery.unblockUI();
         $("#myModal .modal-content").html(data);
         $("#myModal").modal('show');
     });
 }
-   

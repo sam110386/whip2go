@@ -7,7 +7,7 @@
         <div class="page-header-content">
             <div class="page-title">
                 <h4>
-                    <i class="icon-arrow-left52 position-left"></i> 
+                    <i class="icon-arrow-left52 position-left"></i>
                     <span class="text-semibold">MVR</span> - Reports
                 </h4>
             </div>
@@ -30,7 +30,8 @@
                         <div class="col-md-3">
                             Search in :
                             <select name="searchin" class="form-control">
-                                <option value="first_name" @selected($searchin === '' || $searchin === 'first_name')>First Name</option>
+                                <option value="first_name" @selected($searchin === '' || $searchin === 'first_name')>First Name
+                                </option>
                                 <option value="last_name" @selected($searchin === 'last_name')>Last Name</option>
                                 <option value="contact_number" @selected($searchin === 'contact_number')>Phone#</option>
                             </select>
@@ -54,9 +55,18 @@
                     'limit' => $limit,
                     'basePath' => $basePath,
                 ])
+                </div>
+            </div>
+        </div>
+
+        <d iv id="myModal" class="modal fade" role="dialog">
+        <div class="modal-dialog">
+            <!-- Modal content-->
+            <div class="modal-content">
             </div>
         </div>
     </div>
+
 @endsection
 
 @push('scripts')

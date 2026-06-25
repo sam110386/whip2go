@@ -4,6 +4,9 @@ namespace App\Models\Legacy;
 
 class Page extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'pages';
 
     protected $fillable = [

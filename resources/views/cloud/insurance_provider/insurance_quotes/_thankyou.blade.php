@@ -18,7 +18,7 @@
     <div class="panel-body">
         <div class="row">
             <div class="col-lg-12">
-                <img src="{{ asset('img/insurance_providers/lincoln-insurance-logo-blue.webp') }}" class="img-responsive mb-3">
+                <img src="{{ legacy_asset('img/insurance_providers/lincoln-insurance-logo-blue.webp') }}" class="img-responsive mb-3">
             </div>
         </div>
         <div class="form-group"></div>

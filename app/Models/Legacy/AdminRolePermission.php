@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AdminRolePermission extends LegacyModel
 {
+     
     protected $table = 'admin_role_permissions';
 
     protected $fillable = [

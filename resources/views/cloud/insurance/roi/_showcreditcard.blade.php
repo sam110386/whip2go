@@ -45,29 +45,29 @@
                     <div class="form-group">
                         <div class="col-lg-12">
                             <label>Card Number</label>
-                            <a href="javascript:;" onclick="copyToClipboard('{{ $cardObj['card_number'] }}')" class="control-label text-bold">{{ $cardObj['card_number'] }} <i class="icon-copy4"></i></a>
+                            <a href="javascript:void(0)" onclick="copyToClipboard('{{ $cardObj['card_number'] }}')" class="control-label text-bold">{{ $cardObj['card_number'] }} <i class="icon-copy4"></i></a>
                         </div>
                     </div>
                     <div class="form-group">
                         <div class="col-xs-6">
                             <label>Exp Date</label>
-                            <a href="javascript:;" onclick="copyToClipboard('{{ $cardObj['exp_date'] }}')" class="control-label text-bold">{{ $cardObj['exp_date'] }} <i class="icon-copy4"></i></a>
+                            <a href="javascript:void(0)" onclick="copyToClipboard('{{ $cardObj['exp_date'] }}')" class="control-label text-bold">{{ $cardObj['exp_date'] }} <i class="icon-copy4"></i></a>
                         </div>
                         <div class="col-xs-6">
                             <label>CVV</label>
-                            <a href="javascript:;" onclick="copyToClipboard('{{ $cardObj['cvv'] }}')" class="control-label text-bold">{{ $cardObj['cvv'] }} <i class="icon-copy4"></i></a>
+                            <a href="javascript:void(0)" onclick="copyToClipboard('{{ $cardObj['cvv'] }}')" class="control-label text-bold">{{ $cardObj['cvv'] }} <i class="icon-copy4"></i></a>
                         </div>
                     </div>
                     <div class="form-group">
                         <div class="col-lg-12">
                             <label>Card Holder</label>
-                            <a href="javascript:;" onclick="copyToClipboard('{{ $cardObj['card_holder'] }}')" class="control-label text-bold">{{ $cardObj['card_holder'] }} <i class="icon-copy4"></i></a>
+                            <a href="javascript:void(0)" onclick="copyToClipboard('{{ $cardObj['card_holder'] }}')" class="control-label text-bold">{{ $cardObj['card_holder'] }} <i class="icon-copy4"></i></a>
                         </div>
                     </div>
                     <div class="form-group">
                         <div class="col-lg-12">
                             <label>Postal Code</label>
-                            <a href="javascript:;" onclick="copyToClipboard('{{ $cardObj['postal_code'] }}')" class="control-label text-bold">{{ $cardObj['postal_code'] }} <i class="icon-copy4"></i></a>
+                            <a href="javascript:void(0)" onclick="copyToClipboard('{{ $cardObj['postal_code'] }}')" class="control-label text-bold">{{ $cardObj['postal_code'] }} <i class="icon-copy4"></i></a>
                         </div>
                     </div>
                     <div class="col-lg-6 col-sm-12 text-center">

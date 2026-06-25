@@ -29,7 +29,7 @@
 <div class="panel">
     <div class="panel-body">
         <div class="row">
-            <form action="{{ url('/admin/lead/leads/add') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
+            <form action="{{ url('/admin/leads/add') }}" method="POST" name="frmadmin" id="frmadmin" class="form-horizontal">
                 @csrf
                 <div class="col-lg-6">
                     <div class="form-group">
@@ -99,7 +99,7 @@
                             @else
                                 <button type="submit" class="btn">Update</button>
                             @endif
-                            <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/lead/leads/index')">Return</button>
+                            <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/leads/index')">Return</button>
                         </div>
                     </div>
                 </div>

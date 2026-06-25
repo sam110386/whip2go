@@ -1,8 +1,8 @@
 @extends('admin.layouts.app')
 @section('title', 'Credit To Driver')
 @section('content')
-<script src="{{ asset('js/select2.js') }}"></script>
-<link rel="stylesheet" href="{{ asset('css/select2.css') }}">
+<script src="{{ legacy_asset('js/select2.js') }}"></script>
+<link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
 <div class="page-header">
     <div class="page-header-content">
         <div class="page-title">

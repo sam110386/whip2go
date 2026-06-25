@@ -5,12 +5,12 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'id', 'title' => '#', 'style' => 'width: 5%;', 'sortable' => false],
-                        ['field' => 'first_name', 'title' => 'First Name', 'sortable' => false],
-                        ['field' => 'last_name', 'title' => 'Last Name', 'sortable' => false],
-                        ['field' => 'email', 'title' => 'Email', 'sortable' => false],
-                        ['field' => 'contact_number', 'title' => 'Contact#', 'sortable' => false],
-                        ['field' => 'actions', 'title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
+                        ['title' => '#', 'style' => 'width: 5%;', 'sortable' => false],
+                        ['title' => 'First Name', 'sortable' => false],
+                        ['title' => 'Last Name', 'sortable' => false],
+                        ['title' => 'Email', 'sortable' => false],
+                        ['title' => 'Contact#', 'sortable' => false],
+                        ['title' => 'Actions', 'sortable' => false, 'style' => 'width: 15%;']
                     ]])
                 </tr>
             </thead>
@@ -27,12 +27,12 @@
                                 <a href="{{ $basePath }}/checkr_status/{{ base64_encode((string) $row->id) }}" title="Request for Report"><i class="glyphicon glyphicon-hand-up"></i></a>
                             @endif
                             @if(!empty($row->checkr_reportid))
-                                <a href="javascript:;" title="Individual Report" onclick="getReport('{{ $row->checkr_reportid }}')"><i class="glyphicon glyphicon-list-alt"></i></a>
+                                <a href="javascript:void(0)" title="Individual Report" onclick="getReport('{{ $row->checkr_reportid }}')"><i class="glyphicon glyphicon-list-alt"></i></a>
                             @endif
                             @if(!empty($row->motor_vehicle_report_id))
-                                &nbsp;<a href="javascript:;" title="Vehicle Report" onclick="getVehicleReport('{{ $row->motor_vehicle_report_id }}')"><i class="icon icon-car"></i></a>
+                                &nbsp;<a href="javascript:void(0)" title="Vehicle Report" onclick="getVehicleReport('{{ $row->motor_vehicle_report_id }}')"><i class="icon icon-car"></i></a>
                             @endif
-                            &nbsp;<a href="javascript:;" title="Active Booking" onclick="getActiveBooking('{{ base64_encode((string) $row->id) }}')"><i class="icon icon-stack3"></i></a>
+                            &nbsp;<a href="javascript:void(0)" title="Active Booking" onclick="getActiveBooking('{{ base64_encode((string) $row->id) }}')"><i class="icon icon-stack3"></i></a>
                             @if(!empty($row->checkr_reportid))
                                 &nbsp;<a href="{{ $basePath }}/requestagain/{{ base64_encode((string) $row->id) }}" title="Request Report Again"><i class="icon icon-spinner11"></i></a>
                             @endif

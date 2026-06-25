@@ -6,13 +6,13 @@
         <thead>
             <tr>
                 @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['field' => 'increment_id', 'title' => '#', 'style' => 'text-align:center;'],
-                    ['field' => 'start_datetime', 'title' => 'Start', 'style' => 'text-align:center;'],
-                    ['field' => 'end_datetime', 'title' => 'End', 'style' => 'text-align:center;'],
-                    ['field' => 'amount', 'title' => 'Amount', 'style' => 'text-align:center;'],
-                    ['field' => 'type', 'title' => 'Type', 'style' => 'text-align:center;'],
-                    ['field' => 'transaction_id', 'title' => 'Transaction #', 'style' => 'text-align:center;'],
-                    ['field' => 'created', 'title' => 'Created (UTC)', 'style' => 'text-align:center;'],
+                    ['title' => '#', 'field' => 'increment_id', 'style' => 'text-align:center;'],
+                    ['title' => 'Start', 'field' => 'start_datetime', 'style' => 'text-align:center;'],
+                    ['title' => 'End', 'field' => 'end_datetime', 'style' => 'text-align:center;'],
+                    ['title' => 'Amount', 'field' => 'amount', 'style' => 'text-align:center;'],
+                    ['title' => 'Type', 'field' => 'type', 'style' => 'text-align:center;'],
+                    ['title' => 'Transaction #', 'field' => 'transaction_id', 'style' => 'text-align:center;'],
+                    ['title' => 'Created (UTC)', 'field' => 'created', 'style' => 'text-align:center;'],
                 ]])
             </tr>
         </thead>

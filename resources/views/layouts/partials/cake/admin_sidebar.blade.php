@@ -21,17 +21,17 @@
             </li>
             @foreach($adminModules as $module)
                 @php
-                    $mid = (int)($module['id'] ?? 0);
+                    $mid = (int) ($module['id'] ?? 0);
                     $linkName = $module['module'] ?? '';
                     $htmlId = $module['html_id'] ?? '';
-                    $moduleUrl = trim((string)($module['module_url'] ?? ''), " \t\n\r\0\x0B");
+                    $moduleUrl = trim((string) ($module['module_url'] ?? ''), " \t\n\r\0\x0B");
                     $icon = $module['icon'] ?? '';
                     $resolved = $moduleUrl !== '' ? legacy_admin_menu_href($moduleUrl) : 'javascript:void(0)';
                     $subs = $adminSubModules[$mid] ?? [];
                     $selfActive = $moduleUrl !== '' && $hrefPath($resolved) === $currentPath;
                     $childActive = false;
                     foreach ($subs as $sub) {
-                        $su = trim((string)($sub['module_url'] ?? ''), " \t\n\r\0\x0B");
+                        $su = trim((string) ($sub['module_url'] ?? ''), " \t\n\r\0\x0B");
                         if ($su !== '' && $hrefPath(legacy_admin_menu_href($su)) === $currentPath) {
                             $childActive = true;
                             break;
@@ -50,12 +50,13 @@
                         <ul class="hidden-ul" {!! $ulStyle !!}>
                             @foreach($subs as $subModule)
                                 @php
-                                    $subUrl = trim((string)($subModule['module_url'] ?? ''), " \t\n\r\0\x0B");
+                                    $subUrl = trim((string) ($subModule['module_url'] ?? ''), " \t\n\r\0\x0B");
                                     $subResolved = $subUrl !== '' ? legacy_admin_menu_href($subUrl) : 'javascript:void(0)';
                                     $subClass = $subUrl !== '' && $hrefPath($subResolved) === $currentPath ? 'active btn-danger' : '';
                                 @endphp
                                 <li class="{{ $subClass }}">
-                                    <a href="{{ $subResolved }}"><i class="{{ $subModule['icon'] ?? '' }}"></i><span>{{ $subModule['module'] ?? '' }}</span></a>
+                                    <a href="{{ $subResolved }}"><i
+                                            class="{{ $subModule['icon'] ?? '' }}"></i><span>{{ $subModule['module'] ?? '' }}</span></a>
                                 </li>
                             @endforeach
                         </ul>

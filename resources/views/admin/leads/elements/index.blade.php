@@ -7,14 +7,14 @@
             <thead>
                 <tr>
                     @include('partials.dispacher.sortable_header', ['columns' => [
-                        ['field' => 'id', 'title' => '#', 'style' => 'width:5px;'],
-                        ['field' => 'status', 'title' => 'Status', 'style' => 'width:10px;'],
-                        ['field' => 'phone', 'title' => 'Phone', 'style' => 'width:5px;'],
-                        ['field' => 'type', 'title' => 'Lead Type', 'style' => 'width:5px;'],
-                        ['field' => 'first_name', 'title' => 'Name', 'style' => 'width:5px;'],
-                        ['field' => 'created', 'title' => 'Created', 'style' => 'width:5px;'],
-                        ['field' => 'owner_first_name', 'title' => 'By', 'style' => 'width:5px;'],
-                        ['field' => 'actions', 'title' => 'Action', 'sortable' => false, 'style' => 'width:10px;']
+                        ['title' => '#', 'field' => 'id', 'style' => 'width:5px;'],
+                        ['title' => 'Status', 'field' => 'status', 'style' => 'width:10px;'],
+                        ['title' => 'Phone', 'field' => 'phone', 'style' => 'width:5px;'],
+                        ['title' => 'Lead Type', 'field' => 'type', 'style' => 'width:5px;'],
+                        ['title' => 'Name', 'field' => 'first_name', 'style' => 'width:5px;'],
+                        ['title' => 'Created', 'field' => 'created', 'style' => 'width:5px;'],
+                        ['title' => 'By', 'field' => 'owner_first_name', 'style' => 'width:5px;'],
+                        ['title' => 'Action', 'sortable' => false, 'style' => 'width:10px;']
                     ]])
                 </tr>
             </thead>
@@ -35,10 +35,10 @@
                         <td>{{ $lead->owner_first_name }} {{ $lead->owner_last_name }}</td>
                         <td>
                             @if($lead->status != 1)
-                                &nbsp;<a href="{{ url('/admin/lead/leads/add/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
-                                &nbsp;<a href="{{ url('/admin/lead/leads/delete/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-trash"></i></a>
+                                &nbsp;<a href="{{ url('/admin/leads/add/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-edit"></i></a>
+                                &nbsp;<a href="{{ url('/admin/leads/delete/' . base64_encode($lead->id)) }}"><i class="glyphicon glyphicon-trash"></i></a>
                             @endif
-                            &nbsp;<a href="javascript:;" onclick="refreshLead('{{ base64_encode($lead->id) }}')"><i class="icon-spinner9"></i></a>
+                            &nbsp;<a href="javascript:void(0)" onclick="refreshLead('{{ base64_encode($lead->id) }}')"><i class="icon-spinner9"></i></a>
                         </td>
                     </tr>
                 @endforeach

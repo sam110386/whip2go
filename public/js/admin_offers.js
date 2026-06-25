@@ -17,7 +17,7 @@ function rent_opt(v) {
                 '</div>' +
                 '<div class="col-lg-1">Amount</div>' +
                 '<div class="col-lg-2"><input name="data[VehicleOffer][rent_opt][' + elem + '][amount]" class="form-control" placeholder="amount" value="0" type="text"></div>' +
-                '<div class="col-lg-1"><a href="javascript:;" onclick="rent_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                '<div class="col-lg-1"><a href="javascript:void(0)" onclick="rent_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
         $("#rent_opt").append(element);
         $(".date").datepicker({format: dateFormat,startDate:$("#VehicleOfferTempdatetime").val()});
     } else {
@@ -43,7 +43,7 @@ function deposit_opt(v) {
                 '</div>' +
                 '<div class="col-lg-1">Amount</div>' +
                 '<div class="col-lg-2"><input name="data[VehicleOffer][deposit_opt][' + elem + '][amount]" class="form-control" placeholder="amount" value="0" type="text"></div>' +
-                '<div class="col-lg-1"><a href="javascript:;" onclick="deposit_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                '<div class="col-lg-1"><a href="javascript:void(0)" onclick="deposit_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
         $("#deposit_opt").append(element);
         $(".date").datepicker({format: dateFormat,startDate:$("#VehicleOfferTempdatetime").val()});
     } else {
@@ -69,7 +69,7 @@ function initialfee_opt(v) {
                 '</div>' +
                 '<div class="col-lg-1">Amount</div>' +
                 '<div class="col-lg-2"><input name="data[VehicleOffer][initial_fee_opt][' + elem + '][amount]" class="form-control" placeholder="amount" value="0" type="text"></div>' +
-                '<div class="col-lg-1"><a href="javascript:;" onclick="initialfee_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                '<div class="col-lg-1"><a href="javascript:void(0)" onclick="initialfee_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
         $("#initialfee_opt").append(element);
         $(".date").datepicker({format: dateFormat,startDate:$("#VehicleOfferTempdatetime").val()});
     } else {
@@ -97,7 +97,7 @@ function duration_opt(v) {
                 '<option value="4">4 days</option><option value="5">5 days</option><option value="6">6 days</option>'+
                 '<option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option>'+
                 '</select></div>' +
-                '<div class="col-lg-1"><a href="javascript:;" onclick="duration_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
+                '<div class="col-lg-1"><a href="javascript:void(0)" onclick="duration_opt(false)"><i class=" icon-minus-circle2 icon-2x"></i></a></div></div>';
         $("#duration_opt").append(element);
         $(".date").datepicker({format: dateFormat,startDate:$("#VehicleOfferTempdatetime").val()});
     } else {

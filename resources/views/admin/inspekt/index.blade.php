@@ -2,6 +2,10 @@
 
 @section('title', 'Manage Vehicle Scans')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/inspekt/inspekt.css') }}">
+@endpush
+
 @section('content')
     <div class="page-header">
         <div class="page-header-content">
@@ -19,12 +23,8 @@
     </div>
 
     <div class="panel">
-        <div class="panel-body">
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                @include('admin.inspekt._index')
-            </div>
+        <div class="panel-body" id="vehiclescans">
+            @include('admin.inspekt.elements._index')
         </div>
     </div>
 
@@ -33,31 +33,21 @@
             <div class="modal-content"></div>
         </div>
     </div>
+
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('Inspekt/css/inspekt.css') }}">
-    <style type="text/css">
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
-            padding: 5px;
-        }
-    </style>
-@endpush
+
 
 @push('scripts')
-    <script src="{{ legacy_asset('Inspekt/js/inspektscan.js') }}"></script>
+    <script src="{{ legacy_asset('js/inspekt/inspektscan.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function () {
 
             $(document).on('click', '.page-link, .sort-link', function (e) {
                 e.preventDefault();
                 var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:;') {
+                if (url && url !== '#' && url !== 'javascript:void(0)') {
                     loadListing(url);
                 }
             });
@@ -96,18 +86,18 @@
                 if (typeof historyUrl === 'undefined') {
                     historyUrl = url;
                 }
-                $('#listing').css('opacity', '0.5');
+                $('#vehiclescans').css('opacity', '0.5');
 
                 $.ajax({
                     url: url,
                     type: "GET",
                     success: function (data) {
-                        $('#listing').html(data);
-                        $('#listing').css('opacity', '1');
+                        $('#vehiclescans').html(data);
+                        $('#vehiclescans').css('opacity', '1');
                         window.history.pushState(null, null, historyUrl);
                     },
                     error: function (xhr) {
-                        $('#listing').css('opacity', '1');
+                        $('#vehiclescans').css('opacity', '1');
                         console.error('AJAX Load Error:', xhr);
                     }
                 });
@@ -118,5 +108,5 @@
             };
         });
     </script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+
 @endpush

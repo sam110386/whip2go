@@ -39,14 +39,18 @@
                 <table class="table table-responsive" style="width:100%;">
                     <thead>
                         <tr>
-                            <th>Vehicle#</th>
-                            <th>Vehicle Cost</th>
-                            <th>Depreciation</th>
-                            <th>Base Usage ($)</th>
-                            <th>Extra Usage</th>
-                            <th>Total Usage Fee</th>
-                            <th>Total Distance</th>
-                            <th>Total Days</th>
+                            @include('partials.dispacher.sortable_header', [
+                                'columns' => [
+                                    ['title' => 'Vehicle#', 'field' => 'vehicle_name'],
+                                    ['title' => 'Vehicle Cost', 'field' => 'msrp'],
+                                    ['title' => 'Depreciation', 'sortable' => false],
+                                    ['title' => 'Base Usage ($)', 'field' => 'totalrent'],
+                                    ['title' => 'Extra Usage', 'field' => 'extra_mileage_fee'],
+                                    ['title' => 'Total Usage Fee', 'sortable' => false],
+                                    ['title' => 'Total Distance', 'field' => 'mileage'],
+                                    ['title' => 'Total Days', 'field' => 'totaldays']
+                                ]
+                            ])
                         </tr>
                     </thead>
                     <tbody>
@@ -68,7 +72,9 @@
                         @endforeach
                     </tbody>
                 </table>
-                {{ $reportlists->links() }}
+                @if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+                    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50])
+                @endif
             @else
                 <table class="table"><tr><td class="text-center">No record found</td></tr></table>
             @endif

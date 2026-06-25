@@ -55,5 +55,5 @@
 @endpush
 
 @push('scripts')
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

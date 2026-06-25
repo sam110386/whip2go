@@ -4,11 +4,10 @@ namespace App\Models\Legacy;
 
 class SavvyDealer extends LegacyModel
 {
-    protected $table = 'savvy_dealers';
-
     public $timestamps = true;
     const CREATED_AT = 'created';
-    const UPDATED_AT = 'updated';
+    const UPDATED_AT = null;
+    protected $table = 'savvy_dealers';
 
     protected $fillable = [
         'user_id',
@@ -16,6 +15,8 @@ class SavvyDealer extends LegacyModel
         'status',
         'filters',
         'last_processed',
+        'created',
+        'updated',
         'run_now',
     ];
     protected $hidden = [];

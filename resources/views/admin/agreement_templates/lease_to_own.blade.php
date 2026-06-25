@@ -3,7 +3,7 @@
 @section('title', $listTitle)
 
 @section('content')
-<script src="{{ asset('js/assets/js/plugins/editors/ckeditor/ckeditor.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/editors/ckeditor/ckeditor.js') }}"></script>
 
 <script type="text/javascript">
     jQuery(document).ready(function() {

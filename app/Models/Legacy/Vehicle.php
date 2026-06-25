@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Vehicle extends LegacyModel
 {
+    public $timestamps = true;
+    const CREATED_AT = 'created';
+    const UPDATED_AT = 'modified';
     protected $table = 'vehicles';
 
     protected $fillable = [
@@ -158,5 +161,25 @@ class Vehicle extends LegacyModel
     public function depositRule(): HasOne
     {
         return $this->hasOne(DepositRule::class, 'vehicle_id');
+    }
+
+    public function expenses()
+    {
+        return $this->hasMany(CsVehicleExpense::class, 'vehicle_id');
+    }
+
+    public function csSetting(): BelongsTo
+    {
+        return $this->belongsTo(CsSetting::class, 'user_id', 'user_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function variations(): HasMany
+    {
+        return $this->hasMany(VehicleVariation::class, 'vehicle_id');
     }
 }

@@ -6,7 +6,7 @@ use App\Models\Legacy\User;
 use App\Models\Legacy\UserLicenseDetail;
 use App\Models\Legacy\UserReport;
 use App\Models\Legacy\CsSetting;
-use Illuminate\Support\Facades\Crypt;
+use App\Helpers\Legacy\Security;
 use Illuminate\Support\Facades\Log;
 use App\Services\Legacy\CheckrApiClient;
 
@@ -32,7 +32,7 @@ trait DriverBackgroundReport {
         }
 
         try {
-            $decryptedLicense = Crypt::decryptString($documentNumber);
+            $decryptedLicense = Security::decrypt($documentNumber);
         } catch (\Exception $e) {
             $decryptedLicense = $documentNumber; // Fallback or handle error
         }
@@ -116,7 +116,7 @@ trait DriverBackgroundReport {
         }
 
         try {
-            $decryptedLicense = Crypt::decryptString($documentNumber);
+            $decryptedLicense = Security::decrypt($documentNumber);
         } catch (\Exception $e) {
             $decryptedLicense = $documentNumber;
         }

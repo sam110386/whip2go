@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Legacy;
 
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View as ViewFacade;
 use App\Http\Controllers\Controller;
+use App\Services\Legacy\Common as CommonService;
 
 /**
  * CakePHP `AppController` equivalent (subset).
@@ -17,9 +17,14 @@ use App\Http\Controllers\Controller;
 class LegacyAppController extends Controller
 {
     protected bool $shouldLoadLegacyModules = true;
+    protected $commonService;
+    protected int $recordsPerPage = 50;
 
     public function __construct()
     {
+        $this->commonService = new CommonService();
+        ViewFacade::share('commonService', $this->commonService);
+
         if ($this->shouldLoadLegacyModules) {
             $this->loadModulesForViews();
         }
@@ -56,18 +61,19 @@ class LegacyAppController extends Controller
 
     protected function getAdminUserid(): array
     {
-        $admin = session()->get('SESSION_ADMIN');
-        if (empty($admin)) {
+        $AdminUser = session()->get('SESSION_ADMIN');
+
+        if (empty($AdminUser)) {
             return [];
         }
 
+        $id = $admin['id'] ?? null;
+
         return [
-            'admin_id' => $admin['id'] ?? null,
-            'administrator' => (($admin['role_id'] ?? null) == 1),
-            'parent_id' => !empty($admin['parent_id'])
-                ? ($admin['parent_id'])
-                : ($admin['id'] ?? null),
-            'timezone' => $admin['timezone'] ?? null,
+            'admin_id' => $id,
+            'administrator' => ($AdminUser['role_id'] ?? null) == 1,
+            'parent_id' => $AdminUser['parent_id'] ?? $id,
+            'timezone' => $AdminUser['timezone'] ?? null,
         ];
     }
 
@@ -97,7 +103,7 @@ class LegacyAppController extends Controller
                 $userSubModules[(int) $row->parent_id][] = (array) $row;
             }
 
-            ViewFacade::share('userModules', $topModules->map(fn ($r) => (array) $r)->all());
+            ViewFacade::share('userModules', $topModules->map(fn($r) => (array) $r)->all());
             ViewFacade::share('userSubModules', $userSubModules);
         }
 
@@ -137,7 +143,7 @@ class LegacyAppController extends Controller
                 $adminSubModules[(int) $row->parent_id][] = (array) $row;
             }
 
-            ViewFacade::share('adminModules', $adminModules->map(fn ($r) => (array) $r)->all());
+            ViewFacade::share('adminModules', $adminModules->map(fn($r) => (array) $r)->all());
             ViewFacade::share('adminSubModules', $adminSubModules);
             ViewFacade::share('adminUser', $this->getAdminUserid());
         }
@@ -146,12 +152,12 @@ class LegacyAppController extends Controller
     protected function decodeId($id): ?int
     {
         if (is_numeric($id)) {
-            return (int)$id;
+            return (int) $id;
         }
         if (is_string($id) && $id !== '') {
             $decoded = base64_decode($id, true);
             if ($decoded !== false && is_numeric($decoded)) {
-                return (int)$decoded;
+                return (int) $decoded;
             }
         }
 
@@ -160,7 +166,7 @@ class LegacyAppController extends Controller
 
     protected function encodeId(?int $id): string
     {
-        return base64_encode((string)((int)$id));
+        return base64_encode((string) ((int) $id));
     }
 }
 

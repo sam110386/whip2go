@@ -3,151 +3,241 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Support\BookingReportDetailPresenter;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Traits\ReportsTrait;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\CsOrderPayment;
+use Illuminate\Support\Facades\Cookie;
 
 class ReportsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
+    use ReportsTrait;
     public function index(Request $request)
     {
-        $limit = $this->resolveLimit($request, 'admin_reports_limit');
-        $dateFrom = trim((string)$this->searchInput($request, 'date_from'));
-        $dateTo = trim((string)$this->searchInput($request, 'date_to'));
-        $status = trim((string)$this->searchInput($request, 'status'));
+        $title = 'Reports';
+        $sess_limit_name = 'admin_reports_limit';
+        $conditions = [];
 
-        $q = DB::table('cs_orders as o')
-            ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
-            ->leftJoin('users as owner', 'owner.id', '=', 'o.user_id')
-            ->select([
-                'o.*',
-                'renter.first_name as renter_first_name',
-                'renter.last_name as renter_last_name',
-                'owner.first_name as owner_first_name',
-                'owner.last_name as owner_last_name',
-            ]);
-
-        if ($dateFrom !== '') {
-            $q->whereDate('o.start_datetime', '>=', Carbon::parse($dateFrom)->toDateString());
-        }
-        if ($dateTo !== '') {
-            $q->whereDate('o.end_datetime', '<=', Carbon::parse($dateTo)->toDateString());
-        }
-        if ($status !== '' && is_numeric($status)) {
-            $q->where('o.status', (int)$status);
+        if ($request->has('Search.ClearFilter')) {
+            Cookie::queue(Cookie::forget('report_list_search'));
+            return redirect('/admin/reports/index');
         }
 
-        $reportlists = $q->orderByDesc('o.id')->paginate($limit)->withQueryString();
+        $cookieData = json_decode($request->cookie('report_list_search'), true) ?? [];
+        $fieldname = $request->input('Search.searchin', $request->query('searchin', $cookieData['fieldname'] ?? ''));
+        $keyword = $request->input('Search.keyword', $request->query('keyword', $cookieData['keyword'] ?? ''));
+        $date_from = $request->input('Search.date_from', $request->query('date_from', $cookieData['date_from'] ?? ''));
+        $date_to = $request->input('Search.date_to', $request->query('date_to', $cookieData['date_to'] ?? ''));
+        $status_type = $request->input('Search.status_type', $request->query('status_type', $cookieData['status_type'] ?? ''));
+        $dealerid = $request->input('Search.dealer_id', $request->query('dealer_id', $cookieData['dealerid'] ?? ''));
+        $renterid = $request->input('Search.renter_id', $request->query('renter_id', $cookieData['renterid'] ?? ''));
+
+        if (!empty($date_from) && empty($date_to)) {
+            $date_to = Carbon::now()->toDateString();
+        }
+
+        if (!empty($keyword)) {
+            if ($fieldname == "1") {
+                $conditions[] = ['pickup_address', 'LIKE', '%' . $keyword . '%'];
+            } elseif ($fieldname == "2") {
+                $conditions[] = ['vehicle_name', '=', $keyword];
+            } elseif ($fieldname == "3") {
+                $conditions[] = ['increment_id', '=', $keyword];
+            }
+        }
+
+        if (!empty($date_from)) {
+            $conditions[] = ['start_datetime', '>=', Carbon::parse($date_from)->toDateTimeString()];
+        }
+        if (!empty($date_to)) {
+            $conditions[] = ['end_datetime', '<=', Carbon::parse($date_to)->toDateTimeString()];
+        }
+
+        if (!empty($status_type)) {
+            if ($status_type == "cancel") {
+                $conditions[] = ['status', '=', 2];
+            } elseif ($status_type == "complete") {
+                $conditions[] = ['status', '=', 3];
+            }
+        }
+
+        if (!empty($renterid)) {
+            $conditions[] = ['renter_id', '=', $renterid];
+        }
+
+        if (!empty($dealerid)) {
+            $conditions[] = ['user_id', '=', $dealerid];
+        }
+
+        if (!empty($renterid)) {
+            $conditions['renter_id'] = ['operator' => '=', 'value' => $renterid];
+        }
+
+        if (!empty($dealerid)) {
+            $conditions['user_id'] = ['operator' => '=', 'value' => $dealerid];
+        }
+
+        if ($request->input('search') === 'EXPORT') {
+            return $this->export($conditions, $status_type);
+        }
+
+        if (!$request->ajax()) {
+            $searchData = compact('keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'dealerid', 'renterid');
+            Cookie::queue('report_list_search', json_encode($searchData), 43200);
+        }
+
+        $conditions[] = ['parent_id', '=', 0];
+
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            $request->session()->put($sess_limit_name, $limit);
+        } elseif ($request->session()->has($sess_limit_name)) {
+            $limit = $request->session()->get($sess_limit_name);
+        } else {
+            $limit = $this->records_per_page ?? 50;
+        }
+
+        $query = CsOrder::query()
+            ->with('user:id,first_name,last_name')
+            ->where($conditions);
+
+        if (!empty($status_type) && $status_type == "incomplete") {
+            $query->whereIn('status', [0, 1]);
+        }
+
+        $allowedSorts = ['increment_id', 'start_datetime', 'end_datetime'];
+        $sort = $request->input('sort');
+        $direction = strtolower($request->input('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        if ($sort && in_array($sort, $allowedSorts)) {
+            $query->orderBy($sort, $direction);
+        } else {
+            $query->orderByDesc('id');
+        }
+
+        $reportlists = $query->orderBy('id', 'DESC')
+            ->paginate($limit);
+
         if ($request->ajax()) {
-            return response()->view('admin.reports._listing', compact('reportlists'));
+            return response()->view('admin.reports.elements.index', compact('keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'dealerid', 'renterid', 'reportlists', 'limit'));
         }
 
-        return view('admin.reports.index', compact('reportlists', 'dateFrom', 'dateTo', 'status', 'limit'));
+        return view('admin.reports.index', compact('keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'dealerid', 'renterid', 'reportlists', 'limit'));
     }
 
     public function details($id)
     {
-        $orderId = $this->decodeId((string)$id);
-        if (!$orderId) {
-            return redirect('/admin/reports/index');
-        }
-        $order = DB::table('cs_orders')->where('id', $orderId)->first();
-        if (!$order) {
-            return redirect('/admin/reports/index');
-        }
-
-        $payload = BookingReportDetailPresenter::buildSingle($orderId);
-        if ($payload === null) {
-            return redirect('/admin/reports/index');
-        }
-
-        return view('admin.reports.details', $payload);
+        return $this->_details($id);
     }
 
     public function loadsubbooking($orderid)
     {
-        $id = $this->decodeId((string)$orderid);
-        if (!$id) {
-            return response('Invalid booking id', 400);
-        }
-        $subs = DB::table('cs_orders')->where('parent_id', $id)->orderBy('id')->get();
+        $id = $this->decodeId((string) $orderid);
 
-        return response()->view('admin.reports._subbookings', compact('subs', 'id'));
+        if (!$id) {
+            return response()->json(['status' => 'error', 'message' => 'Something went wrong']);
+        }
+
+        $subbookinglists = CsOrder::query()
+            ->with('user:id,first_name,last_name')
+            ->where('id', $id)
+            ->orWhere('parent_id', $id)
+            ->orderByDesc('id')
+            ->get();
+
+        if (empty($subbookinglists)) {
+            return response()->json(['status' => 'error', 'message' => 'Sorry, no record found']);
+        }
+
+        $booking_id = $id;
+        $html = view('admin.reports.elements.loadsubbooking', compact('subbookinglists', 'booking_id'))->render();
+
+        return response()->json(['status' => 'success', 'booking_id' => $id, 'data' => $html]);
     }
 
     public function autorenewddetails($id)
     {
-        $orderId = $this->decodeId((string) $id);
-        if (!$orderId) {
-            return redirect('/admin/reports/index');
-        }
-        $order = DB::table('cs_orders')->where('id', $orderId)->first();
-        if (!$order) {
-            return redirect('/admin/reports/index');
-        }
-
-        $payload = BookingReportDetailPresenter::buildAutoRenew($orderId);
-        if ($payload === null) {
-            return redirect('/admin/reports/index');
-        }
-
-        return view('admin.reports.details', $payload);
+        return $this->_autorenewddetails($id);
     }
 
     public function productivity(Request $request)
     {
-        $from = trim((string)$this->searchInput($request, 'date_from'));
-        $to = trim((string)$this->searchInput($request, 'date_to'));
+        $title = 'Fleet Productivity';
+        $sess_limit_name = "admin_productivity_limit";
+        $date_from = $request->input('Search.date_from', $request->input('date_from', ''));
+        $date_to = $request->input('Search.date_to', $request->input('date_to', ''));
+        $user_id = $request->input('Search.user_id', $request->input('user_id', ''));
+        $conditions = [];
+        $conditions[] = ['vehicles.user_id', '=', $user_id];
 
-        $q = DB::table('cs_orders')
-            ->selectRaw('user_id, COUNT(*) as total_orders, SUM(rent + tax + dia_fee) as gross')
-            ->groupBy('user_id');
-        if ($from !== '') {
-            $q->whereDate('start_datetime', '>=', Carbon::parse($from)->toDateString());
+        if (!empty($date_from)) {
+            $datefrom = Carbon::parse($date_from)->format('Y-m-d');
+            $conditions[] = ['cs_orders.end_datetime', '>=', $datefrom];
         }
-        if ($to !== '') {
-            $q->whereDate('end_datetime', '<=', Carbon::parse($to)->toDateString());
-        }
-        $rows = $q->orderByDesc('total_orders')->limit(500)->get();
 
-        return view('admin.reports.productivity', ['rows' => $rows, 'dateFrom' => $from, 'dateTo' => $to]);
+        if (!empty($date_to)) {
+            $dateto = Carbon::parse($date_to)->format('Y-m-d');
+            $conditions[] = ['cs_orders.end_datetime', '<=', $dateto];
+        }
+
+        if ($request->input('search') === 'EXPORT') {
+            return $this->exportproductivity($conditions, $date_from, $date_to);
+        }
+
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            $request->session()->put($sess_limit_name, $limit);
+        } elseif ($request->session()->has($sess_limit_name)) {
+            $limit = $request->session()->get($sess_limit_name);
+        } else {
+            $limit = $this->records_per_page ?? 10;
+        }
+
+        $query = Vehicle::query()
+            ->leftJoin('cs_orders', function ($join) {
+                $join->on('cs_orders.vehicle_id', '=', 'vehicles.id')
+                    ->where('cs_orders.status', '=', 3);
+            })
+            ->where($conditions)
+            ->select([
+                'vehicles.vehicle_name',
+                'vehicles.msrp',
+                'vehicles.id',
+                'vehicles.created',
+                DB::raw('SUM(cs_orders.rent + cs_orders.initial_fee + cs_orders.damage_fee + cs_orders.uncleanness_fee) as totalrent'),
+                DB::raw('SUM(cs_orders.end_odometer - cs_orders.start_odometer) as mileage'),
+                DB::raw('SUM(DATEDIFF(cs_orders.end_datetime, cs_orders.start_datetime)) AS totaldays'),
+                DB::raw('SUM(cs_orders.extra_mileage_fee) as extra_mileage_fee')
+            ])
+            ->groupBy('vehicles.id', 'vehicles.vehicle_name', 'vehicles.msrp', 'vehicles.created')
+            ->orderBy('vehicles.id', 'DESC');
+        $reportlists = $query->paginate($limit);
+
+        return view('admin.reports.productivity', compact('title', 'reportlists', 'date_from', 'date_to', 'user_id', 'limit'));
     }
-
     public function paymentspopup(Request $request)
     {
-        $id = $this->decodeId((string)$request->input('orderid', ''));
+        $id = $this->decodeId((string) $request->input('orderid', ''));
+
         if (!$id) {
             return response('Invalid booking id', 400);
         }
-        $rows = DB::table('cs_order_payments')->where('cs_order_id', $id)->orderByDesc('id')->get();
 
-        return response()->view('admin.reports._payments_popup', compact('rows', 'id'));
+        $payments = CsOrderPayment::where('cs_order_id', $id)
+            ->where('status', 1)->orderByDesc('id')
+            ->get();
+
+        $paymentTypeValue = $this->commonService->getPayoutTypeValue(true);
+        $htmlContent = view('reports._paymentspopup', compact('payments', 'paymentTypeValue'))->render();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $htmlContent
+        ]);
     }
 
-    private function searchInput(Request $request, string $key): ?string
-    {
-        $v = $request->input('Search.' . $key);
-        if ($v !== null && $v !== '') {
-            return (string)$v;
-        }
-
-        return $request->input($key);
-    }
-
-    private function resolveLimit(Request $request, string $sessionKey): int
-    {
-        if ($request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
-            if ($lim > 0 && $lim <= 500) {
-                session([$sessionKey => $lim]);
-            }
-        }
-        $limit = (int)session($sessionKey, 50);
-
-        return $limit > 0 ? $limit : 50;
-    }
 }
 

@@ -3,167 +3,155 @@
 namespace App\Services\Legacy\Report;
 
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
+use App\Services\Legacy\Common as CommonService;
+use App\Models\Legacy\ReportCustomer;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\DepositTemplate;
+use App\Models\Legacy\CsVehicleExpense;
 
+/**
+ * Port of CakePHP app/Plugin/Report/Lib/Portfolio.php
+ */
 class PortfolioService
 {
-    public function getVehiclePortfolio(int $vehicleId): array
+    public function getVehiclePortfolio($vehicleId)
     {
-        $result = DB::table('report_customers as ReportCustomer')
-            ->where('ReportCustomer.vehicle_id', $vehicleId)
+
+        $report = ReportCustomer::where('vehicle_id', $vehicleId)
             ->selectRaw('
-                SUM(ReportCustomer.total_collected) as total_collected,
-                SUM(ReportCustomer.tax_collected) as total_tax_collected,
-                SUM(ReportCustomer.days) AS totaldays,
-                SUM(ReportCustomer.miles) AS miles,
-                SUM(ReportCustomer.emf_collected) as emf_collected,
-                SUM(ReportCustomer.insurance) as insurance_by_dealer,
-                SUM(ReportCustomer.insurance_driver) as insurance_by_renter,
-                SUM(ReportCustomer.calculated_insurance) as calculated_insurance,
-                SUM(ReportCustomer.write_down_allocation) as write_down_allocation,
-                SUM(ReportCustomer.finance_allocation) as finance_allocation,
-                SUM(ReportCustomer.maintenance_allocation) as maintenance_allocation,
-                SUM(ReportCustomer.disposition_fee) as disposition_fee,
-                SUM(ReportCustomer.total_billed) as total_billed,
-                SUM(ReportCustomer.tax) as tax,
-                SUM(ReportCustomer.stripe_fee) as stripe_fee
+                SUM(total_collected) as total_collected,
+                SUM(tax_collected) as tax_collected,
+                SUM(days) AS totaldays,
+                SUM(miles) AS miles,
+                SUM(emf_collected) as emf_collected,
+                SUM(insurance) as insurance_by_dealer,
+                SUM(insurance_driver) as insurance_by_renter,
+                SUM(calculated_insurance) as calculated_insurance,
+                SUM(write_down_allocation) as write_down_allocation,
+                SUM(finance_allocation) as finance_allocation,
+                SUM(maintenance_allocation) as maintenance_allocation,
+                SUM(disposition_fee) as disposition_fee,
+                SUM(total_billed) as total_billed,
+                SUM(tax) as tax,
+                SUM(stripe_fee) as stripe_fee
             ')
-            ->groupBy('ReportCustomer.vehicle_id')
+            ->groupBy('vehicle_id')
             ->first();
 
-        if ($result) {
-            return (array) $result;
+        if ($report) {
+            return $report->toArray();
         }
 
         return [
-            'totalrent' => 0.00, 'totaldays' => 0.00, 'extra_mileage_fee' => 0.00,
-            'insurance_by_dealer' => 0, 'write_down_allocation' => 0,
-            'finance_allocation' => 0, 'maintenance_allocation' => 0,
-            'total_billed' => 0, 'tax' => 0, 'stripe_fee' => 0,
-            'total_collected' => 0, 'total_tax_collected' => 0, 'miles' => 0,
-            'emf_collected' => 0, 'insurance_by_renter' => 0,
-            'calculated_insurance' => 0, 'disposition_fee' => 0,
+            "totalrent" => 0.00,
+            "totaldays" => 0.00,
+            "extra_mileage_fee" => 0.00,
+            "insurance_by_dealer" => 0,
+            'write_down_allocation' => 0,
+            'finance_allocation' => 0,
+            'maintenance_allocation' => 0,
+            "total_billed" => 0,
+            "tax" => 0,
+            "stripe_fee" => 0
         ];
     }
 
-    /**
-     * Port of CakePHP Portfolio::getVehicleDepriciationReport (spelling preserved).
-     *
-     * @return array{depreciation: float|string, financing: float|string, fleet_days: int}
-     */
-    public function getVehicleDepriciationReport(int $vehicleId): array
+    public function getVehicleDepriciationReport($vehicleId)
     {
-        $zero = ['depreciation' => 0, 'financing' => 0, 'fleet_days' => 0];
+        $commonService = new CommonService();
+        $firstReport = ReportCustomer::where('vehicle_id', $vehicleId)
+            ->orderBy('id', 'asc')
+            ->first(['start_datetime']);
 
-        $csReport = DB::table('report_customers as ReportCustomer')
-            ->where('ReportCustomer.vehicle_id', $vehicleId)
-            ->orderBy('ReportCustomer.id')
-            ->select('ReportCustomer.start_datetime')
-            ->first();
-
-        if ($csReport === null || $csReport->start_datetime === null || $csReport->start_datetime === '') {
-            return $zero;
+        if (!$firstReport) {
+            return ["depreciation" => 0, "financing" => 0];
         }
 
-        $vehicleRow = DB::table('vehicles as Vehicle')
-            ->leftJoin('cs_deposit_rules as DepositRule', 'DepositRule.vehicle_id', '=', 'Vehicle.id')
-            ->where('Vehicle.id', $vehicleId)
-            ->select([
-                'Vehicle.msrp',
-                'Vehicle.vehicleCostInclRecon',
-                'DepositRule.depreciation_rate',
-                'DepositRule.lender_fee',
-                'DepositRule.lender_type',
-                'DepositRule.lender_anticipated_date',
-            ])
-            ->first();
+        $vehicle = Vehicle::with('depositRule:vehicle_id,depreciation_rate,lender_fee,lender_type,lender_anticipated_date')
+            ->find($vehicleId, ['id', 'msrp', 'vehicleCostInclRecon']);
 
-        $referenceEnd = ($vehicleRow !== null && ! empty($vehicleRow->lender_anticipated_date))
-            ? (string) $vehicleRow->lender_anticipated_date
-            : (string) $csReport->start_datetime;
-
-        $now = Carbon::now();
-        $ref = Carbon::parse($referenceEnd);
-
-        // Legacy Common::getDifference(now, reference, 3): floor((now - reference) / 86400)
-        $rawDays = (int) floor(($now->getTimestamp() - $ref->getTimestamp()) / 86400);
-        $days = $rawDays > 1 ? $rawDays - 1 : 1;
-
-        if (! $days) {
-            return $zero;
+        if (!$vehicle) {
+            return ["depreciation" => 0, "financing" => 0];
         }
 
-        if ($vehicleRow === null) {
-            return $zero;
+        $rule = $vehicle->depositRule;
+        $startDate = !empty($rule->lender_anticipated_date)
+            ? $rule->lender_anticipated_date
+            : $firstReport->start_datetime;
+
+        $days = $commonService->getDifference(date('Y-m-d H:i:s'), $startDate, 3);
+        $days = $days > 1 ? $days - 1 : 1;
+
+        if (!$days) {
+            return ["depreciation" => 0, "financing" => 0];
         }
 
-        $vehicleCostInclRecon = (float) ($vehicleRow->vehicleCostInclRecon ?? 0);
-        $depreciationRate = (float) ($vehicleRow->depreciation_rate ?? 0);
-        $lenderFee = (float) ($vehicleRow->lender_fee ?? 0);
-        $lenderType = (string) ($vehicleRow->lender_type ?? '');
+        $depreciation = $financing = 0;
 
-        $depreciation = 0.0;
-        $financing = 0.0;
-
-        if ($depreciationRate > 0) {
-            $depreciation = (float) ($days * ((($vehicleCostInclRecon * $depreciationRate) / 100) * 12 / 365));
+        if ($rule && $rule->depreciation_rate > 0) {
+            $depreciation = $days * ((($vehicle->vehicleCostInclRecon * $rule->depreciation_rate) / 100) * 12 / 365);
         }
 
-        if ($lenderFee > 0) {
-            $financing = $lenderType === 'P'
-                ? ($vehicleCostInclRecon * $lenderFee / 36500)
-                : ($lenderFee * 12 / 365);
-            $financing = (float) ($financing * $days);
+        if ($rule && $rule->lender_fee > 0) {
+            $financing = ($rule->lender_type === 'P') ? ($vehicle->vehicleCostInclRecon * $rule->lender_fee / 36500) : ($rule->lender_fee * 12 / 365);
+            $financing *= $days;
         }
 
         return [
-            'depreciation' => sprintf('%0.2f', $depreciation),
-            'financing' => sprintf('%0.2f', $financing),
-            'fleet_days' => $days,
+            "depreciation" => number_format($depreciation, 2, '.', ''),
+            "financing" => number_format($financing, 2, '.', ''),
+            "fleet_days" => $days
         ];
     }
 
-    public function getVehicleFixedProgramCost(int $ownerId): float
+    public function getVehicleFixedProgramCost($ownerId)
     {
-        $result = DB::table('cs_deposit_templates')
-            ->where('user_id', $ownerId)
-            ->value('fixed_program_cost');
-
-        return (float) ($result ?? 0);
+        $template = DepositTemplate::where('user_id', $ownerId)->first(['fixed_program_cost']);
+        return $template ? $template->fixed_program_cost : 0;
     }
 
-    /**
-     * @return array{depreciation: float, bodydamage: int|float, mechdamage: float, maintenance: float, toll: float}
-     */
-    public function getVehicleExpenses(int $vehicleId, string $dateFrom = '', string $dateTo = ''): array
+    public function getVehicleExpenses($vehicleId, $dateFrom = '', $dateTo = '')
     {
-        $return = ['depreciation' => 0.00, 'bodydamage' => 0, 'mechdamage' => 0.00, 'maintenance' => 0.00, 'toll' => 0.00];
+        $return = [
+            "depreciation" => 0.00,
+            "bodydamage" => 0.00,
+            "mechdamage" => 0.00,
+            "maintenance" => 0.00,
+            "toll" => 0.00
+        ];
 
-        $query = DB::table('cs_vehicle_expenses as CsVehicleExpense')
-            ->where('CsVehicleExpense.vehicle_id', $vehicleId)
-            ->selectRaw('SUM(CsVehicleExpense.amount) as total, CsVehicleExpense.type')
-            ->groupBy('CsVehicleExpense.type');
+        $query = CsVehicleExpense::where('vehicle_id', $vehicleId)
+            ->selectRaw('SUM(amount) as total, type')
+            ->groupBy('type');
 
-        if (! empty($dateFrom)) {
-            $query->where('CsVehicleExpense.created', '>=', Carbon::parse($dateFrom)->format('Y-m-d'));
+        if (!empty($dateFrom)) {
+            $query->where('created', '>=', Carbon::parse($dateFrom)->toDateTimeString());
         }
-        if (! empty($dateTo)) {
-            $query->where('CsVehicleExpense.created', '<=', Carbon::parse($dateTo)->format('Y-m-d'));
+
+        if (!empty($dateTo)) {
+            $query->where('created', '<=', Carbon::parse($dateTo)->toDateTimeString());
         }
 
         $expenses = $query->get();
+
         foreach ($expenses as $expense) {
-            if ((int) $expense->type === 3) {
-                $return['mechdamage'] = $expense->total;
-            } elseif ((int) $expense->type === 1) {
-                $return['bodydamage'] = $expense->total;
-            } elseif ((int) $expense->type === 6) {
-                $return['maintenance'] = $expense->total;
-            } elseif ((int) $expense->type === 5) {
-                $return['toll'] = $expense->total;
+            switch ($expense->type) {
+                case 3:
+                    $return['mechdamage'] = (float) $expense->total;
+                    break;
+                case 1:
+                    $return['bodydamage'] = (float) $expense->total;
+                    break;
+                case 6:
+                    $return['maintenance'] = (float) $expense->total;
+                    break;
+                case 5:
+                    $return['toll'] = (float) $expense->total;
+                    break;
             }
         }
 
         return $return;
     }
+
 }

@@ -4,11 +4,10 @@ namespace App\Models\Legacy;
 
 class MetroExport extends LegacyModel
 {
-    protected $table = 'metro_exports';
-
     public $timestamps = true;
     const CREATED_AT = 'created';
     const UPDATED_AT = null;
+    protected $table = 'metro_exports';
 
     protected $fillable = [
         'filename',
@@ -16,6 +15,7 @@ class MetroExport extends LegacyModel
         'end',
         'offset',
         'status',
+        'created',
     ];
     protected $hidden = [];
     protected $guarded = [

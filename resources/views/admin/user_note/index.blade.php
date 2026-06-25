@@ -19,7 +19,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="javascript:;" class="btn btn-primary" onclick="AddNewNote({{ $userid }})">
+                <a href="javascript:void(0)" class="btn btn-primary" onclick="AddNewNote({{ $userid }})">
                     {{ 'Add New Note' }}
                 </a>
             </div>
@@ -72,7 +72,7 @@
 
 @push('scripts')
     <script src="{{ legacy_asset('UserNote/js/usernote.js') }}"></script>
-    <script src="{{ asset('js/admin_booking.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
     <script type="text/javascript">
         function AddNewNote(userid) {
             $.ajax({

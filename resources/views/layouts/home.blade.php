@@ -4,7 +4,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"/>
     <script type="text/javascript">
-        var SITE_URL = @json(rtrim(legacy_site_url(), '/').'/');
+        var SITE_URL = @json(legacy_site_url());
     </script>
     <meta charset="utf-8">
     <title>@yield('title', $title_for_layout ?? 'WHIP2GO')</title>
@@ -24,10 +24,10 @@
 
 @include('layouts.partials.cake.marketing_footer')
 <script src="{{  legacy_asset('js/assets/js/plugins/loaders/pace.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/core/libraries/jquery.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/core/libraries/bootstrap.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/core/libraries/jquery.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/core/libraries/bootstrap.min.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/loaders/blockui.min.js') }}"></script>
-<script src="{{ legacy_asset('assets/js/core/app.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/core/app.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/switchery.min.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/forms/styling/uniform.min.js') }}"></script>
 <script src="{{  legacy_asset('js/assets/js/plugins/forms/selects/bootstrap_multiselect.js') }}"></script>

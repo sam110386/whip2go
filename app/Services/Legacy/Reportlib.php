@@ -2,22 +2,25 @@
 
 namespace App\Services\Legacy;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\Report;
+use function in_array;
+use function is_array;
+
 
 class Reportlib
 {
-    public function getPaymentType($all = false, $key = false, $val = false): mixed
+    public static function getPaymentType($all = false, $key = false, $val = false)
     {
         $return = [
-            1  => 'Deposit',
-            2  => 'Rental Transaction',
-            3  => 'Initial Fee',
-            4  => 'Insurance Fee',
-            5  => 'Cancelation fee',
-            6  => 'Toll Fee',
-            7  => 'Customer Balance Charge',
-            8  => 'Toll Violation',
-            9  => 'Red Light Violation',
+            1 => 'Deposit',
+            2 => 'Rental Transaction',
+            3 => 'Initial Fee',
+            4 => 'Insurance Fee',
+            5 => 'Cancelation fee',
+            6 => 'Toll Fee',
+            7 => 'Customer Balance Charge',
+            8 => 'Toll Violation',
+            9 => 'Red Light Violation',
             10 => 'Parking Violation',
             11 => 'Paid From Wallet',
             12 => 'Payout Created',
@@ -43,7 +46,7 @@ class Reportlib
         return null;
     }
 
-    public function getPaymentTypeAction($type = '', $rtype = '', $source = 'card'): ?string
+    public static function getPaymentTypeAction($type = '', $rtype = '', $source = 'card')
     {
         $cat = [
             1 => 'Order creation',
@@ -58,60 +61,90 @@ class Reportlib
         ];
 
         $key = 0;
-        if ($type == 13) { $key = 3; }
-        if ($type == 12) { $key = 8; }
-        if ($type == 11) { $key = 4; }
+
+        if ($type == 13) {
+            $key = 3;
+        }
+
+        if ($type == 12) {
+            $key = 8;
+        }
+
+        if ($type == 11) {
+            $key = 4;
+        }
 
         if ($rtype == 'C' && $source == 'card') {
-            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) { $key = 2; }
-            if (in_array($type, [8, 9, 10])) { $key = 9; }
+            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) {
+                $key = 2;
+            }
+            if (in_array($type, [8, 9, 10])) {
+                $key = 9;
+            }
         }
+
         if ($rtype == 'C' && $source == 'wallet') {
-            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) { $key = 4; }
-            if (in_array($type, [8, 9, 10])) { $key = 9; }
+            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) {
+                $key = 4;
+            }
+            if (in_array($type, [8, 9, 10])) {
+                $key = 9;
+            }
         }
+
         if ($rtype == 'D' && $source == 'card') {
-            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) { $key = 2; }
-            if (in_array($type, [8, 9, 10])) { $key = 9; }
+            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) {
+                $key = 2;
+            }
+            if (in_array($type, [8, 9, 10])) {
+                $key = 9;
+            }
         }
+
         if ($rtype == 'D' && $source == 'wallet') {
-            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) { $key = 4; }
-            if (in_array($type, [8, 9, 10])) { $key = 9; }
+            if (in_array($type, [1, 2, 3, 4, 5, 6, 7])) {
+                $key = 4;
+            }
+            if (in_array($type, [8, 9, 10])) {
+                $key = 9;
+            }
         }
 
         return $key ? ($cat[$key] ?? null) : null;
     }
 
-    public function saveAccountReportData(array $obj): void
+    public static function saveAccountReportData(array $data): void
     {
-        if (!isset($obj['user_id']) || empty($obj['user_id'])) {
+        if (!isset($data['user_id']) || empty($data['user_id'])) {
             return;
         }
 
         $dataToSave = [
-            'user_id'  => $obj['user_id'],
-            'rtype'    => $obj['rtype'] ?? 'D',
-            'type'     => $obj['type'] ?? 1,
-            'cs_order_id'    => $obj['cs_order_id'] ?? null,
-            'amt'            => $obj['amt'] ?? 0,
-            'note'           => $obj['note'] ?? null,
-            'source'         => $obj['source'] ?? 'card',
+            'user_id' => $data['user_id'],
+            'rtype' => $data['rtype'] ?? 'D',
+            'type' => $data['type'] ?? 1,
+            'cs_order_id' => $data['cs_order_id'] ?? null,
+            'amt' => $data['amt'] ?? 0,
+            'note' => $data['note'] ?? null,
+            'source' => $data['source'] ?? 'card',
         ];
 
-        if (isset($obj['created'])) {
-            $dataToSave['created'] = $obj['created'];
+        if (isset($data['created'])) {
+            $dataToSave['created'] = $data['created'];
         }
 
-        if (is_array($obj['transaction_id'])) {
-            foreach ($obj['transaction_id'] as $obc) {
-                $dataToSave['transaction_id'] = $obc['transaction_id'] ?? null;
-                $dataToSave['amt'] = $obc['amt'] ?? 0;
-                $dataToSave['source'] = $obc['source'] ?? 'card';
-                DB::table('reports')->insert($dataToSave);
+        if (isset($data['transaction_id']) && is_array($data['transaction_id'])) {
+            foreach ($data['transaction_id'] as $sd) {
+                $dataToSave['transaction_id'] = $sd['transaction_id'] ?? null;
+                $dataToSave['amt'] = $sd['amt'] ?? 0;
+                $dataToSave['source'] = $sd['source'] ?? 'card';
+                Report::create($dataToSave);
             }
         } else {
-            $dataToSave['transaction_id'] = $obj['transaction_id'] ?? null;
-            DB::table('reports')->insert($dataToSave);
+            $dataToSave['transaction_id'] = $data['transaction_id'] ?? null;
+            Report::create($dataToSave);
         }
+
+        return;
     }
 }

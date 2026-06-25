@@ -3,12 +3,12 @@
 @section('title', 'Pick Ups')
 
 @push('scripts')
-<script src="{{ asset('assets/js/plugins/forms/editable/editable.min.js') }}"></script>
-<script src="{{ asset('assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
-<script src="{{ asset('js/booking.js') }}"></script>
-<script src="{{ asset('js/jquery.maskedinput.js') }}"></script>
-<script src="{{ asset('assets/js/plugins/media/fancybox.min.js') }}"></script>
-<script src="{{ asset('Reservation/js/reservation.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/forms/editable/editable.min.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+<script src="{{ legacy_asset('js/booking.js') }}"></script>
+<script src="{{ legacy_asset('js/jquery.maskedinput.js') }}"></script>
+<script src="{{ legacy_asset('js/assets/js/plugins/media/fancybox.min.js') }}"></script>
+<script src="{{ legacy_asset('Reservation/js/reservation.js') }}"></script>
 <script type="text/javascript">
 $(document).ready(function(){ $(".fancybox").fancybox(); });
 $(function(){

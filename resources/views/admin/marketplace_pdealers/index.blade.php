@@ -49,13 +49,13 @@
                         <thead>
                             <tr>
                                 @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['field' => 'id', 'title' => '#'],
-                                    ['field' => 'name', 'title' => 'Dealer Name'],
-                                    ['field' => 'phone', 'title' => 'Phone #'],
-                                    ['field' => 'address', 'title' => 'Address'],
-                                    ['field' => 'created', 'title' => 'Created'],
-                                    ['field' => 'status', 'title' => 'Status'],
-                                    ['field' => 'actions', 'title' => 'Actions', 'sortable' => false]
+                                    ['title' => '#', 'field' => 'id'],
+                                    ['title' => 'Dealer Name', 'field' => 'name'],
+                                    ['title' => 'Phone #', 'field' => 'phone'],
+                                    ['title' => 'Address', 'field' => 'address'],
+                                    ['title' => 'Created', 'field' => 'created'],
+                                    ['title' => 'Status', 'field' => 'status'],
+                                    ['title' => 'Actions', 'sortable' => false]
                                 ]])
                             </tr>
                         </thead>

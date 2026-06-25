@@ -13,7 +13,7 @@
             <h4><a href="{{ url('cloud/linked_users/index') }}"><i class="icon-arrow-left52 position-left"></i></a> <span class="text-semibold">User </span>- Notes</h4>
         </div>
         <div class="heading-elements">
-            <a href="javascript:;" class="btn left-margin" onclick="AddCloudNote({{ $userid }})">Add New Note</a>
+            <a href="javascript:void(0)" class="btn left-margin" onclick="AddCloudNote({{ $userid }})">Add New Note</a>
         </div>
     </div>
 </div>

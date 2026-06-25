@@ -4,8 +4,8 @@ namespace App\Services\Legacy;
 
 class Colors
 {
-    public function all(): array
-    {
+  public function all(): array
+  {
     return json_decode('
       {
         "air_force_blue_raf": {
@@ -4334,28 +4334,32 @@ class Colors
           "rgb": [44, 22, 8]
         }
       }', 1);
+  }
+
+  public function getColors(): array
+  {
+    $allColors = $this->all();
+    $return = [];
+
+    foreach ($allColors as $clr) {
+      $return[$clr['name']] = $clr['name'];
     }
 
-    public function getColors(): array
-    {
-        $allColors = $this->all();
-        $return = [];
-        foreach ($allColors as $clr) {
-            $return[$clr['name']] = $clr['name'];
-        }
-        return $return;
+    return $return;
+  }
+
+  public function getColorCodes(array $colors = []): array
+  {
+    $allColors = $this->all();
+    $return = [];
+
+    foreach ($allColors as $clr) {
+      if (in_array($clr['name'], $colors)) {
+        $return[$clr['name']] = $clr['hex'];
+      }
     }
 
-    public function getColorCodes(array $colors = []): array
-    {
-        $allColors = $this->all();
-        $return = [];
-        foreach ($allColors as $clr) {
-            if (in_array($clr['name'], $colors)) {
-                $return[$clr['name']] = $clr['hex'];
-            }
-        }
-        $tmp = array_combine($colors, $colors);
-        return array_merge($tmp, $return);
-    }
+    $tmp = array_combine($colors, $colors);
+    return array_merge($tmp, $return);
+  }
 }

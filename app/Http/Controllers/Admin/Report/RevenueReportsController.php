@@ -6,6 +6,9 @@ use App\Http\Controllers\Admin\Report\Concerns\UsesReportPageLimit;
 use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\RevenueReport;
+use Carbon\Carbon;
+
 
 class RevenueReportsController extends LegacyAppController
 {
@@ -18,91 +21,90 @@ class RevenueReportsController extends LegacyAppController
         }
 
         $title = 'Vehicle Revenue Report';
-        $keyword = '';
-        $dealerid = '';
-        $vehicleid = '';
-        $date_from = '';
-        $date_to = '';
-        $conditions = [];
+        $keyword = $dealerid = $vehicleid = $date_from = $date_to = '';
+        $sessionLimitKey = 'revenue_report_limit';
+        $query = RevenueReport::query();
 
-        if ($request->filled('Search')) {
-            $dealerid = $request->input('Search.dealerid', '');
-            $vehicleid = $request->input('Search.vehicleid', '');
-            $date_from = $request->input('Search.datefrom', '');
-            $date_to = $request->input('Search.dateto', '');
-            if ($dealerid !== '') {
-                $conditions['user_id'] = $dealerid;
-            }
-            if ($vehicleid !== '') {
-                $conditions['vehicle_id'] = $vehicleid;
-            }
-            if ($date_from !== '') {
-                $dtFrom = \DateTime::createFromFormat('m/Y', $date_from);
-                $conditions['date_from'] = $dtFrom ? $dtFrom->format('Y-m-01') : null;
-            }
-            if ($date_to !== '') {
-                $dtTo = \DateTime::createFromFormat('m/Y', $date_to);
-                $conditions['date_to'] = $dtTo ? $dtTo->format('Y-m-t') : null;
-            }
-            if ($request->isMethod('post') && $request->filled('refresh')) {
-                $this->revenueReport($conditions);
+        if ($request->has('Search')) {
+            $search = $request->input('Search');
+            $dealerid = $search['dealerid'] ?? '';
+            $vehicleid = $search['vehicleid'] ?? '';
+            $date_from = $search['datefrom'] ?? '';
+            $date_to = $search['dateto'] ?? '';
 
+            if (!empty($dealerid)) {
+                $query->where('user_id', $dealerid);
+            }
+
+            if (!empty($vehicleid)) {
+                $query->where('vehicle_id', $vehicleid);
+            }
+
+            if (!empty($date_from)) {
+                $formattedFrom = Carbon::createFromFormat('m/Y', $date_from)->startOfMonth()->format('Y-m-d');
+                $query->where('date_from', $formattedFrom);
+            }
+
+            if (!empty($date_to)) {
+                $formattedTo = Carbon::createFromFormat('m/Y', $date_to)->endOfMonth()->format('Y-m-d');
+                $query->where('date_to', $formattedTo);
+            }
+
+            if ($request->isMethod('post') && $request->has('refresh')) {
+                $this->_revenueReport($query->getBindings());
                 return redirect()->back()->with('success', 'Revenue report generated successfully.');
             }
         }
 
-        $limit = $this->getPageLimit($request, 'revenue_reports_limit', 50);
-        $lists = DB::table('revenue_reports')->orderByDesc('vehicle_id')->paginate($limit)->withQueryString();
+        if ($request->filled('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            $request->session()->put($sessionLimitKey, $limit);
+        } else {
+            $limit = $request->session()->get($sessionLimitKey, $this->recordsPerPage ?? 10);
+        }
+
+        $request->merge(['Record' => ['limit' => $limit]]);
+        $lists = $query->orderBy('vehicle_id', 'desc')->paginate($limit);
+
 
         if ($request->ajax()) {
-            return view('admin.report.elements._revenue_report', compact(
-                'lists',
-                'keyword',
-                'dealerid',
-                'vehicleid',
-                'date_from',
-                'date_to',
-                'title'
-            ));
+            return view('admin.report.revenue_reports.elements._revenue_report', compact('title', 'lists', 'keyword', 'dealerid', 'vehicleid', 'date_from', 'date_to', 'limit'));
         }
 
-        return view('admin.report.revenue_reports.index', compact(
-            'title',
-            'lists',
-            'keyword',
-            'dealerid',
-            'vehicleid',
-            'date_from',
-            'date_to'
-        ));
+        return view('admin.report.revenue_reports.index', compact('title', 'lists', 'keyword', 'dealerid', 'vehicleid', 'date_from', 'date_to', 'limit'));
     }
 
-    /**
-     * @param  array<string, mixed>  $conditions
-     */
-    private function revenueReport(array $conditions = []): bool
+    private function _revenueReport($conditions = [])
     {
-        $condi = '';
-        if (! empty($conditions['date_from']) && ! empty($conditions['date_to'])) {
-            $start_date = $conditions['date_from'];
-            $end_date = $conditions['date_to'];
+        if (!empty($conditions['date_from']) && !empty($conditions['date_to'])) {
+            $startDate = $conditions['date_from'];
+            $endDate = $conditions['date_to'];
         } else {
-            $start_date = date('Y-m-01');
-            $end_date = date('Y-m-d', strtotime('last day of this month'));
-        }
-        $condi = " start_datetime <= '{$end_date}' AND end_datetime >= '{$start_date}'";
-        if (isset($conditions['user_id']) && ! empty($conditions['user_id'])) {
-            $user_id = (int) $conditions['user_id'];
-            $condi .= " AND user_id = {$user_id}";
-        }
-        if (isset($conditions['vehicle_id']) && ! empty($conditions['vehicle_id'])) {
-            $vehicle_id = (int) $conditions['vehicle_id'];
-            $condi .= " AND vehicle_id = {$vehicle_id}";
+            $startDate = Carbon::now()->startOfMonth()->format('Y-m-d');
+            $endDate = Carbon::now()->endOfMonth()->format('Y-m-d');
         }
 
-        DB::statement('TRUNCATE TABLE revenue_reports');
+        $whereClauses = ["start_datetime <= :end_date", "end_datetime >= :start_date"];
+        $bindings = [
+            'end_date' => $endDate,
+            'start_date' => $startDate
+        ];
 
-        $sql = "INSERT INTO revenue_reports (vehicle_id, vehicle_name, month, bookings,days, revenue_for_month, odometer_for_month)  
+        if (!empty($conditions['user_id'])) {
+            $whereClauses[] = "user_id = :user_id";
+            $bindings['user_id'] = $conditions['user_id'];
+        }
+
+        if (!empty($conditions['vehicle_id'])) {
+            $whereClauses[] = "vehicle_id = :vehicle_id";
+            $bindings['vehicle_id'] = $conditions['vehicle_id'];
+        }
+
+        $condiString = implode(' AND ', $whereClauses);
+
+        RevenueReport::truncate();
+
+        $sql = "INSERT INTO revenue_reports (vehicle_id, vehicle_name, month, bookings, days, revenue_for_month, odometer_for_month)  
             WITH RECURSIVE date_expansion AS (
                 SELECT 
                     id,
@@ -111,12 +113,12 @@ class RevenueReportsController extends LegacyAppController
                     start_datetime,
                     end_datetime,
                     DATE(start_datetime) AS booking_date,
-                    (rent + initial_fee + extra_mileage_fee + damage_fee + lateness_fee + uncleanness_fee ) AS total_revenue,
+                    (rent + initial_fee + extra_mileage_fee + damage_fee + lateness_fee + uncleanness_fee) AS total_revenue,
                     GREATEST(end_odometer - start_odometer, 0) AS total_odometer,
                     DATEDIFF(end_datetime, start_datetime) AS total_days
                 FROM cs_orders
                 WHERE status != 2
-                AND {$condi}
+                AND {$condiString}
 
                 UNION ALL
 
@@ -142,14 +144,15 @@ class RevenueReportsController extends LegacyAppController
                 COUNT(DISTINCT CONCAT(id, '-', booking_date)) AS days,
                 ROUND(SUM(total_revenue / total_days), 2) AS revenue_for_month,
                 ROUND(SUM(total_odometer / total_days), 2) AS odometer_for_month
-                
             FROM date_expansion
-            WHERE booking_date BETWEEN '2024-01-01' AND '2025-06-30'
+            WHERE booking_date BETWEEN :report_start AND :report_end
             GROUP BY vehicle_id, vehicle_name, month
             ORDER BY month, vehicle_id";
 
-        DB::unprepared($sql);
+        $bindings['report_start'] = '2024-01-01';
+        $bindings['report_end'] = '2025-06-30';
 
+        DB::statement($sql, $bindings);
         return true;
     }
 }

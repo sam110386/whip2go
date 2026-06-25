@@ -14,6 +14,7 @@ class MeasureOneService
     {
         $token = $this->getToken();
         $userObj = DB::table('measureone_users')->where('user_id', $user['id'])->first();
+
         if (!empty($userObj)) {
             $individualId = $userObj->individual_id;
         } else {
@@ -24,6 +25,7 @@ class MeasureOneService
             $individualId = $individualObj['result']['id'];
             DB::table('measureone_users')->insert(['user_id' => $user['id'], 'individual_id' => $individualId]);
         }
+
         $isActivePaystubReport = DB::table('measureone_users')->where('user_id', $user['id'])->where('paystub', 1)->where('status', 1)->count();
         $header = $this->buildHeader($token);
         $requestBody = [
@@ -146,12 +148,15 @@ class MeasureOneService
         $data = Cache::get($this->type);
         if (!isset($data['expires_at']) || time() > $data['expires_at']) {
             $result = $this->generateAccessToken();
+
             if (!$result['status']) {
                 return $result;
             }
+
             $result = json_decode(json_encode($result['result']), true);
             $result['expires_at'] = (time() + $result['expires_in'] - 3600);
             Cache::put($this->type, $result, 365 * 24 * 60 * 60);
+
             return $result;
         }
         return $data;
