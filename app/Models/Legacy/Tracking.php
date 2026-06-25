@@ -19,4 +19,13 @@ class Tracking extends LegacyModel
         'id',
     ];
 
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
 }

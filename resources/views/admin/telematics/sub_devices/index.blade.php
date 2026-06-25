@@ -1,9 +1,19 @@
 @extends('admin.layouts.app')
+@php
+    $title ??= 'Telematics Subscriptions Devices';
+    $subid ??= '';
+    $date_to ??= '';
+    $status_type ??= '';
+    $dealer_id ??= '';
+    $status_opt = [
+        'active' => 'Active',
+        'inactive' => 'Inactive'
+    ];
+@endphp
+
+@section('title', $title)
 
 @section('content')
-    @php
-        $status_opt = ['active' => 'Active', 'inactive' => 'Inactive'];
-    @endphp
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -13,8 +23,12 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="/admin/telematics_subscriptions/index" class="btn btn-primary">Back</a>
-                <a href="javascript:void(0)" class="btn btn-danger" onclick="addDevice('{{ base64_encode($subid) }}')">Add New</a>
+                <a href="/admin/telematics_subscriptions/index" class="btn btn-primary">
+                    Back
+                </a>
+                <a href="javascript:void(0)" class="btn btn-danger" onclick="addDevice('{{ base64_encode($subid) }}')">
+                    Add New
+                </a>
             </div>
         </div>
     </div>
@@ -25,7 +39,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form action="/admin/telematics/sub_devices/index/{{ base64_encode($subid) }}" method="POST" id="frmSearchadmin"
+            <form action="/admin/telematics_sub_devices/index/{{ base64_encode($subid) }}" method="POST" id="frmSearchadmin"
                 name="frmSearchadmin" class="form-horizontal">
                 @csrf
                 <fieldset class="content-group">
@@ -33,7 +47,9 @@
                         <select name="Search[status_type]" class="form-control">
                             <option value="">Status</option>
                             @foreach($status_opt as $k => $v)
-                                <option value="{{ $k }}" {{ $status_type == $k ? 'selected' : '' }}>{{ $v }}</option>
+                                <option value="{{ $k }}" @selected($status_type == $k)>
+                                    {{ $v }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -45,11 +61,13 @@
             </form>
         </div>
     </div>
+
     <div class="panel">
         <div class="panel-body" id="listing">
-            @include('admin.telematics.sub_devices._table')
+            @include('admin.telematics.sub_devices.elements.devices')
         </div>
     </div>
+
     <div id="myModal" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <div class="modal-content animate-bottom"></div>
@@ -59,5 +77,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ legacy_asset('Telematics/js/telematics.js') }}"></script>
+    <script src="{{ legacy_asset('js/telematics/telematics.js') }}"></script>
 @endpush

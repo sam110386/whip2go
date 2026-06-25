@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Services\Legacy\Common;
 use Illuminate\Http\Request;
 use App\Models\Legacy\InsuranceProvider;
+use App\Http\Controllers\Legacy\LegacyAppController;
 
 class InsuranceProvidersController extends LegacyAppController
 {
@@ -57,10 +56,8 @@ class InsuranceProvidersController extends LegacyAppController
 
         $id = $this->decodeId($id);
         $listTitle = !empty($id) ? 'Update Insurance Provider' : 'Add Insurance Provider';
-
-        $common = app(Common::class);
-        $usStates = $common->getStates();
-        $caStates = $common->getCanadaStates();
+        $usStates = $this->commonService->getStates();
+        $caStates = $this->commonService->getCanadaStates();
 
         if ($request->isMethod('post')) {
             $data = $request->input('InsuranceProvider', []);
@@ -68,10 +65,12 @@ class InsuranceProvidersController extends LegacyAppController
             $rules = [
                 'InsuranceProvider.name' => 'required|unique:insurance_providers,name' . (!empty($data['id']) ? ',' . $data['id'] : ''),
             ];
+
             $messages = [
                 'InsuranceProvider.name.required' => 'Please enter lender name',
                 'InsuranceProvider.name.unique' => 'Lender name already exists',
             ];
+
             $request->validate($rules, $messages);
 
             unset($data['logo']);

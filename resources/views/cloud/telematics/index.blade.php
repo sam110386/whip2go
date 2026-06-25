@@ -9,7 +9,7 @@
             <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">Manage </span>- Telematics Subscription</h4>
         </div>
         <div class="heading-elements">
-            <a href="{{ url('telematics/subscriptions/buy') }}" class="btn btn-danger btn-lg" style="float:right;">Buy New</a>
+            <a href="{{ url('telematics_subscriptions/buy') }}" class="btn btn-danger btn-lg" style="float:right;">Buy New</a>
         </div>
     </div>
 </div>

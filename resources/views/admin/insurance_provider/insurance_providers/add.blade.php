@@ -1,20 +1,5 @@
 @extends('admin.layouts.app')
 @section('content')
-    <script type="text/javascript">
-        jQuery(document).ready(function () {
-            jQuery("#frmadmin").validate();
-
-            jQuery("#InsuranceProviderCountry").change(function () {
-                if (jQuery(this).val() == 'US') {
-                    jQuery("#usstate").removeClass('hide');
-                    jQuery("#castate").addClass('hide');
-                } else {
-                    jQuery("#usstate").addClass('hide');
-                    jQuery("#castate").removeClass('hide');
-                }
-            });
-        });
-    </script>
 
     <div class="page-header">
         <div class="page-header-content">
@@ -134,4 +119,25 @@
             </form>
         </div>
     </div>
+
 @endsection
+
+@push('scripts')
+
+    <script type="text/javascript">
+        jQuery(document).ready(function () {
+            jQuery("#frmadmin").validate();
+
+            jQuery("#InsuranceProviderCountry").change(function () {
+                if (jQuery(this).val() == 'US') {
+                    jQuery("#usstate").removeClass('hide');
+                    jQuery("#castate").addClass('hide');
+                } else {
+                    jQuery("#usstate").addClass('hide');
+                    jQuery("#castate").removeClass('hide');
+                }
+            });
+        });
+    </script>
+
+@endpush

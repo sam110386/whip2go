@@ -1,14 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', $title_for_layout ?? 'Tracking Data')
-
 @php
-    $trackings ??= [];
-    $limit ??= 50;
-    $basePath ??= url('admin/trackings');
+    $title = 'Tracking Data';
 @endphp
 
+@section('title', $title)
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -18,7 +17,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="{{ $basePath }}/view" class="btn btn-success">
+                <a href="{{ url('admin/trackings/view')}}" class="btn btn-success">
                     {{ 'Vehicle Views' }}
                 </a>
             </div>
@@ -32,35 +31,9 @@
     <div class="panel">
         <div class="panel-body">
             <div id="listing">
-                @include('admin.trackings.partials.index_listing', [
-                    'trackings' => $trackings,
-                    'limit' => $limit,
-                    'basePath' => $basePath,
-                ])
+                @include('admin.trackings.elements.index')
             </div>
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
-
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
-@push('scripts')
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
-@endpush

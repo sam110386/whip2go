@@ -1,5 +1,20 @@
 @extends('admin.layouts.app')
 
+@php
+    $title ??= 'Telematics Subscriptions';
+    $date_from ??= '';
+    $date_to ??= '';
+    $status_type ??= '';
+    $dealer_id ??= '';
+    $status_opt = [
+        'new' => 'New',
+        'active' => 'Active',
+        'cancel' => 'Cancel'
+    ];
+@endphp
+
+@section('title', $title)
+
 @push('styles')
     <style type="text/css">
         tbody tr {
@@ -10,9 +25,7 @@
 @endpush
 
 @section('content')
-    @php
-        $status_opt = ['new' => 'New', 'active' => 'Active', 'cancel' => 'Cancel'];
-    @endphp
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -36,13 +49,15 @@
                 <fieldset class="content-group">
                     <div class="col-md-2">
                         <input type="text" name="Search[dealer_id]" id="SearchDealerId" style="width:100%;"
-                            value="{{ $dealerid }}" placeholder="Dealers">
+                            value="{{ $dealer_id }}" placeholder="Dealers">
                     </div>
                     <div class="col-md-2">
                         <select name="Search[status_type]" class="form-control">
                             <option value="">Status</option>
                             @foreach($status_opt as $k => $v)
-                                <option value="{{ $k }}" {{ $status_type == $k ? 'selected' : '' }}>{{ $v }}</option>
+                                <option value="{{ $k }}" {{ $status_type == $k ? 'selected' : '' }}>
+                                    {{ $v }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -64,55 +79,88 @@
             </form>
         </div>
     </div>
+
     <div class="panel">
         <div class="panel-body" id="listing">
-            @include('admin.telematics.subscriptions._table')
+            @include('admin.telematics.subscriptions.elements.index')
         </div>
     </div>
+
     <div id="myModal" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <div class="modal-content"></div>
         </div>
     </div>
+
 @endsection
+
 @push('scripts')
 
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
+
     <script type="text/javascript">
-        function format(item) { return item.tag; }
+        function format(item) {
+            return item.tag;
+        }
+
         jQuery(document).ready(function () {
             jQuery("#SearchDealerId").select2({
-                data: { results: {}, text: 'tag' },
-                formatSelection: format, formatResult: format,
+                data: {
+                    results: {},
+                    text: 'tag'
+                },
+                formatSelection: format,
+                formatResult: format,
                 placeholder: "Select Customer",
                 minimumInputLength: 1,
                 ajax: {
-                    url: "{{ config('app.url') }}/admin/bookings/customerautocomplete",
-                    dataType: "json", type: "GET",
-                    data: function (params) { return { term: params, "is_dealer": true } },
+                    url: "{{ url('admin/bookings/customerautocomplete') }}",
+                    dataType: "json",
+                    type: "GET",
+                    data: function (params) {
+                        return {
+                            term: params,
+                            "is_dealer": true
+                        }
+                    },
                     processResults: function (data) {
-                        return { results: $.map(data, function (item) { return { tag: item.tag, id: item.id } }) };
+                        return {
+                            results: $.map(data, function (item) {
+                                return {
+                                    tag: item.tag,
+                                    id: item.id
+                                }
+                            })
+                        };
                     }
                 },
                 initSelection: function (element, callback) {
-                    var dealer_id = "{{ $dealerid }}";
+                    var dealer_id = "{{ $dealer_id }}";
                     if (dealer_id.length > 0) {
                         jQuery.ajax({
-                            url: "{{ config('app.url') }}/admin/bookings/customerautocomplete",
-                            dataType: "json", type: "GET", data: { "id": dealer_id }
-                        }).done(function (data) { callback(data[0]); });
+                            url: "{{ url('admin/bookings/customerautocomplete') }}",
+                            dataType: "json",
+                            type: "GET",
+                            data: {
+                                "id": dealer_id
+                            }
+                        }).done(function (data) {
+                            callback(data[0]);
+                        });
                     }
                 }
             });
+
+            jQuery('#SearchDateFrom').datepicker({
+                dateFormat: 'mm/dd/yy'
+            });
+
+            jQuery('#SearchDateTo').datepicker({
+                dateFormat: 'mm/dd/yy'
+            });
+
         });
     </script>
 
-    <script type="text/javascript">
-        jQuery(document).ready(function () {
-            jQuery('#SearchDateFrom').datepicker({ dateFormat: 'mm/dd/yy' });
-            jQuery('#SearchDateTo').datepicker({ dateFormat: 'mm/dd/yy' });
-        });
-    </script>
-
-    <script src="{{ legacy_asset('Telematics/js/telematics.js') }}"></script>
+    <script src="{{ legacy_asset('js/telematics/telematics.js') }}"></script>
 @endpush

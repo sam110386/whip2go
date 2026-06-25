@@ -1,6 +1,14 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Waitlist Leads')
+@php
+    $title ??= 'Waitlist Leads';
+    $date_from ??= '';
+    $date_to ??= '';
+    $status ??= '';
+    $vehicleid ??= '';
+@endphp
+
+@section('title', $title)
 
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
@@ -61,7 +69,7 @@
 
     <div class="panel">
         <div class="panel-body" id="listing">
-            @include('admin.waitlists._index')
+            @include('admin.waitlists.elements.index')
         </div>
     </div>
 

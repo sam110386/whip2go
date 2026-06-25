@@ -2,58 +2,55 @@
 
 namespace App\Services\Legacy;
 
+use App\Models\Legacy\TelematicsPayment;
+use App\Models\Legacy\TelematicsSubscription;
+use App\Models\Legacy\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use App\Services\Legacy\Common as CommonService;
+use App\Services\Legacy\PaymentProcessor;
 
 class TelematicsSubscriptionPayment
 {
-    protected Common $common;
+    protected CommonService $commonService;
     protected PaymentProcessor $paymentProcessor;
 
     public function __construct()
     {
-        $this->common = new Common();
+        $this->commonService = new CommonService();
         $this->paymentProcessor = new PaymentProcessor();
     }
-
     public function process(): void
     {
-        $subscriptions = DB::table('telematics_subscriptions')
-            ->where('status', 1)
-            ->where('next_on', date('Y-m-d'))
-            ->get();
+        $subscriptions = TelematicsSubscription::where('status', 1)->where('next_on', date('Y-m-d'))->get();
 
         foreach ($subscriptions as $subscription) {
             $this->createSubscriptionPayment($subscription);
         }
     }
-
-    public function createSubscriptionPayment($subscription): void
+    public function createSubscriptionPayment(TelematicsSubscription $subscription): void
     {
         $units = $subscription->units;
         $amtToCharge = sprintf('%0.2f', $units * config('legacy.TELEMATICUNITMONTHSERVICE', 0));
-        $nextOn = $this->common->getExactDateAfterMonths(strtotime($subscription->next_on), 1);
+        $nextOn = $this->commonService->getExactDateAfterMonths(strtotime($subscription->next_on), 1);
 
-        DB::table('telematics_subscriptions')
-            ->where('id', $subscription->id)
+        TelematicsSubscription::where('id', $subscription->id)
             ->update([
                 'next_on' => date('Y-m-d', $nextOn),
                 'updated' => now(),
             ]);
 
-        DB::table('telematics_payments')->insert([
+        TelematicsPayment::create([
             'status' => 0,
             'telematics_id' => $subscription->id,
             'amt' => $amtToCharge,
             'txn_id' => null,
         ]);
     }
-
     public function chargeSubscriptionPayment(): void
     {
-        $payments = DB::table('telematics_payments')
-            ->where('status', 0)
+        $payments = TelematicsPayment::where('status', 0)
             ->where(function ($q) {
                 $q->whereNull('last_processed')
                     ->orWhere('last_processed', '<', date('Y-m-d'));
@@ -62,22 +59,22 @@ class TelematicsSubscriptionPayment
             ->get();
 
         foreach ($payments as $payment) {
-            DB::table('telematics_payments')
-                ->where('id', $payment->id)
-                ->update(['last_processed' => date('Y-m-d')]);
-
-            $this->chargePayment((array) $payment);
+            TelematicsPayment::where('id', $payment->id)
+                ->update([
+                    'last_processed' => date('Y-m-d')
+                ]);
+            $this->chargePayment($payment->toArray());
         }
     }
-
     public function chargePayment(array $payment): array
     {
-        $subscription = DB::table('telematics_subscriptions')
-            ->where('id', $payment['telematics_id'])
-            ->first();
+        $subscription = TelematicsSubscription::where('id', $payment['telematics_id'])->first();
 
-        if (empty($subscription)) {
-            return ['status' => false, 'message' => 'Subscription not found'];
+        if (!$subscription) {
+            return [
+                'status' => false,
+                'message' => 'Subscription not found'
+            ];
         }
 
         $dealerid = $subscription->user_id;
@@ -93,19 +90,27 @@ class TelematicsSubscriptionPayment
             ->first();
 
         if (empty($dealerObj)) {
-            return ['status' => false, 'message' => 'Dealer not found'];
+            return [
+                'status' => false,
+                'message' => 'Dealer not found'
+            ];
         }
 
         $stripe_token = $dealerObj->stripe_token ?? '';
 
         if (empty($stripe_token)) {
-            DB::table('telematics_subscriptions')
-                ->where('id', $subscription->id)
-                ->update(['status' => 0]);
+            TelematicsSubscription::where('id', $subscription->id)
+                ->update([
+                    'status' => 0
+                ]);
 
             $msg = "Dealer {$dealerObj->first_name} {$dealerObj->last_name} telematics subscription #{$subscription->id} has been disabled due to the payment failed. Respective dealer card details not found.";
             $this->notify($msg, 'Telematics Subscription Payment Failed');
-            return ['status' => false, 'message' => $msg];
+
+            return [
+                'status' => false,
+                'message' => $msg
+            ];
         }
 
         $chargereturn = $this->paymentProcessor->chargeAmt(
@@ -117,47 +122,51 @@ class TelematicsSubscriptionPayment
         );
 
         if (($chargereturn['status'] ?? '') !== 'success') {
-            DB::table('telematics_subscriptions')
-                ->where('id', $subscription->id)
-                ->update(['status' => 0]);
+            TelematicsSubscription::where('id', $subscription->id)
+                ->update([
+                    'status' => 0
+                ]);
 
             $msg = "Dealer {$dealerObj->first_name} {$dealerObj->last_name} telematics subscription #{$subscription->id} has been disabled due to the payment failed.";
             $this->notify($msg, 'Telematics Subscription Payment Failed');
-            return ['status' => false, 'message' => $chargereturn['message'] ?? 'Payment failed'];
+
+            return [
+                'status' => false,
+                'message' => $chargereturn['message'] ?? 'Payment failed'
+            ];
         }
 
-        DB::table('telematics_payments')
-            ->where('id', $payment['id'])
+        TelematicsPayment::where('id', $payment['id'])
             ->update([
                 'txn_id' => $chargereturn['transaction_id'] ?? null,
                 'status' => 1,
                 'last_processed' => date('Y-m-d'),
             ]);
 
-        $allFailed = DB::table('telematics_payments')
-            ->where('telematics_id', $subscription->id)
+        $allFailed = TelematicsPayment::where('telematics_id', $subscription->id)
             ->where('status', 0)
             ->count();
 
-        DB::table('telematics_subscriptions')
-            ->where('id', $subscription->id)
+        TelematicsSubscription::where('id', $subscription->id)
             ->update([
                 'status' => $allFailed ? 0 : 1,
                 'updated' => now(),
             ]);
 
-        $this->notifyToDealerRenewal($dealerid, $amtToCharge, $subscription->units);
+        $this->NotifyToDealer($dealerid, $amtToCharge, $subscription->units);
 
         $msg = "Dealer {$dealerObj->first_name} {$dealerObj->last_name} telematics subscription #{$subscription->id} renewed successfully";
         $this->notify($msg, 'Telematics Subscription Renewed');
 
-        return ['status' => true, 'message' => 'Payment captured successfully and telematics subscription renewed.'];
+        return [
+            'status' => true,
+            'message' => 'Payment captured successfully and telematics subscription renewed.'
+        ];
     }
-
     private function notify(string $msg, string $subject): void
     {
         try {
-            Mail::send('emails.custom', [
+            Mail::send('emails.html.custom_email', [
                 'MESSAGE' => $msg,
                 'logourl' => config('app.url') . '/img/DriveitawayBluelogo.png',
             ], function ($message) use ($subject) {
@@ -170,11 +179,9 @@ class TelematicsSubscriptionPayment
             Log::error('TelematicsSubscriptionPayment notify failed: ' . $e->getMessage());
         }
     }
-
-    public function notifySaleToDealer(int $dealer, string $payment, string $msg): void
+    public function NotifySaleToDealer(int $dealer_id, string $payment, string $msg): void
     {
-        $dealerObj = DB::table('users')
-            ->where('id', $dealer)
+        $dealerObj = User::where('id', $dealer_id)
             ->select('email', 'notify_email', 'first_name', 'last_name')
             ->first();
 
@@ -186,7 +193,7 @@ class TelematicsSubscriptionPayment
         $name = $dealerObj->first_name . ' ' . $dealerObj->last_name;
 
         try {
-            Mail::send('emails.telematics_payment', [
+            Mail::send('emails.html.telematics_payment', [
                 'logourl' => config('app.url') . '/img/DriveitawayBluelogo.png',
                 'NAME' => $name,
                 'MESSAGE' => $msg,
@@ -202,8 +209,7 @@ class TelematicsSubscriptionPayment
             Log::error('TelematicsSubscriptionPayment notifySaleToDealer failed: ' . $e->getMessage());
         }
     }
-
-    private function notifyToDealerRenewal(int $userid, string $total, int $units): void
+    private function NotifyToDealer(int $userid, string $total, int $units): void
     {
         $unitPrice = config('legacy.TELEMATICUNITMONTHSERVICE', 0);
 
@@ -214,6 +220,7 @@ class TelematicsSubscriptionPayment
         $payment .= "<tr><td align='center' valign='top'><div><div style='color:#555555;font-size:12px;font-weight:bold;'><span>Total Paid :</span></div></div></td><td>&nbsp;</td><td align='center' valign='top'><div><div style='color:#555555;font-size:12px;font-weight:bold;'><span>\${$total}</span></div></div></td></tr>";
 
         $msg = 'Telematics monthly payment captured successfully and subscription renewed.';
-        $this->notifySaleToDealer($userid, $payment, $msg);
+
+        $this->NotifySaleToDealer($userid, $payment, $msg);
     }
 }
