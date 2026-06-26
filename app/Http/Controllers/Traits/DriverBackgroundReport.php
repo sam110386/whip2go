@@ -3,32 +3,36 @@
 namespace App\Http\Controllers\Traits;
 
 use App\Models\Legacy\User;
-use App\Models\Legacy\UserLicenseDetail;
 use App\Models\Legacy\UserReport;
 use App\Models\Legacy\CsSetting;
 use App\Helpers\Legacy\Security;
-use Illuminate\Support\Facades\Log;
 use App\Services\Legacy\CheckrApiClient;
+use App\Services\Legacy\DigisureApiService;
 
-trait DriverBackgroundReport {
-
+trait DriverBackgroundReport
+{
     private $_userObj = [];
 
     public function addCandidateToDriverBackgroundReport($userid, $owner = '', $TrustScore = false)
     {
-        $this->_userObj = User::where('id', $userid)
-            ->with('UserLicenseDetail')
-            ->first();
+        $this->_userObj = User::where('id', $userid)->with('userLicenseDetail')->first();
 
         if (!$this->_userObj) {
-            return ['status' => false, 'message' => "User not found."];
+            return [
+                'status' => false,
+                'message' => "User not found."
+            ];
         }
 
-        $licenseDetail = $this->_userObj->UserLicenseDetail;
-        
+        $licenseDetail = $this->_userObj->userLicenseDetail;
+
         $documentNumber = !empty($licenseDetail->documentNumber) ? $licenseDetail->documentNumber : null;
+
         if (!$documentNumber) {
-            return ['status' => false, 'message' => "Sorry, driver didn't add his license number yet."];
+            return [
+                'status' => false,
+                'message' => "Sorry, driver didn't add his license number yet."
+            ];
         }
 
         try {
@@ -57,15 +61,17 @@ trait DriverBackgroundReport {
 
         try {
             if (!empty($userExist)) {
+
                 if ($userExist->channel == 'CKR') {
                     $checkr = new CheckrApiClient();
-                    return $checkr->updateCandidateToApi($userdata, $userExist->checkr_id);
+                    return $checkr->_updateCandidateToApi($userdata, $userExist->checkr_id);
                 }
+
                 if ($userExist->channel == 'DIG') {
-                    // Placeholder for DigisureApi
-                    Log::info("DigisureApi: _updateCandidateToApi for user $userid");
-                    return ['status' => true, 'message' => "Digisure candidate update pending Lib migration."];
+                    $digisure = new DigisureApiService();
+                    return $digisure->_updateCandidateToApi($userdata, $userExist->checkr_id, $TrustScore);
                 }
+
             }
 
             if (empty($owner)) {
@@ -75,44 +81,59 @@ trait DriverBackgroundReport {
                 $driver_checker = $ownerSetting ? $ownerSetting->driver_checker : 'CKR';
             }
 
-            $response = ['status' => false, 'message' => "No checker found."];
+            $response = [
+                'status' => false,
+                'message' => "No checker found."
+            ];
 
             if ($driver_checker == 'DIG') {
-                // Placeholder for DigisureApi
-                Log::info("DigisureApi: _addCandidateToApi for user $userid");
-                $response = ['status' => true, 'message' => "Digisure candidate add pending Lib migration."];
+                $digisure = new DigisureApiService();
+                $response = $digisure->_addCandidateToApi($userdata, $TrustScore);
             }
+
             if ($driver_checker == 'CKR') {
                 $checkr = new CheckrApiClient();
-                $response = $checkr->addCandidateAndSave($userdata);
+                $response = $checkr->_addCandidateToApi($userdata);
             }
 
             if (!$response['status']) {
                 User::where('id', $userid)->update(['checkr_status' => 4]);
             }
+
             return $response;
 
         } catch (\Exception $e) {
-            return ['status' => false, 'message' => $e->getMessage()];
+            return [
+                'status' => false,
+                'message' => $e->getMessage()
+            ];
         }
     }
-
     public function updateCandidateToDriverBackgroundReport($userid, $owner = '')
     {
         $userExist = UserReport::where('user_id', $userid)->first();
-        if (empty($userExist)) {
+
+        if (!$userExist) {
             return $this->addCandidateToDriverBackgroundReport($userid, $owner, true);
         }
 
-        $user = User::where('id', $userid)->with('UserLicenseDetail')->first();
+        $this->_userObj = $user = User::where('id', $userid)->with('userLicenseDetail')->first();
+
         if (!$user) {
-            return ['status' => false, 'message' => "User not found."];
+            return [
+                'status' => false,
+                'message' => "User not found."
+            ];
         }
 
-        $licenseDetail = $user->UserLicenseDetail;
+        $licenseDetail = $user->userLicenseDetail;
         $documentNumber = !empty($licenseDetail->documentNumber) ? $licenseDetail->documentNumber : null;
+
         if (!$documentNumber) {
-            return ['status' => false, 'message' => "Sorry, driver didn't add his license number yet."];
+            return [
+                'status' => false,
+                'message' => "Sorry, driver didn't add his license number yet."
+            ];
         }
 
         try {
@@ -138,23 +159,29 @@ trait DriverBackgroundReport {
         ];
 
         try {
+
             if ($userExist->channel == 'CKR') {
-                // Placeholder
-                Log::info("CheckrApi: _updateCandidateToApi for user $userid");
-                return ['status' => true, 'message' => "Checkr update pending Lib migration."];
+                $checkr = new CheckrApiClient();
+                return $checkr->_updateCandidateToApi($userdata, $userExist->checkr_id);
             }
+
             if ($userExist->channel == 'DIG') {
-                // Placeholder
-                Log::info("DigisureApi: _updateCandidateToApi for user $userid");
-                return ['status' => true, 'message' => "Digisure update pending Lib migration."];
+                $digisure = new DigisureApiService();
+                return $digisure->_updateCandidateToApi($userdata, $userExist->checkr_id, true);
             }
+
         } catch (\Exception $e) {
-            return ['status' => false, 'message' => $e->getMessage()];
+            return [
+                'status' => false,
+                'message' => $e->getMessage()
+            ];
         }
 
-        return ['status' => false, 'message' => "Unknown channel."];
+        return [
+            'status' => false,
+            'message' => "Unknown channel."
+        ];
     }
-
     public function createBackgroundReport($userid, $owner = '')
     {
         $userReport = UserReport::where('user_id', $userid)->first();
@@ -163,20 +190,23 @@ trait DriverBackgroundReport {
             return $this->addCandidateToDriverBackgroundReport($userid, $owner, true);
         }
 
-        if (empty($userReport)) {
+        if (!$userReport) {
             $this->addCandidateToDriverBackgroundReport($userid, $owner, true);
             $userReport = UserReport::where('user_id', $userid)->first();
         }
 
         if ($userReport && $userReport->channel == 'CKR') {
-            if (empty($this->_userObj)) {
+
+            if (!$this->_userObj) {
                 $this->_userObj = User::find($userid);
-            }
 
-            if (!$this->_userObj || empty($this->_userObj->licence_number)) {
-                return ['status' => false, 'message' => "Sorry, driver didn't add his license number yet."];
+                if (empty($this->_userObj->licence_number) || empty(Security::decrypt($this->_userObj->licence_number))) {
+                    return [
+                        'status' => false,
+                        'message' => "Sorry, driver didn't add his license number yet."
+                    ];
+                }
             }
-
             $worklocation = [
                 'licence_state' => !empty($this->_userObj->licence_state) ? $this->_userObj->licence_state : $this->_userObj->state,
                 'address' => $this->_userObj->address,
@@ -184,42 +214,55 @@ trait DriverBackgroundReport {
                 'state' => $this->_userObj->state
             ];
 
-            // Actual CheckrApi->createReport call
             $checkr = new CheckrApiClient();
             $response = $checkr->createReport($userReport->checkr_id, $worklocation);
-            
+
             if ($response['status'] && !empty($response['report_id'])) {
-                $userReport->update(["status" => 1, "checkr_reportid" => $response['report_id']]);
+                $userReport->update([
+                    "status" => 1,
+                    "checkr_reportid" => $response['report_id']
+                ]);
             }
+
             return $response;
         }
 
-        return ['status' => false, 'message' => "Could not create report."];
+        return [
+            'status' => false,
+            'message' => "Could not create report."
+        ];
     }
-
     public function pullBackgroundReport($userid)
     {
-        $userReportArr = UserReport::where('user_id', $userid)->first();
+        $UserReportObj = UserReport::where('user_id', $userid)->first();
 
-        if (!$userReportArr || empty($userReportArr->checkr_id)) {
-            return ["status" => false, "message" => "Sorry, Driver background report is not requested yet."];
+        if (!$UserReportObj || empty($UserReportObj->checkr_id)) {
+            return [
+                "status" => false,
+                "message" => "Sorry, Driver background report is not requested yet or Driver not added yet to background checker."
+            ];
         }
 
-        if ($userReportArr->channel == 'CKR' && empty($userReportArr->checkr_reportid)) {
-            return ["status" => false, "message" => "Sorry, Driver background report is not requested yet."];
+        if ($UserReportObj->channel == 'CKR' && empty($UserReportObj->checkr_reportid)) {
+            return [
+                "status" => false,
+                "message" => "Sorry, Driver background report is not requested yet or Driver not added yet to background checker."
+            ];
         }
 
-        if ($userReportArr->channel == 'CKR' && !empty($userReportArr->checkr_reportid)) {
+        if ($UserReportObj->channel == 'CKR' && !empty($UserReportObj->checkr_reportid)) {
             $checkr = new CheckrApiClient();
-            return $checkr->getReport($userReportArr->checkr_reportid);
+            return $checkr->getReport($UserReportObj->checkr_reportid);
         }
 
-        if ($userReportArr->channel == 'DIG') {
-            // Placeholder for DigisureApi->pullDriverFromDigisure
-            Log::info("DigisureApi: pullDriverFromDigisure for user $userid");
-            return ["status" => true, 'message' => 'Simulated report data for DIG'];
+        if ($UserReportObj->channel == 'DIG') {
+            $digisure = new DigisureApiService();
+            return $digisure->pullDriverFromDigisure($UserReportObj->checkr_id);
         }
 
-        return ["status" => false, "message" => "Unknown background checker channel."];
+        return [
+            "status" => false,
+            "message" => "Sorry, Driver background report is not requested yet or Driver not added yet to background checker."
+        ];
     }
 }

@@ -22,4 +22,9 @@ class TdkDealer extends LegacyModel
         'id',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
 }

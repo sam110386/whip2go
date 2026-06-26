@@ -1,8 +1,15 @@
 @extends('layouts.admin_booking')
 
-@section('title', $title_for_layout ?? 'User MVR Reports')
+@php
+    $title ??= 'User MVR Reports';
+    $keyword ??= '';
+    $searchin ??= '';
+@endphp
+
+@section('title', $title)
 
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -20,7 +27,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form method="get" action="{{ $basePath }}/index" id="frmSearchadmin" name="frmSearchadmin">
+            <form method="GET" action="{{ url('admin/mvr_reports/index') }}" id="frmSearchadmin" name="frmSearchadmin">
                 <div class="row">
                     <div class="col-md-10">
                         <div class="col-md-3">
@@ -30,10 +37,13 @@
                         <div class="col-md-3">
                             Search in :
                             <select name="searchin" class="form-control">
-                                <option value="first_name" @selected($searchin === '' || $searchin === 'first_name')>First Name
+                                <option value="first_name" @selected($searchin === '' || $searchin === 'first_name')>
+                                    First Name
                                 </option>
-                                <option value="last_name" @selected($searchin === 'last_name')>Last Name</option>
-                                <option value="contact_number" @selected($searchin === 'contact_number')>Phone#</option>
+                                <option value="last_name" @selected($searchin === 'last_name')>
+                                    Last Name</option>
+                                <option value="contact_number" @selected($searchin === 'contact_number')>
+                                    Phone#</option>
                             </select>
                         </div>
                         <div class="col-md-1">
@@ -45,23 +55,17 @@
             </form>
         </div>
     </div>
+
     <div class="panel">
         <div class="panel-body">
             <div id="listing">
-                @include('admin.mvr_reports.partials.listing', [
-                    'users' => $users,
-                    'keyword' => $keyword,
-                    'searchin' => $searchin,
-                    'limit' => $limit,
-                    'basePath' => $basePath,
-                ])
-                </div>
+                @include('admin.mvr_reports.elements.index')
             </div>
         </div>
+    </div>
 
-        <d iv id="myModal" class="modal fade" role="dialog">
+    <div id="myModal" class="modal fade" role="dialog">
         <div class="modal-dialog">
-            <!-- Modal content-->
             <div class="modal-content">
             </div>
         </div>
@@ -71,4 +75,5 @@
 
 @push('scripts')
     <script src="{{  legacy_asset('js/assets/js/plugins/notifications/sweet_alert.min.js') }}"></script>
+    <script src="{{  legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

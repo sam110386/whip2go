@@ -2,6 +2,7 @@
 
 namespace App\Services\Legacy;
 
+use App\Models\Legacy\UserReport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -13,12 +14,22 @@ class CheckrApiClient
 {
     private string $apiUrl;
     private string $apiKey;
-
-    private const CANADA_PROVINCES = [
-        'NL','PE','NS','NB','QC','ON','MB','SK','AB','BC','YT','NT','NU',
+    private array $_CANADA = [
+        "NL" => "NL",
+        "PE" => "PE",
+        "NS" => "NS",
+        "NB" => "NB",
+        "QC" => "QC",
+        "ON" => "ON",
+        "MB" => "MB",
+        "SK" => "SK",
+        "AB" => "AB",
+        "BC" => "BC",
+        "YT" => "YT",
+        "NT" => "NT",
+        "NU" => "NU"
     ];
-
-    private array $candidateDefaults = [
+    private array $_candidate = [
         'first_name' => '',
         'middle_name' => '',
         'no_middle_name' => true,
@@ -40,93 +51,108 @@ class CheckrApiClient
 
     public function __construct()
     {
-        $this->apiUrl = config('services.checkr.url', 'https://api.checkr.com/v1/');
-        $this->apiKey = config('services.checkr.key', '');
+        $this->apiUrl = config('legacy.CheckrApi.api', 'https://api.checkr.com/v1/');
+        $this->apiKey = config('legacy.CheckrApi.key', '');
     }
-
-    /**
-     * Add new candidate and persist UserReport record.
-     */
-    public function addCandidateAndSave(array $userdata): array
+    public function _addCandidateToApi(array $userdata): array
     {
         $result = $this->addCandidateToApi($userdata);
 
         if (!$result['status']) {
-            return ['status' => false, 'message' => $result['message'], 'result' => []];
+            return [
+                'status' => false,
+                'message' => $result['message'],
+                'result' => []
+            ];
         }
 
-        DB::table('user_reports')->insert([
-            'user_id'   => $userdata['id'],
-            'channel'   => 'CKR',
+        UserReport::create([
+            'user_id' => $userdata['id'],
+            'channel' => 'CKR',
             'checkr_id' => $result['candidate_id'],
         ]);
 
         return $result;
     }
-
-    /**
-     * Update an existing candidate on Checkr.
-     */
-    public function updateCandidateToApi(array $userdata, string $existingCheckrId): array
+    public function _updateCandidateToApi(array $userdata, string $existingCheckrId): array
     {
         $result = $this->addCandidateToApi($userdata, $existingCheckrId);
+
         if (!$result['status']) {
-            return ['status' => false, 'message' => $result['message'], 'result' => []];
+            return [
+                'status' => false,
+                'message' => $result['message'],
+                'result' => []
+            ];
         }
+
         return $result;
     }
-
     public function addCandidateToApi(array $user, string $candidateId = ''): array
     {
-        $candidate = $this->candidateDefaults;
-
         if (!empty($candidateId)) {
-            $candidate['id'] = $candidateId;
+            $this->_candidate['id'] = $candidateId;
         }
-        $candidate['custom_id'] = $user['id'] ?? '';
-        $candidate['first_name'] = $user['first_name'] ?? '';
-        $candidate['last_name'] = $user['last_name'] ?? '';
-        $candidate['email'] = $user['email'] ?? '';
-        $candidate['phone'] = $user['contact_number'] ?? '';
 
-        $isCanada = in_array($user['licence_state'] ?? '', self::CANADA_PROVINCES);
-        $zipRaw = preg_replace('/[^0-9A-Z]/', '', strtoupper($user['zip'] ?? ''));
-        $candidate['zipcode'] = $isCanada ? substr($zipRaw, 0, 6) : substr($zipRaw, 0, 5);
-        $candidate['dob'] = !empty($user['dob']) ? date('Y-m-d', strtotime($user['dob'])) : '';
-        $candidate['driver_license_number'] = $user['licence_number'] ?? '';
-        $candidate['driver_license_state'] = $user['licence_state'] ?? '';
-
-        $country = !empty($user['country']) ? 'CA' : ($isCanada ? 'CA' : 'US');
-        $candidate['work_locations'][] = [
-            'country' => $country,
+        $this->_candidate['custom_id'] = $user['id'] ?? '';
+        $this->_candidate['first_name'] = $user['first_name'] ?? '';
+        $this->_candidate['last_name'] = $user['last_name'] ?? '';
+        $this->_candidate['email'] = $user['email'] ?? '';
+        $this->_candidate['phone'] = $user['contact_number'] ?? '';
+        $this->_candidate['zipcode'] = (
+            isset($this->_CANADA[$user['licence_state']])
+            ? substr(preg_replace("/[^0-9,A-Z]/", "", $user['zip']), 0, 6)
+            : substr(preg_replace("/[^0-9,A-Z]/", "", $user['zip']), 0, 5)
+        );
+        $this->_candidate['dob'] = !empty($user['dob']) ? date('Y-m-d', strtotime($user['dob'])) : '';
+        $this->_candidate['driver_license_number'] = $user['licence_number'] ?? '';
+        $this->_candidate['driver_license_state'] = $user['licence_state'] ?? '';
+        $this->_candidate['work_locations'][] = [
+            'country' => !empty($user['country']) ? 'CA' : (isset($this->_CANADA[$user['licence_state']]) ? 'CA' : 'US'),
             'state' => $user['licence_state'] ?? '',
         ];
 
         $endpoint = !empty($candidateId) ? "candidates/{$candidateId}" : 'candidates';
-        $result = $this->sendHttpRequest($endpoint, $candidate);
+        $result = $this->sendHttpRequest($endpoint, $this->_candidate);
 
         if (empty($result)) {
-            return ['status' => false, 'message' => 'Checkr API is down'];
+            return [
+                'status' => false,
+                'message' => 'Checkr API is down'
+            ];
         }
         if (isset($result['error'])) {
-            return ['status' => false, 'message' => $result['error']];
+            return [
+                'status' => false,
+                'message' => $result['error']
+            ];
         }
 
-        return ['status' => true, 'message' => 'Driver data pushed to Checker console successfully', 'candidate_id' => $result['id']];
+        return [
+            'status' => true,
+            'message' => 'Driver data pushed to Checker console successfully',
+            'candidate_id' => $result['id']
+        ];
     }
-
     public function createPackage(): ?array
     {
         return $this->sendHttpRequest('packages', [
             'name' => 'DIV Vehicle Report',
             'slug' => 'dia_mvr',
-            'screenings' => [['type' => 'motor_vehicle_report', 'subtype' => null]],
+            'screenings' => [
+                [
+                    'type' => 'motor_vehicle_report',
+                    'subtype' => null
+                ]
+            ],
         ]);
     }
 
+
+
     public function createReport(string $candidateId, array $worklocation): array
     {
-        $isCanada = in_array($worklocation['licence_state'] ?? '', self::CANADA_PROVINCES);
+        $isCanada = in_array($worklocation['licence_state'] ?? '', $this->_CANADA);
         $country = $isCanada ? 'CA' : 'US';
         $workLoc = [
             'country' => $country,

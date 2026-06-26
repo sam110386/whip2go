@@ -181,4 +181,16 @@ return [
         'identifier' => env('PLAID_IDENTIFIER', 'driveitaway_'),
     ],
 
+    'CheckrApi' => [
+        'api' => env('CHECKRAPI_URL', 'https://api.checkr.com/v1/'),
+        'key' => env('CHECKRAPI_KEY', ''),
+    ],
+
+    'Digisure' => [
+        'api' => env('DIGISURE_API_URL', 'https://api.digisure.tech/'),
+        'key' => env('DIGISURE_API_KEY', ''),
+        'prefix' => env('DIGISURE_API_PREFIX', 'DIA_'),
+
+    ],
+
 ];

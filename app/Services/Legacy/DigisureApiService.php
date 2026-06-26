@@ -15,13 +15,13 @@ class DigisureApiService
 {
     private string $apiUrl;
     private string $apiKey;
-    private string $preFix;
+    private string $prefix;
 
     public function __construct()
     {
-        $this->apiUrl = config('legacy.Digisure.url', '');
-        $this->apiKey = config('legacy.Digisure.api_key', '');
-        $this->preFix = config('legacy.Digisure.preFix', '');
+        $this->apiUrl = config('legacy.Digisure.url', 'https://api.digisure.tech/');
+        $this->apiKey = config('legacy.Digisure.key', '');
+        $this->prefix = config('legacy.Digisure.prefix', 'DIA_');
     }
 
     public function getAccessToken(): array
@@ -38,8 +38,8 @@ class DigisureApiService
         }
 
         $toSave = [
-            'user_id'  => $userdata['id'],
-            'channel'  => 'DIG',
+            'user_id' => $userdata['id'],
+            'channel' => 'DIG',
             'checkr_id' => $checkrStatus['id'] ?? null,
         ];
 
@@ -52,7 +52,7 @@ class DigisureApiService
         return $checkrStatus;
     }
 
-    public function updateCandidateToApi(array $userdata, object $userExist, bool $trustScore = false): array
+    public function _updateCandidateToApi(array $userdata, object $userExist, bool $trustScore = false): array
     {
         $checkrStatus = $this->addDriverToDigisure($userdata, $userExist->checkr_id, $trustScore);
 
@@ -79,25 +79,25 @@ class DigisureApiService
 
         $body = [
             'driver' => [
-                'partner_driver_id'              => $this->preFix . $user['id'],
-                'given_names'                    => $user['first_name'],
-                'family_name'                    => $user['last_name'],
-                'date_of_birth'                  => date('Y-m-d', strtotime($user['dob'])),
-                'driver_license_number'          => $user['licence_number'],
+                'partner_driver_id' => $this->prefix . $user['id'],
+                'given_names' => $user['first_name'],
+                'family_name' => $user['last_name'],
+                'date_of_birth' => date('Y-m-d', strtotime($user['dob'])),
+                'driver_license_number' => $user['licence_number'],
                 'driver_license_expiration_date' => !empty($user['licence_exp_date'])
                     ? date('Y-m-d', strtotime($user['licence_exp_date'])) : '',
-                'email'                          => $user['email'],
-                'phone'                          => '+1' . substr($user['contact_number'], -10),
-                'custom_fields'                  => ['user_id' => $user['id']],
-                'driver_license_address'         => [
-                    'street'  => $user['address'],
+                'email' => $user['email'],
+                'phone' => '+1' . substr($user['contact_number'], -10),
+                'custom_fields' => ['user_id' => $user['id']],
+                'driver_license_address' => [
+                    'street' => $user['address'],
                     'street2' => '',
-                    'city'    => $user['city'],
-                    'state'   => $user['state'],
+                    'city' => $user['city'],
+                    'state' => $user['state'],
                     'zipcode' => $user['zip'],
                     'country' => 'US',
                 ],
-                'trigger_trustscore'             => $trustScore,
+                'trigger_trustscore' => $trustScore,
             ],
         ];
 
@@ -127,9 +127,9 @@ class DigisureApiService
         $url = $this->apiUrl . $api;
 
         $headers = [
-            'Content-Type'   => 'application/json',
+            'Content-Type' => 'application/json',
             'Accept-Charset' => 'utf-8',
-            'Accept'         => 'application/json',
+            'Accept' => 'application/json',
         ];
 
         if (!empty($bearerToken)) {

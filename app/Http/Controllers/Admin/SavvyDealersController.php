@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\SavvyDealer;
 use Illuminate\Http\Request;
+use App\Models\Legacy\SavvyDealer;
+use App\Http\Controllers\Legacy\LegacyAppController;
 
 class SavvyDealersController extends LegacyAppController
 {
@@ -12,104 +12,88 @@ class SavvyDealersController extends LegacyAppController
     {
         $this->ensureAdminSession();
 
+        $title = 'Savvy Dealers';
         $sessLimitName = 'savvy_dealers_limit';
-        $limit = $request->input('Record.limit')
-            ?: session($sessLimitName, $this->records_per_page ?? 20);
 
-        if ($request->input('Record.limit')) {
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
             session([$sessLimitName => $limit]);
+        } else {
+            $limit = session($sessLimitName, $this->recordsPerPage);
         }
 
-        $dealers = SavvyDealer::query()
-            ->leftJoin('users', 'users.id', '=', 'savvy_dealers.user_id')
-            ->select('savvy_dealers.*', 'users.first_name', 'users.last_name')
-            ->orderBy('savvy_dealers.id', 'DESC')
+        $dealers = SavvyDealer::with('user:id,first_name,last_name')
+            ->orderBy('id', 'DESC')
             ->paginate($limit);
 
-        return view('admin.savvy.index', [
-            'title_for_layout' => 'Savvy Dealers',
-            'dealers' => $dealers,
-            'limit' => $limit,
-        ]);
+        return view('admin.savvy.index', compact('title', 'dealers', 'limit'));
     }
-
     public function add(Request $request, $id = null)
     {
         $this->ensureAdminSession();
 
-        $decodedId = $id ? base64_decode($id) : null;
-        $listTitle = !empty($decodedId) ? 'Update' : 'Add';
+        $id = $this->decodeId($id);
+        $listTitle = $id ? 'Update' : 'Add';
         $dealer = null;
 
-        if ($request->isMethod('post')) {
-            $data = $request->input('SavvyDealer', []);
-            $data['filters'] = json_encode($data['filters'] ?? []);
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $uniqueRule = 'unique:savvy_dealers,user_id';
 
-            if (empty($data['user_id'])) {
-                return back()->withErrors(['user_id' => 'Please enter user id'])->withInput();
+            if ($id) {
+                $uniqueRule .= ",{$id}"; // Ignore current ID during update
             }
 
-            if (empty($data['id'])) {
-                $exists = SavvyDealer::where('user_id', $data['user_id'])->exists();
-                if ($exists) {
-                    return back()->withErrors(['user_id' => 'User records already exists'])->withInput();
-                }
-            }
+            $validatedData = $request->validate([
+                'SavvyDealer.user_id' => ['required', $uniqueRule],
+            ], [
+                'SavvyDealer.user_id.required' => 'Please select dealer',
+                'SavvyDealer.user_id.unique' => 'Dealer already added.',
+            ]);
 
-            if (!empty($data['id'])) {
-                SavvyDealer::where('id', $data['id'])->update([
-                    'user_id' => $data['user_id'],
-                    'search_url' => $data['search_url'] ?? '',
-                    'filters' => $data['filters'],
-                ]);
-            } else {
-                SavvyDealer::create([
-                    'user_id' => $data['user_id'],
-                    'search_url' => $data['search_url'] ?? '',
-                    'filters' => $data['filters'],
-                ]);
-            }
+            $dealerData = $request->input('SavvyDealer');
+            $dealerData['filters'] = json_encode($dealerData['filters'] ?? []);
 
-            return redirect('admin/savvy_dealers/index')
-                ->with('success', 'Dealer data saved successfully.');
+            $dealer = SavvyDealer::updateOrCreate(
+                ['id' => $id],
+                $dealerData
+            );
+
+            return redirect('admin/savvy_dealers/index')->with('success', 'Dealer data saved successfully.');
         }
 
-        if (!empty($decodedId)) {
-            $dealer = SavvyDealer::query()
-                ->leftJoin('users', 'users.id', '=', 'savvy_dealers.user_id')
-                ->where('savvy_dealers.id', $decodedId)
-                ->select('savvy_dealers.*', 'users.first_name', 'users.last_name')
+        if ($id) {
+            $dealer = SavvyDealer::with('user:id,first_name,last_name')
+                ->where('id', $id)
                 ->first();
 
             if ($dealer) {
-                $dealer->filters_decoded = json_decode($dealer->filters, true) ?: [];
+                $dealer->filters = json_decode($dealer->filters, true) ?: [];
             }
         }
 
-        return view('admin.savvy.add', [
-            'listTitle' => $listTitle,
-            'dealer' => $dealer,
-        ]);
+        return view('admin.savvy.add', compact('listTitle', 'dealer'));
     }
-
     public function status($id = null, $status = null)
     {
         $this->ensureAdminSession();
 
-        $decodedId = $id ? base64_decode($id) : null;
+        $decodedId = $this->decodeId($id);
+
         if (!empty($decodedId)) {
             SavvyDealer::where('id', $decodedId)
-                ->update(['status' => ($status == 1) ? 1 : 0]);
+                ->update(
+                    ['status' => ($status == 1) ? 1 : 0]
+                );
         }
 
         return redirect()->back()->with('success', 'Dealer status has been changed.');
     }
-
     public function delete($id = null)
     {
         $this->ensureAdminSession();
 
-        $decodedId = $id ? base64_decode($id) : null;
+        $decodedId = $this->decodeId($id);
+
         if (!empty($decodedId)) {
             SavvyDealer::where('id', $decodedId)->delete();
         }
