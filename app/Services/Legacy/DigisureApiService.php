@@ -2,7 +2,7 @@
 
 namespace App\Services\Legacy;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\UserReport;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -19,22 +19,24 @@ class DigisureApiService
 
     public function __construct()
     {
-        $this->apiUrl = config('legacy.Digisure.url', 'https://api.digisure.tech/');
+        $this->apiUrl = config('legacy.Digisure.api', 'https://api.digisure.tech/');
         $this->apiKey = config('legacy.Digisure.key', '');
         $this->prefix = config('legacy.Digisure.prefix', 'DIA_');
     }
-
     public function getAccessToken(): array
     {
         return $this->sendHttpRequest('login', ['api_key' => $this->apiKey]);
     }
-
-    public function addCandidateToApi(array $userdata, bool $trustScore = false): array
+    public function _addCandidateToApi(array $userdata, bool $trustScore = false): array
     {
         $checkrStatus = $this->addDriverToDigisure($userdata, '', $trustScore);
 
         if (isset($checkrStatus['error'])) {
-            return ['status' => false, 'message' => 'sorry, some data is wrong in digisure payload', 'result' => []];
+            return [
+                'status' => false,
+                'message' => 'sorry, some data is wrong in digisure payload',
+                'result' => []
+            ];
         }
 
         $toSave = [
@@ -47,31 +49,35 @@ class DigisureApiService
             $toSave['status'] = 1;
         }
 
-        DB::table('user_reports')->insert($toSave);
+        UserReport::create($toSave);
 
         return $checkrStatus;
     }
-
-    public function _updateCandidateToApi(array $userdata, object $userExist, bool $trustScore = false): array
+    public function _updateCandidateToApi(array $userdata, array $userExist, bool $trustScore = false): array
     {
-        $checkrStatus = $this->addDriverToDigisure($userdata, $userExist->checkr_id, $trustScore);
+        $checkrStatus = $this->addDriverToDigisure($userdata, $userExist['checkr_id'], $trustScore);
 
         if (isset($checkrStatus['error'])) {
-            return ['status' => false, 'message' => 'sorry, some data is wrong in digisure payload', 'result' => []];
+            return [
+                'status' => false,
+                'message' => 'sorry, some data is wrong in digisure payload',
+                'result' => []
+            ];
         }
 
         if ($trustScore) {
-            DB::table('user_reports')->where('id', $userExist->id)->update(['status' => 1]);
+            UserReport::where('id', $userExist['id'])->update(['status' => 1]);
         }
 
         return $checkrStatus;
     }
-
     public function addDriverToDigisure(array $user, string $digisureId = '', bool $trustScore = false): array
     {
-        return ['status' => false, 'message' => 'not in use'];
+        return [
+            'status' => false,
+            'message' => 'not in use'
+        ];
 
-        // @codeCoverageIgnoreStart
         $token = $this->getAccessToken();
         if (!isset($token['token'])) {
             return ['status' => false, 'message' => $token['error'] ?? 'Unknown error'];
@@ -109,19 +115,20 @@ class DigisureApiService
         }
 
         return $this->sendHttpRequest($api, $body, $method, $token['token']);
-        // @codeCoverageIgnoreEnd
     }
-
     public function pullDriverFromDigisure(string $digisureId): array
     {
         $token = $this->getAccessToken();
+
         if (!isset($token['token'])) {
-            return ['status' => false, 'message' => $token['error'] ?? 'Unknown error'];
+            return [
+                'status' => false,
+                'message' => $token['error'] ?? 'Unknown error'
+            ];
         }
 
         return $this->sendHttpRequest('v1/drivers/' . $digisureId, [], 'GET', $token['token']);
     }
-
     private function sendHttpRequest(string $api, array $body = [], string $method = 'POST', string $bearerToken = ''): array
     {
         $url = $this->apiUrl . $api;
@@ -139,6 +146,7 @@ class DigisureApiService
         try {
             $pending = Http::withHeaders($headers);
             $upperMethod = strtoupper($method);
+
             if ($upperMethod === 'GET') {
                 $response = $pending->get($url, $body);
             } elseif ($upperMethod === 'PUT') {

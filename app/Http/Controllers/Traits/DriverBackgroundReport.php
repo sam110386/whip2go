@@ -64,12 +64,12 @@ trait DriverBackgroundReport
 
                 if ($userExist->channel == 'CKR') {
                     $checkr = new CheckrApiClient();
-                    return $checkr->_updateCandidateToApi($userdata, $userExist->checkr_id);
+                    return $checkr->_updateCandidateToApi($userdata, $userExist->toArray());
                 }
 
                 if ($userExist->channel == 'DIG') {
                     $digisure = new DigisureApiService();
-                    return $digisure->_updateCandidateToApi($userdata, $userExist->checkr_id, $TrustScore);
+                    return $digisure->_updateCandidateToApi($userdata, $userExist->toArray(), $TrustScore);
                 }
 
             }
@@ -162,12 +162,12 @@ trait DriverBackgroundReport
 
             if ($userExist->channel == 'CKR') {
                 $checkr = new CheckrApiClient();
-                return $checkr->_updateCandidateToApi($userdata, $userExist->checkr_id);
+                return $checkr->_updateCandidateToApi($userdata, $userExist->toArray());
             }
 
             if ($userExist->channel == 'DIG') {
                 $digisure = new DigisureApiService();
-                return $digisure->_updateCandidateToApi($userdata, $userExist->checkr_id, true);
+                return $digisure->_updateCandidateToApi($userdata, $userExist->toArray(), true);
             }
 
         } catch (\Exception $e) {

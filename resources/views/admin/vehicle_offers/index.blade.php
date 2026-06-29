@@ -1,16 +1,19 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Vehicle Offers')
-
 @php
+    $title ??= 'Manage Vehicle Offers';
     $keyword ??= '';
-    $fieldname ??= '';
-    $show ??= '';
+    $searchin ??= '';
+    $showtype ??= '';
     $user_id ??= '';
-    $basePath ??= url('admin/vehicle_offers');
-    $limit ??= 50;
     $options ??= [];
 @endphp
+
+@section('title', $title)
+
+@push('styles')
+    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
+@endpush
 
 @section('content')
     <div class="page-header">
@@ -22,7 +25,7 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="{{ $basePath }}/add" class="btn btn-success left-margin">Add New</a>
+                <a href="{{ url('admin/vehicle_offers/add') }}" class="btn btn-success left-margin">Add New</a>
             </div>
         </div>
     </div>
@@ -33,7 +36,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ $basePath }}/index">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/vehicle_offers/index') }}">
                 <div class="row">
                     <div class="col-md-12">
                         <div class="col-md-3">
@@ -44,16 +47,24 @@
                             <select name="Search[searchin]" class="form-control">
                                 <option value="">Search By</option>
                                 @foreach ($options as $k => $label)
-                                    <option value="{{ $k }}" @selected((string) $fieldname === (string) $k)>{{ $label }}</option>
+                                    <option value="{{ $k }}" @selected((string) $searchin === (string) $k)>
+                                        {{ $label }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <select name="Search[show]" class="form-control">
+                            <select name="Search[showtype]" class="form-control">
                                 <option value="">Status..</option>
-                                <option value="1" @selected((string) $show === '1')>Approved</option>
-                                <option value="0" @selected((string) $show === '0')>New</option>
-                                <option value="2" @selected((string) $show === '2')>Canceled</option>
+                                <option value="1" @selected((string) $showtype === '1')>
+                                    Approved
+                                </option>
+                                <option value="0" @selected((string) $showtype === '0')>
+                                    New
+                                </option>
+                                <option value="2" @selected((string) $showtype === '2')>
+                                    Canceled
+                                </option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -61,17 +72,22 @@
                                 value="{{ $user_id }}" placeholder="Select Driver">
                         </div>
                         <div class="col-md-1">
-                            <button type="submit" value="search" class="btn btn-primary" alt="APPLY">APPLY</button>
+                            <button type="submit" value="search" class="btn btn-primary" alt="APPLY">
+                                APPLY
+                            </button>
                         </div>
                         <div class="col-md-1">
                             <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
-                                alt="Clear Filter">Clear Filter</button>
+                                alt="Clear Filter">
+                                Clear Filter
+                            </button>
                         </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
+
     <div class="panel">
         <div class="panel-body">
             <div id="listing">
@@ -87,14 +103,15 @@
     </div>
 @endsection
 
-@push('styles')
-    <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
-@endpush
-
 @push('scripts')
+
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
+    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+
     <script type="text/javascript">
-        function format(item) { return item.tag; }
+        function format(item) {
+            return item.tag;
+        }
 
         jQuery(document).ready(function () {
             jQuery("#SearchUserId").select2({
@@ -199,6 +216,7 @@
                 $('.select-item').prop('checked', this.checked);
             });
         });
+
     </script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+
 @endpush

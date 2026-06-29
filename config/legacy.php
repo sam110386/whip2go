@@ -193,4 +193,11 @@ return [
 
     ],
 
+    'Pubnub' => [
+        'sub_key' => env('PUBNUB_SUB_KEY', ''),
+        'pub_key' => env('PUBNUB_PUB_KEY', ''),
+        'secret' => env('PUBNUB_SECRET', ''),
+
+    ],
+
 ];

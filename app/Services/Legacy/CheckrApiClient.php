@@ -3,7 +3,6 @@
 namespace App\Services\Legacy;
 
 use App\Models\Legacy\UserReport;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -74,9 +73,9 @@ class CheckrApiClient
 
         return $result;
     }
-    public function _updateCandidateToApi(array $userdata, string $existingCheckrId): array
+    public function _updateCandidateToApi(array $userdata, array $userExist): array
     {
-        $result = $this->addCandidateToApi($userdata, $existingCheckrId);
+        $result = $this->addCandidateToApi($userdata, $userExist['checkr_id']);
 
         if (!$result['status']) {
             return [
@@ -147,20 +146,20 @@ class CheckrApiClient
             ],
         ]);
     }
-
-
-
     public function createReport(string $candidateId, array $worklocation): array
     {
-        $isCanada = in_array($worklocation['licence_state'] ?? '', $this->_CANADA);
-        $country = $isCanada ? 'CA' : 'US';
+        $country = (isset($this->_CANADA[$worklocation['licence_state']]) ? 'CA' : "US");
         $workLoc = [
             'country' => $country,
             'state' => !empty($worklocation['licence_state']) ? $worklocation['licence_state'] : ($worklocation['state'] ?? ''),
             'city' => $worklocation['city'] ?? '',
         ];
+        $report = [
+            'package' => 'dia_mvr',
+            'candidate_id' => $candidateId,
+            'work_locations' => [$workLoc]
+        ];
 
-        $report = ['package' => 'dia_mvr', 'candidate_id' => $candidateId, 'work_locations' => [$workLoc]];
         if ($country === 'CA') {
             $report['package'] = 'international_mvr';
             $res = $this->sendHttpRequest('invitations', $report);
@@ -169,27 +168,46 @@ class CheckrApiClient
         }
 
         if (empty($res)) {
-            return ['status' => false, 'message' => 'Checkr API is down'];
+            return [
+                'status' => false,
+                'message' => 'Checkr API is down'
+            ];
         }
         if (isset($res['error'])) {
-            return ['status' => false, 'message' => $res['error']];
+            return [
+                'status' => false,
+                'message' => $res['error']
+            ];
         }
 
-        return ['status' => true, 'message' => "Driver's MVR report requested successfully", 'report_id' => $res['id']];
+        return [
+            'status' => true,
+            'message' => "Driver's MVR report requested successfully",
+            'report_id' => $res['id']
+        ];
     }
-
     public function getReport(string $reportId): array
     {
         $main = $this->sendHttpRequest("reports/{$reportId}");
 
         if (empty($main)) {
-            return ['status' => false, 'message' => 'Checkr API is down', 'checkrMsg' => 'Checkr API is down'];
+            return [
+                'status' => false,
+                'message' => 'Checkr API is down',
+                'checkrMsg' => 'Checkr API is down'
+            ];
         }
+
         if (isset($main['error'])) {
-            return ['status' => false, 'message' => $main['error'], 'checkrMsg' => $main['error'] . '. Car cannot be rented. Please contact support.'];
+            return [
+                'status' => false,
+                'message' => $main['error'],
+                'checkrMsg' => $main['error'] . '. Car cannot be rented. Please contact support.'
+            ];
         }
 
         $status = $main['status'] ?? '';
+
         if (in_array($status, ['suspended', 'dispute', 'consider'])) {
             $label = strtoupper($status);
             return [
@@ -201,10 +219,19 @@ class CheckrApiClient
 
         if ($status === 'clear') {
             $actual = $this->sendHttpRequest('motor_vehicle_reports/' . ($main['motor_vehicle_report_id'] ?? ''));
+
             if (isset($actual['error'])) {
-                return ['status' => false, 'message' => $actual['error']];
+                return [
+                    'status' => false,
+                    'message' => $actual['error']
+                ];
             }
-            return ['status' => true, 'message' => 'Driver MVR report is successfully fetched', 'data' => $actual];
+
+            return [
+                'status' => true,
+                'message' => 'Driver MVR report is successfully fetched',
+                'data' => $actual
+            ];
         }
 
         return [
@@ -213,25 +240,42 @@ class CheckrApiClient
             'checkrMsg' => "This user's MVR returned \"{$status}\". Car cannot be rented. Please contact support.",
         ];
     }
-
     public function getMotorVehicleReport(string $mvrId): array
     {
         $actual = $this->sendHttpRequest("motor_vehicle_reports/{$mvrId}");
-        if (isset($actual['error'])) {
-            return ['status' => false, 'message' => $actual['error'], 'data' => 'error returned'];
-        }
-        return ['status' => true, 'message' => 'Driver MVR report is successfully fetched', 'data' => $actual];
-    }
 
+        if (isset($actual['error'])) {
+            return [
+                'status' => false,
+                'message' => $actual['error'],
+                'data' => 'error returned'
+            ];
+        }
+
+        return [
+            'status' => true,
+            'message' => 'Driver MVR report is successfully fetched',
+            'data' => $actual
+        ];
+    }
     public function getInternationalMotorVehicleReport(string $mvrId): array
     {
         $actual = $this->sendHttpRequest("international_motor_vehicle_reports/{$mvrId}");
-        if (isset($actual['error'])) {
-            return ['status' => false, 'message' => $actual['error'], 'data' => 'error returned'];
-        }
-        return ['status' => true, 'message' => 'Driver MVR report is successfully fetched', 'data' => $actual];
-    }
 
+        if (isset($actual['error'])) {
+            return [
+                'status' => false,
+                'message' => $actual['error'],
+                'data' => 'error returned'
+            ];
+        }
+
+        return [
+            'status' => true,
+            'message' => 'Driver MVR report is successfully fetched',
+            'data' => $actual
+        ];
+    }
     private function sendHttpRequest(string $api, array $body = []): ?array
     {
         $url = rtrim($this->apiUrl, '/') . '/' . $api;
@@ -242,7 +286,9 @@ class CheckrApiClient
             'Accept-Charset' => 'utf-8',
         ])->timeout(30);
 
-        $response = empty($body) ? $pending->get($url) : $pending->post($url, $body);
+        $response = empty($body)
+            ? $pending->get($url)
+            : $pending->post($url, $body);
 
         return $response->json();
     }

@@ -6,13 +6,6 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Port of CakePHP app/Lib/Pubnub.php
- *
- * Push notification service using PubNub for iOS (APNs) and Android (FCM).
- * The legacy app used a custom Pubnubpush vendor class. This port preserves
- * all payload structures and delegates to the same publish helper.
- *
- * To fully operate, the Pubnubpush vendor class must be available or
- * replaced with the PubNub PHP SDK.
  */
 class PubnubClient
 {
@@ -22,9 +15,9 @@ class PubnubClient
 
     public function __construct()
     {
-        $this->sub_key = (string) config('services.pubnub.sub_key', '');
-        $this->pub_key = (string) config('services.pubnub.pub_key', '');
-        $this->secret = (string) config('services.pubnub.secret', '');
+        $this->sub_key = config('legacy.Pubnub.sub_key', '');
+        $this->pub_key = config('legacy.Pubnub.pub_key', '');
+        $this->secret = config('legacy.Pubnub.secret', '');
     }
 
     private function publish(int $userId, array $push): ?array

@@ -40,7 +40,7 @@
                         <td class="action">
 
                             @if(empty(data_get($row, 'report.checkr_reportid', '')))
-                                <a href="{{ url('admin/mvr_reports/checkr_status' . base64_encode(data_get($row, 'id', ''))) }}}"
+                                <a href="{{ url('admin/mvr_reports/checkr_status/' . base64_encode(data_get($row, 'id', ''))) }}"
                                     title="Request for Report">
                                     <i class="glyphicon glyphicon-hand-up"></i>
                                 </a>
