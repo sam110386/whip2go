@@ -2,7 +2,7 @@
 
 namespace App\Services\Legacy;
 
-use Illuminate\Support\Facades\Log;
+use Pubnub\Pubnubpush;
 
 /**
  * Port of CakePHP app/Lib/Pubnub.php
@@ -19,36 +19,14 @@ class PubnubClient
         $this->pub_key = config('legacy.Pubnub.pub_key', '');
         $this->secret = config('legacy.Pubnub.secret', '');
     }
-
-    private function publish(int $userId, array $push): ?array
-    {
-        if (!class_exists('Pubnubpush')) {
-            Log::warning('PubnubClient::publish – Pubnubpush vendor class not available, skipping push for user ' . $userId);
-            return null;
-        }
-        $pubnub = new \Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
-        return $pubnub->pubnubpublish($userId, $push);
-    }
-
-    private function apnsPushBlock(): array
-    {
-        return [
-            [
-                'auth_method' => 'token',
-                'targets' => [
-                    ['topic' => 'com.mindseye.carshare', 'environment' => 'production'],
-                ],
-                'version' => 'v2',
-            ],
-        ];
-    }
-
     public function notifyForActivateBooking(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $body = $data['msg'] ?? 'DIA booking activated';
+
         $push = [
             'text' => 'Booking Activated',
             'pn_apns' => [
@@ -67,10 +45,25 @@ class PubnubClient
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $body, 'sound' => 'default'],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $body,
+                    'sound' => 'default'
+                ],
                 'data' => [
                     'type' => 'booking_activated',
                     'booking_id' => $data['bookingid'],
@@ -81,15 +74,18 @@ class PubnubClient
                 ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notifyForPaymentFailed(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $body = $data['msg'] ?? 'DIA booking payment failed';
+
         $push = [
             'text' => 'Payment Failed',
             'pn_apns' => [
@@ -108,10 +104,25 @@ class PubnubClient
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $body, 'sound' => 'default'],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $body,
+                    'sound' => 'default'
+                ],
                 'data' => [
                     'type' => 'paymentfailed',
                     'booking_id' => $data['bookingid'],
@@ -122,15 +133,18 @@ class PubnubClient
                 ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notifyForPTO(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $body = 'Your Goal About to Complete!. Click here for More Info';
+
         $push = [
             'text' => 'Your Goal About to Complete!!',
             'pn_apns' => [
@@ -149,10 +163,25 @@ class PubnubClient
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $body, 'sound' => 'default'],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $body,
+                    'sound' => 'default'
+                ],
                 'data' => [
                     'type' => 'pto',
                     'booking_id' => $data['bookingid'],
@@ -163,15 +192,18 @@ class PubnubClient
                 ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notify(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $msg = $data['msg'];
+
         $push = [
             'text' => $msg,
             'pn_apns' => [
@@ -179,26 +211,50 @@ class PubnubClient
                     'alert' => [
                         'title' => 'DriveItAway',
                         'body' => $msg,
-                        'data' => ['title' => 'DriveItAway', 'body' => $msg],
+                        'data' => [
+                            'title' => 'DriveItAway',
+                            'body' => $msg
+                        ],
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $msg, 'sound' => 'default'],
-                'data' => ['title' => 'DriveItAway', 'body' => $msg],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $msg,
+                    'sound' => 'default'
+                ],
+                'data' => [
+                    'title' => 'DriveItAway',
+                    'body' => $msg
+                ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notifyForOffer(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $body = $data['msg'] ?? 'DIA New Offer!!';
+
         $push = [
             'text' => 'New Offer',
             'pn_apns' => [
@@ -215,10 +271,25 @@ class PubnubClient
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $body, 'sound' => 'default'],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $body,
+                    'sound' => 'default'
+                ],
                 'data' => [
                     'type' => 'offer_created',
                     'path' => 'myOfferScreenView',
@@ -227,15 +298,18 @@ class PubnubClient
                 ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notifyPendingStatusChange(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $body = $data['msg'] ?? 'Your booking status changed!!';
+
         $push = [
             'text' => 'Booking Status Changed',
             'pn_apns' => [
@@ -254,10 +328,25 @@ class PubnubClient
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $body, 'sound' => 'default'],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $body,
+                    'sound' => 'default'
+                ],
                 'data' => [
                     'type' => 'pending_view',
                     'path' => 'pendingBookingView',
@@ -268,14 +357,16 @@ class PubnubClient
                 ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notifyUberLocationUpdate(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $push = [
             'type' => 'location_update',
             'path' => 'UberMapView',
@@ -285,15 +376,18 @@ class PubnubClient
             'booking_id' => $data['id'],
             'message' => 'Your booking status changed!!',
         ];
-        return $this->publish($data['user_id'], $push);
-    }
 
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
+    }
     public function notifyUberUpdate(array $data): ?array
     {
         if (empty($data['user_id'])) {
             return null;
         }
+
         $body = $data['message'] ?? 'Your booking status changed!!';
+
         $push = [
             'text' => 'Booking Status Changed',
             'pn_apns' => [
@@ -312,10 +406,25 @@ class PubnubClient
                     ],
                     'sound' => 'default',
                 ],
-                'pn_push' => $this->apnsPushBlock(),
+                'pn_push' => [
+                    [
+                        'auth_method' => 'token',
+                        'targets' => [
+                            [
+                                'topic' => 'com.mindseye.carshare',
+                                'environment' => 'production'
+                            ],
+                        ],
+                        'version' => 'v2',
+                    ],
+                ],
             ],
             'pn_gcm' => [
-                'notification' => ['title' => 'DriveItAway', 'body' => $body, 'sound' => 'default'],
+                'notification' => [
+                    'title' => 'DriveItAway',
+                    'body' => $body,
+                    'sound' => 'default'
+                ],
                 'data' => [
                     'type' => 'status_update',
                     'path' => 'UberMapView',
@@ -326,6 +435,8 @@ class PubnubClient
                 ],
             ],
         ];
-        return $this->publish($data['user_id'], $push);
+
+        $pubnub = new Pubnubpush($this->pub_key, $this->sub_key, $this->secret);
+        return $pubnub->pubnubpublish($data['user_id'], $push);
     }
 }

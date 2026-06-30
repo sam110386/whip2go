@@ -30,6 +30,7 @@
             "App\\": "app/",
             "Salesforce\\": "app/Vendor/Salesforce/",
             "Plaid\\": "app/Vendor/Plaid/",
+            "Pubnub\\": "app/Vendor/Pubnub/",
             "Plugins\\Api\\": "plugins/Api/src/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"

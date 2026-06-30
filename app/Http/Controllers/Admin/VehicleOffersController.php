@@ -96,7 +96,7 @@ class VehicleOffersController extends LegacyAppController
         $adminUser = $this->getAdminUserid();
         $timezone = $adminUser['timezone'];
         $offer_id = $this->decodeId($offer_id);
-        $title = $offer_id ? 'Edit Vehicle Offer' : 'Add Vehicle Offer';
+        $title = $offer_id ? 'Edit' : 'Add';
 
         if ($request->isMethod('post') || $request->isMethod('put')) {
 
@@ -195,76 +195,93 @@ class VehicleOffersController extends LegacyAppController
 
         return view('admin.vehicle_offers.add', compact('title', 'timezone', 'offer'));
     }
-
-    public function userautocomplete(Request $request): JsonResponse
+    public function userautocomplete(Request $request)
     {
-        return response()->json($this->_userautocomplete($request->query()));
+        $users = $this->_userautocomplete($request->query());
+        return response()->json($this->_userautocomplete($users));
     }
-
-    public function vehicleautocomplete(Request $request): JsonResponse
+    public function vehicleautocomplete(Request $request)
     {
-        return response()->json($this->_vehicleautocomplete($request->query(), null, true));
+        $vehicles = $this->_vehicleautocomplete($request->query());
+        return response()->json($vehicles);
     }
-
     public function cancel($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
-        $offer_id = $this->decodeId((string) $id);
-        if ($offer_id) {
-            DB::table('vehicle_offers')->where('id', $offer_id)->update(['status' => 2]);
+
+        $offer_id = $this->decodeId($id);
+        $vehicleOffer = VehicleOffer::findOrFail($offer_id);
+
+        if ($vehicleOffer && $vehicleOffer->status != 1) {
+            $vehicleOffer->status = 2;
+            $vehicleOffer->save();
+            return redirect('/admin/vehicle_offers/index')->with('success', 'Your request processed successfully.');
         }
 
-        return redirect($this->offerBasePath() . '/index')->with('success', 'Offer cancelled');
+        return redirect('/admin/vehicle_offers/index')->with('error', 'Sorry, selected offer already accepted by driver, you cant cancel now.');
     }
-
     public function delete($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
-        $offer_id = $this->decodeId((string) $id);
-        if ($offer_id) {
-            DB::table('vehicle_offers')->where('id', $offer_id)->delete();
+
+        $offer_id = $this->decodeId($id);
+        $vehicleOffer = VehicleOffer::findOrFail($offer_id);
+
+        if ($vehicleOffer && $vehicleOffer->status != 1) {
+            $vehicleOffer->delete();
+            return redirect('/admin/vehicle_offers/index')->with('success', 'Your request processed successfully.');
         }
 
-        return redirect($this->offerBasePath() . '/index')->with('success', 'Offer deleted');
+        return redirect('/admin/vehicle_offers/index')->with('error', 'Sorry, selected offer already accepted by driver, you cant cancel now.');
     }
-
     public function view($offer_id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
-        $id = $this->decodeId((string) $offer_id);
-        if (!$id) {
-            return redirect($this->offerBasePath() . '/index');
+
+        $title = 'View';
+        $offer_id = $this->decodeId($offer_id);
+        $adminUser = $this->getAdminUserid();
+        $timezone = $adminUser['timezone'];
+
+        $query = VehicleOffer::with('vehicle:id,vehicle_name')
+            ->where('id', $offer_id);
+
+        if (!$adminUser['administrator']) {
+            $query->where('admin_id', $adminUser['admin_id']);
         }
-        $offer = $this->offerQuery()->where('vo.id', $id)->first();
-        if ($offer) {
-            $offer->rent_opt = !empty($offer->rent_opt) ? json_decode($offer->rent_opt, true) : [];
-            $offer->initial_fee_opt = !empty($offer->initial_fee_opt) ? json_decode($offer->initial_fee_opt, true) : [];
-            $offer->deposit_opt = !empty($offer->deposit_opt) ? json_decode($offer->deposit_opt, true) : [];
-            $offer->duration_opt = !empty($offer->duration_opt) ? json_decode($offer->duration_opt, true) : [];
+
+        $offer = $query->first();
+
+        if (!$offer) {
+            return redirect('/admin/vehicle_offers/index')->with('error', 'Sorry, you are not an authorized user for this action.');
         }
 
-        return view('admin.vehicle_offers.view', [
-            'offer' => $offer,
-            'basePath' => $this->offerBasePath(),
-            'timezone' => session('default_timezone', 'UTC')
-        ]);
+        $offer->rent_opt = json_decode($offer->rent_opt ?? '', true) ?: [];
+        $offer->initial_fee_opt = json_decode($offer->initial_fee_opt ?? '', true) ?: [];
+        $offer->deposit_opt = json_decode($offer->deposit_opt ?? '', true) ?: [];
+        $offer->duration_opt = json_decode($offer->duration_opt ?? '', true) ?: [];
+
+        return view('admin.vehicle_offers.view', compact('title', 'offer', 'timezone'));
+    }
+    public function qualify(Request $request)
+    {
+        $offer = $request->input('VehicleOffer', []);
+        $return = $this->qualifyCheckr($offer);
+        return response()->json($return);
+    }
+    public function qualifyIncome(Request $request)
+    {
+        $offer = $request->input('VehicleOffer', []);
+        $return = $this->_qualifyIncome($offer);
+        return response()->json($return);
     }
 
-    public function qualify(Request $request): JsonResponse
-    {
-        return response()->json($this->qualifyCheckr($request->input('VehicleOffer', [])));
-    }
-
-    public function qualifyIncome(Request $request): JsonResponse
-    {
-        return response()->json($this->_qualifyIncome($request->input('VehicleOffer', [])));
-    }
 
     public function getVehicleDynamicFareMatrix(Request $request): JsonResponse
     {
@@ -295,39 +312,17 @@ class VehicleOffersController extends LegacyAppController
         }
         $id = $this->decodeId((string) $offerid);
         if (!$id) {
-            return redirect($this->offerBasePath() . '/index');
+            return redirect('/admin/vehicle_offers/index');
         }
         $offer = DB::table('vehicle_offers')->where('id', $id)->first();
         if (!$offer) {
-            return redirect($this->offerBasePath() . '/index');
+            return redirect('/admin/vehicle_offers/index');
         }
 
         $newId = $this->_duplicate($offer);
 
-        return redirect($this->offerBasePath() . '/add/' . base64_encode((string) $newId))
+        return redirect('/admin/vehicle_offers/add/' . base64_encode((string) $newId))
             ->with('success', 'Offer duplicated');
-    }
-
-    protected function offerBasePath(): string
-    {
-        return '/admin/vehicle_offers';
-    }
-
-    protected function offerQuery()
-    {
-        return DB::table('vehicle_offers as vo')
-            ->leftJoin('users as u', 'u.id', '=', 'vo.user_id')
-            ->leftJoin('users as d', 'd.id', '=', 'vo.dealer_id')
-            ->leftJoin('vehicles as v', 'v.id', '=', 'vo.vehicle_id')
-            ->select([
-                'vo.*',
-                'd.first_name as owner_first_name',
-                'd.last_name as owner_last_name',
-                'u.first_name as renter_first_name',
-                'u.last_name as renter_last_name',
-                'v.vehicle_unique_id',
-                'v.vehicle_name',
-            ]);
     }
 }
 
