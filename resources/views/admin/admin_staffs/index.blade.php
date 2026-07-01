@@ -1,23 +1,23 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Admin Staff')
-
 @php
+    $title ??= 'Staff Users';
     $keyword ??= '';
     $fieldname ??= '';
     $show ??= null;
     $options ??= [];
-    $limit ??= 50;
 @endphp
 
+@section('title', $title)
+
 @section('content')
-    <div class="page-header">
+
+    <div class="panel">
         <div class="page-header-content">
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Manage</span>
-                    Admin Staff
+                    <span class="text-semibold">Search</span> - Admin Staff
                 </h4>
             </div>
             <div class="heading-elements">
@@ -26,20 +26,19 @@
                 </a>
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        @includeif('partials.flash')
-    </div>
+        <div class="row">
+            @includeif('partials.flash')
+        </div>
 
-    <div class="panel">
-        <div class="panel-body">
+        <section class="right_content">
             <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/admin_staffs/index') }}">
                 <div class="row">
                     <div class="col-md-10">
                         <div class="col-md-3">
                             Keyword :
-                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50" size="30">
+                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50"
+                                size="30">
                         </div>
 
                         <div class="col-md-3">
@@ -47,7 +46,9 @@
                             <select name="searchin" class="form-control">
                                 <option value="">Select..</option>
                                 @foreach($options as $k => $label)
-                                    <option value="{{ $k }}" @selected($fieldname === $k)>{{ $label }}</option>
+                                    <option value="{{ $k }}" @selected($fieldname === $k)>
+                                        {{ $label }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -69,7 +70,8 @@
                         </div>
                         <div class="col-md-1">
                             <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                                alt="Clear Filter">
                                 Clear Filter
                             </button>
                         </div>
@@ -80,25 +82,17 @@
             <div class="row">&nbsp;</div>
 
             <div id="listing">
-                @include('admin.admin_staffs._index_table', [
-                    'users' => $users ?? [],
-                    'limit' => $limit,
-                ])
+                @include('admin.admin_staffs.elements.index')
             </div>
-        </div>
-    </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
+        </section>
     </div>
 @endsection
 
-@push('styles')
-@endpush
-
 @push('scripts')
+
+    <script src="{{ legacy_asset('js/selectAllCheckbox.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function () {
 
@@ -164,11 +158,6 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
-
-            $(document).on('click', '#selectAllChildCheckboxs', function () {
-                $('.select-item').prop('checked', this.checked);
-            });
         });
     </script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
 @endpush

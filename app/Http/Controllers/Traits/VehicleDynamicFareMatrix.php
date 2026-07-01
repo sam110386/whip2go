@@ -14,7 +14,7 @@ use App\Models\Legacy\VehicleReservation;
  */
 trait VehicleDynamicFareMatrix
 {
-    public function _getVehicleDynamicFareMatrix($offer, $renter = null)
+    public function _getVehicleDynamicFareMatrix(array $offer, $renter = null)
     {
         $vehicleid = $offer['vehicle_id'];
         $vehicleData = Vehicle::where('id', $vehicleid)
@@ -146,7 +146,7 @@ trait VehicleDynamicFareMatrix
 
         return $return;
     }
-    public function _vehicleReservationVehicleDynamicFareMatrix($offer)
+    public function _vehicleReservationVehicleDynamicFareMatrix(array $offer)
     {
         $offer['deposit_amt'] = !empty($offer['deposit_amt']) ? $offer['deposit_amt'] : 0;
         $total_deposit_amt = $offer['deposit_amt'];
@@ -279,7 +279,7 @@ trait VehicleDynamicFareMatrix
 
         return $return;
     }
-    public function _bookingVehicleDynamicFareMatrix($offer)
+    public function _bookingVehicleDynamicFareMatrix(array $offer)
     {
         $offer['deposit_amt'] = !empty($offer['deposit_amt']) ? $offer['deposit_amt'] : 0;
         $total_deposit_amt = $offer['deposit_amt'];

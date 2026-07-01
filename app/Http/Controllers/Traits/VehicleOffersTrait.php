@@ -7,11 +7,8 @@ use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleOffer;
 use App\Models\Legacy\AdminUserAssociation;
 use App\Models\Legacy\UserReport;
-use App\Models\Legacy\CsSetting;
 use App\Models\Legacy\UserIncome;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Crypt;
+use App\Services\Legacy\PubnubClient;
 use Carbon\Carbon;
 
 trait VehicleOffersTrait
@@ -81,6 +78,7 @@ trait VehicleOffersTrait
                 $vehicles['tag'] = "{$vehicle->vehicle_unique_id} - {$vehicle->vehicle_name}";
                 $vehicles['msrp'] = $vehicle->msrp;
                 $miles_options = [];
+                $k = $vehicle->allowed_miles ? ceil($vehicle->allowed_miles * 30) : 1000;
 
                 while ($k <= 15000) {
                     $miles_options[$k] = $k;
@@ -129,7 +127,7 @@ trait VehicleOffersTrait
 
         return $vehicles;
     }
-    protected function qualifyCheckr($offer)
+    protected function qualifyCheckr(array $offer)
     {
         $return = [
             "status" => false,
@@ -179,7 +177,7 @@ trait VehicleOffersTrait
 
         return $return;
     }
-    protected function _qualifyIncome($offer)
+    protected function _qualifyIncome(array $offer)
     {
         $return = ["status" => true, "message" => ""];
         $phone = substr(preg_replace("/[^0-9]/", "", $offer['driver_phone'] ?? ''), -10);
@@ -213,16 +211,20 @@ trait VehicleOffersTrait
 
         return $return;
     }
-
-    protected function _duplicate($offerData)
+    protected function _duplicate(VehicleOffer $offer): int
     {
-        $newOffer = $offerData->replicate();
+        $newOffer = $offer->replicate();
         $newOffer->status = 0;
-        $newOffer->start_datetime = Carbon::now()->format('Y-m-d') . ' ' . Carbon::parse($offerData->start_datetime)->format('H:i:s');
+        $newOffer->start_datetime = Carbon::now()->format('Y-m-d') . ' ' . Carbon::parse($offer->start_datetime)->format('H:i:s');
         $newOffer->save();
 
-        // Notify simulation
-        Log::info("Pubnub: notifyForOffer for user " . $newOffer->user_id);
+        $pubnub = new PubnubClient();
+        $msg = "Wow!! A new offer is created for you. Click here for more info";
+
+        $pubnub->notifyForOffer([
+            "user_id" => $newOffer->user_id,
+            "msg" => $msg
+        ]);
 
         return $newOffer->id;
     }

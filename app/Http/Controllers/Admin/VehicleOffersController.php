@@ -11,10 +11,7 @@ use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\VehicleOffer;
 use App\Services\Legacy\PubnubClient;
 use Carbon\Carbon;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class VehicleOffersController extends LegacyAppController
 {
@@ -281,48 +278,59 @@ class VehicleOffersController extends LegacyAppController
         $return = $this->_qualifyIncome($offer);
         return response()->json($return);
     }
-
-
-    public function getVehicleDynamicFareMatrix(Request $request): JsonResponse
+    public function getVehicleDynamicFareMatrix(Request $request)
     {
-        $data = $request->input('VehicleOffer', []);
-        $data['driver_phone'] = substr(preg_replace("/[^0-9]/", "", $data['driver_phone'] ?? ''), -10);
-        $user = User::where('username', $data['driver_phone'])->first();
+        if ($request->isMethod('post') && $request->has('VehicleOffer')) {
 
-        // Calculations for opt sums (matching legacy logic)
-        if (!empty($data['deposit_opt'])) {
-            $data['total_deposit_amt'] = ($data['deposit_amt'] ?? 0) + collect(array_values($data['deposit_opt']))->sum('amount');
-            $data['deposit_opt'] = json_encode(array_values($data['deposit_opt']));
-        }
-        if (!empty($data['initial_fee_opt'])) {
-            $data['total_initial_fee'] = ($data['initial_fee'] ?? 0) + collect(array_values($data['initial_fee_opt']))->sum('amount');
-            $data['initial_fee_opt'] = json_encode(array_values($data['initial_fee_opt']));
-        }
-        if (!empty($data['duration_opt'])) {
-            $data['duration_opt'] = json_encode(array_values($data['duration_opt']));
+            $vehicleOffer = $request->input('VehicleOffer');
+            $driverPhone = preg_replace("/[^0-9]/", "", $vehicleOffer['driver_phone'] ?? '');
+            $vehicleOffer['driver_phone'] = substr($driverPhone, -10);
+            $depositAmt = !empty($vehicleOffer['deposit_amt']) ? (float) $vehicleOffer['deposit_amt'] : 0;
+            $depositOpt = $vehicleOffer['deposit_opt'] ?? [];
+            $depositOptSum = collect($depositOpt)->sum('amount');
+            $vehicleOffer['deposit_amt'] = $depositAmt;
+            $vehicleOffer['total_deposit_amt'] = $depositAmt + $depositOptSum;
+            $vehicleOffer['deposit_opt'] = $depositOptSum > 0 ? json_encode(array_values($depositOpt)) : "";
+            $initialFee = !empty($vehicleOffer['initial_fee']) ? (float) $vehicleOffer['initial_fee'] : 0;
+            $initialFeeOpt = $vehicleOffer['initial_fee_opt'] ?? [];
+            $initialFeeOptSum = collect($initialFeeOpt)->sum('amount');
+            $vehicleOffer['initial_fee'] = $initialFee;
+            $vehicleOffer['total_initial_fee'] = $initialFee + $initialFeeOptSum;
+            $vehicleOffer['initial_fee_opt'] = $initialFeeOptSum > 0 ? json_encode(array_values($initialFeeOpt)) : "";
+            $durationOpt = $vehicleOffer['duration_opt'] ?? [];
+            $totalDuration = collect($durationOpt)->sum('duration');
+            $vehicleOffer['duration_opt'] = $totalDuration > 0 ? json_encode(array_values($durationOpt)) : "";
+
+            $return = $this->_getVehicleDynamicFareMatrix($vehicleOffer);
+            return response()->json($return);
         }
 
-        return response()->json($this->_getVehicleDynamicFareMatrix($data, $user));
+        return response()->json([
+            "status" => false,
+            "msg" => "Invalid inputs"
+        ]);
     }
-
     public function duplicate($offerid)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
-        $id = $this->decodeId((string) $offerid);
+
+        $id = $this->decodeId($offerid);
+
         if (!$id) {
-            return redirect('/admin/vehicle_offers/index');
+            return redirect('/admin/vehicle_offers/index')->with('error', 'Sorry, something went wrong. Please try again later');
         }
-        $offer = DB::table('vehicle_offers')->where('id', $id)->first();
+
+        $offer = VehicleOffer::find($id);
+
         if (!$offer) {
-            return redirect('/admin/vehicle_offers/index');
+            return redirect('/admin/vehicle_offers/index')->with('error', 'Sorry, you are not authorized user for this action.');
         }
 
         $newId = $this->_duplicate($offer);
 
-        return redirect('/admin/vehicle_offers/add/' . base64_encode((string) $newId))
-            ->with('success', 'Offer duplicated');
+        return redirect('/admin/vehicle_offers/add/' . base64_encode($newId))->with('success', 'Offer duplicated');
     }
 }
 
