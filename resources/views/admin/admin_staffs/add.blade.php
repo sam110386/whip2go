@@ -220,22 +220,22 @@
             jQuery(document).ready(function () {
                 jQuery("#frmadmin").validate({
                     rules: {
-                        "data[User][npwd]": {
+                        "User[npwd]": {
                             required: true
                         },
-                        "data[User][conpwd]": {
+                        "User[conpwd]": {
                             required: true,
                             equalTo: "#password"
                         },
-                        "data[User][city]": {
+                        "User[city]": {
                             strings: true,
                         },
-                        "data[User][other_state]": {
+                        "User[other_state]": {
                             strings: true,
                         }
                     },
                     messages: {
-                        "data[User][conpwd]": {
+                        "User[conpwd]": {
                             equalTo: "Passwords do not match. Please re-enter both passwords."
                         }
                     }
@@ -247,16 +247,16 @@
             jQuery(document).ready(function () {
                 jQuery("#frmadmin").validate({
                     rules: {
-                        "data[User][newpassword]": {
+                        "User[newpassword]": {
                             required: false
                         },
-                        "data[User][cnfpassword]": {
+                        "User[cnfpassword]": {
                             required: false,
                             equalTo: "#password1"
                         },
                     },
                     messages: {
-                        "data[User][cnfpassword]": {
+                        "User[cnfpassword]": {
                             equalTo: "Passwords do not match. Please re-enter both passwords."
                         }
                     }

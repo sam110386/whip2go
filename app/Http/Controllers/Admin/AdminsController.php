@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\Legacy\Security;
+use App\Models\Legacy\AdminUserRole;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Legacy\LegacyAppController;
-use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\Traits\PerformsSessionLogout;
 use App\Models\Legacy\User as LegacyUser;
 use App\Models\Legacy\AdminRole as LegacyAdminRole;
@@ -13,12 +14,11 @@ use App\Models\Legacy\AdminUserRole as LegacyAdminUserRole;
 use App\Models\Legacy\EmailTemplate as LegacyEmailTemplate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Session;
 
 class AdminsController extends LegacyAppController
 {
     use PerformsSessionLogout;
-
-    protected bool $shouldLoadLegacyModules = true;
 
     public function login(Request $request)
     {
@@ -118,304 +118,9 @@ class AdminsController extends LegacyAppController
         return $this->performSessionLogout('/admin/admins/login');
     }
 
-    public function index(Request $request)
-    {
-        $sessionAdmin = session()->get('SESSION_ADMIN', []);
-        $adminRoleId = session()->get('adminRoleId');
-        $currentAdminId = is_array($sessionAdmin) ? ($sessionAdmin['id'] ?? null) : null;
-        $keyword = trim((string) ($request->query('keyword') ?? ''));
-        $searchin = trim((string) ($request->query('searchin') ?? ''));
-        $showtype = trim((string) ($request->query('showtype') ?? ''));
-        $limit = (int) $request->input('limit', 50);
-
-        if (!in_array($limit, [10, 20, 50, 100, 200, 500])) {
-            $limit = 50;
-        }
-
-        $status = null;
-        if ($showtype !== '') {
-            // Cake: 'Active' => status 1, 'Deactive' => status 0
-            if (strcasecmp($showtype, 'Active') === 0) {
-                $status = 1;
-            } elseif (strcasecmp($showtype, 'Deactive') === 0) {
-                $status = 0;
-            }
-        }
-
-        $sort = $request->query('sort', 'id');
-        $direction = $request->query('direction', 'desc');
-        $allowedSort = ['id', 'created', 'status'];
-        if (!in_array($sort, $allowedSort)) {
-            $sort = 'id';
-        }
-        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
-
-        $q = LegacyUser::query()
-            ->with('role')
-            ->where('is_admin', 1)
-            ->whereNotIn('id', array_filter([1, $currentAdminId]))
-            ->orderBy($sort, $direction);
-
-        if ($adminRoleId != 1) {
-            $q->where('parent_id', $currentAdminId);
-        }
-
-        if ($status !== null) {
-            $q->where('status', $status);
-        }
-
-        if ($keyword !== '') {
-            $like = "%{$keyword}%";
-
-            $q->where(function ($qq) use ($like, $searchin) {
-                if ($searchin === '' || strcasecmp($searchin, 'All') === 0) {
-                    $qq->where('username', 'like', $like)
-                        ->orWhere('first_name', 'like', $like)
-                        ->orWhere('last_name', 'like', $like)
-                        ->orWhere('email', 'like', $like)
-                        ->orWhere('contact_number', 'like', $like);
-                } else {
-                    $fieldMap = [
-                        'username' => 'username',
-                        'first_name' => 'first_name',
-                        'email' => 'email',
-                        'contact_number' => 'contact_number',
-                    ];
-                    $field = $fieldMap[$searchin] ?? 'username';
-                    $qq->where($field, 'like', $like);
-                }
-            });
-        }
-
-        $users = $q->paginate($limit);
-
-        // Map role name for use in view
-        $users->getCollection()->transform(function (LegacyUser $u) {
-            $u->role_name = (!empty($u->role) && isset($u->role->name)) ? $u->role->name : '';
-            return $u;
-        });
-
-        if ($request->ajax()) {
-            return view('admin.admins._index_table', [
-                'users' => $users,
-                'limit' => $limit,
-            ]);
-        }
-
-        return view('admin.admins.index', [
-            'users' => $users,
-            'keyword' => $keyword,
-            'searchin' => $searchin,
-            'showtype' => $showtype,
-            'limit' => $limit,
-            'showArr' => ['Active' => 'Active', 'Deactive' => 'Inactive'],
-            'options' => [
-                'username' => 'Username',
-                'first_name' => 'Firstname',
-                'email' => 'Email',
-            ],
-        ]);
-    }
-
     public function dashboard()
     {
         return redirect('/admin/homes/dashboard');
-    }
-
-    public function status(Request $request, $id = null, $status = null)
-    {
-        $decodedId = null;
-
-        if (is_string($id) && $id !== '') {
-            $tmp = base64_decode($id, true);
-            $decodedId = $tmp !== false ? $tmp : null;
-        } elseif (is_numeric($id)) {
-            $decodedId = (string) $id;
-        }
-
-        if ($decodedId !== null && $decodedId !== '') {
-            $newStatus = ((string) $status === '1') ? 1 : 0;
-            $user = LegacyUser::query()
-                ->whereKey((int) $decodedId)
-                ->where('is_admin', 1)
-                ->first();
-
-            if ($user) {
-                $user->update(['status' => $newStatus]);
-            }
-
-            session()->flash('success', 'Status updated successfully.');
-        }
-
-        $referer = $request->headers->get('referer');
-
-        if (!empty($referer)) {
-            return redirect()->to($referer);
-        }
-
-        return redirect('/admin/admins/index');
-    }
-
-    public function add(Request $request, $id = null)
-    {
-        $salt = config('legacy.security.salt', '');
-        $isEditing = !empty($id);
-        $decodedId = null;
-
-        if (is_string($id) && $id !== '') {
-            $tmp = base64_decode($id, true);
-            $decodedId = $tmp !== false ? $tmp : null;
-        } elseif (is_numeric($id)) {
-            $decodedId = (string) $id;
-        }
-
-        $user = null;
-
-        if ($isEditing && $decodedId !== null) {
-            $user = LegacyUser::query()
-                ->whereKey((int) $decodedId)
-                ->where('is_admin', 1)
-                ->first();
-        }
-
-        if (!$request->isMethod('POST')) {
-            $roles = LegacyAdminRole::query()
-                ->select(['id', 'name'])
-                ->orderBy('name')
-                ->get()
-                ->mapWithKeys(fn($r) => [(string) $r->id => $r->name])
-                ->toArray();
-
-            $userStaffRoleIds = [];
-
-            if ($isEditing && $user) {
-                $userStaffRoleIds = LegacyAdminUserRole::query()
-                    ->where('user_id', (int) $user->id)
-                    ->pluck('role_id')
-                    ->toArray();
-            }
-
-            return view('admin.admins.add', [
-                'listTitle' => $isEditing ? 'Update Admin User' : 'Add Admin User',
-                'user' => $user,
-                'roles' => $roles,
-                'userStaffRoleIds' => $userStaffRoleIds,
-                'formAction' => $isEditing ? "/admin/admins/add/{$id}" : "/admin/admins/add",
-            ]);
-        }
-
-        $payload = $request->input('User', []);
-        $username = trim((string) ($payload['username'] ?? ''));
-        $firstName = trim((string) ($payload['first_name'] ?? ''));
-        $lastName = trim((string) ($payload['last_name'] ?? ''));
-        $email = trim((string) ($payload['email'] ?? ''));
-        $contact = trim((string) ($payload['contact_number'] ?? ''));
-        $roleId = $payload['role_id'] ?? null;
-        $status = ((string) ($payload['status'] ?? '1') === '0') ? 0 : 1;
-        $staffRoleIds = $payload['staff_role_id'] ?? [];
-
-        $userId = $isEditing && $decodedId !== null ? (int) $decodedId : null;
-        if (!$userId && !empty($payload['id']) && is_numeric($payload['id'])) {
-            $userId = (int) $payload['id'];
-        }
-
-        if ($firstName === '' || $lastName === '' || $email === '' || (!$userId && $username === '')) {
-            return view('admin.admins.add', [
-                'listTitle' => $isEditing ? 'Update Admin User' : 'Add Admin User',
-                'user' => $user,
-                'roles' => $this->getAdminRolesForForm(),
-                'userStaffRoleIds' => $staffRoleIds,
-                'error' => 'Please fill required fields.',
-                'formAction' => $isEditing ? "/admin/admins/add/{$id}" : "/admin/admins/add",
-            ]);
-        }
-
-        // Normalize names like Cake does.
-        $firstName = ucwords(strtolower($firstName));
-        $lastName = ucwords(strtolower($lastName));
-
-        $nowUser = [
-            'first_name' => $firstName,
-            'last_name' => $lastName,
-            'email' => $email,
-            'contact_number' => $contact,
-            'address' => trim((string) ($payload['address'] ?? '')),
-            'city' => trim((string) ($payload['city'] ?? '')),
-            'state' => trim((string) ($payload['state'] ?? '')),
-            'role_id' => $roleId,
-            'is_admin' => 1,
-            'status' => $status,
-        ];
-
-        if (!$userId) {
-            $nowUser['username'] = $username;
-        }
-
-        // Password handling follows Cake’s legacy sha1(salt+password).
-        if ($isEditing) {
-            $newPassword = (string) ($payload['newpassword'] ?? '');
-            $cnfPassword = (string) ($payload['cnfpassword'] ?? '');
-            if ($newPassword !== '' || $cnfPassword !== '') {
-                if ($newPassword !== $cnfPassword) {
-                    return back()->withInput()->with('error', 'Passwords do not match.');
-                }
-                $nowUser['password'] = sha1($salt . $newPassword);
-            }
-        } else {
-            $passwordPlain = (string) ($payload['npwd'] ?? '');
-            $confirmPlain = (string) ($payload['conpwd'] ?? '');
-            if ($passwordPlain === '' || $confirmPlain === '' || $passwordPlain !== $confirmPlain) {
-                return view('admin.admins.add', [
-                    'listTitle' => 'Add Admin User',
-                    'user' => $user,
-                    'roles' => $this->getAdminRolesForForm(),
-                    'userStaffRoleIds' => $staffRoleIds,
-                    'error' => 'Password/confirm password mismatch.',
-                    'formAction' => '/admin/admins/add',
-                ]);
-            }
-            $nowUser['password'] = sha1($salt . $passwordPlain);
-        }
-
-        if ($userId) {
-            $existingUser = LegacyUser::query()->whereKey((int) $userId)->first();
-            if ($existingUser) {
-                $existingUser->update($nowUser);
-            }
-        } else {
-            $userId = LegacyUser::query()->create($nowUser)->id;
-        }
-
-        // Update staff role mappings (admin_user_roles).
-        if (!is_array($staffRoleIds)) {
-            $staffRoleIds = [];
-        }
-
-        LegacyAdminUserRole::query()
-            ->where('user_id', (int) $userId)
-            ->delete();
-
-        foreach ($staffRoleIds as $rid) {
-            if ($rid === null || $rid === '') {
-                continue;
-            }
-            LegacyAdminUserRole::query()->create([
-                'user_id' => (int) $userId,
-                'role_id' => (int) $rid,
-            ]);
-        }
-
-        return redirect('/admin/admins/index');
-    }
-
-    private function getAdminRolesForForm(): array
-    {
-        return LegacyAdminRole::query()
-            ->select(['id', 'name'])
-            ->orderBy('name')
-            ->get()
-            ->mapWithKeys(fn($r) => [(string) $r->id => $r->name])
-            ->toArray();
     }
 
     public function change_password(Request $request)
@@ -473,111 +178,6 @@ class AdminsController extends LegacyAppController
         }
 
         return redirect('/admin/homes/dashboard');
-    }
-
-    public function profile(Request $request)
-    {
-        $admin = session()->get('SESSION_ADMIN');
-        $adminId = is_array($admin) ? ($admin['id'] ?? null) : null;
-        if (empty($adminId)) {
-            return redirect('/admin/admins/login');
-        }
-
-        $user = LegacyUser::query()
-            ->whereKey((int) $adminId)
-            ->where('is_admin', 1)
-            ->first();
-
-        if (!$request->isMethod('POST')) {
-            return view('admin.admins.profile', [
-                'listTitle' => 'Update Profile',
-                'user' => $user,
-                'error' => null,
-            ]);
-        }
-
-        $payload = $request->input('User', []);
-
-        $firstName = trim((string) ($payload['first_name'] ?? ''));
-        $lastName = trim((string) ($payload['last_name'] ?? ''));
-        $email = trim((string) ($payload['email'] ?? ''));
-        $contact = trim((string) ($payload['contact_number'] ?? ''));
-        $status = $payload['status'] ?? null;
-
-        // Cake normalizes names.
-        if ($firstName !== '') {
-            $firstName = ucwords(strtolower($firstName));
-        }
-        if ($lastName !== '') {
-            $lastName = ucwords(strtolower($lastName));
-        }
-
-        $candidateUpdate = [
-            'first_name' => $firstName !== '' ? $firstName : null,
-            'last_name' => $lastName !== '' ? $lastName : null,
-            'email' => $email !== '' ? $email : null,
-            'contact_number' => $contact !== '' ? $contact : null,
-            'address' => isset($payload['address']) ? (string) $payload['address'] : null,
-            'city' => isset($payload['city']) ? (string) $payload['city'] : null,
-            'state' => isset($payload['state']) ? (string) $payload['state'] : null,
-            'timezone' => isset($payload['timezone']) ? (string) $payload['timezone'] : null,
-            'status' => $status !== null && $status !== '' ? (int) $status : null,
-        ];
-
-        $update = $this->filterExistingUserColumns($candidateUpdate);
-
-        if (!empty($update)) {
-            $user->update($update);
-        }
-
-        // Keep session payload roughly in sync for anything consuming these fields.
-        $updatedRow = LegacyUser::query()
-            ->whereKey((int) $adminId)
-            ->first();
-
-        if (!empty($updatedRow)) {
-            session()->put('SESSION_ADMIN', $updatedRow->toArray());
-        }
-
-        return redirect('/admin/admins/index');
-    }
-
-    private function filterExistingUserColumns(array $candidate): array
-    {
-        $table = 'users';
-        $filtered = [];
-        foreach ($candidate as $col => $val) {
-            if ($val === null) {
-                continue;
-            }
-            if (Schema::hasColumn($table, $col)) {
-                $filtered[$col] = $val;
-            }
-        }
-        return $filtered;
-    }
-
-    public function delete(Request $request, $id = null)
-    {
-        $decodedId = null;
-
-        if (is_string($id) && $id !== '') {
-            $tmp = base64_decode($id, true);
-            $decodedId = $tmp !== false ? $tmp : null;
-        } elseif (is_numeric($id)) {
-            $decodedId = (string) $id;
-        }
-
-        if ($decodedId !== null && $decodedId !== '') {
-            LegacyUser::query()
-                ->whereKey((int) $decodedId)
-                ->where('is_admin', 1)
-                ->delete();
-
-            session()->flash('success', 'Admin user deleted successfully.');
-        }
-
-        return redirect('/admin/admins/index');
     }
 
     public function multiplAction(Request $request)
@@ -638,6 +238,237 @@ class AdminsController extends LegacyAppController
         }
 
         return back()->with('error', 'Email not found or invalid.');
+    }
+
+    public function index(Request $request)
+    {
+        $title = "Admin Users";
+        $sessLimitName = "admins_limit";
+        $userId = Session::get('SESSION_ADMIN.id');
+        $roleId = Session::get('adminRoleId');
+        $showArr = $this->getStatus();
+        $options = [
+            'username' => 'Username',
+            'first_name' => 'Firstname',
+            'email' => 'Email'
+        ];
+
+        $query = LegacyUser::with('role:id,name')
+            ->where('is_admin', 1)
+            ->whereNotIn('id', [1, $userId]);
+
+        if ($roleId != 1) {
+            $query->where('parent_id', $userId);
+        }
+
+        $searchIn = $request->input('searchin', $request->query('searchin', ''));
+        $keyword = $request->input('keyword', $request->query('keyword', ''));
+        $showtype = $request->input('showtype', $request->query('showtype', ''));
+        $searchin = empty($searchIn) ? 'All' : $searchIn;
+
+        if (!empty($keyword)) {
+            $query->where(function ($q) use ($searchin, $keyword) {
+                if ($searchin === 'All') {
+                    $q->where('first_name', 'LIKE', "%{$keyword}%")
+                        ->orWhere('username', 'LIKE', "%{$keyword}%")
+                        ->orWhere('email', 'LIKE', "%{$keyword}%");
+                } elseif (in_array($searchin, ['username', 'first_name', 'email'])) {
+                    $q->where($searchin, 'LIKE', "%{$keyword}%");
+                }
+            });
+        }
+
+        if (!empty($showtype) && $showtype !== 'All') {
+            $matchShow = ($showtype === 'Active') ? 1 : 0;
+            $query->where('status', $matchShow);
+        }
+
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            Session::put($sessLimitName, $limit);
+        } else {
+            $limit = Session::get($sessLimitName, $this->recordsPerPage);
+        }
+
+        $sort = $request->query('sort', 'id');
+        $direction = $request->query('direction', 'desc');
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+        $users = $query->orderBy($sort, $direction)->paginate($limit);
+
+        if ($request->ajax()) {
+            return view('admin.admins.elements.index', compact('users', 'limit'));
+        }
+
+        return view('admin.admins.index', compact('title', 'users', 'keyword', 'showtype', 'searchin', 'showArr', 'options', 'limit'));
+    }
+    public function add(Request $request, $id = null)
+    {
+        $id = $this->decodeId($id);
+        $title = !empty($id) ? 'Update Admin User' : 'Add Admin User';
+        $message = !empty($id) ? 'Admin user updated successfully.' : 'Admin user created successfully';
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $rules = [
+                'User.first_name' => ['required', 'regex:/^[a-zA-Z0-9 ]{1,50}$/'],
+                'User.email' => ['required', 'email', 'unique:users,email,' . $id],
+                'User.username' => ['required', 'unique:users,username,' . $id],
+                'User.contact_number' => [
+                    'required',
+                    'unique:users,contact_number,' . $id,
+                    function ($attribute, $value, $fail) {
+                        $clean = preg_replace("/[^0-9]/", "", $value);
+                        if (strlen($clean) < 10) {
+                            $fail('Please enter a valid phone number.');
+                        }
+                    },
+                ],
+            ];
+
+            $messages = [
+                'User.first_name.required' => 'Please enter your first name.',
+                'User.first_name.regex' => 'Please enter a valid first name.',
+                'User.email.required' => 'Please enter your email.',
+                'User.email.email' => 'Please enter a valid email address.',
+                'User.email.unique' => 'Email already exists, please choose another email.',
+                'User.username.required' => 'Please enter a username',
+                'User.username.unique' => 'Username already exists, please choose another.',
+                'User.contact_number.required' => 'Please enter phone number.',
+                'User.contact_number.unique' => 'Phone number already exists, please choose another.',
+            ];
+            $request->validate($rules, $messages);
+
+            $userData = $request->input('User');
+            $userData['first_name'] = Str::title(strtolower($userData['first_name']));
+            $userData['last_name'] = Str::title(strtolower($userData['last_name']));
+            $userData['is_admin'] = 1;
+
+            if (!empty($userData['npwd'])) {
+                $userData['password'] = Security::hash($userData['npwd'], null, true);
+            }
+
+            if (!empty($userData['newpassword']) && !empty($userData['cnfpassword'])) {
+                $userData['password'] = Security::hash($userData['newpassword'], null, true);
+            }
+
+            $user = LegacyUser::updateOrCreate(
+                ['id' => $id],
+                $userData
+            );
+
+            AdminUserRole::where('user_id', $user->id)->delete();
+
+            if (!empty($userData['staff_role_id'])) {
+                foreach ($userData['staff_role_id'] as $roleId) {
+                    AdminUserRole::create([
+                        'user_id' => $user->id,
+                        'role_id' => $roleId,
+                    ]);
+                }
+            }
+
+            return redirect('admin/admins/index')->with('success', $message);
+        }
+
+        $user = $id ? LegacyUser::findOrFail($id) : new LegacyUser();
+        $roles = $this->commonService->getAdminRoleList();
+        return view('admin.admins.add', compact('title', 'user', 'roles'));
+    }
+    public function profile(Request $request)
+    {
+        $id = Session::get('SESSION_ADMIN.id');
+        $title = 'Update Profile';
+
+        if (!$id) {
+            return redirect('admin/admins/login')->with('error', 'Unauthorized access.');
+        }
+
+        $user = LegacyUser::findOrFail($id);
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $userPayload = $request->input('User', []);
+
+            if (!isset($userPayload['contact_number']) && isset($userPayload['phone1'])) {
+                $userPayload['contact_number'] = implode('', (array) $userPayload['phone1']);
+            }
+            if (!isset($userPayload['address']) && isset($userPayload['address1'])) {
+                $userPayload['address'] = trim(($userPayload['address1'] ?? '') . ' ' . ($userPayload['address2'] ?? ''));
+            }
+            if (!isset($userPayload['state']) && isset($userPayload['state_id'])) {
+                $userPayload['state'] = $userPayload['state_id'] == '1110' ? ($userPayload['other_state'] ?? '') : $userPayload['state_id'];
+            }
+
+            $request->merge(['User' => $userPayload]);
+
+            $rules = [
+                'User.first_name' => ['required', 'regex:/^[a-zA-Z0-9 ]{1,50}$/'],
+                'User.email' => ['required', 'email', 'unique:users,email,' . $id],
+                'User.username' => ['required', 'unique:users,username,' . $id],
+                'User.contact_number' => [
+                    'required',
+                    'unique:users,contact_number,' . $id,
+                    function ($attribute, $value, $fail) {
+                        $clean = preg_replace("/[^0-9]/", "", $value);
+                        if (strlen($clean) < 10) {
+                            $fail('Please enter a valid phone number.');
+                        }
+                    },
+                ],
+            ];
+
+            $messages = [
+                'User.first_name.required' => 'Please enter your first name.',
+                'User.first_name.regex' => 'Please enter a valid first name.',
+                'User.email.required' => 'Please enter your email.',
+                'User.email.email' => 'Please enter a valid email address.',
+                'User.email.unique' => 'Email already exists, please choose another email.',
+                'User.username.required' => 'Please enter a username',
+                'User.username.unique' => 'Username already exists, please choose another.',
+                'User.contact_number.required' => 'Please enter phone number.',
+                'User.contact_number.unique' => 'Phone number already exists, please choose another.',
+            ];
+
+            $request->validate($rules, $messages);
+            $userData = $request->input('User');
+
+            $userData['first_name'] = ucwords(strtolower($userData['first_name']));
+            $userData['last_name'] = ucwords(strtolower($userData['last_name']));
+            $user->updateOrFail($userData);
+            Session::put('SESSION_ADMIN', $user->toArray());
+
+            return redirect('admin/admins/index')->with('success', 'Admin profile updated successfully.');
+        }
+
+        if ($user->contact_number) {
+            $clean = preg_replace("/[^0-9]/", "", $user->contact_number);
+            if (strlen($clean) >= 10) {
+                $user->setAttribute('phone1', [
+                    substr($clean, 0, 3),
+                    substr($clean, 3, 3),
+                    substr($clean, 6)
+                ]);
+            }
+        }
+        $user->setAttribute('address1', $user->address);
+        $user->setAttribute('state_id', '1110');
+        $user->setAttribute('other_state', $user->state);
+
+        return view('admin.admins.profile', compact('title', 'user'));
+    }
+    public function status($id = null, $status = null)
+    {
+        $decodedId = $this->decodeId($id);
+
+        if (!empty($decodedId)) {
+            $newStatus = ($status == 1) ? 1 : 0;
+            LegacyUser::where('id', $decodedId)->update(['status' => $newStatus]);
+        }
+
+        return back()->with('success', 'Status updated successfully.');
+    }
+    public function delete($id = null)
+    {
+        LegacyUser::where('id', $id)->deleteOrFail();
+        return redirect('/admin/admins/index')->with('success', 'Admin user deleted successfully.');
     }
 }
 

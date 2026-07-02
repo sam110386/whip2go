@@ -168,5 +168,15 @@ class LegacyAppController extends Controller
     {
         return base64_encode((string) ((int) $id));
     }
+
+    protected function getStatus(): array
+    {
+        $statusArr = [
+            'Active' => 'Active',
+            'Deactive' => 'Inactive'
+        ];
+
+        return $statusArr;
+    }
 }
 

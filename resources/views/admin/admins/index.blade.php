@@ -1,24 +1,24 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Admin Users')
-
 @php
+    $title ??= 'Manage Admin Users';
     $keyword ??= '';
     $searchin ??= '';
-    $fieldname ??= '';
     $showtype ??= '';
     $options ??= [];
-    $limit ??= 50;
+    $showArr ??= [];
 @endphp
 
+@section('title', $title)
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">Manage</span>
-                    Admin Users
+                    <span class="text-semibold">Manage</span> Admin Users
                 </h4>
             </div>
             <div class="heading-elements">
@@ -40,15 +40,18 @@
                     <div class="col-md-10">
                         <div class="col-md-3">
                             Keyword :
-                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50" size="30">
+                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50"
+                                size="30">
                         </div>
 
                         <div class="col-md-3">
                             Search In :
                             <select name="searchin" class="form-control">
                                 <option value="">Select..</option>
-                                @foreach($options as $k => $label)
-                                    <option value="{{ $k }}" @selected($searchin === $k)>{{ $label }}</option>
+                                @foreach($options as $key => $label)
+                                    <option value="{{ $key }}" @selected($searchin === $key)>
+                                        {{ $label }}
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
@@ -68,9 +71,11 @@
                                 APPLY
                             </button>
                         </div>
+
                         <div class="col-md-1">
                             <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                                alt="Clear Filter">
                                 Clear Filter
                             </button>
                         </div>
@@ -79,27 +84,17 @@
             </form>
         </div>
     </div>
+
     <div class="panel">
-        <div class="panel-body">
-            <div id="listing">
-                @include('admin.admins._index_table', [
-                    'users' => $users ?? [],
-                    'limit' => $limit,
-                ])
-            </div>
+        <div class="panel-body" id="listing">
+            @include('admin.admins.elements.index')
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
 
-
-
 @push('scripts')
+
     <script type="text/javascript">
         $(document).ready(function () {
 
@@ -165,7 +160,8 @@
             window.onpopstate = function () {
                 loadListing(window.location.href);
             };
+
         });
     </script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
+
 @endpush

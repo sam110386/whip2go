@@ -154,8 +154,8 @@ class AdminStaffsController extends LegacyAppController
                 'User.email.required' => 'Please enter your email.',
                 'User.email.email' => 'Please enter a valid email address.',
                 'User.email.unique' => 'Email already exists, please choose another email.',
-                'User.username.required' => 'Please enter a phone number.',
-                'User.username.unique' => 'Phone number already exists, please choose another.',
+                'User.username.required' => 'Please enter a username.',
+                'User.username.unique' => 'Username already exists, please choose another.',
                 'User.contact_number.required' => 'Please enter phone number.',
                 'User.contact_number.unique' => 'Phone number already exists, please choose another.',
             ];
@@ -170,7 +170,7 @@ class AdminStaffsController extends LegacyAppController
             if (!empty($userData['npwd'])) {
                 $userData['password'] = Security::hash($userData['npwd'], null, true);
             } elseif (!empty($userData['newpassword']) && !empty($userData['cnfpassword'])) {
-                $userData['password'] = Security::hash($userData['newpassword']);
+                $userData['password'] = Security::hash($userData['newpassword'], null, true);
             }
 
             unset($userData['npwd'], $userData['newpassword'], $userData['cnfpassword']);
