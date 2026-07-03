@@ -1,40 +1,49 @@
 @extends('admin.layouts.app')
 
-@section('title', $listTitle ?? 'Permission')
+@php
+    $id ??= '';
+    $title ??= 'Add Permission';
+    $selectedMenu ??= '';
+    $actions ??= [];
+    $permission ??= collect();
+    $menuNameTree = [];
 
-@push('head_scripts')
-    <script src="{{ legacy_asset('js/assets/js/plugins/forms/inputs/duallistbox.min.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery_ui/core.min.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery_ui/effects.min.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery_ui/interactions.min.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/plugins/extensions/cookie.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/plugins/trees/fancytree_all.min.js') }}"></script>
-    <script src="{{ legacy_asset('js/assets/js/plugins/trees/fancytree_childcounter.js') }}"></script>
-@endpush
+    if (!empty($actions)) {
+        $menuNameTree = \App\Helpers\Legacy\PermissionNestedTree::getMenuNameTree($actions, json_decode($selectedMenu, 1));
+    }
+
+@endphp
+
+@section('title', $title)
 
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
-                <h4><i class="icon-arrow-left52 position-left"></i> <span class="text-semibold">{{ $listTitle }}</span></h4>
+                <h4>
+                    <i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">{{ $title }}</span>
+                </h4>
             </div>
         </div>
     </div>
 
     <div class="row">
-        @if(session('error'))
-            <div class="alert alert-danger">{{ session('error') }}</div>
-        @endif
+        @includeif('partials.flash')
     </div>
 
     <div class="panel">
         <div class="panel-body">
             <form method="POST"
-                action="{{ isset($permission) && $permission ? '/admin/permissions/add/' . $permission->id : '/admin/permissions/add' }}"
+                action="{{ url('admin/permissions/add' . (!empty(data_get($permission, 'id')) ? '/' . data_get($permission, 'id') : '')) }}"
                 class="form-horizontal" id="frmadmin">
+
                 @csrf
+
                 <div class="form-group">
-                    <label class="col-lg-2 control-label">Name :<span class="text-danger">*</span></label>
+                    <label class="col-lg-2 control-label">
+                        Name :<span class="text-danger">*</span></label>
                     <div class="col-lg-4">
                         <input type="text" name="AdminPermission[name]" class="form-control required" maxlength="100"
                             value="{{ data_get($permission, 'name', '') }}" required>
@@ -42,11 +51,16 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="col-lg-2 control-label">Permissions:</label>
+                    <label class="col-lg-2 control-label">
+                        Permissions:
+                    </label>
                     <div class="col-lg-4">
                         <select name="AdminPermission[type]" id="AdminPermissionType" class="form-control required">
-                            <option value="all" @selected((data_get($permission, 'type', 'all') === 'all'))>All</option>
-                            <option value="custom" @selected((data_get($permission, 'type', 'all') !== 'all'))>Custom
+                            <option value="all" @selected((data_get($permission, 'type', 'all') === 'all'))>
+                                All
+                            </option>
+                            <option value="custom" @selected((data_get($permission, 'type', 'all') !== 'all'))>
+                                Custom
                             </option>
                         </select>
                     </div>
@@ -65,34 +79,52 @@
                 <div class="form-group">
                     <label class="col-lg-2 control-label">&nbsp;</label>
                     <div class="col-lg-10">
-                        <button type="submit"
-                            class="btn btn-primary">{{ isset($permission) && $permission ? 'Update' : 'Save' }}</button>
-                        <a href="/admin/permissions/index" class="btn btn-default" style="margin-left:10px;">Return</a>
+                        <button type="submit" class="btn btn-primary">
+                            {{ !empty(data_get($permission, 'id')) ? 'Update' : 'Save' }}
+                        </button>
+                        <button type="button" class="btn left-margin btn-cancel"
+                            onclick="goBack('/admin/permissions/index')">
+                            Return
+                        </button>
                     </div>
                 </div>
+
+                <input type="hidden" name="AdminPermission[id]" value="{{ data_get($permission, 'id', '') }}">
             </form>
         </div>
     </div>
+
 @endsection
 
 @push('scripts')
+    <script src="{{ legacy_asset('js/assets/js/plugins/forms/inputs/duallistbox.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery_ui/core.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery_ui/effects.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/core/libraries/jquery_ui/interactions.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/extensions/cookie.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/trees/fancytree_all.min.js') }}"></script>
+    <script src="{{ legacy_asset('js/assets/js/plugins/trees/fancytree_childcounter.js') }}"></script>
+
     <script type="text/javascript">
+        jQuery(document).ready(function () {
+            jQuery("#frmadmin").validate();
+        });
+
         $(function () {
-            var treeData = @json($treeData ?? []);
+            $('#AdminPermissionPermissions').bootstrapDualListbox();
 
             $("#nestablemenu").fancytree({
                 checkbox: true,
                 selectMode: 3,
-                source: treeData,
+                source: @json($menuNameTree),
                 select: function (event, data) {
                     var arr = {};
                     $.map(data.tree.getSelectedNodes(), function (node) {
-                        if (node.data.parent_module) {
-                            if (arr[node.data.parent_module]) {
-                                arr[node.data.parent_module].push(node.key);
-                            } else {
-                                arr[node.data.parent_module] = [node.key];
-                            }
+
+                        if (arr[node.data.parent_module]) {
+                            arr[node.data.parent_module] = [...arr[node.data.parent_module], node.key];
+                        } else {
+                            arr[node.data.parent_module] = [node.key];
                         }
                     });
                     $('#AdminPermissionPermissions').val(JSON.stringify(arr));
@@ -104,9 +136,13 @@
                     $('#AdminPermissionPermissions').val('*');
                     $("#AdminPermissionWrapper").addClass('hide');
                 } else {
+                    $('#AdminPermissionPermissions').val('{{ $selectedMenu }}');
                     $("#AdminPermissionWrapper").removeClass('hide');
                 }
             });
+
         });
+
     </script>
+
 @endpush

@@ -1,13 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Permissions')
-
 @php
-    $keyword ??= '';
-    $limit ??= 50;
+    $title ??= 'Manage Permissions';
 @endphp
 
+@section('title', $title)
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -27,159 +27,9 @@
     </div>
 
     <div class="panel">
-        <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/permissions/index') }}">
-                <div class="row">
-                    <div class="col-md-10">
-                        <div class="col-md-3">
-                            Keyword :
-                            <input type="text" name="keyword" class="form-control" value="{{ $keyword }}" maxlength="50" size="30">
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" value="search" class="btn btn-primary" alt="Search">APPLY</button>
-                        </div>
-                        <div class="col-md-1">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
-                        </div>
-                    </div>
-                </div>
-            </form>
-
-            <div class="row">&nbsp;</div>
-
-            <div id="listing">
-                <div class="table-responsive">
-                    <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
-                        <thead>
-                            <tr>
-                                @include('partials.dispacher.sortable_header', ['columns' => [
-                                    ['title' => 'ID', 'field' => 'id'],
-                                    ['title' => 'Title', 'field' => 'title'],
-                                    ['title' => 'Code', 'field' => 'pagecode'],
-                                    ['title' => 'Status', 'field' => 'status'],
-                                    ['title' => 'Actions', 'sortable' => false],
-                                ]])
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse(($permissions ?? []) as $p)
-                                <tr>
-                                    <td>{{ $p->id }}</td>
-                                    <td>{{ $p->title }}</td>
-                                    <td>{{ $p->pagecode }}</td>
-                                    <td>{{ (int) ($p->status ?? 0) === 1 ? 'Active' : 'Inactive' }}</td>
-                                    <td>
-                                        <a href="{{ url('admin/permissions/view/' . $p->id) }}" title="View"><i class="icon-clipboard3"></i></a>
-                                        <a href="{{ url('admin/permissions/add/' . $p->id) }}" title="Edit"><i class="icon-pencil"></i></a>
-                                        <a href="{{ url('admin/permissions/status/' . $p->id . '/' . ((int) ($p->status ?? 0) === 1 ? 0 : 1)) }}" title="Toggle Status"><i class="icon-sync"></i></a>
-                                        <a href="{{ url('admin/permissions/delete/' . $p->id) }}" onclick="return confirm('Delete permission?')" title="Delete"><i class="icon-trash"></i></a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="5" align="center">No record found</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                @include('partials.dispacher.paging_box', ['paginator' => $permissions ?? null, 'limit' => $limit])
-            </div>
-
-        </div>
-    </div>
-
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content">
-
-            </div>
+        <div class="panel-body" id="listing">
+            @include('admin.permissions.elements.index')
         </div>
     </div>
 
 @endsection
-
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
-@push('scripts')
-    <script type="text/javascript">
-        $(document).ready(function () {
-
-            $(document).on('click', '.page-link, .sort-link', function (e) {
-                e.preventDefault();
-                var url = $(this).attr('href');
-                if (url && url !== '#' && url !== 'javascript:void(0)') {
-                    loadListing(url);
-                }
-            });
-
-            $(document).on('submit', '#frmSearchadmin', function (e) {
-                e.preventDefault();
-                var form = $(this);
-                var isClearFilter = false;
-
-                if (e.originalEvent && e.originalEvent.submitter) {
-                    var btn = $(e.originalEvent.submitter);
-                    if (btn.attr('name') === 'ClearFilter') {
-                        isClearFilter = true;
-                    }
-                }
-
-                if (isClearFilter) {
-                    form[0].reset();
-                    var baseUrl = form.attr('action');
-                    loadListing(baseUrl + '?ClearFilter=1', baseUrl);
-                } else {
-                    var formData = form.serialize();
-                    var url = form.attr('action') + '?' + formData;
-                    loadListing(url);
-                }
-            });
-
-            $(document).on('change', '.ajax-limit', function (e) {
-                e.preventDefault();
-                var form = $(this).closest('form');
-                var url = window.location.pathname + '?' + $('#frmSearchadmin').serialize() + '&' + form.serialize();
-                loadListing(url);
-            });
-
-            function loadListing(url, historyUrl) {
-                if (typeof historyUrl === 'undefined') {
-                    historyUrl = url;
-                }
-                $('#listing').css('opacity', '0.5');
-
-                $.ajax({
-                    url: url,
-                    type: "GET",
-                    success: function (data) {
-                        $('#listing').html(data);
-                        $('#listing').css('opacity', '1');
-                        window.history.pushState(null, null, historyUrl);
-                    },
-                    error: function (xhr) {
-                        $('#listing').css('opacity', '1');
-                        console.error('AJAX Load Error:', xhr);
-                    }
-                });
-            }
-
-            window.onpopstate = function () {
-                loadListing(window.location.href);
-            };
-        });
-    </script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
-@endpush

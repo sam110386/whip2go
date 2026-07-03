@@ -2,110 +2,87 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Helpers\Legacy\PermissionNestedTree;
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\AdminPermission as LegacyAdminPermission;
+use App\Models\Legacy\AdminPermission;
 use Illuminate\Http\Request;
 use ReflectionClass;
 use ReflectionMethod;
 
 class PermissionsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     public function index(Request $request)
     {
         if ($resp = $this->ensureAdminSession()) {
             return $resp;
         }
 
-        $keyword = trim((string) ($request->query('keyword') ?? ''));
+        $title = 'Manage Permissions';
+        $sessLimitName = "admin_permission_limit";
 
-        $q = LegacyAdminPermission::query()->orderBy('id', 'asc');
-        if ($keyword !== '') {
-            $like = '%' . $keyword . '%';
-            $q->where(function ($qq) use ($like) {
-                $qq->where('name', 'like', $like)
-                    ->orWhere('type', 'like', $like);
-            });
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            session([$sessLimitName => $limit]);
+        } elseif (session()->has($sessLimitName)) {
+            $limit = session($sessLimitName);
+        } else {
+            $limit = $this->recordsPerPage;
         }
 
-        $permissions = $q->paginate(20);
+        $permissions = AdminPermission::orderBy('id', 'asc')->paginate($limit);
 
-        return view('admin.permissions.index', [
-            'permissions' => $permissions,
-            'keyword' => $keyword,
-            'title_for_layout' => 'Manage Permissions',
-        ]);
+        if ($request->ajax()) {
+            return view('admin.permissions.elements.index', compact('permissions', 'limit'));
+        }
+
+        return view('admin.permissions.index', compact('permissions', 'title', 'limit'));
     }
-
-    public function delete(Request $request, $id = null)
+    public function delete($id = null)
     {
         if ($resp = $this->ensureAdminSession()) {
             return $resp;
         }
 
-        if (empty($id) || !is_numeric($id)) {
-            return redirect('/admin/permissions/index');
-        }
+        $permission = AdminPermission::findOrFail($id);
+        $permission->delete();
 
-        LegacyAdminPermission::query()->whereKey((int) $id)->delete();
-
-        return redirect('/admin/permissions/index')->with('success', 'Permission deleted successfully.');
+        return redirect('admin/permissions/index')->with('success', 'Permission deleted successfully.');
     }
-
     public function add(Request $request, $id = null)
     {
         if ($resp = $this->ensureAdminSession()) {
             return $resp;
         }
 
-        $isEditing = !empty($id) && is_numeric($id);
-        $permission = $isEditing ? LegacyAdminPermission::query()->find((int) $id) : null;
+        $title = !empty($id) ? 'Update Permission' : 'Add Permission';
+        $msg = !empty($id) ? 'Permission updated successfully.' : 'Permission added successfully.';
+        $selectedMenu = '';
+        $permission = collect();
 
-        if (!$request->isMethod('POST')) {
-            $actions = $this->detectPermissions();
-            $selectedMenu = $permission ? ($permission->type === 'all' ? '*' : $permission->permissions) : '';
-            $selectedMenuArr = json_decode((string) $selectedMenu, true);
-
-            return view('admin.permissions.add', [
-                'listTitle' => $isEditing ? 'Update Permission' : 'Add Permission',
-                'permission' => $permission,
-                'id' => $id,
-                'actions' => $actions,
-                'selectedMenu' => $selectedMenu,
-                'treeData' => PermissionNestedTree::getMenuNameTree($actions, $selectedMenuArr),
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $request->validate([
+                'AdminPermission.name' => 'required',
+                'AdminPermission.type' => 'required',
+            ], [
+                'AdminPermission.name.required' => 'Please enter permission name',
+                'AdminPermission.type.required' => 'Please enter type',
             ]);
+
+            $dataToSave = $request->input('AdminPermission');
+            $user = AdminPermission::updateOrCreate(
+                ['id' => $id],
+                $dataToSave
+            );
+
+            return redirect('admin/permissions/index')->with('success', $msg);
+        } elseif (!empty($id)) {
+            $permission = AdminPermission::findOrFail($id);
+            $selectedMenu = ($permission->type === 'all') ? '*' : $permission->permissions;
         }
 
-        $payload = $request->input('AdminPermission', []);
-        $name = trim((string) ($payload['name'] ?? ''));
-        $type = trim((string) ($payload['type'] ?? 'all'));
-        $permissionsValue = $payload['permissions'] ?? '';
+        $actions = $this->detectPermissions();
 
-        if ($name === '') {
-            return back()->withInput()->with('error', 'Permission name is required.');
-        }
-
-        if ($type === 'all') {
-            $permissionsValue = '*';
-        }
-
-        $data = [
-            'name' => $name,
-            'type' => $type,
-            'permissions' => $permissionsValue,
-        ];
-
-        if ($isEditing && $permission) {
-            $permission->update($data);
-        } else {
-            LegacyAdminPermission::query()->create($data);
-        }
-
-        return redirect('/admin/permissions/index')->with('success', 'Permission saved successfully.');
+        return view('admin.permissions.add', compact('id', 'title', 'selectedMenu', 'actions', 'permission'));
     }
-
     public function detectPermissions(): array
     {
         $permissions = [];

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Traits;
 use App\Models\Legacy\AdminUserAssociation;
 use App\Models\Legacy\CsLead;
 use App\Models\Legacy\User;
+use App\Models\Legacy\VehicleReservation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -223,5 +224,115 @@ trait LeadsTrait
         } catch (Exception $e) {
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+    }
+    protected function _refreshLeadCommon(Request $request)
+    {
+        $error = true;
+        $user = collect();
+        $message = 'Sorry, something went wrong.';
+        $lead = collect();
+        $intercomContact = [];
+        $vehicleReservation = collect();
+        $leadid = $this->decodeId($request->input('leadid'));
+        $adminUser = $this->getAdminUserid();
+        $query = CsLead::where('id', $leadid);
+
+        if (empty($adminUser['administrator'])) {
+            $query->where('admin_id', $adminUser['parent_id']);
+        }
+
+        $lead = $query->first();
+
+        if (!$lead) {
+            $message = 'Sorry, lead record not found.';
+            return view('leads._refreshlead', compact(
+                'lead',
+                'error',
+                'message',
+                'user',
+                'intercomContact',
+                'vehicleReservation',
+                'leadid'
+            ));
+        }
+
+        $phone = substr(preg_replace('/[^0-9]/', '', $lead->phone), -10);
+        $user = User::where('username', $phone)
+            ->orWhere('contact_number', 'LIKE', '%' . $phone)
+            ->first();
+
+        if (!$user) {
+            $message = 'Sorry, no registered user found with respective phone#.';
+        } else {
+            $error = false;
+            $lead->status = 1;
+            $lead->user_id = $user->id;
+            $lead->save();
+        }
+
+        if (!empty($lead->intercom_id)) {
+            $intercomContact = $this->_pullIntercomContact($lead->intercom_id);
+        }
+
+        if (!empty($lead->user_id)) {
+            $vehicleReservation = VehicleReservation::where('renter_id', $lead->user_id)
+                ->orderBy('id', 'DESC')
+                ->first();
+        }
+
+        return view('leads._refreshlead', compact(
+            'lead',
+            'error',
+            'message',
+            'user',
+            'intercomContact',
+            'vehicleReservation',
+            'leadid'
+        ));
+
+    }
+    protected function _associateLeadCommon(Request $request)
+    {
+        $return = [
+            'status' => false,
+            'message' => 'Sorry, something went wrong.'
+        ];
+
+        $leadId = $this->decodeId($request->input('leadid'));
+        $userId = $this->decodeId($request->input('userid'));
+        $adminUser = $this->getAdminUserId();
+        $query = CsLead::where('id', $leadId)->where('status', 0);
+
+        if (empty($adminUser['administrator'])) {
+            $query->where('admin_id', $adminUser['parent_id']);
+        }
+
+        $lead = $query->first();
+
+        if ($lead) {
+            if ((int) $lead->type === 2) {
+                try {
+                    AdminUserAssociation::create([
+                        'user_id' => $userId,
+                        'admin_id' => $adminUser['parent_id']
+                    ]);
+
+                    $return['message'] = 'Dealer associated with your account successfully.';
+                } catch (Exception $e) {
+                    $return['message'] = 'Dealer already associated with your account.';
+                }
+
+                $return['status'] = true;
+
+                CsLead::where('id', $leadId)->update(['status' => 1]);
+
+            } else {
+                $return['message'] = 'Sorry, lead record is not created as Dealer.';
+            }
+        } else {
+            $return['message'] = 'Sorry, lead record not found or already approved.';
+        }
+
+        return response()->json($return);
     }
 }

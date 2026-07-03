@@ -82,7 +82,7 @@ trait LeadLib
         $user = User::find($userId);
         return $user ? ($user->first_name . ' ' . $user->last_name . ' Lead') : '';
     }
-    public function pullIntercomContact($intercom_id)
+    public function _pullIntercomContact($intercom_id)
     {
         try {
             return (new IntercomClient())->getContact($intercom_id);

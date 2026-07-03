@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AdminRole extends LegacyModel
 {
-     
+
     protected $table = 'admin_roles';
 
     protected $fillable = [
@@ -40,6 +40,16 @@ class AdminRole extends LegacyModel
             (new AdminRolePermission())->getTable(),
             'role_id',
             'permission_id'
+        );
+    }
+
+    public function menus(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            AdminModule::class,
+            (new AdminRoleMenu())->getTable(),
+            'role_id',
+            'menu_id'
         );
     }
 
