@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @php
-    $title ??= 'Update Deposit';
+    $title ??= 'Update Insurance';
     $csorder ??= collect();
 @endphp
 
@@ -17,13 +17,13 @@
 
         <div class="row">
             @if($csorder)
-                <form id="ReportUpdatedepositForm" class="form-horizontal">
+                <form id="ReportAdminUpdateinsuranceForm" class="form-horizontal">
                     @csrf
                     <fieldset class="col-lg-12">
                         <div class="panel-body">
                             <div class="form-group">
                                 <h3>
-                                    <div>Deposit Transaction Details : </div>
+                                    <div>Insurance Transaction Details : </div>
                                 </h3>
                             </div>
                             <div class="form-group">
@@ -31,28 +31,28 @@
                                     <strong>Job# :</strong>
                                 </label>
                                 <div class="col-lg-6">
-                                    {{ data_get($csorder, 'increment_id', '') }}
+                                    {{ data_get($csorder, 'increment_id', '')}}
                                 </div>
                             </div>
 
                             <fieldset class="content-group">
                                 <div class="form-group">
                                     <label class="col-lg-4">
-                                        Paid Deposit Amount :
+                                        Paid Insurance Amount :
                                     </label>
                                     <div class="col-lg-6">
-                                        {{ data_get($csorder, 'deposit', '') }}
+                                        {{ data_get($csorder, 'insurance_amt', '') }}
                                     </div>
                                 </div>
 
                                 <div class="form-group">
                                     <label class="col-lg-4">
-                                        New Deposit Amount :
+                                        New Insurance Amount :
                                     </label>
                                     <div class="col-lg-6">
                                         <input type="text" name="newtotal" id="CsOrderNewtotal"
                                             class="number form-control digit required"
-                                            value="{{ data_get($csorder, 'deposit', '') }}">
+                                            value="{{ data_get($csorder, 'insurance_amt', '') }}">
                                     </div>
                                 </div>
 
@@ -61,7 +61,7 @@
                                         Transaction Id :
                                     </label>
                                     <div class="col-lg-6">
-                                        {{ data_get($csorder, 'deposit_auth', 'N/A') }}
+                                        {{ data_get($csorder, 'insurance_transaction_id', 'N/A') }}
                                     </div>
                                 </div>
 
@@ -69,14 +69,14 @@
                                     <label class="col-lg-4"></label>
                                     <div class="col-lg-2">
                                         <button type="button" class="btn btn-primary"
-                                            onClick="adjustDeposit('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
+                                            onClick="adjustInsurance('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
                                             Proceed
                                         </button>
                                     </div>
-                                    @if(!empty(data_get($csorder, 'deposit_auth', '')))
+                                    @if(!empty(data_get($csorder, 'insurance_transaction_id', '')))
                                         <div class="col-lg-2">
                                             <button type="button" class="btn btn-danger btn-ladda btn-ladda-progress"
-                                                onClick="depositRefund('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
+                                                onClick="insuranceRefund('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
                                                 Refund Total
                                             </button>
                                         </div>
@@ -108,19 +108,19 @@
 
     <script type="text/javascript">
         $(document).ready(function () {
-            $("#ReportUpdatedepositForm").validate();
+            $("#ReportAdminUpdateinsuranceForm").validate();
         });
 
-        function adjustDeposit(orderid) {
-            if (orderid.length > 0 && $("#ReportUpdatedepositForm").valid()) {
+        function adjustInsurance(orderid) {
+            if (orderid.length > 0 && $("#ReportAdminUpdateinsuranceForm").valid()) {
                 var conf = confirm('Are you sure you want to adjust insurance ?');
                 if (conf) {
                     jQuery.blockUI({
                         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
                         css: { 'z-index': '9999' }
                     });
-                    var params = $("#ReportUpdatedepositForm").serialize();
-                    $.post(SITE_URL + "admin/transactions/adjustDeposit", params, function (data) {
+                    var params = $("#ReportAdminUpdateinsuranceForm").serialize();
+                    $.post(SITE_URL + "admin/transactions/adjustInsurance", params, function (data) {
                         jQuery.unblockUI();
                         if (data.status == 'success') {
                             alert(data.message);
@@ -133,7 +133,7 @@
             }
         }
 
-        function depositRefund(orderid) {
+        function insuranceRefund(orderid) {
             if (orderid.length > 0) {
                 var conf = confirm('Are you sure you want to full refund ?');
                 if (conf) {
@@ -141,7 +141,7 @@
                         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
                         css: { 'z-index': '9999' }
                     });
-                    $.post(SITE_URL + "admin/transactions/depositRefund", {
+                    $.post(SITE_URL + "admin/transactions/insuranceRefund", {
                         "orderid": orderid,
                         "_token": "{{ csrf_token() }}"
                     }, function (data) {
@@ -157,4 +157,5 @@
             }
         }
     </script>
+
 @endpush

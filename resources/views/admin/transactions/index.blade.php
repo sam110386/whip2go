@@ -1,18 +1,27 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Transactions')
-
 @php
+    $title ??= 'Transactions';
     $keyword ??= '';
     $transaction_id ??= '';
     $fieldname ??= '';
     $status_type ??= '';
     $date_from ??= '';
     $date_to ??= '';
-    $limit ??= 50;
 @endphp
 
+@section('title', $title)
+
+@push('styles')
+    <style type="text/css">
+        tbody tr {
+            cursor: pointer;
+        }
+    </style>
+@endpush
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -33,11 +42,12 @@
             <form id="frmSearchadmin" id="frmSearchadmin" name="frmSearchadmin" method="POST"
                 action="{{ url('admin/transactions/index') }}">
                 @csrf
+
                 <div class="row pb-10">
                     <div class="col-md-12">
                         <div class="col-md-3">
-                            <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}"
-                                placeholder="Keyword">
+                            <input type="text" name="Search[keyword]" class="form-control" maxlength="50"
+                                value="{{ $keyword }}" placeholder="Keyword">
                         </div>
                         <div class="col-md-3">
                             <input type="text" name="Search[transaction_id]" class="form-control" maxlength="80"
@@ -63,17 +73,17 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <input type="text" name="Search[date_from]" class="form-control" id="SearchDateFrom" value="{{ $date_from }}"
-                                placeholder="Date Range From">
+                            <input type="text" name="Search[date_from]" class="form-control" id="SearchDateFrom"
+                                value="{{ $date_from }}" placeholder="Date Range From">
                         </div>
                         <div class="col-md-3">
-                            <input type="text" name="Search[date_to]" class="form-control" id="SearchDateTo" value="{{ $date_to }}"
-                                placeholder="Date Range To">
+                            <input type="text" name="Search[date_to]" class="form-control" id="SearchDateTo"
+                                value="{{ $date_to }}" placeholder="Date Range To">
                         </div>
                         <div class="col-md-1">
-                        <label style="margin-bottom:0;">&nbsp;</label>
-                        <button type="submit" name="search" value="search" class="btn btn-primary">APPLY</button>
-                    </div>
+                            <label style="margin-bottom:0;">&nbsp;</label>
+                            <button type="submit" name="search" value="search" class="btn btn-primary">APPLY</button>
+                        </div>
                     </div>
                 </div>
             </form>
@@ -86,25 +96,17 @@
         </div>
     </div>
 
-    <!-- Modal -->
     <div id="myModal" class="modal fade" role="dialog">
         <div class="modal-dialog">
-            <!-- Modal content-->
             <div class="modal-content">
                 <div class="modal-body">
-                    
+
                 </div>
             </div>
         </div>
     </div>
 
 @endsection
-
-@push('styles')
-    <style type="text/css">
-        tbody tr{cursor: pointer;}
-    </style>
-@endpush
 
 @push('scripts')
     <script type="text/javascript">
@@ -117,17 +119,18 @@
                 dateFormat: 'mm/dd/yy'
             });
         });
-        
+
         function openTripDetails(tripId, thisObj) {
-            jQuery.blockUI({
-                message: '<h1>Just a moment...</h1>'
-            });
-            jQuery.post("/admin/reports/details/" + tripId, {}, function (data) {
-                jQuery.unblockUI();
-                $("#myModal .modal-content").html(data);
-                $("#myModal").modal('show').find('.modal-dialog').css('width', '1050px');
-            });
-            return false;
+            return;
+            // jQuery.blockUI({
+            //     message: '<h1>Just a moment...</h1>'
+            // });
+            // jQuery.post("/admin/reports/details/" + tripId, {}, function (data) {
+            //     jQuery.unblockUI();
+            //     $("#myModal .modal-content").html(data);
+            //     $("#myModal").modal('show').find('.modal-dialog').css('width', '1050px');
+            // });
+            // return false;
         }
 
         function Updateenddatetime(tripId) {

@@ -17,15 +17,16 @@
 
         <div class="row">
             @if($csorder)
-                <form id="ReportUpdatedepositForm" class="form-horizontal">
+                <form id="dealeradjustinitialfee" class="form-horizontal">
                     @csrf
                     <fieldset class="col-lg-12">
                         <div class="panel-body">
                             <div class="form-group">
                                 <h3>
-                                    <div>Deposit Transaction Details : </div>
+                                    <div>Initial Fee Transaction Details : </div>
                                 </h3>
                             </div>
+
                             <div class="form-group">
                                 <label class="col-lg-4">
                                     <strong>Job# :</strong>
@@ -38,30 +39,41 @@
                             <fieldset class="content-group">
                                 <div class="form-group">
                                     <label class="col-lg-4">
-                                        Paid Deposit Amount :
+                                        Paid Amount :
                                     </label>
                                     <div class="col-lg-6">
-                                        {{ data_get($csorder, 'deposit', '') }}
+                                        {{ data_get($csorder, 'initial_fee', '') }}
                                     </div>
                                 </div>
 
                                 <div class="form-group">
                                     <label class="col-lg-4">
-                                        New Deposit Amount :
+                                        Transfered To Dealer :
                                     </label>
                                     <div class="col-lg-6">
-                                        <input type="text" name="newtotal" id="CsOrderNewtotal"
+                                        {{ data_get($orderPayments, '0.total', 'N/A') }}
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="col-lg-4">
+                                        Adjust To :
+                                    </label>
+                                    <div class="col-lg-6">
+                                        <input type="text" name="dealerpart" id="CsOrderDealerpart"
                                             class="number form-control digit required"
-                                            value="{{ data_get($csorder, 'deposit', '') }}">
+                                            value="{{ old('dealerpart', data_get($csorder, 'dealerpart', '')) }}">
                                     </div>
                                 </div>
 
                                 <div class="form-group">
-                                    <label class="col-lg-4">
-                                        Transaction Id :
-                                    </label>
+                                    <label class="col-lg-4">Transaction Id : </label>
                                     <div class="col-lg-6">
-                                        {{ data_get($csorder, 'deposit_auth', 'N/A') }}
+                                        @if(!empty($transactionIds) && is_array($transactionIds))
+                                            {!! implode("<br/>", array_map('e', $transactionIds)) !!}
+                                        @else
+                                            N/A
+                                        @endif
                                     </div>
                                 </div>
 
@@ -69,18 +81,16 @@
                                     <label class="col-lg-4"></label>
                                     <div class="col-lg-2">
                                         <button type="button" class="btn btn-primary"
-                                            onClick="adjustDeposit('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
-                                            Proceed
+                                            onClick="adjustDealerInitialFeePart('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
+                                            Proceed To Adjust
                                         </button>
                                     </div>
-                                    @if(!empty(data_get($csorder, 'deposit_auth', '')))
-                                        <div class="col-lg-2">
-                                            <button type="button" class="btn btn-danger btn-ladda btn-ladda-progress"
-                                                onClick="depositRefund('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
-                                                Refund Total
-                                            </button>
-                                        </div>
-                                    @endif
+                                    <div class="col-lg-2">
+                                        <button type="button" class="btn btn-danger btn-ladda btn-ladda-progress"
+                                            onClick="initialfeeReversetotal('{{ base64_encode(data_get($csorder, 'id', ''))}}')">
+                                            Reverse Total
+                                        </button>
+                                    </div>
                                 </div>
                             </fieldset>
 
@@ -88,7 +98,7 @@
                                 <label class="col-lg-2 control-label">&nbsp;</label>
                                 <div class="col-lg-6">
                                     <button type="button" class="btn left-margin btn-cancel"
-                                        onClick="goBack('/admin/transactions/updatetransaction/{{ base64_encode(data_get($csorder, 'id', '')) }}')">
+                                        onClick="goBack('/admin/transactions/updatetransaction/{{ base64_encode(data_get($csorder, 'id', ''))}}')">
                                         Go Back
                                     </button>
                                 </div>
@@ -96,7 +106,7 @@
                         </div>
                     </fieldset>
 
-                    <input type="hidden" name="id" value="{{ data_get($csorder, 'id', '') }}">
+                    <input type="hidden" name="id" value="{{ data_get($csorder, 'id', '')}}">
                 </form>
             @endif
         </div>
@@ -108,32 +118,39 @@
 
     <script type="text/javascript">
         $(document).ready(function () {
-            $("#ReportUpdatedepositForm").validate();
+            $("#dealeradjustinitialfee").validate();
         });
 
-        function adjustDeposit(orderid) {
-            if (orderid.length > 0 && $("#ReportUpdatedepositForm").valid()) {
+        function adjustDealerInitialFeePart(orderid) {
+            if (orderid.length > 0 && $("#dealeradjustinitialfee").valid()) {
                 var conf = confirm('Are you sure you want to adjust insurance ?');
                 if (conf) {
                     jQuery.blockUI({
                         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
                         css: { 'z-index': '9999' }
                     });
-                    var params = $("#ReportUpdatedepositForm").serialize();
-                    $.post(SITE_URL + "admin/transactions/adjustDeposit", params, function (data) {
+                    var params = $("#dealeradjustinitialfee").serialize();
+                    $.post(SITE_URL + "admin/transactions/adjustDealerInitialFeePart", params, function (data) {
                         jQuery.unblockUI();
-                        if (data.status == 'success') {
-                            alert(data.message);
-                            goBack("/admin/transactions/updatetransaction/" + orderid);
-                        } else {
-                            alert(data.message);
-                        }
+                        swal({
+                            title: "",
+                            text: data.message,
+                            confirmButtonClass: "btn-success",
+                            closeOnConfirm: true,
+                            closeOnCancel: true,
+                            buttons: { confirm: { text: "OK", value: true, visible: true, className: "", closeModal: true } },
+                        },
+                            function (isConfirm) {
+                                if (isConfirm) {
+                                    goBack("/admin/transactions/updatetransaction/" + orderid);
+                                }
+                            });
                     }, 'json');
                 }
             }
         }
 
-        function depositRefund(orderid) {
+        function initialfeeReversetotal(orderid) {
             if (orderid.length > 0) {
                 var conf = confirm('Are you sure you want to full refund ?');
                 if (conf) {
@@ -141,17 +158,24 @@
                         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
                         css: { 'z-index': '9999' }
                     });
-                    $.post(SITE_URL + "admin/transactions/depositRefund", {
+                    $.post(SITE_URL + "admin/transactions/initialfeeReversetotal", {
                         "orderid": orderid,
                         "_token": "{{ csrf_token() }}"
                     }, function (data) {
                         jQuery.unblockUI();
-                        if (data.status) {
-                            alert(data.message);
-                            goBack("/admin/transactions/updatetransaction/" + orderid);
-                        } else {
-                            alert(data.message);
-                        }
+                        swal({
+                            title: "",
+                            text: data.message,
+                            confirmButtonClass: "btn-success",
+                            closeOnConfirm: true,
+                            closeOnCancel: true,
+                            buttons: { confirm: { text: "OK", value: true, visible: true, className: "", closeModal: true } },
+                        },
+                            function (isConfirm) {
+                                if (isConfirm) {
+                                    goBack("/admin/transactions/updatetransaction/" + orderid);
+                                }
+                            });
                     }, 'json');
                 }
             }

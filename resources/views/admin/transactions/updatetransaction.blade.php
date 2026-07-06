@@ -9,7 +9,7 @@
 
     <div class="panel">
         <div class="panel-body">
-            @if(!empty($csorder))
+            @if($csorder)
                 <form class="form-horizontal">
                     <fieldset class="col-lg-12">
                         <div class="panelbody">
@@ -31,11 +31,15 @@
                                     </div>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Rent : </label>
-                                        <div class="col-lg-6">{{ !empty($csorder->rent) ? $csorder->rent : "N/A" }}</div>
+                                        <div class="col-lg-6">
+                                            {{ !empty($csorder->rent) ? $csorder->rent : "N/A" }}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Tax : </label>
-                                        <div class="col-lg-6">{{ !empty($csorder->tax) ? $csorder->tax : "N/A" }}</div>
+                                        <div class="col-lg-6">
+                                            {{ !empty($csorder->tax) ? $csorder->tax : "N/A" }}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Damage Fee : </label>
@@ -45,12 +49,14 @@
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Uncleanness Fee : </label>
                                         <div class="col-lg-6">
-                                            {{ !empty($csorder->uncleanness_fee) ? $csorder->uncleanness_fee : "N/A" }}</div>
+                                            {{ !empty($csorder->uncleanness_fee) ? $csorder->uncleanness_fee : "N/A" }}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Transaction Id : </label>
                                         <div class="col-lg-6">
-                                            {!! isset($transactionIds[2]) ? implode("<br/>", $transactionIds[2]) : "N/A" !!}</div>
+                                            {!! isset($transactionIds[2]) ? implode("<br/>", $transactionIds[2]) : "N/A" !!}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <div class="col-lg-4">
@@ -76,7 +82,8 @@
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Cancellation Fee : </label>
                                         <div class="col-lg-6">
-                                            {{ !empty($csorder->cancellation_fee) ? $csorder->cancellation_fee : "N/A" }}</div>
+                                            {{ !empty($csorder->cancellation_fee) ? $csorder->cancellation_fee : "N/A" }}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Cancellation Note : </label>
@@ -86,7 +93,8 @@
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Transaction Id : </label>
                                         <div class="col-lg-6">
-                                            {{ !empty($csorder->transaction_id) ? $csorder->transaction_id : "N/A" }}</div>
+                                            {{ !empty($csorder->transaction_id) ? $csorder->transaction_id : "N/A" }}
+                                        </div>
                                     </div>
                                 </fieldset>
                             @endif
@@ -102,7 +110,8 @@
                                 <div class="form-group">
                                     <label class="col-lg-4 ">Transactions : </label>
                                     <div class="col-lg-6">
-                                        {!! isset($transactionIds[19]) ? implode("<br/>", $transactionIds[19]) : "N/A" !!}</div>
+                                        {!! isset($transactionIds[19]) ? implode("<br/>", $transactionIds[19]) : "N/A" !!}
+                                    </div>
                                 </div>
                                 @if(isset($transactionIds[19]) && !empty($transactionIds[19]))
                                     <div class="form-group">
@@ -119,16 +128,21 @@
                                 <legend class="text-bold">Rental EMF</legend>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Amount : </label>
-                                    <div class="col-lg-6">{{ $csorder->extra_mileage_fee }}</div>
+                                    <div class="col-lg-6">
+                                        {{ $csorder->extra_mileage_fee }}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Tax : </label>
-                                    <div class="col-lg-6">{{ $csorder->emf_tax }}</div>
+                                    <div class="col-lg-6">
+                                        {{ $csorder->emf_tax }}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Transaction# : </label>
                                     <div class="col-lg-6">
-                                        {!! isset($transactionIds[16]) ? implode("<br/>", $transactionIds[16]) : "N/A" !!}</div>
+                                        {!! isset($transactionIds[16]) ? implode("<br/>", $transactionIds[16]) : "N/A" !!}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <div class="col-lg-4">
@@ -149,12 +163,15 @@
                                 <legend class="text-bold">Insurance EMF</legend>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Amount : </label>
-                                    <div class="col-lg-6">{{ $csorder->dia_insu }}</div>
+                                    <div class="col-lg-6">
+                                        {{ $csorder->dia_insu }}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Transaction# : </label>
                                     <div class="col-lg-6">
-                                        {!! isset($transactionIds[14]) ? implode("<br/>", $transactionIds[14]) : "N/A" !!}</div>
+                                        {!! isset($transactionIds[14]) ? implode("<br/>", $transactionIds[14]) : "N/A" !!}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <div class="col-lg-4">
@@ -169,7 +186,9 @@
                                 <legend class="text-bold">Initial Fee Transaction Details</legend>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Amount : </label>
-                                    <div class="col-lg-6">{{ ($csorder->initial_fee) ? $csorder->initial_fee : "N/A" }}</div>
+                                    <div class="col-lg-6">
+                                        {{ ($csorder->initial_fee) ? $csorder->initial_fee : "N/A" }}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Tax : </label>
@@ -179,7 +198,8 @@
                                 <div class="form-group">
                                     <label class="col-lg-4 "> Transaction# : </label>
                                     <div class="col-lg-6">
-                                        {!! isset($transactionIds[3]) ? implode("<br/>", $transactionIds[3]) : "N/A" !!}</div>
+                                        {!! isset($transactionIds[3]) ? implode("<br/>", $transactionIds[3]) : "N/A" !!}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <div class="col-lg-4">
@@ -201,12 +221,14 @@
                                 <div class="form-group">
                                     <label class="col-lg-4 ">Amount : </label>
                                     <div class="col-lg-6">
-                                        {{ !empty($csorder->insurance_amt) ? $csorder->insurance_amt : "N/A" }}</div>
+                                        {{ !empty($csorder->insurance_amt) ? $csorder->insurance_amt : "N/A" }}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-lg-4 ">Transaction# : </label>
                                     <div class="col-lg-6">
-                                        {!! isset($transactionIds[4]) ? implode("<br/>", $transactionIds[4]) : "N/A" !!}</div>
+                                        {!! isset($transactionIds[4]) ? implode("<br/>", $transactionIds[4]) : "N/A" !!}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <div class="col-lg-4">
@@ -227,12 +249,15 @@
                                 <legend class="text-bold">Toll/Misc Transactions</legend>
                                 <div class="form-group">
                                     <label class="col-lg-4 ">Amount : </label>
-                                    <div class="col-lg-6">{{ !empty($csorder->toll) ? $csorder->toll : "N/A" }}</div>
+                                    <div class="col-lg-6">
+                                        {{ !empty($csorder->toll) ? $csorder->toll : "N/A" }}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="col-lg-4 ">Transaction# : </label>
                                     <div class="col-lg-6">
-                                        {!! isset($transactionIds[6]) ? implode("<br/>", $transactionIds[6]) : "N/A" !!}</div>
+                                        {!! isset($transactionIds[6]) ? implode("<br/>", $transactionIds[6]) : "N/A" !!}
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     @if(isset($transactionIds[6]))
@@ -256,12 +281,15 @@
                                     <legend class="text-bold">Deposit Transaction Details</legend>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Amount : </label>
-                                        <div class="col-lg-6">{{ !empty($csorder->deposit) ? $csorder->deposit : "N/A" }}</div>
+                                        <div class="col-lg-6">
+                                            {{ !empty($csorder->deposit) ? $csorder->deposit : "N/A" }}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <label class="col-lg-4 ">Transaction# : </label>
                                         <div class="col-lg-6">
-                                            {!! isset($transactionIds[1]) ? implode("<br/>", $transactionIds[1]) : "N/A" !!}</div>
+                                            {!! isset($transactionIds[1]) ? implode("<br/>", $transactionIds[1]) : "N/A" !!}
+                                        </div>
                                     </div>
                                     <div class="form-group">
                                         <div class="col-lg-4">
