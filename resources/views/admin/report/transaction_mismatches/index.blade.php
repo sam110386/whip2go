@@ -1,11 +1,12 @@
 @extends('admin.layouts.app')
 
-@section('title', $title ?? 'Transaction Mismatch - Report')
-
 @php
+    $title ??= 'Transaction Mismatch - Report';
     $datefrom ??= '';
     $dateto ??= '';
 @endphp
+
+@section('title', $title)
 
 @section('content')
 

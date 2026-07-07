@@ -1,13 +1,11 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Legacy\AuditReport;
+use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
-
 
 class TransactionAuditsController extends LegacyAppController
 {
@@ -44,7 +42,6 @@ class TransactionAuditsController extends LegacyAppController
 
         return view('admin.audit_report.transaction_audits.index', compact('title', 'keyword', 'records', 'limit'));
     }
-
     public function add(Request $request)
     {
         $title = 'Create Transaction Audit Report';
@@ -77,7 +74,6 @@ class TransactionAuditsController extends LegacyAppController
 
         return view('admin.audit_report.transaction_audits.add', compact('title'));
     }
-
     public function process($id)
     {
         try {
@@ -88,7 +84,6 @@ class TransactionAuditsController extends LegacyAppController
                 ->with('error', 'Something Went Wrong!');
         }
     }
-
     public function download($id)
     {
         $decodedId = $this->decodeId($id);
@@ -107,7 +102,6 @@ class TransactionAuditsController extends LegacyAppController
 
         return redirect()->back()->with('error', 'File not found.');
     }
-
     public function delete($id)
     {
         $decodedId = $this->decodeId($id);

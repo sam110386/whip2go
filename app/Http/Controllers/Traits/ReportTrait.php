@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Traits;
 
 use Illuminate\Http\Request;
@@ -13,7 +12,6 @@ use Carbon\Carbon;
 
 trait ReportTrait
 {
-
     protected function _details(Request $request)
     {
         $id = $request->input('order');
@@ -118,7 +116,6 @@ trait ReportTrait
             ->orderBy('id', 'DESC')
             ->get();
     }
-
     private function exportReport()
     {
         $records = SummaryReport::orderBy('id', 'ASC')->get();
@@ -306,5 +303,4 @@ trait ReportTrait
 
         }, 200, $headers);
     }
-
 }

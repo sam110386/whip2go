@@ -12,11 +12,9 @@ use App\Http\Controllers\Traits\ReportTrait;
 use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
 
-
 class SummaryController extends LegacyAppController
 {
     use ReportTrait;
-
 
     public function index(Request $request, $process = 0)
     {
@@ -43,7 +41,6 @@ class SummaryController extends LegacyAppController
 
         return view('admin.report.summary.index', compact('title', 'lists', 'datefrom', 'dateto', 'process', 'limit'));
     }
-
     public function generatereport(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -91,7 +88,6 @@ class SummaryController extends LegacyAppController
 
         return redirect(url('/admin/report/summary/index/1'));
     }
-
     public function processReport(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -368,7 +364,6 @@ class SummaryController extends LegacyAppController
         // abort(200, 'Processing Complete');
         return response('OK', 200);
     }
-
     public function view(Request $request, int|string $id)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -388,5 +383,4 @@ class SummaryController extends LegacyAppController
 
         return view('admin.report.summary.view', compact('data', 'id', 'title'));
     }
-
 }

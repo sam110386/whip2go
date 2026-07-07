@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Admin\Report;
 
 use Illuminate\Http\Request;
@@ -8,7 +7,6 @@ use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Http\Controllers\Traits\ReportTrait;
 use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\OrderExtlog;
-
 
 class PastduesController extends LegacyAppController
 {
@@ -60,7 +58,6 @@ class PastduesController extends LegacyAppController
 
         return view('admin.report.pastdues.index', compact('title', 'lists', 'dealerId', 'limit'));
     }
-
     public function logs(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -85,7 +82,6 @@ class PastduesController extends LegacyAppController
 
         return view('report.pastdues.logs', compact('lists'));
     }
-
     public function details(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -94,5 +90,4 @@ class PastduesController extends LegacyAppController
 
         return $this->_details($request);
     }
-
 }

@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @php
-    $title ??= 'Update Fare';
+    $title ??= 'Update DIA Insu';
     $csorder ??= collect();
 @endphp
 
@@ -23,9 +23,10 @@
                         <div class="panel-body">
                             <div class="form-group">
                                 <h3>
-                                    <div>Rent Transaction Details : </div>
+                                    <div>Rental EMF Transaction Details : </div>
                                 </h3>
                             </div>
+
                             <div class="form-group">
                                 <label class="col-lg-4">
                                     <strong>Job# :</strong>
@@ -41,62 +42,18 @@
                                         Total Paid Amount :
                                     </label>
                                     <div class="col-lg-6">
-                                        {{ data_get($csorder, 'paid_amount', 'N/A') }}
+                                        {{ data_get($csorder, 'dia_insu', 0) }}
                                     </div>
                                 </div>
 
                                 <div class="form-group">
                                     <label class="col-lg-4">
-                                        Rent :
+                                        EMF :
                                     </label>
                                     <div class="col-lg-6">
-                                        <input type="text" name="CsOrder[rent]" id="CsOrderRent"
+                                        <input type="text" name="CsOrder[dia_insu]" id="CsOrderDiaInsu"
                                             class="form-control number required calcu"
-                                            value="{{ old('rent', data_get($csorder, 'rent', '')) }}">
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="col-lg-4">
-                                        Tax :
-                                    </label>
-                                    <div class="col-lg-6">
-                                        <input type="text" name="CsOrder[tax]" id="CsOrderTax" class="form-control number required calcu"
-                                            value="{{ old('tax', data_get($csorder, 'tax', '')) }}">
-                                        <small><em>Tax Will be calculated dynamically</em></small>
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="col-lg-4">
-                                        Lateness Fee :
-                                    </label>
-                                    <div class="col-lg-6">
-                                        <input type="text" name="CsOrder[lateness_fee]" id="CsOrderLatenessFee"
-                                            class="form-control number required calcu"
-                                            value="{{ old('lateness_fee', data_get($csorder, 'lateness_fee', '')) }}">
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="col-lg-4">
-                                        Damage Fee :
-                                    </label>
-                                    <div class="col-lg-6">
-                                        <input type="text" name="CsOrder[damage_fee]" id="CsOrderDamageFee"
-                                            class="form-control number required calcu"
-                                            value="{{ old('damage_fee', data_get($csorder, 'damage_fee', '')) }}">
-                                    </div>
-                                </div>
-
-                                <div class="form-group">
-                                    <label class="col-lg-4">
-                                        Uncleanness Fee :
-                                    </label>
-                                    <div class="col-lg-6">
-                                        <input type="text" name="CsOrder[uncleanness_fee]" id="CsOrderUncleannessFee"
-                                            class="form-control number required calcu"
-                                            value="{{ old('uncleanness_fee', data_get($csorder, 'uncleanness_fee', '')) }}">
+                                            value="{{ old('dia_insu', data_get($csorder, 'dia_insu', 0)) }}">
                                     </div>
                                 </div>
 
@@ -107,7 +64,7 @@
                                     <div class="col-lg-6">
                                         <input type="text" name="CsOrder[newtotal]" id="CsOrderNewtotal"
                                             class="number form-control digit required"
-                                            value="{{ data_get($csorder, 'paid_amount', '') }}">
+                                            value="{{ data_get($csorder, 'dia_insu', 0) }}">
                                     </div>
                                 </div>
 
@@ -115,13 +72,13 @@
                                     <label class="col-lg-4"></label>
                                     <div class="col-lg-2">
                                         <button type="button" class="btn btn-primary"
-                                            onClick="adjustTotal('{{ base64_encode(data_get($csorder, 'id', ''))}}')">
+                                            onClick="adjustDiainsu('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
                                             Proceed
                                         </button>
                                     </div>
                                     <div class="col-lg-2">
                                         <button type="button" class="btn btn-danger btn-ladda btn-ladda-progress"
-                                            onClick="rentRefundtotal('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
+                                            onClick="diainsuRefundtotal('{{ base64_encode(data_get($csorder, 'id', '')) }}')">
                                             Refund Total
                                         </button>
                                     </div>
@@ -164,7 +121,7 @@
             });
         });
 
-        function adjustTotal(orderid) {
+        function adjustDiainsu(orderid) {
             if (orderid.length > 0 && $("#ReportAdminUpdatefareForm").valid()) {
                 var conf = confirm('Are you sure you want to adjust rent ?');
                 if (conf) {
@@ -173,7 +130,7 @@
                         css: { 'z-index': '9999' }
                     });
                     var params = $("#ReportAdminUpdatefareForm").serialize();
-                    $.post(SITE_URL + "admin/transactions/adjustTotal", params, function (data) {
+                    $.post(SITE_URL + "admin/transactions/adjustDiainsu", params, function (data) {
                         jQuery.unblockUI();
                         if (data.status == 'success') {
                             alert(data.message);
@@ -186,7 +143,7 @@
             }
         }
 
-        function rentRefundtotal(orderid) {
+        function diainsuRefundtotal(orderid) {
             if (orderid.length > 0) {
                 var conf = confirm('Are you sure you want to full refund ?');
                 if (conf) {
@@ -194,8 +151,7 @@
                         message: '<h1><img src="' + SITE_URL + 'img/select2-spinner.gif" /> Sending...</h1>',
                         css: { 'z-index': '9999' }
                     });
-
-                    $.post(SITE_URL + "admin/transactions/rentRefundtotal", {
+                    $.post(SITE_URL + "admin/transactions/diainsuRefundtotal", {
                         "orderid": orderid,
                         "_token": "{{ csrf_token() }}"
                     }, function (data) {

@@ -1,8 +1,6 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -10,8 +8,8 @@ use App\Models\Legacy\AuditReport;
 use App\Models\Legacy\AuditReportLog;
 use App\Models\Legacy\PaymentReport;
 use App\Models\Legacy\CsPayoutTransaction;
+use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
-
 
 class AuditReportsController extends LegacyAppController
 {
@@ -49,7 +47,6 @@ class AuditReportsController extends LegacyAppController
         return view('admin.audit_report.index', compact('title', 'keyword', 'records', 'limit'));
 
     }
-
     public function add(Request $request)
     {
         $title = 'Create Audit Report';
@@ -82,7 +79,6 @@ class AuditReportsController extends LegacyAppController
 
         return view('admin.audit_report.add', compact('title'));
     }
-
     private function initiateReport($reportid, $start, $end): void
     {
         DB::table('audit_report_logs')->truncate();
@@ -140,20 +136,18 @@ class AuditReportsController extends LegacyAppController
         ]);
 
     }
-
     public function process($id)
     {
         try {
             $auditReport = AuditReport::findOrFail($id);
-            $this->processReport($auditReport);
+            $this->_process($auditReport);
             return redirect('admin/audit_reports/index')->with('success', 'Audit Report is completed successfully.');
         } catch (\Exception $e) {
             return redirect('admin/audit_reports/index')
                 ->with('error', 'Something Went Wrong!');
         }
     }
-
-    private function processReport($auditReportObj): void
+    private function _process($auditReportObj): void
     {
         $filename = time() . '_' . $auditReportObj->start_date . '_' . $auditReportObj->end_date . '.csv';
 
@@ -258,7 +252,6 @@ class AuditReportsController extends LegacyAppController
             }
         }
     }
-
     public function download($id)
     {
         $decodedId = $this->decodeId($id);
@@ -277,7 +270,6 @@ class AuditReportsController extends LegacyAppController
 
         return redirect()->back()->with('error', 'File not found.');
     }
-
     public function delete($id)
     {
         $decodedId = $this->decodeId($id);
@@ -297,8 +289,4 @@ class AuditReportsController extends LegacyAppController
 
         return redirect()->back();
     }
-
-
-
-
 }

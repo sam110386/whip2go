@@ -1,15 +1,12 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Legacy\CsPayout;
 use App\Models\Legacy\CsPayoutTransaction;
 use App\Models\Legacy\RevSetting;
-
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Carbon\Carbon;
 
 class PayoutsController extends LegacyAppController
 {
@@ -102,7 +99,6 @@ class PayoutsController extends LegacyAppController
 
         return view('admin.payouts.index', $viewData);
     }
-
     public function adminExport(Request $request)
     {
         $dateFrom = $request->input('date_from') ?? $request->input('Search.date_from');
@@ -305,7 +301,6 @@ class PayoutsController extends LegacyAppController
         }, 'payout.csv', $headers);
 
     }
-
     public function transactions(Request $request)
     {
         $csPayoutId = $request->input('payoutid');

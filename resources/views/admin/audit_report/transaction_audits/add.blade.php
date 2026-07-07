@@ -3,6 +3,7 @@
 @section('title', $title ?? 'Create Transaction Audit Report')
 
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -13,9 +14,11 @@
             </div>
         </div>
     </div>
+
     <div class="row ">
         @include('partials.flash')
     </div>
+
     <div class="panel">
         <div class="row">
             <form action="{{ url('admin/transaction_audits/add') }}" method="POST" id="frmadmin" class="form-horizontal">
@@ -23,13 +26,19 @@
                 <div class="panel-body">
                     <div class="col-lg-12">
                         <div class="form-group">
-                            <label class="col-lg-2 control-label">Date From:<span class="text-danger">*</span></label>
+                            <label class="col-lg-2 control-label">
+                                Date From:<span class="text-danger">*</span>
+                            </label>
                             <div class="col-lg-3">
-                                <input type="text" name="AuditReport[start_date]" id="AuditReportStartDate" class="form-control required">
+                                <input type="text" name="AuditReport[start_date]" id="AuditReportStartDate"
+                                    class="form-control required">
                             </div>
-                            <label class="col-lg-2 control-label">Date To :</label>
+                            <label class="col-lg-2 control-label">
+                                Date To :
+                            </label>
                             <div class="col-lg-3">
-                                <input type="text" name="AuditReport[end_date]" id="AuditReportEndDate" class="form-control">
+                                <input type="text" name="AuditReport[end_date]" id="AuditReportEndDate"
+                                    class="form-control">
                             </div>
                         </div>
                     </div>
@@ -38,7 +47,10 @@
                             <label class="col-lg-2 control-label">&nbsp;</label>
                             <div class="col-lg-6">
                                 <button type="submit" class="btn">Save</button>
-                                <button type="button" class="btn left-margin btn-cancel" onclick="goBack('/admin/transaction_audits/index')">Return</button>
+                                <button type="button" class="btn left-margin btn-cancel"
+                                    onclick="goBack('/admin/transaction_audits/index')">
+                                    Return
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -46,14 +58,15 @@
             </form>
         </div>
     </div>
+
 @endsection
 
 @push('scripts')
     <script type="text/javascript">
         jQuery(document).ready(function () {
             jQuery("#frmadmin").validate();
-            jQuery('#AuditReportStartDate').datepicker({dateFormat: 'mm/dd/yy'});
-            jQuery('#AuditReportEndDate').datepicker({dateFormat: 'mm/dd/yy'});
+            jQuery('#AuditReportStartDate').datepicker({ dateFormat: 'mm/dd/yy' });
+            jQuery('#AuditReportEndDate').datepicker({ dateFormat: 'mm/dd/yy' });
         });
     </script>
 @endpush

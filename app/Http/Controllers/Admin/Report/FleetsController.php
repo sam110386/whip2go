@@ -1,13 +1,11 @@
 <?php
-
 namespace App\Http\Controllers\Admin\Report;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
-use App\Models\Legacy\ReportCustomer;
 use Illuminate\Support\Facades\DB;
-
+use App\Models\Legacy\ReportCustomer;
+use App\Http\Controllers\Legacy\LegacyAppController;
 
 class FleetsController extends LegacyAppController
 {

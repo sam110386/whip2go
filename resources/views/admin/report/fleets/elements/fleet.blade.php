@@ -1,21 +1,19 @@
-@include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50,'position'=>'top'])
+@include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50, 'position' => 'top'])
 
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['title' => 'Vehicle', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => '# of Days', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Total Distance', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Distance/Day', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Total Revenue ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Write Down Allocation', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Est. Depreciation ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Starting Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Expenses ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Ending Cost ($)', 'style' => 'text-align:center;', 'sortable' => false],
-                ]])
+                <th style="text-align:center;"> Vehicle</th>
+                <th style="text-align:center;"> # of Days</th>
+                <th style="text-align:center;"> Total Distance</th>
+                <th style="text-align:center;"> Distance/Day</th>
+                <th style="text-align:center;"> Total Revenue ($)</th>
+                <th style="text-align:center;"> Write Down Allocation</th>
+                <th style="text-align:center;"> Est. Depreciation ($)</th>
+                <th style="text-align:center;"> Starting Cost ($)</th>
+                <th style="text-align:center;"> Expenses ($)</th>
+                <th style="text-align:center;"> Ending Cost ($)</th>
             </tr>
         </thead>
         <tbody>

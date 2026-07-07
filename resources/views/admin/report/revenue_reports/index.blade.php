@@ -1,13 +1,14 @@
 @extends('admin.layouts.app')
 
-@section('title', $title ?? 'Vehicle Revenue - Report')
-
 @php
+    $title ??= 'Vehicle Revenue - Report';
     $datefrom ??= '';
     $dateto ??= '';
     $dealerid ??= '';
     $vehicleid ??= '';
 @endphp
+
+@section('title', $title)
 
 @section('content')
 

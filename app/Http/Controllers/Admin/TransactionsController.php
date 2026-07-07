@@ -81,7 +81,7 @@ class TransactionsController extends LegacyAppController
         $reportlists = $query->paginate($limit);
 
         if ($request->ajax()) {
-            return view('admin.transactions.listing', compact('title', 'reportlists', 'keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'transaction_id', 'limit'));
+            return view('admin.transactions.elements.index', compact('title', 'reportlists', 'keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'transaction_id', 'limit'));
         }
 
         return view('admin.transactions.index', compact('title', 'reportlists', 'keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'transaction_id', 'limit'));
@@ -862,7 +862,6 @@ class TransactionsController extends LegacyAppController
         return view('admin.transactions.creditdriver', compact('csOrderPaymentSummary', 'csorder'));
         */
     }
-
     public function updateinitialfee($id)
     {
         $decodedId = $this->decodeId($id);
@@ -1263,7 +1262,7 @@ class TransactionsController extends LegacyAppController
         ];
 
         if ((empty($driverId) || $returnRaw) && $request->ajax()) {
-            return view('admin.transactions.elements.transactions.user_transactions', $viewData);
+            return view('admin.transactions.elements.usertransactions', $viewData);
         }
 
         return view('admin.transactions.usertransactions', $viewData);
@@ -1554,9 +1553,10 @@ class TransactionsController extends LegacyAppController
     {
         $dateFrom = $request->input('Search.date_from', $request->query('date_from'));
         $dateTo = $request->input('Search.date_to', $request->query('date_to'));
-        $query = CsOrderPayment::join('cs_orders', 'cs_orders.id', '=', 'cs_order_payments.cs_order_id')
-            ->where('cs_order_payments.cs_transfer', 2)
-            ->where('cs_order_payments.status', 1);
+
+        $query = CsOrderPayment::with('csOrder:id,increment_id,start_datetime,end_datetime,timezone')
+            ->where('cs_transfer', 2)
+            ->where('status', 1);
 
         if (!empty($dateFrom) && empty($dateTo)) {
             $dateTo = Carbon::now()->format('Y-m-d');
@@ -1564,12 +1564,12 @@ class TransactionsController extends LegacyAppController
 
         if (!empty($dateFrom)) {
             $serverDateFrom = Carbon::parse($dateFrom, config('app.timezone'))->startOfDay()->toDateTimeString();
-            $query->where('cs_order_payments.created', '>=', $serverDateFrom);
+            $query->where('created', '>=', $serverDateFrom);
         }
 
         if (!empty($dateTo)) {
             $serverDateTo = Carbon::parse($dateTo, config('app.timezone'))->endOfDay()->toDateTimeString();
-            $query->where('cs_order_payments.created', '<=', $serverDateTo);
+            $query->where('created', '<=', $serverDateTo);
         }
 
         $sessionLimitKey = "failed_transfers_limit";
@@ -1580,15 +1580,7 @@ class TransactionsController extends LegacyAppController
             $limit = session($sessionLimitKey, 10);
         }
 
-        $reportLists = $query->select(
-            'cs_order_payments.*',
-            'cs_orders.increment_id',
-            'cs_orders.start_datetime',
-            'cs_orders.end_datetime',
-            'cs_orders.timezone'
-        )
-            ->orderBy('cs_order_payments.id', 'DESC')
-            ->paginate($limit);
+        $reportLists = $query->orderBy('id', 'DESC')->paginate($limit);
 
         $viewData = [
             'title' => 'Failed Transfer',

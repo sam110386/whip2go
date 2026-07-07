@@ -8,33 +8,31 @@
             <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
                 <thead>
                     <tr>
-                        @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['title' => 'Booking#', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Vehicle', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Customer', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Transaction Type', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Amount', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Misc Fee', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Net Amount', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Date', 'sortable' => false, 'style'=>'text-align:center;'],
-                            ['title' => 'Action', 'sortable' => false, 'style'=>'text-align:center;']
-                        ]])
+                        <th class="text-center"> Booking#</th>
+                        <th class="text-center"> Vehicle</th>
+                        <th class="text-center"> Customer</th>
+                        <th class="text-center"> Transaction Type</th>
+                        <th class="text-center"> Amount</th>
+                        <th class="text-center"> Misc Fee</th>
+                        <th class="text-center"> Net Amount</th>
+                        <th class="text-center"> Date</th>
+                        <th class="text-center"> Actio</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($transactions as $transaction)
                         @php
-                            $refund = (float)($transaction->refund ?? 0);
-                            $amt = (float)($transaction->amount ?? 0);
-                            $stripe = (float)($transaction->stripe_amt ?? 0);
+                            $refund = (float) ($transaction->refund ?? 0);
+                            $amt = (float) ($transaction->amount ?? 0);
+                            $stripe = (float) ($transaction->stripe_amt ?? 0);
                             $showAmt = $refund > 0 ? '-' . $fmtMoney($refund) : $fmtMoney($amt);
                             $misc = $refund > 0 ? '-' : ($stripe > 0 ? $fmtMoney($amt - $stripe) : '0.00');
                             $net = $refund > 0 ? '-' . $fmtMoney($refund) : ($stripe > 0 ? $fmtMoney($stripe) : $fmtMoney($amt));
-                            $oid = base64_encode((string)($transaction?->csOrder?->id ?? ''));
+                            $oid = base64_encode((string) ($transaction?->csOrder?->id ?? ''));
                         @endphp
                         <tr>
                             <td class="text-center">
-                            {{ $transaction?->csOrder?->increment_id ?? '' }}
+                                {{ $transaction?->csOrder?->increment_id ?? '' }}
                             </td>
                             <td class="text-center">
                                 {{ $transaction?->csOrder?->vehicle?->vehicle_name ?? '' }}

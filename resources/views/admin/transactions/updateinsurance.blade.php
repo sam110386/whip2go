@@ -50,7 +50,7 @@
                                         New Insurance Amount :
                                     </label>
                                     <div class="col-lg-6">
-                                        <input type="text" name="newtotal" id="CsOrderNewtotal"
+                                        <input type="text" name="CsOrder[newtotal]" id="CsOrderNewtotal"
                                             class="number form-control digit required"
                                             value="{{ data_get($csorder, 'insurance_amt', '') }}">
                                     </div>
@@ -96,7 +96,7 @@
                         </div>
                     </fieldset>
 
-                    <input type="hidden" name="id" value="{{ data_get($csorder, 'id', '') }}">
+                    <input type="hidden" name="CsOrder[id]" value="{{ data_get($csorder, 'id', '') }}">
                 </form>
             @endif
         </div>

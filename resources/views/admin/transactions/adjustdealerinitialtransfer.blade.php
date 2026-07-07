@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @php
-    $title ??= 'Update Deposit';
+    $title ??= 'Adjust Dealer Initial Transfer';
     $csorder ??= collect();
 @endphp
 
@@ -60,7 +60,7 @@
                                         Adjust To :
                                     </label>
                                     <div class="col-lg-6">
-                                        <input type="text" name="dealerpart" id="CsOrderDealerpart"
+                                        <input type="text" name="CsOrder[dealerpart]" id="CsOrderDealerpart"
                                             class="number form-control digit required"
                                             value="{{ old('dealerpart', data_get($csorder, 'dealerpart', '')) }}">
                                     </div>
@@ -106,7 +106,7 @@
                         </div>
                     </fieldset>
 
-                    <input type="hidden" name="id" value="{{ data_get($csorder, 'id', '')}}">
+                    <input type="hidden" name="CsOrder[id]" value="{{ data_get($csorder, 'id', '') }}">
                 </form>
             @endif
         </div>

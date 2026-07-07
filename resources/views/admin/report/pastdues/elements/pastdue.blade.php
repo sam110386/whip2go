@@ -1,18 +1,16 @@
 @if(isset($lists) && is_object($lists) && method_exists($lists, 'links'))
-    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50,'position' => 'top'])
+    @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50, 'position' => 'top'])
 @endif
 
 <div class="panel-flat">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['title' => '#', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Extended Date', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Note', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Cycle Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
-                    ['title' => 'Total Ext(s)', 'style' => 'text-align:center;', 'sortable' => false],
-                ]])
+                <th style="text-align:center;"> #</th>
+                <th style="text-align:center;"> Extended Date</th>
+                <th style="text-align:center;"> Note</th>
+                <th style="text-align:center;"> Cycle Ext(s)</th>
+                <th style="text-align:center;"> Total Ext(s)</th>
             </tr>
         </thead>
         <tbody>
@@ -34,8 +32,8 @@
                     </td>
                     <td style="text-align:center;">
                         <a href="javascript:void(0)" onclick="ShowPastDueLogs({{ $list->id ?? 0 }})">
-                        {{ \App\Helpers\Legacy\ReportHelper::getExtCount($list->id ?? 0) }}
-                    </a>
+                            {{ \App\Helpers\Legacy\ReportHelper::getExtCount($list->id ?? 0) }}
+                        </a>
                     </td>
                     <td style="text-align:center;">
                         {{ \App\Helpers\Legacy\ReportHelper::getExtParentWithSiblingCount((!empty($list->parent_id) ? $list->parent_id : ($list->id ?? 0))) }}

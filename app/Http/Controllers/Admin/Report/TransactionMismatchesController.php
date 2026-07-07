@@ -4,10 +4,9 @@ namespace App\Http\Controllers\Admin\Report;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Models\Legacy\TransactionMismatch;
+use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
-
 
 class TransactionMismatchesController extends LegacyAppController
 {

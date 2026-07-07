@@ -6,13 +6,11 @@
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table fixed_header table-responsive">
         <thead>
             <tr>
-                @include('partials.dispacher.sortable_header', ['columns' => [
-                    ['title' => 'Charged Transaction #', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Charged Time (UTC)', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Charged Amount', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Used Amount', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Used Transaction #', 'sortable' => false, 'style' => 'text-align:center;'],
-                ]])
+                <th style="text-align:center;"> Charged Transaction #</th>
+                <th style="text-align:center;"> Charged Time (UTC)</th>
+                <th style="text-align:center;"> Charged Amount</th>
+                <th style="text-align:center;"> Used Amount</th>
+                <th style="text-align:center;"> Used Transaction #</th>
             </tr>
         </thead>
         <tbody>

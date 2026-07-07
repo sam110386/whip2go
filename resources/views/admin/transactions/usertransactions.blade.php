@@ -1,47 +1,76 @@
-{{-- Cake Transactions/admin_usertransactions.ctp (modal shell) --}}
-<div class="page-header" style="margin-bottom:12px;">
-    <h4>Driver — Transactions</h4>
-    <p>
-        <strong>Wallet balance:</strong> ${{ number_format((float)$wallet_balance, 2) }}
-        <span style="margin-left:12px;color:#888;font-size:12px;">Booking #{{ $bookingid }} · {{ $currency }}</span>
-    </p>
+@php
+    $bookingid ??= '';
+    $currency ??= '';
+    $userid ??= '';
+    $time ??= '';
+    $wallet_balance ??= 0;
+@endphp
+
+<div class="page-header">
+    <div class="page-header-content">
+        <div class="page-title">
+            <h4>
+                <i class="icon-arrow-left52 position-left"></i>
+                <span class="text-semibold">Driver</span> - Transactions
+            </h4>
+        </div>
+        <div class="heading-elements">
+            <span class="text-bold">Wallet Balance : ${{ $wallet_balance ?? 0 }}</span>
+
+            <a href="javascript:;" class="btn left-margin"
+                onclick="chargePartialAmtPopup('{{ $userid }}', '{{ $bookingid }}', '{{ $currency }}')">
+                Charge Partial Amount
+            </a>
+
+            <button type="button" class="btn btn-primary" title="Check Income"
+                onclick="return checkMeasureOneIncome('{{ base64_encode($userid) }}');">
+                Check User Income
+            </button>
+        </div>
+    </div>
 </div>
 
-<div style="margin-bottom:12px;">
-    <label>Range</label>
-    <select id="SearchTime" style="margin-left:8px;">
-        @foreach (['1 day' => 'Last 1 day', '3 days' => 'Last 3 days', '7 days' => 'Last 7 days', '14 days' => 'Last 14 days', '30 days' => 'Last 30 days'] as $val => $label)
-            <option value="{{ $val }}" @selected($time === $val)>{{ $label }}</option>
-        @endforeach
-    </select>
-    <input type="hidden" id="SearchUserId" value="{{ $userid }}">
-    <input type="hidden" id="ut_bookingid" value="{{ $bookingid }}">
-    <input type="hidden" id="ut_currency" value="{{ $currency }}">
+<div class="panel">
+    <div class="panel-body">
+        <form id="ReportDriverTransactionForm" action="{{ url()->current() }}" method="GET" class="form-horizontal">
+            @csrf
+
+            <div class="row pb-10">
+                <div class="col-md-12">
+                    <div class="col-md-3">
+                        @php
+                            $options = [
+                                '1 day' => 'Last 1 day',
+                                '3 days' => 'Last 3 days',
+                                '7 days' => 'Last 7 days',
+                                '14 days' => 'Last 14 days',
+                                '30 days' => 'Last 30 days'
+                            ];
+                            $selectedTime = old('time', $time ?? '');
+                        @endphp
+
+                        <select name="time" class="form-control" onchange="this.form.submit()">
+                            @foreach($options as $value => $label)
+                                <option value="{{ $value }}" {{ $selectedTime == $value ? 'selected' : '' }}>
+                                    {{ $label }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="user_id" value="{{ $userid }}">
+
+                    <div class="col-md-3">
+
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 
-<div id="transsactionlisting">
-    @include('admin.transactions.usertransactions_list', ['rows' => $rows, 'total' => $total, 'userid' => $userid])
+<div class="panel">
+    <div class="panel-body" id="transsactionlisting">
+        @include('admin.transactions.elements.usertransactions')
+    </div>
 </div>
-
-<script>
-(function () {
-    var uid = document.getElementById('SearchUserId');
-    var timeSel = document.getElementById('SearchTime');
-    var bid = document.getElementById('ut_bookingid');
-    var cur = document.getElementById('ut_currency');
-    if (!timeSel || !uid) return;
-    timeSel.addEventListener('change', function () {
-        var t = encodeURIComponent(timeSel.value);
-        var url = '/admin/transactions/usertransactions/' + uid.value + '/' + t + '/1';
-        var fd = new FormData();
-        if (bid && bid.value) fd.append('bookingid', bid.value);
-        if (cur && cur.value) fd.append('currency', cur.value);
-        fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.text(); })
-            .then(function (html) {
-                var el = document.getElementById('transsactionlisting');
-                if (el) el.innerHTML = html;
-            });
-    });
-})();
-</script>

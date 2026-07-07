@@ -1,12 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Vehicle - Reports')
-
 @php
-$keyword ??= '';
-$dealerid ??= '';
-$vehicleid ??= '';
+    $title ??= 'Vehicle - Reports';
+    $keyword ??= '';
+    $dealerid ??= '';
+    $vehicleid ??= '';
 @endphp
+
+@section('title', $title)
 
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
@@ -33,6 +34,7 @@ $vehicleid ??= '';
             <form id="frmSearchadmin" name="frmSearchadmin" method="POST" action="{{ url('admin/report/fleets/index') }}"
                 class="form-horizontal">
                 @csrf
+
                 <div class="row">
                     <div class="col-md-2">
                         <input type="text" name="Search[dealerid]" id="SearchDealerid" style="width:100%;"
@@ -43,12 +45,13 @@ $vehicleid ??= '';
                             value="{{ $vehicleid }}" placeholder="Vehicle">
                     </div>
                     <div class="col-md-2">
-                        <input type="text" name="Search[keyword]" class="form-control" maxlength="50"
-                            value="{{ $keyword }}" placeholder="Booking#">
+                        <input type="text" name="Search[keyword]" class="form-control" maxlength="50" value="{{ $keyword }}"
+                            placeholder="Booking#">
                     </div>
                     <div class="col-md-2">
-                        <button type="submit" name="search" value="search" class="btn btn-primary"
-                            alt="Search">SEARCH</button>
+                        <button type="submit" name="search" value="search" class="btn btn-primary" alt="Search">
+                            SEARCH
+                        </button>
                     </div>
                 </div>
             </form>

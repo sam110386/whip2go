@@ -1,19 +1,15 @@
 <?php
-
 namespace App\Http\Controllers\Admin\Report;
 
-use App\Http\Controllers\Admin\Report\Concerns\UsesReportPageLimit;
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Legacy\RevenueReport;
+use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
 
 
 class RevenueReportsController extends LegacyAppController
 {
-    use UsesReportPageLimit;
-
     public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -73,7 +69,6 @@ class RevenueReportsController extends LegacyAppController
 
         return view('admin.report.revenue_reports.index', compact('title', 'lists', 'keyword', 'dealerid', 'vehicleid', 'date_from', 'date_to', 'limit'));
     }
-
     private function _revenueReport($conditions = [])
     {
         if (!empty($conditions['date_from']) && !empty($conditions['date_to'])) {
