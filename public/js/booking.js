@@ -1743,7 +1743,7 @@ function saveBookingOdometer() {
 
 function getPaymentReceipt(paymentid) {
 	window.open(
-		SITE_URL + "email_queue/email_queues/payment_receipt/" + paymentid,
+		SITE_URL + "email_queues/payment_receipt/" + paymentid,
 		"_blank",
 	);
 	return false;

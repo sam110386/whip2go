@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Services\Legacy\Report;
 
 use Carbon\Carbon;
@@ -55,7 +54,6 @@ class PortfolioService
             "stripe_fee" => 0
         ];
     }
-
     public function getVehicleDepriciationReport($vehicleId)
     {
         $commonService = new CommonService();
@@ -103,13 +101,11 @@ class PortfolioService
             "fleet_days" => $days
         ];
     }
-
     public function getVehicleFixedProgramCost($ownerId)
     {
         $template = DepositTemplate::where('user_id', $ownerId)->first(['fixed_program_cost']);
         return $template ? $template->fixed_program_cost : 0;
     }
-
     public function getVehicleExpenses($vehicleId, $dateFrom = '', $dateTo = '')
     {
         $return = [
@@ -153,5 +149,4 @@ class PortfolioService
 
         return $return;
     }
-
 }

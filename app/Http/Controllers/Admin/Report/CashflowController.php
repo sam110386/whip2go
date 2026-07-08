@@ -1,10 +1,10 @@
 <?php
-
 namespace App\Http\Controllers\Admin\Report;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\RevSetting;
+use App\Models\Legacy\Vehicle;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class CashflowController extends LegacyAppController
 {
@@ -20,26 +20,20 @@ class CashflowController extends LegacyAppController
         $user_id = $request->input('Search.user_id', $request->query('user_id', ''));
 
         $vehicles = [];
-        $rev_share = '';
+        $rev_share = 85;
         $taxIncluded = false;
         $rental_rev = 85;
 
-        if (! empty($user_id)) {
-            $vehicles = DB::table('vehicles')
-                ->where('user_id', $user_id)
-                ->get()
-                ->map(fn ($r) => (array) $r)
-                ->all();
+        if (!empty($user_id)) {
+            $vehicles = Vehicle::where('user_id', $user_id)->get();
+            $revSetting = RevSetting::where('user_id', $user_id)
+                ->select('rev', 'tax_included', 'rental_rev')
+                ->first();
 
-            $revShareRow = DB::table('rev_settings')->where('user_id', $user_id)->first(['rev', 'tax_included', 'rental_rev']);
-            if ($revShareRow) {
-                $rev_share = $revShareRow->rev ?? 85;
-                $taxIncluded = isset($revShareRow->tax_included) && (int) $revShareRow->tax_included !== 0;
-                $rental_rev = $revShareRow->rental_rev ?? 85;
-            } else {
-                $rev_share = 85;
-                $taxIncluded = false;
-                $rental_rev = 85;
+            if ($revSetting) {
+                $rev_share = $revSetting->rev;
+                $taxIncluded = $revSetting->tax_included == 0 ? false : true;
+                $rental_rev = $revSetting->rental_rev;
             }
         }
 

@@ -2,10 +2,18 @@
     {{ $list->increment_id ?? '' }}
 </td>
 <td style="text-align:center;">
-    @if(($list->status ?? null) == 0) New @endif
-    @if(($list->status ?? null) == 1) Active @endif
-    @if(($list->status ?? null) == 2) Canceled @endif
-    @if(($list->status ?? null) == 3) Completed @endif
+    @if(($list->status ?? null) == 0)
+        New
+    @endif
+    @if(($list->status ?? null) == 1)
+        Active
+    @endif
+    @if(($list->status ?? null) == 2)
+        Canceled
+    @endif
+    @if(($list->status ?? null) == 3)
+        Completed
+    @endif
 </td>
 <td style="text-align:center;">
     @php

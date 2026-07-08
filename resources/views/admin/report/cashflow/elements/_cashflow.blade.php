@@ -1,30 +1,29 @@
 @php
-    /** @var \App\Services\Legacy\Report\PortfolioService $portfolioSvc */
-    $portfolioSvc = app(\App\Services\Legacy\Report\PortfolioService::class);
+    $portfolioSvc = (new \App\Services\Legacy\Report\PortfolioService);
     $dateFrom = $date_from ?? null;
     $dateTo = $date_to ?? null;
 @endphp
 <table width="100%" id="portfolio" cellpadding="0" cellspacing="0" class="table  table-responsive panel">
     <thead>
         <tr>
-            <th>{{ 'Vehicle' }}</th>
-            <th>{{ 'Rental Days' }}</th>
-            <th>{{ 'Fleet Days' }}</th>
-            <th>{{ 'Distance' }}</th>
-            <th>{{ 'Usage' }}</th>
-            <th>{{ 'Extra Usage' }}</th>
-            <th>{{ 'Total Usage' }}</th>
-            <th>{{ 'Body Damage' }}</th>
-            <th>{{ 'Mech.Damage' }}</th>
-            <th>{{ 'Maintenance' }}</th>
-            <th>{{ 'Tolls' }}</th>
-            <th>{{ 'UnCollected Insurance' }}</th>
-            <th>{{ 'Lender Payments' }}</th>
-            <th>{{ 'Misc fee' }}</th>
-            <th class="danger">{{ 'Total' }}</th>
-            <th class="bg-slate-600">{{ 'Profit' }}</th>
-            <th>{{ 'Vehicle Cost' }}</th>
-            <th class="bg-slate-600">{{ 'Ending Cost' }}</th>
+            <th>Vehicle</th>
+            <th>Rental Days</th>
+            <th>Fleet Days</th>
+            <th>Distance</th>
+            <th>Usage</th>
+            <th>Extra Usage</th>
+            <th>Total Usage</th>
+            <th>Body Damage</th>
+            <th>Mech.Damage</th>
+            <th>Maintenance</th>
+            <th>Tolls</th>
+            <th>UnCollected Insurance</th>
+            <th>Lender Payments</th>
+            <th>Misc fee</th>
+            <th class="danger">Total</th>
+            <th class="bg-slate-600">Profit</th>
+            <th>Vehicle Cost</th>
+            <th class="bg-slate-600">Ending Cost</th>
         </tr>
     </thead>
     <tbody>
@@ -42,11 +41,11 @@
                 $VehicleDepriciationData = $portfolioSvc->getVehicleDepriciationReport($vehicle['Vehicle']['id']);
                 $regularRow .= '<td alt="Vehicle">' . e($vehicle['Vehicle']['vehicle_name'] ?? '') . '</td>';
                 $regularRow .= '<td alt="rental_days">' . ($Earnnings['totaldays'] ?? '');
-                $totaldays += (int)($Earnnings['totaldays'] ?? 0);
+                $totaldays += (int) ($Earnnings['totaldays'] ?? 0);
                 $regularRow .= '</td>';
                 $regularRow .= '<td alt="Fleet Days">' . ($VehicleDepriciationData['fleet_days'] ?? '') . '</td>';
                 $regularRow .= '<td alt="Distance">' . ($Earnnings['miles'] ?? '');
-                $mileage += (int)($Earnnings['miles'] ?? 0);
+                $mileage += (int) ($Earnnings['miles'] ?? 0);
                 $regularRow .= '</td>';
                 $rent = sprintf('%0.2f', (($Earnnings['total_collected'] ?? 0) - ($Earnnings['emf_collected'] ?? 0) - ($Earnnings['total_tax_collected'] ?? 0)));
                 $regularRow .= '<td>' . $rent . '</td>';
@@ -57,11 +56,11 @@
                 $earning = ((float) $rent + (float) $emf);
                 $regularRow .= '<td class="danger">' . $earning . '</td>';
                 $regularRow .= '<td>' . ($expenses['bodydamage'] ?? '') . '</td>';
-                $bodydamage += (float)($expenses['bodydamage'] ?? 0);
+                $bodydamage += (float) ($expenses['bodydamage'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['mechdamage'] ?? '') . '</td>';
-                $mechdamage += (float)($expenses['mechdamage'] ?? 0);
+                $mechdamage += (float) ($expenses['mechdamage'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['maintenance'] ?? '') . '</td>';
-                $maintenance += (float)($expenses['maintenance'] ?? 0);
+                $maintenance += (float) ($expenses['maintenance'] ?? 0);
                 $regularRow .= '<td>' . ($expenses['toll'] ?? '') . '</td>';
                 $toll += ($expenses['toll'] ?? 0);
                 $uncollectedInsu = sprintf('%0.2f', (($Earnnings['calculated_insurance'] ?? 0) - ($Earnnings['insurance_by_dealer'] ?? 0) - ($Earnnings['insurance_by_renter'] ?? 0)));
@@ -70,7 +69,7 @@
                 $regularRow .= '<td>' . ($VehicleDepriciationData['depreciation'] ?? '') . '</td>';
                 $lender_payment += ($VehicleDepriciationData['depreciation'] ?? 0);
                 $regularRow .= '<td>' . sprintf('%0.2f', ($Earnnings['stripe_fee'] ?? 0)) . '</td>';
-                $totalMiscFee += (float)($Earnnings['stripe_fee'] ?? 0);
+                $totalMiscFee += (float) ($Earnnings['stripe_fee'] ?? 0);
                 $totalexp = sprintf(
                     '%0.2f',
                     ($VehicleDepriciationData['financing'] ?? 0)
@@ -114,6 +113,6 @@
             $totalRow .= '<td class="bg-slate-600">' . sprintf('%0.2f', $endingCosttotal) . '</td>';
             $totalRow .= '</tr>';
         @endphp
-        {!! $totalRow !!}
+        {!! w !!}
     </tbody>
 </table>

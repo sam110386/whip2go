@@ -366,9 +366,14 @@ trait AgreementTrait
             }
         }
 
-        $depositTemplateObj = DepositTemplate::where('user_id', $CsLeaselists['vehicleReservation']['user_id'])
+        // $depositTemplateObj = DepositTemplate::where('user_id', $CsLeaselists['vehicleReservation']['user_id'])
+        //     ->select('fixed_program_cost', 'deposit_title', 'is_deposit_refundable')
+        //     ->first();
+
+        $depositTemplateObj = DepositTemplate::where('user_id', $CsLeaselists['user_id'])
             ->select('fixed_program_cost', 'deposit_title', 'is_deposit_refundable')
             ->first();
+
         $fixedProgramCost = !empty($depositTemplateObj) ? $depositTemplateObj->fixed_program_cost : 0;
 
         $Temp = [
@@ -482,7 +487,9 @@ trait AgreementTrait
         return [
             'status' => true,
             'message' => 'Success',
-            'result' => ['file' => config('app.url') . '/files/agreements/' . $filename]
+            'result' => [
+                'file' => config('app.url') . '/files/agreements/' . $filename
+            ]
         ];
     }
     public function _generateAgreementForOffer(array $VehicleData, array $userObj): array

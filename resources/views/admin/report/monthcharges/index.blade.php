@@ -25,25 +25,28 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="POST" action="{{ url('admin/report/monthcharges') }}" class="form-horizontal">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="POST"
+                action="{{ url('admin/report/monthcharges/index') }}" class="form-horizontal">
                 @csrf
                 <div class="row">
                     <div class="col-md-10">
                         <div class="col-md-3">
-                            Date from :
-                            <input type="text" name="Search[datefrom]" id="SearchDatefrom" class="date form-control" value="{{ $datefrom }}" placeholder="Date from">
+                            <input type="text" name="Search[datefrom]" id="SearchDatefrom" class="date form-control"
+                                value="{{ $datefrom }}" placeholder="Date from">
                         </div>
                         <div class="col-md-3">
-                            Date to :
-                            <input type="text" name="Search[dateto]" id="SearchDateto" class="date form-control" value="{{ $dateto }}" placeholder="Date to">
+                            <input type="text" name="Search[dateto]" id="SearchDateto" class="date form-control"
+                                value="{{ $dateto }}" placeholder="Date to">
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="pull" value="search" class="btn btn-primary" alt="Generate Report">Generate Report</button>
+                            <button type="submit" name="pull" value="search" class="btn btn-primary" alt="Generate Report">
+                                Generate Report
+                            </button>
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom: 0px;">&nbsp;</label>
-                            <button type="submit" name="export" value="export" class="btn btn-warning" alt="Export Report">Export Report</button>
+                            <button type="submit" name="export" value="export" class="btn btn-warning" alt="Export Report">
+                                Export Report
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -52,7 +55,7 @@
             <div class="row">&nbsp;</div>
 
             <div id="listing">
-                @include('admin.report.elements.admin_monthcharge')
+                @include('admin.report.monthcharges.elements._monthcharge')
             </div>
 
         </div>

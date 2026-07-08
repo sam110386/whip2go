@@ -109,7 +109,7 @@
 
     <div class="panel">
         <div class="panel-body" id="listing">
-            @include('admin.reports.elements.index', ['reportlists' => $reportlists ?? []])
+            @include('admin.reports.elements.index')
         </div>
     </div>
 

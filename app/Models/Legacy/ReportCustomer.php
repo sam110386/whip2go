@@ -66,7 +66,6 @@ class ReportCustomer extends LegacyModel
     {
         return $this->belongsTo(User::class, 'renter_id', 'id');
     }
-
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class, 'vehicle_id', 'id');
@@ -187,7 +186,6 @@ class ReportCustomer extends LegacyModel
 
         return;
     }
-
     public static function createReport($orderId)
     {
         $columns = [

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Traits;
 
+use Illuminate\Support\Facades\DB;
 use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\RevSetting;
 use App\Models\Legacy\OrderExtlog;
-use Illuminate\Support\Facades\DB;
 use App\Services\Legacy\Portfolio;
 use App\Services\Legacy\PromoService;
 use Carbon\Carbon;
@@ -90,7 +90,6 @@ trait ReportsTrait
             }
         }
     }
-
     private function _autorenewddetails($id)
     {
         $id = $this->decodeId($id);
@@ -202,7 +201,6 @@ trait ReportsTrait
 
         return view('reports._autorenewddetails', $data);
     }
-
     private function _getExtLogs(array $ids)
     {
         return OrderExtlog::with('owner:id,first_name,last_name')
@@ -210,7 +208,6 @@ trait ReportsTrait
             ->orderBy('id', 'DESC')
             ->get();
     }
-
     private function exportproductivity($conditions, $date_from, $date_to)
     {
 
@@ -279,7 +276,6 @@ trait ReportsTrait
             fclose($fp);
         }, 200, $headers);
     }
-
     private function export($conditions, $status_type = '')
     {
 

@@ -11,15 +11,17 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-trait BookingsTrait {
-    use CommonTrait, MobileApi, AgreementTrait, VehicleDynamicFareMatrix, InsuranceToken, ActiveBookingTotalPending, PasstimeActivateVehicle;
+trait BookingsTrait
+{
+    use CommonTrait, MobileApi, AgreementTrait, VehicleDynamicFareMatrix, InsuranceToken, ActiveBookingTotalPending, PasstimeActivateVehicle, RespondsWithCustomerAutocomplete, CompleteAndRenewBookingTrait;
 
-    public function _editsave($data) {
+    public function _editsave($data)
+    {
         try {
-            return DB::transaction(function() use ($data) {
+            return DB::transaction(function () use ($data) {
                 $orderId = $data['Text']['id'] ?? null;
                 $vehicleId = $data['Text']['vehicle_id'] ?? null;
-                
+
                 if (!$orderId || !$vehicleId) {
                     return ['status' => false, 'message' => "Invalid inputs"];
                 }
@@ -48,10 +50,10 @@ trait BookingsTrait {
                 if ($vehicleId != $csOrder->getOriginal('vehicle_id')) {
                     Vehicle::where('id', $vehicleId)->update(['booked' => 1]);
                     Vehicle::where('id', $csOrder->getOriginal('vehicle_id'))->update(['booked' => 0]);
-                    
+
                     // Reset Passtime
                     $this->ActivatePasstimeVehicle($vehicleId);
-                    
+
                     // Update rental fee if requested
                     if (isset($data['Text']['updatebooking'])) {
                         $parentId = $csOrder->parent_id ?: $csOrder->id;
@@ -67,10 +69,11 @@ trait BookingsTrait {
         }
     }
 
-    public function _startBooking($csOrder) {
+    public function _startBooking($csOrder)
+    {
         // Logic for activating booking, payments, etc.
         try {
-            return DB::transaction(function() use ($csOrder) {
+            return DB::transaction(function () use ($csOrder) {
                 $orderId = $csOrder->id;
                 $csOrder->update([
                     'status' => 1,
@@ -78,10 +81,10 @@ trait BookingsTrait {
                 ]);
 
                 $this->ActivatePasstimeVehicle($csOrder->vehicle_id);
-                
+
                 // Placeholder for PaymentProcessor::ChargeAmount
                 Log::info("Charging for booking $orderId");
-                
+
                 return ['status' => true, 'message' => "Booking started successfully"];
             });
         } catch (\Exception $e) {
@@ -90,9 +93,10 @@ trait BookingsTrait {
         }
     }
 
-    public function _cancelBooking($csOrder, $cancelNote, $cancellationFee) {
+    public function _cancelBooking($csOrder, $cancelNote, $cancellationFee)
+    {
         try {
-            return DB::transaction(function() use ($csOrder, $cancelNote, $cancellationFee) {
+            return DB::transaction(function () use ($csOrder, $cancelNote, $cancellationFee) {
                 $csOrder->update([
                     'status' => 2,
                     'cancel_note' => $cancelNote,
@@ -102,7 +106,7 @@ trait BookingsTrait {
                 ]);
 
                 Vehicle::where('id', $csOrder->vehicle_id)->update(['booked' => 0]);
-                
+
                 // Placeholder for PaymentProcessor::ChargeCancelAmount
                 Log::info("Charging cancellation fee for booking " . $csOrder->id);
 
@@ -112,5 +116,29 @@ trait BookingsTrait {
             Log::error("Error in _cancelBooking: " . $e->getMessage());
             return ['status' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    protected function _getAgreement(array $conditions): array
+    {
+        $csLeaseLists = CsOrder::with([
+            'vehicle:id,make,model,year,vin_no,user_id,allowed_miles,msrp,premium_msrp,vehicleCostInclRecon,plate_number,disclosure',
+            'owner:id,first_name,last_name,company_address,company_city,company_state,company_zip,timezone,distance_unit,company_name,representative_name,representative_role,representative_sign,contact_number'
+        ])->where($conditions)->first();
+
+        if (!$csLeaseLists) {
+            return [
+                'status' => false,
+                'message' => "Sorry, you are not authorized for this booking",
+                'result' => []
+            ];
+        }
+
+        $leaseDataArray = $csLeaseLists->toArray();
+
+        if ($csLeaseLists->status == 3 && $csLeaseLists->auto_renew == 0) {
+            return $this->_getAgreementForCompletedBooking($leaseDataArray);
+        }
+
+        return $this->_generateAgreementForBooking($leaseDataArray);
     }
 }

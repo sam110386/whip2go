@@ -28,6 +28,11 @@ class CsPaymentLog extends LegacyModel
         'id',
     ];
 
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'cs_order_id');
+    }
+
     public static function savePaymentLog($obj): void
     {
         $orderId = $obj['orderid'] ?? null;
@@ -77,7 +82,6 @@ class CsPaymentLog extends LegacyModel
             }
         }
     }
-
     public static function logdatainCsTwilioModel($orderDta)
     {
         $alreadySent = CsTwilioOrder::where('cs_order_id', $orderDta['id'])->first();
@@ -94,7 +98,6 @@ class CsPaymentLog extends LegacyModel
         $newTwilioLog = CsTwilioOrder::create($twilioLog);
         return $newTwilioLog->id;
     }
-
     public static function savePartialPaymentLog($obj, $type = 29): void
     {
         if (empty($obj['orderid'])) {
@@ -118,7 +121,6 @@ class CsPaymentLog extends LegacyModel
 
         self::create($saveTo);
     }
-
     public static function saveOnlyPaymentLog($obj, $type = 29): void
     {
         $saveTo = [
@@ -134,5 +136,4 @@ class CsPaymentLog extends LegacyModel
 
         self::create($saveTo);
     }
-
 }

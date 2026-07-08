@@ -28,20 +28,25 @@
                 <div class="row pb-10">
                     <div class="col-md-12">
                         <div class="col-md-4">
-                            Dealer :
-                            <input type="text" id="SearchUserId" name="Search[user_id]" class="form-control" style="width:100%;" value="{{ $user_id }}" placeholder="Select Dealer..">
+                            <input type="text" id="SearchUserId" name="Search[user_id]" style="width:100%;"
+                                value="{{ $user_id }}" placeholder="Select Dealer..">
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="APPLY">APPLY</button>
+                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="APPLY">
+                                APPLY
+                            </button>
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                                alt="Clear Filter">
+                                Clear Filter
+                            </button>
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <a href="#" download="cashflow.csv" class="btn btn-primary" onclick="return ExcellentExport.csv(this, 'portfolio');">Export</a>
+                            <a href="#" download="cashflow.csv" class="btn btn-primary"
+                                onclick="return ExcellentExport.csv(this, 'portfolio');">
+                                Export
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -51,13 +56,16 @@
 
             <div id="listing">
                 @if (!empty($vehicles))
-                    @include('admin.report.elements._cashflow')
+                    @include('admin.report.cashflow.elements._cashflow')
                     <style type="text/css">
-                        .table.panel { border-color: unset; border: none; }
+                        .table.panel {
+                            border-color: unset;
+                            border: none;
+                        }
                     </style>
                 @else
                     <div class="table-responsive">
-                        <table class="table table-bordered">
+                        <table class="table table-responsive">
                             <tr>
                                 <td colspan="7" class="text-center">No record found</td>
                             </tr>
@@ -78,12 +86,12 @@
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
     <style type="text/css">
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
+        .table>thead>tr>th,
+        .table>tbody>tr>th,
+        .table>tfoot>tr>th,
+        .table>thead>tr>td,
+        .table>tbody>tr>td,
+        .table>tfoot>tr>td {
             padding: 5px;
         }
     </style>

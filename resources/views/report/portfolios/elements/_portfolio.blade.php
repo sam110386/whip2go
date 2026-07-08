@@ -1,39 +1,35 @@
 <table width="100%" id="portfolio" cellpadding="0" cellspacing="0" class="table  table-responsive panel">
     <thead>
         <tr>
-            @include('partials.dispacher.sortable_header', [
-                'columns' => [
-                    ['title' => 'Vehicle', 'sortable' => false],
-                    ['title' => 'Rental Days', 'sortable' => false],
-                    ['title' => 'Fleet Days', 'sortable' => false],
-                    ['title' => 'Distance', 'sortable' => false],
-                    ['title' => 'Usage', 'sortable' => false],
-                    ['title' => 'Extra Usage', 'sortable' => false],
-                    ['title' => 'Total Usage', 'sortable' => false],
-                    ['title' => 'W/D Allocation', 'sortable' => false],
-                    ['title' => 'Finanace Allocation', 'sortable' => false],
-                    ['title' => 'Maintenance Allocation', 'sortable' => false],
-                    ['title' => 'DIA Fee', 'sortable' => false],
-                    ['title' => 'Disposition', 'sortable' => false],
-                    ['title' => 'Total Usage', 'sortable' => false],
-                    ['title' => 'Depreciation', 'sortable' => false],
-                    ['title' => 'Finance Cost', 'sortable' => false],
-                    ['title' => 'Body Damage', 'sortable' => false],
-                    ['title' => 'Mech.Damage', 'sortable' => false],
-                    ['title' => 'Maintenance', 'sortable' => false],
-                    ['title' => 'Tolls', 'sortable' => false],
-                    ['title' => 'UnCollected Insurance', 'sortable' => false],
-                    ['title' => 'DIA Fee', 'sortable' => false],
-                    ['title' => 'Misc fee', 'sortable' => false],
-                    ['title' => 'Total', 'sortable' => false, 'class' => 'danger'],
-                    ['title' => 'Profit', 'sortable' => false, 'class' => 'bg-slate-600'],
-                    ['title' => 'Vehicle Cost', 'sortable' => false],
-                    ['title' => 'Ending Cost', 'sortable' => false, 'class' => 'bg-slate-600'],
-                ]
-            ])
+            <th style="text-align:center;"> Vehicle</th>
+            <th style="text-align:center;"> Rental Days</th>
+            <th style="text-align:center;"> Fleet Days</th>
+            <th style="text-align:center;"> Distance</th>
+            <th style="text-align:center;"> Usage</th>
+            <th style="text-align:center;"> Extra Usage</th>
+            <th style="text-align:center;"> Total Usage</th>
+            <th style="text-align:center;"> W/D Allocation</th>
+            <th style="text-align:center;"> Finanace Allocation</th>
+            <th style="text-align:center;"> Maintenance Allocation</th>
+            <th style="text-align:center;"> DIA Fee</th>
+            <th style="text-align:center;"> Disposition</th>
+            <th style="text-align:center;"> Total Usage</th>
+            <th style="text-align:center;"> Depreciation</th>
+            <th style="text-align:center;"> Finance Cost</th>
+            <th style="text-align:center;"> Body Damage</th>
+            <th style="text-align:center;"> Mech.Damage</th>
+            <th style="text-align:center;"> Maintenance</th>
+            <th style="text-align:center;"> Tolls</th>
+            <th style="text-align:center;"> UnCollected Insurance</th>
+            <th style="text-align:center;"> DIA Fee</th>
+            <th style="text-align:center;"> Misc fee</th>
+            <th style="text-align:center;" class="danger"> Total</th>
+            <th style="text-align:center;" class="bg-slate-600"> Profit</th>
+            <th style="text-align:center;"> Vehicle Cost</th>
+            <th style="text-align:center;" class="bg-slate-600"> Ending Cost</th>
         </tr>
-   </thead> 
-    <tbody>      
+    </thead>
+    <tbody>
         @php
             $date_from ??= null;
             $date_to ??= null;
@@ -119,7 +115,7 @@
                 $msrptotal += (float) $msrp;
                 $endingCosttotal += (float) ($msrp - ($earning - (float) $totalexp));
             @endphp
-            
+
             <tr id="{{ $vehicle->id }}">
                 <td>
                     {{ $vehicle['vehicle_name'] ?? '' }}
@@ -158,7 +154,8 @@
                     {{ sprintf('%0.2f', ($Earnnings['disposition_fee'] ?? 0)) }}
                 </td>
                 <td class="danger">
-                    {{ $totalRentalDia }}</td>
+                    {{ $totalRentalDia }}
+                </td>
                 <td>
                     {{ $VehicleDepriciationData['depreciation'] ?? '' }}
                 </td>

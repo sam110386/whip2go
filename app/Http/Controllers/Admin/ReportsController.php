@@ -1,16 +1,15 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Traits\ReportsTrait;
 use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\CsOrderPayment;
-use Illuminate\Support\Facades\Cookie;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Carbon\Carbon;
 
 class ReportsController extends LegacyAppController
 {
@@ -127,12 +126,10 @@ class ReportsController extends LegacyAppController
 
         return view('admin.reports.index', compact('keyword', 'fieldname', 'date_from', 'date_to', 'status_type', 'dealerid', 'renterid', 'reportlists', 'limit'));
     }
-
     public function details($id)
     {
         return $this->_details($id);
     }
-
     public function loadsubbooking($orderid)
     {
         $id = $this->decodeId((string) $orderid);
@@ -157,12 +154,10 @@ class ReportsController extends LegacyAppController
 
         return response()->json(['status' => 'success', 'booking_id' => $id, 'data' => $html]);
     }
-
     public function autorenewddetails($id)
     {
         return $this->_autorenewddetails($id);
     }
-
     public function productivity(Request $request)
     {
         $title = 'Fleet Productivity';
@@ -172,6 +167,10 @@ class ReportsController extends LegacyAppController
         $user_id = $request->input('Search.user_id', $request->input('user_id', ''));
         $conditions = [];
         $conditions[] = ['vehicles.user_id', '=', $user_id];
+
+        // if (!empty($user_id)) {
+        //     $conditions[] = ['vehicles.user_id', '=', $user_id];
+        // }
 
         if (!empty($date_from)) {
             $datefrom = Carbon::parse($date_from)->format('Y-m-d');
@@ -238,6 +237,5 @@ class ReportsController extends LegacyAppController
             'data' => $htmlContent
         ]);
     }
-
 }
 

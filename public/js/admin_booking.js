@@ -2852,7 +2852,7 @@ function OpenSignatureDocPopUp(
 			'img/select2-spinner.gif" /> Just a moment...</h1>',
 	});
 	jQuery.post(
-		SITE_URL + "admin/insurance_provider/docusign/listdocuments",
+		SITE_URL + "admin/docusign/listdocuments",
 		{
 			quoteid: InsuranceQuoteId,
 			OrderDepositRuleId: OrderDepositRuleId,
@@ -2884,7 +2884,7 @@ function PullDocusignSignedDocument(
 			'img/select2-spinner.gif" /> Just a moment...</h1>',
 	});
 	jQuery.post(
-		SITE_URL + "admin/insurance_provider/docusign/fecthdocument",
+		SITE_URL + "admin/docusign/fecthdocument",
 		{
 			docusign_envelope_id: docusign_envelope_id,
 			document_id: document_id,
@@ -3500,7 +3500,7 @@ function loadStatusChecklistPopup(orderid) {
 
 function getPaymentReceipt(paymentid) {
 	window.open(
-		SITE_URL + "admin/email_queue/email_queues/payment_receipt/" + paymentid,
+		SITE_URL + "admin/email_queues/payment_receipt/" + paymentid,
 		"_blank"
 	);
 	return false;

@@ -3,19 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\RespondsWithCustomerAutocomplete;
-use App\Http\Controllers\Traits\CompleteAndRenewBookingTrait;
-use App\Http\Controllers\Traits\PasstimeActivateVehicleTrait;
-use App\Http\Controllers\Traits\ActiveBookingTotalPendingTrait;
 use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\DriverFinancedInsuranceQuote;
+use App\Models\Legacy\InsuranceQuote;
 use App\Models\Legacy\Vehicle;
-use App\Models\Legacy\User;
 use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\OrderDepositRule;
-use App\Models\Legacy\OrderExtlog;
 use App\Models\Legacy\CsTwilioOrder;
-use App\Models\Legacy\CsSetting;
-use App\Models\Legacy\CsUserBalance;
 use App\Models\Legacy\VehicleReservation;
 use App\Services\Legacy\PaymentProcessor;
 use Illuminate\Http\JsonResponse;
@@ -23,13 +17,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
+use App\Http\Controllers\Traits\BookingsTrait;
 use Carbon\Carbon;
 
 class BookingsController extends LegacyAppController
 {
-    use RespondsWithCustomerAutocomplete, CompleteAndRenewBookingTrait, PasstimeActivateVehicleTrait, ActiveBookingTotalPendingTrait;
-
-    protected bool $shouldLoadLegacyModules = true;
+    use BookingsTrait;
 
     public function index(Request $request)
     {
@@ -396,9 +389,22 @@ class BookingsController extends LegacyAppController
         ]);
     }
 
-    public function getinsurancetoken(Request $request): JsonResponse
+    public function getinsurancetoken(Request $request)
     {
-        return response()->json(['status' => true, 'token' => sha1((string) microtime(true))]);
+        $return = [
+            'status' => false,
+            'message' => "Invalid Booking ID",
+            'result' => []
+        ];
+
+        $bookingId = $this->decodeId($request->input('orderid'));
+
+        if (!empty($bookingId)) {
+            $conditions = ['id' => $bookingId];
+            $return = $this->_getInsuranceToken($conditions);
+        }
+
+        return response()->json($return);
     }
 
     public function overdue(Request $request)
@@ -693,9 +699,22 @@ class BookingsController extends LegacyAppController
         return redirect('/admin/bookings/index')->with('success', 'Booking updated');
     }
 
-    public function getagreement(Request $request): JsonResponse
+    public function getagreement(Request $request)
     {
-        return response()->json(['status' => true, 'file' => null, 'message' => 'Agreement file is not available in Laravel migration yet']);
+        $return = [
+            'status' => false,
+            'message' => "Invalid Booking ID",
+            'result' => []
+        ];
+
+        $bookingId = $this->decodeId($request->input('orderid'));
+
+        if (!empty($bookingId)) {
+            $conditions = [['id', '=', $bookingId]];
+            $return = $this->_getAgreement($conditions);
+        }
+
+        return response()->json($return);
     }
 
     public function loadvehicleexpiretime(Request $request)
@@ -749,36 +768,69 @@ class BookingsController extends LegacyAppController
 
     public function getinsurancepopup(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        if (!$orderId) {
-            return response('Invalid order id', 400);
+        $bookingId = $this->decodeId($request->input('orderid'));
+        $showUpload = $request->input('showupload', false);
+        $lease = null;
+        $insuranceQuoteObj = null;
+        $payments = [];
+        $orderRuleId = '';
+        $insurancePayer = '';
+        $vehicleReservationId = null;
+
+        if (!empty($bookingId)) {
+
+            $lease = CsOrder::select('id', 'parent_id', 'vehicle_id', 'renter_id')
+                ->where('id', $bookingId)
+                ->first();
+
+            if ($lease) {
+                $targetOrderId = !empty($lease->parent_id) ? $lease->parent_id : $lease->id;
+                $orderRuleObj = OrderDepositRule::select('id', 'insurance_payer', 'vehicle_reservation_id')
+                    ->where('cs_order_id', $targetOrderId)
+                    ->first();
+
+                if ($orderRuleObj) {
+                    $orderRuleId = $orderRuleObj->id;
+                    $insurancePayer = $orderRuleObj->insurance_payer;
+                    $vehicleReservationId = $orderRuleObj->vehicle_reservation_id;
+
+                    if (in_array($insurancePayer, [5, 7]) && !empty($vehicleReservationId)) {
+                        $quote = DriverFinancedInsuranceQuote::select('id')
+                            ->where('order_id', $vehicleReservationId)
+                            ->first();
+
+                        if ($quote) {
+                            $insuranceQuoteObj = ['InsuranceQuote' => $quote->toArray()];
+                        }
+                    } elseif (!empty($vehicleReservationId)) {
+                        $quote = InsuranceQuote::where('order_id', $vehicleReservationId)
+                            ->where('selected', 1)
+                            ->first();
+
+                        if ($quote) {
+                            $insuranceQuoteObj = ['InsuranceQuote' => $quote->toArray()];
+                        }
+                    }
+                }
+            }
+
+            $payments = CsOrderPayment::where('cs_order_id', $bookingId)
+                ->where('status', 1)
+                ->get();
         }
 
-        $lease = DB::table('cs_orders')->where('id', $orderId)->first();
-        if (!$lease) {
-            return response('Order not found', 404);
-        }
+        $paymentTypeValue = $this->commonService->getPayoutTypeValue(true);
 
-        $orderRule = DB::table('cs_order_deposit_rules')
-            ->where('cs_order_id', $orderId)
-            ->orWhere('cs_order_id', (int) ($lease->parent_id ?? 0))
-            ->first();
-
-        $payments = DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->orderByDesc('id')
-            ->get();
-
-        return response()->view('admin.bookings._insurance_popup', [
-            'Lease' => ['CsOrder' => (array) $lease],
-            'payments' => $payments,
-            'orderRuleid' => (int) ($orderRule->id ?? 0),
-            'insurance_payer' => (int) ($orderRule->insurance_payer ?? 0),
-            'vehicle_reservation_id' => (int) ($orderRule->vehicle_reservation_id ?? 0),
-            'showupload' => true,
-            'InsuranceQuoteObj' => null,
-            'paymentTypeValue' => [1 => 'Initial', 2 => 'Rental', 3 => 'Insurance', 4 => 'Deposit', 5 => 'Other'],
-        ]);
+        return view('admin.bookings.getinsurancepopup', compact(
+            'lease',
+            'showUpload',
+            'vehicleReservationId',
+            'orderRuleId',
+            'insurancePayer',
+            'insuranceQuoteObj',
+            'payments',
+            'paymentTypeValue'
+        ));
     }
 
     public function checkrapprove(Request $request): JsonResponse
@@ -1262,25 +1314,22 @@ class BookingsController extends LegacyAppController
         return response()->json(['status' => true, 'message' => 'Unlock command sent (stubbed).']);
     }
 
-    public function getDeclarationDoc(Request $request): JsonResponse
+    public function getDeclarationDoc(Request $request)
     {
-        $bookingId = (int) base64_decode((string) $request->input('booking_id', $request->input('orderid', '')));
-        if ($bookingId <= 0) {
-            return response()->json(['status' => false, 'file' => null, 'message' => 'Invalid booking id']);
+        $return = [
+            'status' => false,
+            'message' => "Invalid Booking ID",
+            'result' => []
+        ];
+
+        $bookingId = $this->decodeId($request->input('orderid'));
+
+        if (!empty($bookingId)) {
+            $conditions = ['id' => $bookingId];
+            $return = $this->_getDeclarationDoc($conditions);
         }
 
-        $order = CsOrder::where('id', $bookingId)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'file' => null, 'message' => 'Order not found']);
-        }
-
-        \Log::warning('Declaration doc generation not yet ported — booking ' . $bookingId);
-
-        return response()->json([
-            'status' => true,
-            'file' => null,
-            'message' => 'Declaration document generation is stubbed — booking ' . $bookingId . ' loaded.',
-        ]);
+        return response()->json($return);
     }
 
     public function overdue_booking_details(Request $request)

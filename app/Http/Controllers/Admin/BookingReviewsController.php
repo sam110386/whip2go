@@ -419,7 +419,7 @@ class BookingReviewsController extends LegacyAppController
         return response()->json($return);
     }
 
-    public function reviewimages(Request $request, $orderid = null): Response
+    public function reviewimages(Request $request, $orderid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response('Unauthorized', 401);
@@ -431,14 +431,17 @@ class BookingReviewsController extends LegacyAppController
             return response('Unauthorized', 401);
         }
 
-        $CsOrderReview = CsOrderReview::where('cs_order_id', $orderId)->get();
+        $CsOrderReview = CsOrderReview::with('csOrderReviewImages')
+            ->where('cs_order_id', $orderId)
+            ->get();
         $result = [];
+
         foreach ($CsOrderReview as $CsOrderRvws) {
-            $title = ((int) $CsOrderRvws->event === 1) ? 'initial' : 'final';
-            $result[$title] = ['CsOrderReview' => (array) $CsOrderRvws];
+            $title = ($CsOrderRvws->event == 1) ? 'initial' : 'final';
+            $result[$title] = $CsOrderRvws->toArray();
         }
 
-        return response()->view('admin.booking_reviews.reviewimages', ['result' => $result]);
+        return response()->view('admin.booking_reviews.reviewimages', compact('result'));
     }
 
     public function reviewpopup(Request $request): Response

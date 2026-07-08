@@ -34,12 +34,12 @@
                 class="form-horizontal">
                 <div class="row">
                     <div class="col-md-2">
-                        <input type="text" name="dealerid" id="SearchDealerid" style="width:100%;"
-                            value="{{ $dealerid }}" placeholder="Dealers">
+                        <input type="text" name="dealerid" id="SearchDealerid" style="width:100%;" value="{{ $dealerid }}"
+                            placeholder="Dealers">
                     </div>
                     <div class="col-md-2">
-                        <input type="text" name="renterid" id="SearchRenterid" style="width:100%;"
-                            value="{{ $renterid }}" placeholder="Driver">
+                        <input type="text" name="renterid" id="SearchRenterid" style="width:100%;" value="{{ $renterid }}"
+                            placeholder="Driver">
                     </div>
                     <div class="col-md-2">
                         <input type="text" name="keyword" class="form-control" maxlength="50" value="{{ $keyword }}"

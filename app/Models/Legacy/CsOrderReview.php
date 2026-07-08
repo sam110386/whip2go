@@ -29,4 +29,9 @@ class CsOrderReview extends LegacyModel
         'id',
     ];
 
+    public function csOrderReviewImages()
+    {
+        return $this->hasMany(CsOrderReviewImage::class, 'cs_order_review_id', 'id');
+    }
+
 }

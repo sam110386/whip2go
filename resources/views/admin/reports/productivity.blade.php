@@ -9,21 +9,17 @@
 @section('content')
 
     <div class="panel">
-            <div class="page-header-content">
+        <div class="page-header-content">
             <div class="page-title">
-                <h4><i class="icon-arrow-left52 position-left"></i> 
-                <span class="text-semibold">Fleet</span> Productivity</h4>
+                <h4><i class="icon-arrow-left52 position-left"></i>
+                    <span class="text-semibold">Fleet</span> Productivity
+                </h4>
             </div>
         </div>
 
         @includeif('partials.flash')
 
         <div class="panel-body">
-            <div class="mt-10">
-                @if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
-                    @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50, 'position' => 'top'])
-                @endif
-            </div>
             <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/reports/productivity') }}">
                 <div class="row">
                     <div class="col-md-4">
@@ -31,11 +27,11 @@
                             value="{{ $user_id }}" placeholder="Select Dealer..">
                     </div>
                     <div class="col-md-2">
-                        <input type="text" id="SearchDateFrom" name="Search[date_from]" class="form-control" 
+                        <input type="text" id="SearchDateFrom" name="Search[date_from]" class="form-control"
                             value="{{ $date_from }}" placeholder="Date Range From">
                     </div>
                     <div class="col-md-2">
-                        <input type="text" id="SearchDateTo" name="Search[date_to]" class="form-control" 
+                        <input type="text" id="SearchDateTo" name="Search[date_to]" class="form-control"
                             value="{{ $date_to }}" placeholder="Date Range To">
                     </div>
                     <div class="col-md-4">
@@ -50,23 +46,24 @@
             </form>
 
             <div style="width:100%; overflow: visible;">
+                <div class="mt-10">
+                    @if(isset($reportlists) && is_object($reportlists) && method_exists($reportlists, 'links'))
+                        @include('partials.dispacher.paging_box', ['paginator' => $reportlists, 'limit' => $limit ?? 50, 'position' => 'top'])
+                    @endif
+                </div>
                 <div class="table-responsive">
-                    <table width="100%" cellpadding="1" cellspacing="1"  border="0" class="table table-responsive">
+                    <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
                         <thead>
                             <tr>
-                                @include('partials.dispacher.sortable_header', [
-                                    'columns' => [
-                                        ['title' => 'Vehicle#', 'sortable' => false],
-                                        ['title' => 'Vehicle Cost', 'sortable' => false],
-                                        ['title' => 'Depreciation', 'sortable' => false],
-                                        ['title' => 'Base Usage ($)', 'sortable' => false],
-                                        ['title' => 'Extra Usage', 'sortable' => false],
-                                        ['title' => 'Total Usage Fee', 'sortable' => false],
-                                        ['title' => 'Total Distance', 'sortable' => false],
-                                        ['title' => 'Total Days', 'sortable' => false],
-                                        ['title' => 'Idle Days', 'sortable' => false]
-                                    ]
-                                ])
+                                <th class="text-center"> Vehicle# </th>
+                                <th class="text-center"> Vehicle Cost </th>
+                                <th class="text-center"> Depreciation </th>
+                                <th class="text-center"> Base Usage ($) </th>
+                                <th class="text-center"> Extra Usage </th>
+                                <th class="text-center"> Total Usage Fee </th>
+                                <th class="text-center"> Total Distance </th>
+                                <th class="text-center"> Total Days </th>
+                                <th class="text-center"> Idle Days </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -80,31 +77,31 @@
                                     $idleDays = $totalRangeDays - (int) $reportlist->totaldays;
                                 @endphp
                                 <tr>
-                                    <td>
+                                    <td class="text-center">
                                         {{ $reportlist->vehicle_name }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ $reportlist->msrp }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ number_format($expenses['depreciation'], 2) }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ number_format((float) $reportlist->totalrent, 2) }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ number_format((float) $reportlist->extra_mileage_fee, 2) }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ number_format($totalUsageFee, 2) }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ $reportlist->mileage ?: 0 }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ $reportlist->totaldays ?: 0 }}
                                     </td>
-                                    <td>
+                                    <td class="text-center">
                                         {{ $idleDays > 0 ? $idleDays : 0 }}
                                     </td>
                                 </tr>
@@ -131,8 +128,8 @@
 @push('scripts')
     <script src="{{ legacy_asset('js/select2.js') }}"></script>
     <script type="text/javascript">
-        function format(item) { 
-            return item.tag; 
+        function format(item) {
+            return item.tag;
         }
 
         jQuery(document).ready(function () {

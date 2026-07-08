@@ -127,7 +127,7 @@ class DocusignController extends LegacyAppController
             'ds_access_token' => $token['access_token'],
             'envelope_args'   => [
                 'signer_client_id' => 1000,
-                'ds_return_url'    => url('/insurance_provider/docusign/returncallback'),
+                'ds_return_url'    => url('/docusign/returncallback'),
             ],
         ];
     }

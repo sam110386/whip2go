@@ -55,7 +55,7 @@ class DocusignController extends LegacyAppController
                 'scope'         => 'signature extended',
                 'client_id'     => config('legacy.Docusign.integration_key'),
                 'state'         => 'a39fh23hnf23',
-                'redirect_uri'  => url('/insurance_provider/docusign/callback'),
+                'redirect_uri'  => url('/docusign/callback'),
             ];
             $queryBuild = http_build_query($params);
             $url = config('legacy.Docusign.auth_url');
@@ -132,7 +132,7 @@ class DocusignController extends LegacyAppController
                 $envelopObj = $envelope_api->getEnvelope($args['account_id'], $envelopeId);
 
                 if ($envelopObj['status'] === 'completed') {
-                    return redirect('/insurance_provider/docusign/returncallback?event=signing_alreadycomplete');
+                    return redirect('/docusign/returncallback?event=signing_alreadycomplete');
                 }
 
                 $documents = $envelope_api->listDocuments($args['account_id'], $envelopeId);
@@ -295,7 +295,7 @@ class DocusignController extends LegacyAppController
             'ds_access_token' => $token['access_token'],
             'envelope_args'   => [
                 'signer_client_id' => $this->signer_client_id,
-                'ds_return_url'    => url('/insurance_provider/docusign/returncallback'),
+                'ds_return_url'    => url('/docusign/returncallback'),
             ],
         ];
     }

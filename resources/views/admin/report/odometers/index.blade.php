@@ -24,24 +24,28 @@
 
     <div class="panel">
         <div class="panel-body">
-            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/report/odometers') }}">
+            <form id="frmSearchadmin" name="frmSearchadmin" method="GET" action="{{ url('admin/report/odometers/index') }}">
                 <div class="row">
                     <div class="col-md-12">
                         <div class="col-md-3">
-                            Dealers :
-                            <input type="text" id="SearchDealerid" name="Search[dealerid]" class="form-control" style="width:100%;" value="{{ $dealerid }}" placeholder="Dealers">
+                            <input type="text" id="SearchDealerid" name="Search[dealerid]" style="width:100%;"
+                                value="{{ $dealerid }}" placeholder="Dealers">
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="SEARCH">SEARCH</button>
+                            <button type="submit" name="search" value="search" class="btn btn-primary" alt="SEARCH">
+                                SEARCH
+                            </button>
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="search" value="EXPORT" class="btn btn-warning" alt="EXPORT">EXPORT</button>
+                            <button type="submit" name="search" value="EXPORT" class="btn btn-warning" alt="EXPORT">
+                                EXPORT
+                            </button>
                         </div>
                         <div class="col-md-2">
-                            <label style="margin-bottom:0;">&nbsp;</label>
-                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning" alt="Clear Filter">Clear Filter</button>
+                            <button type="submit" name="ClearFilter" value="Clear Filter" class="btn btn-warning"
+                                alt="Clear Filter">
+                                Clear Filter
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -50,7 +54,7 @@
             <div class="row">&nbsp;</div>
 
             <div id="listing">
-                @include('admin.report.elements._odometer')
+                @include('admin.report.odometers.elements._odometer')
             </div>
         </div>
     </div>
@@ -65,12 +69,12 @@
 @push('styles')
     <link rel="stylesheet" href="{{ legacy_asset('css/select2.css') }}">
     <style type="text/css">
-        .table > thead > tr > th,
-        .table > tbody > tr > th,
-        .table > tfoot > tr > th,
-        .table > thead > tr > td,
-        .table > tbody > tr > td,
-        .table > tfoot > tr > td {
+        .table>thead>tr>th,
+        .table>tbody>tr>th,
+        .table>tfoot>tr>th,
+        .table>thead>tr>td,
+        .table>tbody>tr>td,
+        .table>tfoot>tr>td {
             padding: 5px;
         }
     </style>

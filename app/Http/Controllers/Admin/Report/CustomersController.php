@@ -1,11 +1,10 @@
 <?php
-
 namespace App\Http\Controllers\Admin\Report;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use App\Models\Legacy\ReportCustomer;
+use App\Http\Controllers\Legacy\LegacyAppController;
 
 class CustomersController extends LegacyAppController
 {
@@ -50,7 +49,6 @@ class CustomersController extends LegacyAppController
 
         return view('admin.report.customers.index', compact('title', 'keyword', 'dealerid', 'renterid', 'lists', 'limit'));
     }
-
     public function refresh(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -71,7 +69,7 @@ class CustomersController extends LegacyAppController
         $list = ReportCustomer::with(['user:id,first_name,last_name', 'vehicle:id,vehicle_name'])->find($rowId);
 
         if ($list) {
-            $singleRowHtml = view('admin.report.elements.single_row', compact('list'))->render();
+            $singleRowHtml = view('admin.report.customers.elements.single_row', compact('list'))->render();
             $return['result'] = $singleRowHtml;
         }
 
