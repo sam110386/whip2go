@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
@@ -60,16 +59,16 @@ class AxledocsController extends LegacyAppController
         $policyStatus = AxleService::$PolicyStatus;
 
         if ($request->ajax()) {
-            return view('admin.axle.elements._index', compact('records', 'policyStatus'));
+            return view('admin.axle.elements._index', compact('records', 'policyStatus', 'limit'));
         }
 
         return view('admin.axle.index', compact('records', 'policyStatus', 'title', 'limit'));
     }
-
     public function singleload(Request $request)
     {
-        if (!$request->ajax())
+        if (!$request->ajax()) {
             abort(404);
+        }
 
         $orderid = $request->input('orderid');
         $record = DB::table('cs_order_deposit_rules as OrderDepositRule')
@@ -101,10 +100,10 @@ class AxledocsController extends LegacyAppController
         $policyStatus = AxleService::$PolicyStatus;
         return view('admin.axle._single', compact('record', 'policyStatus'));
     }
-
-    public function connectAdmin(Request $request, $orderid)
+    public function connect($orderid)
     {
-        $axleStatusObj = DB::table('axle_status')->where('order_id', $orderid)->first();
+        $axleStatusObj = AxleStatus::where('order_id', $orderid)->first();
+
         if (empty($axleStatusObj) || !in_array($axleStatusObj->axle_status, [1, 2])) {
             $odr = DB::table('cs_order_deposit_rules as OrderDepositRule')
                 ->leftJoin('vehicle_reservations as VehicleReservation', 'VehicleReservation.id', '=', 'OrderDepositRule.vehicle_reservation_id')
@@ -120,30 +119,40 @@ class AxledocsController extends LegacyAppController
                 'last_name' => $odr->last_name,
                 'x-access-token' => $axleStatusObj->access_token ?? '',
             ];
+
             $resp = (new AxleService())->startIgnition($dataToPass);
+
             if (isset($resp['success']) && $resp['success'] == 1) {
                 return redirect($resp['data']['ignitionUri']);
             }
-            abort(500, 'Failed to start Axle ignition');
-        }
-        abort(400, 'Sorry, this record already connected with Axle');
-    }
 
+            return redirect()->back()->with('error', 'Failed to start Axle ignition');
+        }
+
+        return redirect()->back()->with('error', 'Sorry, this record already connected with Axle');
+    }
     public function accountDetails(Request $request)
     {
-        $return = ["success" => false, "message" => "Sorry, seems policy is not active"];
+        $return = [
+            "success" => false,
+            "message" => "Sorry, seems policy is not active"
+        ];
+
         if ($request->isMethod('post')) {
             $orderid = $request->input('orderid');
-            $axleStatusObj = DB::table('axle_status')->where('order_id', $orderid)->first();
+            $axleStatusObj = AxleStatus::where('order_id', $orderid)->first();
+
             if (!empty($axleStatusObj) && $axleStatusObj->type == 'measureone') {
                 $return['message'] = "Sorry, this is not an Axle connected policy, so account details cannot be fetched";
                 return response()->json($return);
             }
+
             if (!empty($axleStatusObj) && !empty($axleStatusObj->account_id)) {
-                $axleObj = (new AxleService())->fetchAccountDetails((array) $axleStatusObj);
+                $axleObj = (new AxleService())->fetchAccountDetails($axleStatusObj->access_token, $axleStatusObj->account_id);
+
                 if ($axleObj['success'] ?? false) {
                     $policy = current($axleObj['data']['policies']);
-                    DB::table('axle_status')->where('id', $axleStatusObj->id)->update(['policy' => $policy]);
+                    AxleStatus::where('id', $axleStatusObj->id)->update(['policy' => $policy]);
                     $return['success'] = true;
                     $return['message'] = "Account details fetched successfully";
                 } else {
@@ -151,12 +160,15 @@ class AxledocsController extends LegacyAppController
                 }
             }
         }
+
         return response()->json($return);
     }
-
     public function policyDetails(Request $request)
     {
-        $return = ["success" => false, "message" => "Sorry, seems policy is not active"];
+        $return = [
+            "success" => false,
+            "message" => "Sorry, seems policy is not active"
+        ];
 
         if ($request->isMethod('post')) {
             $orderid = $request->input('orderid');
@@ -228,19 +240,21 @@ class AxledocsController extends LegacyAppController
 
         return response()->json($return);
     }
-
     public function policyDetailsPopup(Request $request)
     {
-        $return = ["success" => false, "message" => "Sorry, seems policy is not active"];
+        $return = [
+            "success" => false,
+            "message" => "Sorry, seems policy is not active"
+        ];
+
         if ($request->isMethod('post')) {
             $orderid = $request->input('orderid');
-            $axleStatusObj = DB::table('axle_status')->where('order_id', $orderid)->first();
+            $axleStatusObj = AxleStatus::where('order_id', $orderid)->first();
             $policychecks = json_decode(!empty($axleStatusObj->extra) ? $axleStatusObj->extra : '{}', true);
             $calculatedInsurance = 0;
 
             if (in_array($axleStatusObj->axle_status ?? 0, [3, 4]) && ($axleStatusObj->expired_on ?? '') < date('Y-m-d')) {
-                $odr = DB::table('cs_order_deposit_rules')
-                    ->where('id', $orderid)
+                $odr = OrderDepositRule::where('id', $orderid)
                     ->select('id', 'cs_order_id', 'insurance')
                     ->first();
                 $days = (int) ((strtotime(date('Y-m-d')) - strtotime($axleStatusObj->expired_on)) / 86400);
@@ -249,76 +263,109 @@ class AxledocsController extends LegacyAppController
             }
 
             $checklist = AxleService::$rules;
-            $axleStatusArr = (array) $axleStatusObj;
-            $return['html'] = view('admin.axle._policypopup', compact('axleStatusArr', 'policychecks', 'orderid', 'checklist', 'calculatedInsurance'))->render();
+            $axleStatusArr = $axleStatusObj->toArray();
+
+            $return['html'] = view('admin.axle._policypopup', compact(
+                'axleStatusArr',
+                'policychecks',
+                'orderid',
+                'checklist',
+                'calculatedInsurance'
+            ))->render();
         }
+
         return response()->json($return);
     }
-
     public function policysave(Request $request)
     {
-        $return = ["success" => false, "message" => "Sorry, seems policy is not active", 'orderid' => 0];
+        $return = [
+            "success" => false,
+            "message" => "Sorry, seems policy is not active",
+            'orderid' => 0
+        ];
+
         if ($request->isMethod('post')) {
             $id = $request->input('AxleStatus.id');
-            $axleStatusObj = DB::table('axle_status')->where('id', $id)->first();
+            $axleStatusObj = AxleStatus::find($id);
+
             if (!empty($axleStatusObj)) {
                 $extra = $request->input('AxleStatus.extra', []);
-                DB::table('axle_status')->where('id', $id)->update(['extra' => json_encode($extra)]);
-                $return = ["success" => true, "message" => "Your request is saved successfully", 'orderid' => $axleStatusObj->order_id];
+                $axleStatusObj->update(['extra' => json_encode($extra)]);
+                $return = [
+                    "success" => true,
+                    "message" => "Your request is saved successfully",
+                    'orderid' => $axleStatusObj->order_id
+                ];
 
                 $insurancePenalty = $request->input('AxleStatus.insurance_penalty', 0);
+
                 if ($insurancePenalty > 0) {
-                    $odr = DB::table('cs_order_deposit_rules as OrderDepositRule')
-                        ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'OrderDepositRule.cs_order_id')
-                        ->where('OrderDepositRule.id', $axleStatusObj->order_id)
-                        ->select('OrderDepositRule.id', 'OrderDepositRule.cs_order_id', 'OrderDepositRule.insurance', 'CsOrder.renter_id', 'CsOrder.user_id')
+                    $odr = OrderDepositRule::with('csOrder:id,renter_id,user_id')
+                        ->where('id', $axleStatusObj->order_id)
+                        ->select('id', 'cs_order_id', 'insurance')
                         ->first();
+
                     $orderObj = [
                         'renter_id' => $odr->renter_id,
                         'user_id' => $odr->user_id,
                         'day_insurance' => $odr->insurance,
                         'deposit_rule_id' => $axleStatusObj->order_id,
                     ];
+
                     $this->savePenaltyInsurance($orderObj, $insurancePenalty);
                 }
             }
         }
+
         return response()->json($return);
     }
-
     public function acceptsave(Request $request)
     {
-        $return = ["success" => false, "message" => "Sorry, seems policy is not active", 'orderid' => 0];
+        $return = [
+            "success" => false,
+            "message" => "Sorry, seems policy is not active",
+            'orderid' => 0
+        ];
+
         if ($request->isMethod('post')) {
             $id = $request->input('AxleStatus.id');
-            $axleStatusObj = DB::table('axle_status')->where('id', $id)->first();
-            if (!empty($axleStatusObj)) {
+            $axleStatusObj = AxleStatus::find($id);
+
+            if ($axleStatusObj) {
                 $extra = $request->input('AxleStatus.extra', []);
-                DB::table('axle_status')->where('id', $id)->update([
+                $axleStatusObj->update([
                     'axle_status' => 5,
                     'expired_on' => null,
                     'calculated_insurance' => 0,
                     'extra' => json_encode($extra),
                 ]);
-                $return = ["success" => true, "message" => "Your request is saved successfully", 'orderid' => $axleStatusObj->order_id];
+                $return = [
+                    "success" => true,
+                    "message" => "Your request is saved successfully",
+                    'orderid' => $axleStatusObj->order_id
+                ];
             }
         }
+
         return response()->json($return);
     }
-
     public function disconnect(Request $request)
     {
         $return = ["success" => false, "message" => "Sorry, seems policy is not active", 'orderid' => 0];
+
         if ($request->isMethod('post')) {
             $orderid = $request->input('orderid');
-            $axleStatusObj = DB::table('axle_status')->where('order_id', $orderid)->first();
+            $axleStatusObj = AxleStatus::where('order_id', $orderid)->first();
+
             if (!empty($axleStatusObj)) {
-                $terminate = (new AxleService())->terminateToken((array) $axleStatusObj);
+                $terminate = (new AxleService())->terminateToken($axleStatusObj->access_token);
+
                 if (!($terminate['success'] ?? false)) {
                     $return['message'] = $terminate['message'] ?? 'Failed to terminate';
                     return response()->json($return);
                 }
-                DB::table('axle_status')->where('id', $axleStatusObj->id)->update([
+
+                AxleStatus::where('id', $axleStatusObj->id)->update([
                     'axle_status' => 0,
                     'expired_on' => null,
                     'calculated_insurance' => 0,
@@ -327,9 +374,15 @@ class AxledocsController extends LegacyAppController
                     'access_token' => null,
                     'account_id' => null,
                 ]);
-                $return = ["success" => true, "message" => "Your request is saved successfully", 'orderid' => $axleStatusObj->order_id];
+
+                $return = [
+                    "success" => true,
+                    "message" => "Your request is saved successfully",
+                    'orderid' => $axleStatusObj->order_id
+                ];
             }
         }
+
         return response()->json($return);
     }
 }

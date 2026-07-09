@@ -458,7 +458,7 @@ class VehicleReservationsController extends LegacyAppController
             }
         }
 
-        return view('admin.vehicle_reservations.getuserdetails.', compact(
+        return view('admin.vehicle_reservations.getuserdetails', compact(
             'user',
             'owner',
             'paystub',
@@ -758,7 +758,10 @@ class VehicleReservationsController extends LegacyAppController
             'renter:id,first_name,last_name'
         ])->find($orderId);
 
-        return view('admin.vehicle_reservations.singleload', ['trip' => $booking]);
+        return view('admin.vehicle_reservations.elements.singleload', [
+            'trip' => $booking,
+            'checklists' => $this->checklist,
+        ]);
     }
     public function vehicleReservationLog(Request $request)
     {

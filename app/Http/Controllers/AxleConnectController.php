@@ -23,7 +23,7 @@ class AxleConnectController extends LegacyAppController
 
         $axleStatusObj = DB::table('axle_status')->where('order_id', $orderid)->first();
         if (empty($axleStatusObj) || !in_array($axleStatusObj->axle_status ?? 0, [2])) {
-            $odr = DB::table('order_deposit_rules as OrderDepositRule')
+            $odr = DB::table('cs_order_deposit_rules as OrderDepositRule')
                 ->leftJoin('vehicle_reservations as VehicleReservation', 'VehicleReservation.id', '=', 'OrderDepositRule.vehicle_reservation_id')
                 ->leftJoin('users as Renter', 'Renter.id', '=', 'VehicleReservation.renter_id')
                 ->where('OrderDepositRule.id', $orderid)

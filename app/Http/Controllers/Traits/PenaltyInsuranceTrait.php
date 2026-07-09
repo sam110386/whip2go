@@ -1,8 +1,11 @@
 <?php
-
 namespace App\Http\Controllers\Traits;
 
-use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\AxleStatus;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\CsUserBalance;
+use App\Models\Legacy\CsUserBalanceLog;
+use App\Models\Legacy\OrderDepositRule;
 
 trait PenaltyInsuranceTrait
 {
@@ -11,29 +14,37 @@ trait PenaltyInsuranceTrait
         if (($axleStatusObj['expired_on'] ?? '') >= date('Y-m-d')) {
             return false;
         }
-        $orderDepositRule = DB::table('order_deposit_rules')
-            ->where('id', $axleStatusObj['order_id'])
+
+        $orderDepositRule = OrderDepositRule::where('id', $axleStatusObj['order_id'])
             ->select('id', 'cs_order_id', 'insurance')
             ->first();
-        if (empty($orderDepositRule)) return false;
+
+        if (empty($orderDepositRule)) {
+            return false;
+        }
 
         $expiredOn = $axleStatusObj['expired_on'] ?? date('Y-m-d');
         $days = (int) ((strtotime(date('Y-m-d')) - strtotime($expiredOn)) / 86400);
         $totalInsurance = sprintf('%0.2f', ($days * $orderDepositRule->insurance));
         $calculatedInsurance = sprintf('%0.2f', ($totalInsurance - ($axleStatusObj['calculated_insurance'] ?? 0)));
-        if ($calculatedInsurance <= 0) return false;
 
-        $orderObj = DB::table('cs_orders')
+        if ($calculatedInsurance <= 0) {
+            return false;
+        }
+
+        $orderObj = CsOrder::select('id', 'renter_id', 'user_id')
             ->where(function ($q) use ($orderDepositRule) {
                 $q->where('id', $orderDepositRule->cs_order_id)
                     ->orWhere('parent_id', $orderDepositRule->cs_order_id);
             })
-            ->select('id', 'renter_id', 'user_id')
             ->orderBy('id', 'DESC')
             ->first();
-        if (empty($orderObj)) return false;
 
-        DB::table('cs_user_balance_logs')->insert([
+        if (empty($orderObj)) {
+            return false;
+        }
+
+        CsUserBalanceLog::create([
             'user_id' => $orderObj->renter_id,
             'credit' => $calculatedInsurance,
             'type' => 20,
@@ -41,7 +52,7 @@ trait PenaltyInsuranceTrait
             'note' => 'Penalty for Vehicle Insurance is not valid',
         ]);
 
-        DB::table('cs_user_balances')->insert([
+        CsUserBalance::create([
             'owner_id' => $orderObj->user_id,
             'user_id' => $orderObj->renter_id,
             'note' => 'Penalty for Vehicle Alert',
@@ -56,18 +67,20 @@ trait PenaltyInsuranceTrait
         ]);
 
         $newCalc = ($axleStatusObj['calculated_insurance'] ?? 0) + $calculatedInsurance;
-        DB::table('axle_status')->where('id', $axleStatusObj['id'])->update([
+
+        AxleStatus::where('id', $axleStatusObj['id'])->update([
             'calculated_insurance' => $newCalc,
         ]);
 
         return $calculatedInsurance;
     }
-
     public function savePenaltyInsurance(array $orderObj = [], $calculatedInsurance = 0)
     {
-        if ($calculatedInsurance <= 0 || empty($orderObj)) return false;
+        if ($calculatedInsurance <= 0 || empty($orderObj)) {
+            return false;
+        }
 
-        DB::table('cs_user_balance_logs')->insert([
+        CsUserBalanceLog::create([
             'user_id' => $orderObj['renter_id'],
             'credit' => $calculatedInsurance,
             'type' => 20,
@@ -75,7 +88,7 @@ trait PenaltyInsuranceTrait
             'note' => 'Penalty for Vehicle Insurance is not valid',
         ]);
 
-        DB::table('cs_user_balances')->insert([
+        CsUserBalance::create([
             'owner_id' => $orderObj['user_id'],
             'user_id' => $orderObj['renter_id'],
             'note' => 'Penalty for Vehicle Alert',
@@ -89,9 +102,10 @@ trait PenaltyInsuranceTrait
             'installment' => 0,
         ]);
 
-        $axleStatusObj = DB::table('axle_status')->where('order_id', $orderObj['deposit_rule_id'])->first();
+        $axleStatusObj = AxleStatus::where('order_id', $orderObj['deposit_rule_id'])->first();
+
         if ($axleStatusObj) {
-            DB::table('axle_status')->where('id', $axleStatusObj->id)->update([
+            AxleStatus::where('id', $axleStatusObj->id)->update([
                 'calculated_insurance' => ($axleStatusObj->calculated_insurance ?? 0) + $calculatedInsurance,
             ]);
         }

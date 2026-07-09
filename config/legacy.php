@@ -200,4 +200,13 @@ return [
 
     ],
 
+    'Docusign' => [
+        'userid' => env('DOCUSIGN_USER_ID', ''),
+        'accountid' => env('DOCUSIGN_ACCOUNT_ID', ''),
+        'url' => env('DOCUSIGN_URL', 'https://na3.docusign.net'),
+        'auth_url' => env('DOCUSIGN_AUTH_URL', 'https://account.docusign.com/oauth/auth?'),
+        'integration_key' => env('DOCUSIGN_INTEGRATION_KEY', ''),
+        'secret_key' => env('DOCUSIGN_SECRET_KEY', ''),
+    ],
+
 ];

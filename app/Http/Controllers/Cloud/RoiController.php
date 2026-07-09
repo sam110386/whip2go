@@ -179,7 +179,7 @@ class RoiController extends LegacyAppController
         }
 
         $booking = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->where('VehicleReservation.renter_id', $userObj['id'])
             ->where('VehicleReservation.status', 0)
             ->whereNotNull('OrderDepositRule.id')
@@ -220,7 +220,7 @@ class RoiController extends LegacyAppController
         }
 
         $booking = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->where('VehicleReservation.renter_id', $userObj['id'])
             ->where('VehicleReservation.status', 0)
             ->whereNotNull('OrderDepositRule.id')
@@ -400,7 +400,7 @@ class RoiController extends LegacyAppController
         }
 
         $booking = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'VehicleReservation.vehicle_id')
             ->where('VehicleReservation.id', $order)
             ->where('VehicleReservation.renter_id', $user)
@@ -471,7 +471,7 @@ class RoiController extends LegacyAppController
         }
 
         $booking = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'VehicleReservation.vehicle_id')
             ->where('VehicleReservation.id', $order)
             ->where('VehicleReservation.renter_id', $user)
@@ -646,7 +646,7 @@ class RoiController extends LegacyAppController
         }
 
         $booking = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'VehicleReservation.vehicle_id')
             ->where('VehicleReservation.id', $order)
             ->where('VehicleReservation.renter_id', $user)

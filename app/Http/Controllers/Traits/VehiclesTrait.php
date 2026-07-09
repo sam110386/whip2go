@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Traits;
 
 use Illuminate\Http\Request;
@@ -13,10 +12,8 @@ use App\Services\Legacy\GeotabClient;
 use App\Services\Legacy\OnestepGpsClient;
 use App\Services\Legacy\AutoPiFleetClient;
 
-
 trait VehiclesTrait
 {
-
     private function handleUpload($file, $vehicleId)
     {
         if (!$file->isValid()) {
@@ -63,7 +60,6 @@ trait VehiclesTrait
 
         return ['error' => 'Could not save uploaded file. The upload was cancelled, or server error encountered'];
     }
-
     private function _getVehicleGps($vehicleId, $type)
     {
         $vehicle = Vehicle::select([
@@ -188,7 +184,6 @@ trait VehiclesTrait
         }
 
     }
-
     private function _getVehicleDynamicFare($request)
     {
         $vehicleId = $request->input('vehicleid');
@@ -225,7 +220,6 @@ trait VehiclesTrait
 
         return response()->json($responseData);
     }
-
     private function _getVehicleInspectionDoc(Request $request)
     {
         $return = ['status' => false, 'message' => "Invalid Vehicle ID", 'result' => []];
@@ -256,7 +250,6 @@ trait VehiclesTrait
 
         return response()->json($return);
     }
-
     private function exportToCsv($vehicles)
     {
         $vehicleStatus = $this->commonService->getVehicleStatus();

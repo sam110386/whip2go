@@ -26,7 +26,7 @@ class HomenetFeed
             ->where('status', 1)
             ->where(function ($q) {
                 $q->where('last_processed', '!=', date('Y-m-d'))
-                  ->orWhereNull('last_processed');
+                    ->orWhereNull('last_processed');
             })
             ->limit(1)
             ->get();
@@ -375,7 +375,7 @@ class HomenetFeed
 
     public function saveVehicleDepositRule(array $data): void
     {
-        $exists = DB::table('deposit_rules')->where('vehicle_id', $data['vehicle_id'])->first();
+        $exists = DB::table('cs_deposit_rules')->where('vehicle_id', $data['vehicle_id'])->first();
         if (!empty($exists)) {
             return;
         }
@@ -435,7 +435,7 @@ class HomenetFeed
             break;
         }
 
-        DB::table('deposit_rules')->insert($dataToSave);
+        DB::table('cs_deposit_rules')->insert($dataToSave);
     }
 
     public function sendHttpRequest(string $url): array

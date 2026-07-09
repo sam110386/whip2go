@@ -130,7 +130,7 @@ class DepositTemplatesController extends LegacyAppController
         if (isset($data['incentive'])) {
             $incentives = array_filter($data['DepositTemplate']['incentives'] ?? [], fn($item) => ($item['amount'] ?? 0) != 0);
             
-            $allRules = DepositRule::from('deposit_rules as DepositRule')
+            $allRules = DepositRule::from('cs_deposit_rules as DepositRule')
                 ->join('vehicles as Vehicle', 'Vehicle.id', '=', 'DepositRule.vehicle_id')
                 ->where('DepositRule.user_id', $userId)
                 ->select('DepositRule.id', 'DepositRule.vehicle_id', 'Vehicle.make', 'Vehicle.model', 'Vehicle.year', 'Vehicle.trim')

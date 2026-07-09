@@ -1392,28 +1392,18 @@ class BookingsController extends LegacyAppController
         ]);
     }
 
-    public function getVehicleCCMCard(Request $request): JsonResponse
+    public function getVehicleCCMCard(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        if (!$orderId) {
-            return response()->json(['status' => false, 'card' => null, 'message' => 'Invalid order id']);
+        $return = [
+            "status" => false,
+            "message" => "Something went wrong"
+        ];
+
+        if ($request->isMethod('post') && $request->has('order')) {
+            $return = $this->_generateCMMCard('', $request->input('order'));
         }
 
-        $order = CsOrder::with(['vehicle', 'owner', 'renter'])
-            ->where('id', $orderId)
-            ->first();
-
-        if (!$order) {
-            return response()->json(['status' => false, 'card' => null, 'message' => 'Order not found']);
-        }
-
-        \Log::warning('CCM card generation not yet ported — order ' . $orderId);
-
-        return response()->json([
-            'status' => true,
-            'card' => null,
-            'message' => 'CCM card generation is stubbed — order ' . $orderId . ' loaded.',
-        ]);
+        return response()->json($return);
     }
 
     public function sendAxleShareDetails(Request $request): JsonResponse

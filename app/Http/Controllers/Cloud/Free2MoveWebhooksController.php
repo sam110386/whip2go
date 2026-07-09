@@ -54,7 +54,7 @@ class Free2MoveWebhooksController extends LegacyAppController
             ->where('id', $vehicle->id)
             ->update(['day_rent' => $dayrent, 'rent_opt' => '', 'status' => 1]);
 
-        DB::table('deposit_rules')
+        DB::table('cs_deposit_rules')
             ->where('vehicle_id', $vehicle->id)
             ->update(['free_two_move' => json_encode($dataValues)]);
 

@@ -85,7 +85,6 @@ class AxleService
         $this->header[] = 'x-access-token:' . $data['x-access-token'];
         return $this->sendHttpRequest('ignition', 'POST', $requestBody);
     }
-
     public function fetchPolicyDetails(string $access_token, string $policy): array
     {
         $this->buildAuthHeader();
@@ -98,7 +97,6 @@ class AxleService
         $this->header[] = "x-access-token:{$access_token}";
         return $this->sendHttpRequest("accounts/{$account_id}", 'GET', []);
     }
-
     public function fetchAccountAndPolicyDetails(string $axle_authCode): array
     {
         $this->buildAuthHeader();
@@ -128,7 +126,6 @@ class AxleService
 
         return array_merge($tokenArray, $return);
     }
-
     public function closeAxleConnection(int $orderId): array
     {
         $axleStatusObj = AxleStatus::where('order_id', $orderId)->first();
@@ -160,19 +157,16 @@ class AxleService
 
         return ['success' => true, 'message' => 'Disconnected'];
     }
-
     public function terminateToken(string $access_token): array
     {
         $this->buildAuthHeader();
         $this->header[] = "x-access-token:{$access_token}";
         return $this->sendHttpRequest('token/descope', 'POST', ["scope" => "monitoring"]);
     }
-
     private function tokenExchange(string $authCode): array
     {
         return $this->sendHttpRequest('token/exchange', 'POST', ["authCode" => $authCode]);
     }
-
     private function buildAuthHeader(): void
     {
         $this->header = [
@@ -184,7 +178,6 @@ class AxleService
             "Pragma: no-cache",
         ];
     }
-
     private function sendHttpRequest(string $api, string $request = 'GET', array $requestBody = []): array
     {
         $baseUrl = config('legacy.axle.api_host', 'https://api.axle.insure');

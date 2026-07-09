@@ -36,11 +36,11 @@ class DriverFinancedQuotesController extends LegacyAppController
         $quotes = !empty($quoteData['quote']) ? json_decode($quoteData['quote'], true) : [];
         $providers = DB::table('insurance_providers')->where('status', 1)->get()->toArray();
 
-        $orderDepositRuleObj = DB::table('order_deposit_rules')
-            ->leftJoin('vehicle_reservations', 'vehicle_reservations.id', '=', 'order_deposit_rules.vehicle_reservation_id')
-            ->leftJoin('axle_statuses', 'axle_statuses.order_id', '=', 'order_deposit_rules.id')
-            ->where('order_deposit_rules.vehicle_reservation_id', $recordid)
-            ->select('order_deposit_rules.id', 'order_deposit_rules.insurance_payer', 'vehicle_reservations.renter_id', 'vehicle_reservations.id as reservation_id')
+        $orderDepositRuleObj = DB::table('cs_order_deposit_rules')
+            ->leftJoin('vehicle_reservations', 'vehicle_reservations.id', '=', 'cs_order_deposit_rules.vehicle_reservation_id')
+            ->leftJoin('axle_statuses', 'axle_statuses.order_id', '=', 'cs_order_deposit_rules.id')
+            ->where('cs_order_deposit_rules.vehicle_reservation_id', $recordid)
+            ->select('cs_order_deposit_rules.id', 'cs_order_deposit_rules.insurance_payer', 'vehicle_reservations.renter_id', 'vehicle_reservations.id as reservation_id')
             ->first();
 
         $orderandusers = '';

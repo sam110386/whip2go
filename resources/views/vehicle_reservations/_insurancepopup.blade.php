@@ -99,7 +99,7 @@
                 <div class="col-lg-6 control-label">
                     <a href="javascript:void(0)"
                         onclick="OpenChangeInsurancePayerPopUp('{{ data_get($trip, 'orderDepositRule.id') }}')">
-                        {{ $commonService->getInsurancePayer(data_get($trip, 'orderDepositRule.insurance_payer')) }}
+                        {{ $commonService->getInsurancePayer(data_get($trip, 'orderDepositRule.insurance_payer', '')) }}
                     </a>
                 </div>
             </div>

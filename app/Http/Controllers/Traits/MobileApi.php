@@ -2,35 +2,40 @@
 
 namespace App\Http\Controllers\Traits;
 
-use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\CsWallet;
+use App\Models\Legacy\IntercomCarousel;
 use App\Models\Legacy\OrderDepositRule;
 use App\Services\Legacy\PaymentProcessor;
-use Illuminate\Support\Facades\Log;
+use App\Models\Legacy\DynamicDeposit;
 use Illuminate\Support\Facades\DB;
-// use App\Libraries\PaymentProcessor;
 
-trait MobileApi {
+trait MobileApi
+{
+    public function IntercomCarousels()
+    {
+        $all = IntercomCarousel::select('screen', 'intercom')->get();
 
-    public function IntercomCarousels() {
-        // Model missing, returning placeholder
         return [
             'status' => 1,
             "message" => "",
-            "result" => []
+            "result" => $all
         ];
     }
-
-    public function mobileWalletTermText() {
+    public function mobileWalletTermText()
+    {
         $text = "Wallet term text coming soon..";
-        return ['status' => 1, "message" => "", "result" => $text];
+        return [
+            'status' => 1,
+            "message" => "",
+            "result" => $text
+        ];
     }
-
-    private function retryRental($queue, $error) {
+    private function retryRental($queue, $error)
+    {
         $csOrderId = $queue->id;
         $paidData = CsOrderPayment::getTotalRentalTax($csOrderId);
-        
+
         $rent = (float) preg_replace("/[^0-9.]/", "", $queue->rent ?? 0);
         $damageFee = (float) preg_replace("/[^0-9.]/", "", $queue->damage_fee ?? 0);
         $uncleannessFee = (float) preg_replace("/[^0-9.]/", "", $queue->uncleanness_fee ?? 0);
@@ -40,7 +45,7 @@ trait MobileApi {
         $pendingRent = sprintf('%0.2f', (($rent + $damageFee + $uncleannessFee) - ($paidData['rent'] ?? 0)));
         $pendingTax = sprintf('%0.2f', ($tax - ($paidData['tax'] ?? 0)));
         $pendingDiaFee = sprintf('%0.2f', ($diaFee - ($paidData['dia_fee'] ?? 0)));
-        
+
         $renterId = $queue->renter_id;
         $amount = (float) sprintf('%0.2f', ($pendingRent + $pendingTax + $pendingDiaFee));
 
@@ -51,14 +56,16 @@ trait MobileApi {
                 if ($rentResult['pending'] > 0) {
                     $success = false;
                 }
-                
+
                 // Save payment info
                 $payment = new CsOrderPayment();
-                $payment->order_id = $csOrderId;
-                $payment->amount = ($amount - $rentResult['pending']);
-                $payment->transaction_id = $rentResult['transactions'];
-                $payment->tax = $pendingTax;
-                $payment->dia_fee = $pendingDiaFee;
+                $payment->setOrderId($csOrderId);
+                $payment->setRenterId($renterId);
+                $payment->setCurrency($queue->currency ?? 'USD');
+                $payment->setAmount(($amount - $rentResult['pending']));
+                $payment->setTransactionidId($rentResult['transactions']);
+                $payment->setTax($pendingTax);
+                $payment->setDiaFee($pendingDiaFee);
                 $payment->saveRentalTransaction();
 
                 if ($success) {
@@ -74,27 +81,30 @@ trait MobileApi {
         }
         return $error;
     }
-
-    private function retryDeposit($amount, $renterId, $depositType, $csOrderId) {
+    private function retryDeposit($amount, $renterId, $depositType, $csOrderId)
+    {
         $result = ['status' => false];
+
         if ($depositType == "C") {
             $result = CsWallet::chargeFromWallet($renterId, $amount, $amount . ' deposit amount from retryDeposit', 1, $csOrderId);
         }
 
         if ($result['status'] ?? false) {
             $payment = new CsOrderPayment();
-            $payment->order_id = $csOrderId;
-            $payment->amount = $amount;
-            $payment->transaction_id = $result['transactions'];
-            $payment->type = 'C';
+            $payment->setOrderId($csOrderId);
+            $payment->setRenterId($renterId);
+            $payment->setAmount($amount);
+            $payment->setTransactionidId($result['transactions']);
+            $payment->setType('C');
             $payment->saveDepositTransaction();
             return true;
         }
         return false;
     }
-
-    private function retryInsurance($amount, $queue) {
+    private function retryInsurance($amount, $queue)
+    {
         $rule = OrderDepositRule::where('cs_order_id', ($queue->parent_id ?: $queue->id))->first();
+
         if ($rule && in_array($rule->insurance_payer, [1, 3])) {
             return false;
         }
@@ -102,21 +112,23 @@ trait MobileApi {
         $insuResult = CsWallet::chargePartialFromWallet($queue->renter_id, $amount, $amount . ' insurance fee from retryInsurance', $queue->id, 4);
         if ($insuResult['status']) {
             $payment = new CsOrderPayment();
-            $payment->order_id = $queue->id;
-            $payment->amount = ($amount - $insuResult['pending']);
-            $payment->transaction_id = $insuResult['transactions'];
-            $payment->payer_id = $queue->renter_id;
+            $payment->setOrderId($queue->id);
+            $payment->setRenterId($queue->renter_id);
+            $payment->setAmount(($amount - $insuResult['pending']));
+            $payment->setTransactionidId($insuResult['transactions']);
+            $payment->setPayerId($queue->renter_id);
+            $payment->setCurrency($queue->currency ?? 'USD');
             $payment->saveInsuranceTransaction();
             return ($insuResult['pending'] <= 0);
         }
         return false;
     }
-
-    private function retryInitialfee($queue, $error) {
+    private function retryInitialfee($queue, $error)
+    {
         $paidInitial = CsOrderPayment::getTotalInitialFee($queue->id);
         $amountRaw = (float) preg_replace("/[^0-9.]/", "", $queue->initial_fee ?? 0);
         $taxRaw = (float) preg_replace("/[^0-9.]/", "", $queue->initial_fee_tax ?? 0);
-        
+
         $amount = sprintf('%0.2f', ($amountRaw - ($paidInitial['initial_fee'] ?? 0)));
         $tax = sprintf('%0.2f', ($taxRaw - ($paidInitial['initial_fee_tax'] ?? 0)));
         $total = (float) ($amount + $tax);
@@ -125,10 +137,12 @@ trait MobileApi {
             $result = CsWallet::chargePartialFromWallet($queue->renter_id, $total, $total . ' initial amount from retryInitialfee', $queue->id, 3);
             if ($result['status']) {
                 $payment = new CsOrderPayment();
-                $payment->order_id = $queue->id;
-                $payment->amount = ($total - $result['pending']);
-                $payment->tax = $tax;
-                $payment->transaction_id = $result['transactions'];
+                $payment->setOrderId($queue->id);
+                $payment->setRenterId($queue->renter_id);
+                $payment->setAmount(($total - $result['pending']));
+                $payment->setTax($tax);
+                $payment->setTransactionidId($result['transactions']);
+                $payment->setCurrency($queue->currency ?? 'USD');
                 $payment->saveInitialFeeTransaction();
 
                 if ($result['pending'] <= 0) {
@@ -144,11 +158,11 @@ trait MobileApi {
         }
         return $error;
     }
-
-    private function retryDiaInsurance($queue, $error) {
+    private function retryDiaInsurance($queue, $error)
+    {
         $paidDiaInsurance = CsOrderPayment::getTotalDiaInsurance($queue->id);
         $amount = sprintf('%0.2f', (preg_replace("/[^0-9.]/", "", $queue->dia_insu ?? 0) - $paidDiaInsurance));
-        
+
         if ($amount > 0) {
             $renterid = $queue->renter_id;
             $csOrderId = $queue->id;
@@ -157,21 +171,23 @@ trait MobileApi {
             if ($rule && in_array($rule->insurance_payer, [1, 3])) {
                 return false;
             }
-            
+
             $insuresult = CsWallet::chargePartialFromWallet($renterid, $amount, $amount . ' insurance fee from retryDiaInsurance', $csOrderId, 4);
             if ($insuresult['status']) {
                 $return = true;
                 if ($insuresult['pending'] > 0) {
                     $return = false;
                 }
-                
+
                 $payment = new CsOrderPayment();
-                $payment->order_id = $csOrderId;
-                $payment->amount = ($amount - $insuresult['pending']);
-                $payment->transaction_id = $insuresult['transactions'];
-                $payment->payer_id = $renterid;
+                $payment->setOrderId($csOrderId);
+                $payment->setRenterId($renterid);
+                $payment->setAmount(($amount - $insuresult['pending']));
+                $payment->setTransactionidId($insuresult['transactions']);
+                $payment->setPayerId($renterid);
+                $payment->setCurrency($queue->currency ?? 'USD');
                 $payment->saveDiaInsuranceTransaction();
-                
+
                 if ($return) {
                     $queue->update(['dia_insu_status' => 1]);
                 } else {
@@ -185,32 +201,34 @@ trait MobileApi {
         }
         return $error;
     }
-
-    private function retryEmf($queue, $error) {
+    private function retryEmf($queue, $error)
+    {
         $paidData = CsOrderPayment::getTotalEmf($queue->id);
         $emf = sprintf('%0.2f', (preg_replace("/[^0-9.]/", "", $queue->extra_mileage_fee ?? 0) - ($paidData['emf'] ?? 0)));
         $tax = sprintf('%0.2f', (preg_replace("/[^0-9.]/", "", $queue->emf_tax ?? 0) - ($paidData['tax'] ?? 0)));
-        
+
         $renterid = $queue->renter_id;
         $csOrderId = $queue->id;
 
         if ($emf > 0 || $tax > 0) {
             $amount = sprintf('%0.2f', ($emf + $tax));
             $rentResult = CsWallet::chargePartialFromWallet($renterid, $amount, $amount . ' emf amount from retryEmf', $csOrderId, 2);
-            
+
             if ($rentResult['status']) {
                 $return = true;
                 if ($rentResult['pending'] > 0) {
                     $return = false;
                 }
-                
+
                 $payment = new CsOrderPayment();
-                $payment->order_id = $csOrderId;
-                $payment->amount = ($amount - $rentResult['pending']);
-                $payment->transaction_id = $rentResult['transactions'];
-                $payment->tax = $tax;
+                $payment->setOrderId($csOrderId);
+                $payment->setRenterId($renterid);
+                $payment->setAmount(($amount - $rentResult['pending']));
+                $payment->setTransactionidId($rentResult['transactions']);
+                $payment->setTax($tax);
+                $payment->setCurrency($queue->currency ?? 'USD');
                 $payment->saveEmfTransaction();
-                
+
                 if ($return) {
                     $queue->update(['emf_status' => 1]);
                 } else {
@@ -224,13 +242,14 @@ trait MobileApi {
         }
         return $error;
     }
-
-    private function retryToll($queue, $error) {
+    private function retryToll($queue, $error)
+    {
         $amount = (float) preg_replace("/[^0-9.]/", "", $queue->pending_toll ?? 0);
         $paidToll = (float) preg_replace("/[^0-9.]/", "", $queue->toll ?? 0);
 
         if ($amount > 0) {
             $tollResult = CsWallet::chargePartialFromWallet($queue->renter_id, $amount, $amount . ' toll fee from retryToll', $queue->id, 6);
+
             if ($tollResult['status']) {
                 $paid = $amount - $tollResult['pending'];
                 $queue->update([
@@ -238,47 +257,55 @@ trait MobileApi {
                     'toll' => sprintf('%0.2f', ($paidToll + $paid)),
                     'toll_status' => ($tollResult['pending'] <= 0 ? 1 : 2)
                 ]);
-                
+
                 $payment = new CsOrderPayment();
+
                 if (method_exists($payment, 'saveTollTransaction')) {
                     $payment->saveTollTransaction($queue->id, $paid, $tollResult['transactions'], $queue->user_id);
                 }
-                
-                if ($tollResult['pending'] > 0) $error = true;
+
+                if ($tollResult['pending'] > 0) {
+                    $error = true;
+                }
             } else {
                 $error = true;
             }
         } else {
             $queue->update(['toll_status' => 1]);
         }
+
         return $error;
     }
-
-    private function retryLatefee($queue, $error) {
+    private function retryLatefee($queue, $error)
+    {
         $paidData = CsOrderPayment::getTotalPaidLateFee($queue->id);
         $amount = sprintf('%0.2f', (preg_replace("/[^0-9.]/", "", $queue->lateness_fee ?? 0) - ($paidData ?? 0)));
-        
+
         $renterid = $queue->renter_id;
         $csOrderId = $queue->id;
-        
+
         if ($amount > 0) {
             $rentResult = CsWallet::chargePartialFromWallet($renterid, $amount, $amount . ' latefee amount from retryLatefee', $csOrderId, 19);
+
             if ($rentResult['status']) {
                 $return = true;
+
                 if ($rentResult['pending'] > 0) {
                     $return = false;
                 }
-                
+
                 $payment = new CsOrderPayment();
-                $payment->order_id = $csOrderId;
-                $payment->amount = ($amount - $rentResult['pending']);
-                $payment->transaction_id = $rentResult['transactions'];
-                $payment->tax = 0;
-                $payment->dia_fee = 0;
+                $payment->setOrderId($csOrderId);
+                $payment->setRenterId($renterid);
+                $payment->setAmount(($amount - $rentResult['pending']));
+                $payment->setTransactionidId($rentResult['transactions']);
+                $payment->setTax(0);
+                $payment->setDiaFee(0);
+                $payment->setCurrency($queue->currency ?? 'USD');
                 if (method_exists($payment, 'saveLateFeeTransaction')) {
                     $payment->saveLateFeeTransaction();
                 }
-                
+
                 if ($return) {
                     $queue->update(['lateness_fee_status' => 1]);
                 } else {
@@ -291,24 +318,41 @@ trait MobileApi {
         } else {
             $queue->update(['lateness_fee_status' => 1]);
         }
-        
+
         return $error;
     }
-
-    public function retryPendingPaymentFromWallet($queue) {
+    public function retryPendingPaymentFromWallet($queue)
+    {
         $error = false;
-        
+
         if ($queue->payment_status == 2) {
             $error = $this->retryRental($queue, $error);
         }
-        
+
         if (!$error && $queue->dpa_status == 2) {
             $paidDeposit = CsOrderPayment::getTotalDeposit($queue->id);
             $balance = sprintf('%0.2f', (preg_replace("/[^0-9.]/", "", $queue->deposit ?? 0) - $paidDeposit));
-            
+
             if ($queue->deposit_type == 'D') {
-                // Dynamic deposit logic
-                Log::info("DynamicDeposit retry not yet implemented for order " . $queue->id);
+                $failedDeposits = DynamicDeposit::where('cs_order_id', $queue->id)
+                    ->where('status', 2)
+                    ->get();
+                $dpaStatus = 1;
+                $depositTotal = $queue->deposit;
+                foreach ($failedDeposits as $failedDeposit) {
+                    $return = $this->retryDeposit($failedDeposit->amount, $queue->renter_id, 'C', $queue->id);
+                    if ($return) {
+                        $depositTotal += $failedDeposit->amount;
+                        $failedDeposit->update(['status' => 1]);
+                    } else {
+                        $dpaStatus = 2;
+                        $error = true;
+                    }
+                }
+                $queue->update([
+                    'dpa_status' => $dpaStatus,
+                    'deposit' => $depositTotal
+                ]);
             } elseif ($balance > 0) {
                 if ($this->retryDeposit($balance, $queue->renter_id, $queue->deposit_type, $queue->id)) {
                     $queue->update(['dpa_status' => 1]);
@@ -356,17 +400,17 @@ trait MobileApi {
 
         return $error;
     }
-
-    public function processRetryPendingPayment($queue) {
+    public function processRetryPendingPayment($queue)
+    {
         $error = false;
         $paymentProcessorObj = app(PaymentProcessor::class);
-        
+
         if ($queue->payment_status == 2 || $queue->payment_status == 0) {
             $paidData = CsOrderPayment::getTotalRentalTax($queue->id);
             $pendingRent = sprintf('%0.2f', (($queue->rent + $queue->damage_fee + $queue->uncleanness_fee) - ($paidData['rent'] ?? 0)));
             $pendingTax = sprintf('%0.2f', ($queue->tax - ($paidData['tax'] ?? 0)));
             $pendingDiaFee = sprintf('%0.2f', ($queue->dia_fee - ($paidData['dia_fee'] ?? 0)));
-            
+
             if ($pendingRent > 0 || $pendingTax > 0) {
                 $return = $paymentProcessorObj->retryRental($pendingRent, $pendingTax, $pendingDiaFee, $queue->toArray());
                 if (($return['status'] ?? '') == 'success') {
@@ -379,14 +423,31 @@ trait MobileApi {
                 $queue->update(['payment_status' => 1]);
             }
         }
-        
+
         if (!$error && $queue->dpa_status == 2) {
             $paidDeposit = CsOrderPayment::getTotalDeposit($queue->id);
             $balanceDeposit = sprintf('%0.2f', ($queue->deposit - $paidDeposit));
 
             if ($queue->deposit_type == 'D') {
-                $queue->update(['dpa_status' => 1]);
-                Log::info("DynamicDeposit retry via processor not yet fully implemented for order " . $queue->id);
+                $failedDeposits = DynamicDeposit::where('cs_order_id', $queue->id)
+                    ->where('status', 2)
+                    ->get();
+                $dpaStatus = 1;
+                $depositTotal = $queue->deposit;
+                foreach ($failedDeposits as $failedDeposit) {
+                    $return = $paymentProcessorObj->retryDeposit($failedDeposit->amount, $queue->renter_id, 'C', $queue->id, $queue->cc_token_id);
+                    if (($return['status'] ?? '') == 'success') {
+                        $depositTotal += $failedDeposit->amount;
+                        $failedDeposit->update(['status' => 1]);
+                    } else {
+                        $dpaStatus = 2;
+                        $error = true;
+                    }
+                }
+                $queue->update([
+                    'dpa_status' => $dpaStatus,
+                    'deposit' => $depositTotal
+                ]);
             } elseif ($balanceDeposit > 0) {
                 $return = $paymentProcessorObj->retryDeposit($balanceDeposit, $queue->renter_id, $queue->deposit_type, $queue->id, $queue->cc_token_id);
                 if (($return['status'] ?? '') == 'success') {
@@ -400,13 +461,13 @@ trait MobileApi {
         if (!$error && ($queue->insu_status == 2 || $queue->insu_status == 0)) {
             $rule = OrderDepositRule::where('cs_order_id', ($queue->parent_id ?: $queue->id))->first();
             $insurancePayer = $rule ? $rule->insurance_payer : null;
-            
+
             $queueArray = $queue->toArray();
             $queueArray['insurance_payer'] = $insurancePayer;
-            
+
             $paidInsurance = CsOrderPayment::getTotalInsurance($queue->id);
             $pendingInsurance = sprintf('%0.2f', ($queue->insurance_amt - $paidInsurance));
-            
+
             if ($pendingInsurance > 0) {
                 $return = $paymentProcessorObj->retryInsurance($pendingInsurance, $queueArray);
                 if (($return['status'] ?? '') == 'success') {
@@ -423,7 +484,7 @@ trait MobileApi {
             $paidInitialfee = CsOrderPayment::getTotalInitialFee($queue->id);
             $pendings = sprintf('%0.2f', ($queue->initial_fee - ($paidInitialfee['initial_fee'] ?? 0)));
             $pendingTax = sprintf('%0.2f', ($queue->initial_fee_tax - ($paidInitialfee['initial_fee_tax'] ?? 0)));
-            
+
             if ($pendings > 0) {
                 $return = $paymentProcessorObj->retryInitialfee($pendings, $queue->toArray(), $pendingTax);
                 if (($return['status'] ?? '') == 'success') {
@@ -453,13 +514,13 @@ trait MobileApi {
         if (!$error && $queue->dia_insu_status == 2) {
             $rule = OrderDepositRule::where('cs_order_id', ($queue->parent_id ?: $queue->id))->first();
             $insurancePayer = $rule ? $rule->insurance_payer : null;
-            
+
             $queueArray = $queue->toArray();
             $queueArray['insurance_payer'] = $insurancePayer;
-            
+
             $paidDiaInsurance = CsOrderPayment::getTotalDiaInsurance($queue->id);
             $pendingDiaInsurance = sprintf('%0.2f', ($queue->dia_insu - $paidDiaInsurance));
-            
+
             if ($pendingDiaInsurance > 0) {
                 $return = $paymentProcessorObj->retryDiaInsurance($pendingDiaInsurance, $queueArray);
                 if (($return['status'] ?? '') == 'success') {
@@ -471,12 +532,12 @@ trait MobileApi {
                 $queue->update(['dia_insu_status' => 1]);
             }
         }
-        
+
         if ($queue->emf_status == 2 || $queue->emf_status == 0) {
             $paidData = CsOrderPayment::getTotalEmf($queue->id);
             $pendingRent = sprintf('%0.2f', ($queue->extra_mileage_fee - ($paidData['emf'] ?? 0)));
             $pendingTax = sprintf('%0.2f', ($queue->emf_tax - ($paidData['tax'] ?? 0)));
-            
+
             if ($pendingRent > 0 || $pendingTax > 0) {
                 $return = $paymentProcessorObj->retryEmf($pendingRent, $pendingTax, $queue->toArray());
                 if (($return['status'] ?? '') == 'success') {
@@ -492,7 +553,7 @@ trait MobileApi {
         if ($queue->lateness_fee_status == 2 || $queue->lateness_fee_status == 0) {
             $totalPaidLateFee = CsOrderPayment::getTotalPaidLateFee($queue->id);
             $pendingLateFee = $queue->lateness_fee - $totalPaidLateFee;
-            
+
             if ($pendingLateFee > 0) {
                 $return = $paymentProcessorObj->retryLatefee($pendingLateFee, $queue->toArray());
                 if (($return['status'] ?? '') == 'success') {
@@ -508,27 +569,81 @@ trait MobileApi {
 
         return $error;
     }
-
-    public function _getCountryCounty() {
+    public function _getCountryCounty()
+    {
         return [
             'US' => [
                 "title" => "USA",
                 "state" => [
-                    'AL'=> 'Alabama','AK' => 'Alaska','AZ' => 'Arizona','AR' => 'Arkansas','CA' => 'California','CO' => 'Colorado','CT' => 'Connecticut','DE' => 'Delaware','DC' => 'District Of Columbia',
-                    'FL' => 'Florida','GA' => 'Georgia','HI' => 'Hawaii','ID' => 'Idaho','IL' => 'Illinois','IN' => 'Indiana','IA' => 'Iowa','KS' => 'Kansas',
-                    'KY' => 'Kentucky','LA' => 'Louisiana','ME' => 'Maine','MD' => 'Maryland','MA' => 'Massachusetts','MI' => 'Michigan','MN' => 'Minnesota','MS' => 'Mississippi',
-                    'MO' => 'Missouri','MT' => 'Montana','NE' => 'Nebraska','NV' => 'Nevada','NH' => 'New Hampshire','NJ' => 'New Jersey','NM' => 'New Mexico','NY' => 'New York',
-                    'NC' => 'North Carolina','ND' => 'North Dakota','OH' => 'Ohio','OK' => 'Oklahoma','OR' => 'Oregon','PA' => 'Pennsylvania','RI' => 'Rhode Island',
-                    'SC' => 'South Carolina','SD' => 'South Dakota','TN' => 'Tennessee','TX' => 'Texas','UT' => 'Utah','VT' => 'Vermont','VA' => 'Virginia','WA' => 'Washington',
-                    'WV' => 'West Virginia','WI' => 'Wisconsin','WY' => 'Wyoming'
+                    'AL' => 'Alabama',
+                    'AK' => 'Alaska',
+                    'AZ' => 'Arizona',
+                    'AR' => 'Arkansas',
+                    'CA' => 'California',
+                    'CO' => 'Colorado',
+                    'CT' => 'Connecticut',
+                    'DE' => 'Delaware',
+                    'DC' => 'District Of Columbia',
+                    'FL' => 'Florida',
+                    'GA' => 'Georgia',
+                    'HI' => 'Hawaii',
+                    'ID' => 'Idaho',
+                    'IL' => 'Illinois',
+                    'IN' => 'Indiana',
+                    'IA' => 'Iowa',
+                    'KS' => 'Kansas',
+                    'KY' => 'Kentucky',
+                    'LA' => 'Louisiana',
+                    'ME' => 'Maine',
+                    'MD' => 'Maryland',
+                    'MA' => 'Massachusetts',
+                    'MI' => 'Michigan',
+                    'MN' => 'Minnesota',
+                    'MS' => 'Mississippi',
+                    'MO' => 'Missouri',
+                    'MT' => 'Montana',
+                    'NE' => 'Nebraska',
+                    'NV' => 'Nevada',
+                    'NH' => 'New Hampshire',
+                    'NJ' => 'New Jersey',
+                    'NM' => 'New Mexico',
+                    'NY' => 'New York',
+                    'NC' => 'North Carolina',
+                    'ND' => 'North Dakota',
+                    'OH' => 'Ohio',
+                    'OK' => 'Oklahoma',
+                    'OR' => 'Oregon',
+                    'PA' => 'Pennsylvania',
+                    'RI' => 'Rhode Island',
+                    'SC' => 'South Carolina',
+                    'SD' => 'South Dakota',
+                    'TN' => 'Tennessee',
+                    'TX' => 'Texas',
+                    'UT' => 'Utah',
+                    'VT' => 'Vermont',
+                    'VA' => 'Virginia',
+                    'WA' => 'Washington',
+                    'WV' => 'West Virginia',
+                    'WI' => 'Wisconsin',
+                    'WY' => 'Wyoming'
                 ]
             ],
             'CA' => [
                 "title" => "Canada",
                 "state" => [
-                    'AB'=> 'Alberta',"BC"=>"British Columbia","MB"=>"Manitoba","NB"=>"New Brunswick","NL"=>"Newfoundland and Labrador",
-                    "NS"=>"Nova Scotia","NT"=>"Northwest Territories","NU"=>"Nunavut","ON"=>"Ontario","PE"=>"Prince Edward Island",
-                    "QC"=>"Quebec","SK"=>"Saskatchewan","YT"=>"Yukon"
+                    'AB' => 'Alberta',
+                    "BC" => "British Columbia",
+                    "MB" => "Manitoba",
+                    "NB" => "New Brunswick",
+                    "NL" => "Newfoundland and Labrador",
+                    "NS" => "Nova Scotia",
+                    "NT" => "Northwest Territories",
+                    "NU" => "Nunavut",
+                    "ON" => "Ontario",
+                    "PE" => "Prince Edward Island",
+                    "QC" => "Quebec",
+                    "SK" => "Saskatchewan",
+                    "YT" => "Yukon"
                 ]
             ]
         ];

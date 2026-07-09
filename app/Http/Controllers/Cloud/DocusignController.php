@@ -4,16 +4,14 @@ namespace App\Http\Controllers\Cloud;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
 use App\Http\Controllers\Traits\AgreementTrait;
-use App\Services\Legacy\DocusignToken;
+use App\Http\Controllers\Traits\DocusignTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DocusignController extends LegacyAppController
 {
-    use AgreementTrait;
+    use AgreementTrait, DocusignTrait;
 
-    private $config;
-    private array $args = [];
     private int $signer_client_id = 1000;
     private ?array $userObj = null;
 
@@ -115,10 +113,10 @@ class DocusignController extends LegacyAppController
             $userArr['licence_number'] = decrypt($userArr['licence_number']);
             $this->userObj = $userArr;
 
-            $this->args = $this->getTemplateArgs();
-            $args = $this->args;
+            $this->args    = $this->getTemplateArgs(url('/docusign/returncallback'));
+            $args          = $this->args;
             $envelope_args = $args['envelope_args'];
-            $envelope_api = $this->getEnvelopeApi();
+            $envelope_api  = $this->getEnvelopeApi();
 
             $insuranceObj = DB::table('insurance_quotes')
                 ->where('order_id', $order)
@@ -277,26 +275,5 @@ class DocusignController extends LegacyAppController
         ]);
     }
 
-    private function getEnvelopeApi(): \DocuSign\eSign\Api\EnvelopesApi
-    {
-        $this->config = new \DocuSign\eSign\Configuration();
-        $this->config->setHost($this->args['base_path']);
-        $this->config->addDefaultHeader('Authorization', 'Bearer ' . $this->args['ds_access_token']);
-        $apiClient = new \DocuSign\eSign\Client\ApiClient($this->config);
-        return new \DocuSign\eSign\Api\EnvelopesApi($apiClient);
-    }
-
-    private function getTemplateArgs(): array
-    {
-        $token = (new DocusignToken())->getToken();
-        return [
-            'account_id'      => config('legacy.Docusign.accountid'),
-            'base_path'       => config('legacy.Docusign.url') . '/restapi',
-            'ds_access_token' => $token['access_token'],
-            'envelope_args'   => [
-                'signer_client_id' => $this->signer_client_id,
-                'ds_return_url'    => url('/docusign/returncallback'),
-            ],
-        ];
-    }
+    // getEnvelopeApi() and getTemplateArgs() are provided by DocusignTrait.
 }

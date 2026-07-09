@@ -115,7 +115,7 @@ trait MobileApiTrait
         $return = false;
 
         $parentId = !empty($CsOrder['parent_id']) ? $CsOrder['parent_id'] : $CsOrder['id'];
-        $OrderDepositRule = DB::table('order_deposit_rules')
+        $OrderDepositRule = DB::table('cs_order_deposit_rules')
             ->where('cs_order_id', $parentId)
             ->select('insurance_payer')
             ->first();
@@ -207,7 +207,7 @@ trait MobileApiTrait
             $renterid = $queue['CsOrder']['renter_id'];
 
             $parentId = !empty($queue['CsOrder']['parent_id']) ? $queue['CsOrder']['parent_id'] : $queue['CsOrder']['id'];
-            $OrderDepositRule = DB::table('order_deposit_rules')
+            $OrderDepositRule = DB::table('cs_order_deposit_rules')
                 ->where('cs_order_id', $parentId)
                 ->select('insurance_payer')
                 ->first();
@@ -530,7 +530,7 @@ trait MobileApiTrait
 
         if (!$error && in_array($queue['CsOrder']['insu_status'], [2, 0])) {
             $parentId = !empty($queue['CsOrder']['parent_id']) ? $queue['CsOrder']['parent_id'] : $queue['CsOrder']['id'];
-            $OrderDepositRule = DB::table('order_deposit_rules')
+            $OrderDepositRule = DB::table('cs_order_deposit_rules')
                 ->where('cs_order_id', $parentId)
                 ->select('insurance_payer')
                 ->first();
@@ -588,7 +588,7 @@ trait MobileApiTrait
 
         if (!$error && $queue['CsOrder']['dia_insu_status'] == 2) {
             $parentId = !empty($queue['CsOrder']['parent_id']) ? $queue['CsOrder']['parent_id'] : $queue['CsOrder']['id'];
-            $OrderDepositRule = DB::table('order_deposit_rules')
+            $OrderDepositRule = DB::table('cs_order_deposit_rules')
                 ->where('cs_order_id', $parentId)
                 ->select('insurance_payer')
                 ->first();

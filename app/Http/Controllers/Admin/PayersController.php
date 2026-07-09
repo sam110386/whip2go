@@ -88,7 +88,7 @@ class PayersController extends LegacyAppController
             return ['error' => 'File has an invalid extension.'];
         }
 
-        $OrderDepositRuleObj = DB::table('order_deposit_rules')->where('id', $id)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
+        $OrderDepositRuleObj = DB::table('cs_order_deposit_rules')->where('id', $id)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
         $insurance_payer = $OrderDepositRuleObj->insurance_payer ?? null;
 
         if (in_array($insurance_payer, [5, 6, 7])) {
@@ -211,7 +211,7 @@ class PayersController extends LegacyAppController
 
         $ruleid = $request->input('ruleid');
         $orderid = $request->input('order');
-        $OrderDepositRuleObj = DB::table('order_deposit_rules')->where('id', $ruleid)->first(['id', 'insurance_payer', 'start_datetime']);
+        $OrderDepositRuleObj = DB::table('cs_order_deposit_rules')->where('id', $ruleid)->first(['id', 'insurance_payer', 'start_datetime']);
 
         $data = DB::table('insurance_payers')->where('order_deposit_rule_id', $OrderDepositRuleObj->id)->first();
         $last_date = empty($data->next)
@@ -319,7 +319,7 @@ class PayersController extends LegacyAppController
             "created" => now(),
         ]);
 
-        $OrderDepositRuleObj = DB::table('order_deposit_rules')
+        $OrderDepositRuleObj = DB::table('cs_order_deposit_rules')
             ->where('id', $InsurancePayerObj->order_deposit_rule_id)
             ->first(['id', 'start_datetime']);
         $last_date = $InsurancePayerObj->next

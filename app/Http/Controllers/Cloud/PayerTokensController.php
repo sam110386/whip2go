@@ -71,7 +71,7 @@ class PayerTokensController extends LegacyAppController
 
         $bookings = DB::table('vehicle_reservations as VehicleReservation')
             ->leftJoin('vehicles as Vehicle', 'Vehicle.id', '=', 'VehicleReservation.vehicle_id')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->leftJoin('insurance_payers as InsurancePayer', 'InsurancePayer.order_deposit_rule_id', '=', 'OrderDepositRule.id')
             ->where('VehicleReservation.renter_id', $userObj['id'])
             ->whereIn('VehicleReservation.status', [0, 1])

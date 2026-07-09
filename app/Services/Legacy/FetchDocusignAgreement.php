@@ -43,13 +43,13 @@ class FetchDocusignAgreement
         if ($orderid) {
             $orderObj = DB::table('cs_orders')->where('id', $orderid)->first(['id', 'parent_id']);
             $lookupId = $orderObj->parent_id ?? $orderObj->id;
-            $orderRuleObj = DB::table('order_deposit_rules')->where('cs_order_id', $lookupId)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
+            $orderRuleObj = DB::table('cs_order_deposit_rules')->where('cs_order_id', $lookupId)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
         }
         if ($reservationId) {
-            $orderRuleObj = DB::table('order_deposit_rules')->where('vehicle_reservation_id', $reservationId)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
+            $orderRuleObj = DB::table('cs_order_deposit_rules')->where('vehicle_reservation_id', $reservationId)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
         }
         if ($OrderDepositRuleId) {
-            $orderRuleObj = DB::table('order_deposit_rules')->where('id', $OrderDepositRuleId)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
+            $orderRuleObj = DB::table('cs_order_deposit_rules')->where('id', $OrderDepositRuleId)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
         }
 
         $tempfile = 'DRIVEITAWAY_Lease_Agreement.pdf';

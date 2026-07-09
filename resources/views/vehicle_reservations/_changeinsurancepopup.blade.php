@@ -3,7 +3,8 @@
 </div>
 
 <div class="modal-body">
-    <form action="{{ url('admin/payers/saveinsurance') }}" method="POST" name="frmadmin" class="form-horizontal">
+    <form action="{{ url('admin/payers/saveinsurance') }}" method="POST" name="frmadmin" class="form-horizontal"
+        id="OrderDepositRuleAdminChangeinsurancepopupForm">
         @csrf
 
         <div class="panel-body">

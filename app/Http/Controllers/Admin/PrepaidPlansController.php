@@ -34,7 +34,7 @@ class PrepaidPlansController extends LegacyAppController
 
         $chargeButton = $prepaidPlans->where('status', '!=', 3)->isNotEmpty();
 
-        $orderDepositRule = DB::table('order_deposit_rules')
+        $orderDepositRule = DB::table('cs_order_deposit_rules')
             ->where('vehicle_reservation_id', $leaseId)
             ->select('tax')
             ->first();
@@ -106,7 +106,7 @@ class PrepaidPlansController extends LegacyAppController
         }
 
         $vehicleReservation = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->where('VehicleReservation.id', $plan->reservation_id)
             ->when(!empty($this->allowedStatus), fn($q) => $q->whereIn('VehicleReservation.status', $this->allowedStatus))
             ->select('OrderDepositRule.tax', 'VehicleReservation.id', 'VehicleReservation.user_id', 'VehicleReservation.renter_id', 'VehicleReservation.start_datetime')
@@ -165,7 +165,7 @@ class PrepaidPlansController extends LegacyAppController
         }
 
         $vehicleReservation = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->where('VehicleReservation.id', $bookingid)
             ->when(!empty($this->allowedStatus), fn($q) => $q->whereIn('VehicleReservation.status', $this->allowedStatus))
             ->select('OrderDepositRule.tax', 'VehicleReservation.id', 'VehicleReservation.user_id', 'VehicleReservation.renter_id', 'VehicleReservation.start_datetime')

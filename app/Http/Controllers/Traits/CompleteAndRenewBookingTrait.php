@@ -177,7 +177,7 @@ trait CompleteAndRenewBookingTrait
         $end_datetime = date('Y-m-d H:i:s', strtotime($start_datetime) + $daysGap);
 
         $parentId = !empty($tempCsOrder['parent_id']) ? $tempCsOrder['parent_id'] : $tempCsOrder['id'];
-        $duration = DB::table('order_deposit_rules')
+        $duration = DB::table('cs_order_deposit_rules')
             ->where('cs_order_id', $parentId)
             ->value('duration_opt');
         // TODO: Replace with OrderDepositRule service – nextDuration()

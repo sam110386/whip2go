@@ -513,9 +513,10 @@ trait VehicleReservationsTrait
     }
     private function _updateReservationVehicle(array $data, $userid = null)
     {
-        $reservationId = $data['VehicleReservation']['id'] ?? null;
-        $vehicleId = $data['VehicleReservation']['vehicle_id'] ?? null;
-        $newRentalRaw = $data['VehicleReservation']['newrental'] ?? null;
+        $input = $data['VehicleReservation'] ?? $data;
+        $reservationId = $input['booking_id'] ?? $data['id'] ?? null;
+        $vehicleId = $input['vehicle_id'] ?? null;
+        $newRentalRaw = $input['newrental'] ?? null;
 
         if (empty($reservationId) || empty($vehicleId) || empty($newRentalRaw)) {
             return ['status' => false, 'message' => "Sorry, invalid inputs, please try again", 'view' => ""];
@@ -1142,7 +1143,7 @@ trait VehicleReservationsTrait
     }
     private function _loadinsurancepopup(array $data)
     {
-        $orderid = $data['order'];
+        $orderid = $this->decodeId($data['order']);
         $booking = VehicleReservation::with([
             'vehicle:id,msrp,vin_no,vehicle_name',
             'orderDepositRule'
@@ -1153,7 +1154,7 @@ trait VehicleReservationsTrait
             ->where('selected', 1)
             ->first();
 
-        return view('admin.vehicle_reservations._insurancepopup', [
+        return view('vehicle_reservations._insurancepopup', [
             'trip' => $booking,
             'insuranceQuote' => $insuranceQuote
         ]);

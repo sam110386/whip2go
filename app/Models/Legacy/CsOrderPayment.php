@@ -1293,8 +1293,18 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-    public function saveCancelTransaction()
+    public function saveCancelTransaction($orderid = null, $amount = null, $transactionid = null, $ownerid = 0)
     {
+        if ($orderid !== null) {
+            $this->orderid = $orderid;
+        }
+        if ($amount !== null) {
+            $this->amount = $amount;
+        }
+        if ($transactionid !== null) {
+            $this->transactionid = $transactionid;
+        }
+
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
 
@@ -1385,8 +1395,18 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-    public function saveTollTransaction()
+    public function saveTollTransaction($orderid = null, $amount = null, $transactionid = null, $ownerid = 0)
     {
+        if ($orderid !== null) {
+            $this->orderid = $orderid;
+        }
+        if ($amount !== null) {
+            $this->amount = $amount;
+        }
+        if ($transactionid !== null) {
+            $this->transactionid = $transactionid;
+        }
+
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
         $emailQueue = new EmailQueueService();
@@ -1493,8 +1513,18 @@ class CsOrderPayment extends LegacyModel
             ]);
         }
     }
-    public function saveCustomerBalanceTransaction()
+    public function saveCustomerBalanceTransaction($orderid = null, $amount = null, $transactionid = null, $ownerid = 0)
     {
+        if ($orderid !== null) {
+            $this->orderid = $orderid;
+        }
+        if ($amount !== null) {
+            $this->amount = $amount;
+        }
+        if ($transactionid !== null) {
+            $this->transactionid = $transactionid;
+        }
+
         $order = CsOrder::find($this->orderid);
         $renter_id = $order->renter_id ?? 0;
         $emailQueue = new EmailQueueService();

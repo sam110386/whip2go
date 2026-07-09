@@ -1,17 +1,27 @@
+@php
+    $axleStatusArr ??= [];
+    $i = 1;
+ @endphp
+
 <div class="modal-header">
     <button type="button" class="close" data-dismiss="modal">&times;</button>
 </div>
+
 <style>
     .form-horizontal .editable {
         padding-top: 0px;
     }
 </style>
-<form action="#" method="POST" name="frmadmin" class="form-horizontal">
+
+<form action="#" method="POST" name="frmadmin" id="AxleStatusAdminPolicyDetailsPopupForm" class="form-horizontal">
     @csrf
-    <input type="hidden" name="AxleStatus[id]" value="{{ $axleStatusArr['id'] }}">
+
+    <input type="hidden" name="AxleStatus[id]" value="{{ data_get($axleStatusArr, 'id', '') }}">
+
     <div class="modal-body">
         <div class="panel-body">
             <legend class="text-size-large text-bold">Policy Status Checklist:</legend>
+
             <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
                 <thead>
                     <tr>
@@ -21,28 +31,37 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php $i = 1; @endphp
                     @foreach ($checklist as $key => $check)
-                        @php $isInsurance = strpos($key, 'insurance') !== false; @endphp
-                        <tr class="{{ (isset($policychecks[$key]['accepted']) && ($policychecks[$key]['accepted'] === 'No' || $policychecks[$key]['accepted'] === '' || $policychecks[$key]['accepted'] == '0')) ? 'bg-warning' : '' }}">
+                        @php
+                            $isInsurance = strpos($key, 'insurance') !== false; 
+                        @endphp
+                        <tr
+                            class="{{ (isset($policychecks[$key]['accepted']) && ($policychecks[$key]['accepted'] === 'No' || $policychecks[$key]['accepted'] === '' || $policychecks[$key]['accepted'] == '0')) ? 'bg-warning' : '' }}">
                             <td class="text-bold">
                                 <strong>{{ $i++ }} : {{ $check['label'] }}</strong>
-                                <input type="hidden" name="AxleStatus[extra][{{ $key }}][label]" value="{{ $check['label'] }}">
+                                <input type="hidden" name="AxleStatus[extra][{{ $key }}][label]"
+                                    value="{{ $check['label'] }}">
                             </td>
                             <td class="control-label">
                                 @if (!$isInsurance)
-                                    @php $policyText = $policychecks[$key]['policy_text'] ?? $check['policy_text']; @endphp
+                                    @php
+                                        $policyText = $policychecks[$key]['policy_text'] ?? $check['policy_text']; 
+                                    @endphp
                                     {{ $policyText }}
-                                    <input type="hidden" name="AxleStatus[extra][{{ $key }}][policy_text]" value="{{ $policyText }}">
+                                    <input type="hidden" name="AxleStatus[extra][{{ $key }}][policy_text]"
+                                        value="{{ $policyText }}">
                                 @else
-                                    @php $insuranceRate = $policychecks[$key]['insurance_rate'] ?? $check['insurance_rate']; @endphp
+                                    @php
+                                        $insuranceRate = $policychecks[$key]['insurance_rate'] ?? $check['insurance_rate'];
+                                     @endphp
                                     {{ $insuranceRate }}
-                                    <input type="hidden" name="AxleStatus[extra][{{ $key }}][insurance_rate]" value="{{ $insuranceRate }}">
+                                    <input type="hidden" name="AxleStatus[extra][{{ $key }}][insurance_rate]"
+                                        value="{{ $insuranceRate }}">
                                 @endif
                             </td>
                             <td class="control-label">
                                 @if (!$isInsurance)
-                                    <input type="checkbox" name="AxleStatus[extra][{{ $key }}][accepted]" {{ (isset($policychecks[$key]) && $policychecks[$key]['accepted'] && $policychecks[$key]['accepted'] !== 'No') ? 'checked' : '' }} value="1">
+                                    <input type="checkbox" name="AxleStatus[extra][{{ $key }}][accepted]" {{ (isset($policychecks[$key]) && isset($policychecks[$key]['accepted']) && $policychecks[$key]['accepted'] !== 'No') ? 'checked' : '' }} value="1">
                                 @endif
                             </td>
                         </tr>
@@ -54,7 +73,8 @@
                             <strong>Pending Calculated Insurance Penalty</strong>
                         </td>
                         <td class="control-label" colspan="2">
-                            <input type="text" class="form-control" readonly name="AxleStatus[insurance_penalty]" value="{{ $calculatedInsurance }}"/>
+                            <input type="text" class="form-control" readonly name="AxleStatus[insurance_penalty]"
+                                value="{{ $calculatedInsurance }}" />
                         </td>
                     </tr>
                 </tfoot>
@@ -62,8 +82,14 @@
         </div>
     </div>
     <div class="modal-footer">
-        <button type="button" onclick="axlePolicyAcceptSave()" class="btn btn-primary mt-10">Accept & Save <i class="icon-pen-plus position-right"></i></button>
-        <button type="button" onclick="axlePolicySave()" class="btn btn-primary mt-10">Save <i class="icon-pen-plus position-right"></i></button>
-        <button type="button" class="btn btn-danger mt-10" data-dismiss="modal">Close</button>
+        <button type="button" onclick="axlePolicyAcceptSave()" class="btn btn-primary mt-10">
+            Accept & Save <i class="icon-pen-plus position-right"></i>
+        </button>
+        <button type="button" onclick="axlePolicySave()" class="btn btn-primary mt-10">
+            Save <i class="icon-pen-plus position-right"></i>
+        </button>
+        <button type="button" class="btn btn-danger mt-10" data-dismiss="modal">
+            Close
+        </button>
     </div>
 </form>

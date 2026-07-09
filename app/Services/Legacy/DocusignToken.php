@@ -2,36 +2,42 @@
 
 namespace App\Services\Legacy;
 
+use Illuminate\Support\Facades\Storage;
+use DocuSign\eSign\Configuration;
+use DocuSign\eSign\Client\ApiClient;
+
 class DocusignToken
 {
-    private string $tempFile;
-    private $config;
-
-    public function __construct()
-    {
-        $this->tempFile = storage_path('app/Docusign.txt');
-    }
+    private string $fileName = 'temp/Docusign.txt';
+    private ?Configuration $config = null;
 
     public function getToken(): array
     {
-        $fhandle = fopen($this->tempFile, "r+");
-        $contents = fread($fhandle, filesize($this->tempFile));
-        $data = json_decode($contents, true);
-        if (!isset($data['expire_at']) || time() > $data['expire_at']) {
-            $this->config = new \DocuSign\eSign\Configuration(["host" => config('legacy.Docusign.url')]);
-            $obj = new \DocuSign\eSign\Client\ApiClient($this->config);
+        $contents = Storage::disk('local')->exists($this->fileName)
+            ? Storage::disk('local')->get($this->fileName)
+            : '{}';
+
+        $data = json_decode($contents, true) ?? [];
+
+        if (
+            !isset($data['expire_at'])
+            || time() > $data['expire_at']
+        ) {
+            $this->config = new Configuration(["host" => config('legacy.Docusign.url')]);
+            $obj = new ApiClient($this->config);
+
             $result = $obj->refreshAccessToken(
                 config('legacy.Docusign.integration_key'),
                 config('legacy.Docusign.secret_key'),
-                $data['refresh_token']
+                $data['refresh_token'] ?? null
             );
-            $result = json_decode(json_encode($result['result']), true);
-            $fhandle = fopen($this->tempFile, "w");
-            $result['expire_at'] = (time() + $result['expires_in'] - 3600);
-            fwrite($fhandle, json_encode($result));
-            $data = $result;
+
+            $resultData = json_decode(json_encode($result['result']), true);
+            $resultData['expire_at'] = (time() + $resultData['expires_in'] - 3600);
+            Storage::disk('local')->put($this->fileName, json_encode($resultData));
+            $data = $resultData;
         }
-        fclose($fhandle);
+
         return $data;
     }
 }

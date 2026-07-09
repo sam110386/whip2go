@@ -169,7 +169,7 @@ function OpenDiaFleeetBackupQuoteUploadPopUp(recordid, model = "myModal") {
 	jQuery.blockUI({
 		message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Just a moment...</h1>',
 	});
-	jQuery.post(SITE_URL + "admin/insurance/dia_fleet_backup_quotes/popup",{ recordid: recordid, model: model },function (data) {
+	jQuery.post(SITE_URL + "admin/dia_fleet_backup_quotes/popup",{ recordid: recordid, model: model },function (data) {
 			$("#" + model + " .modal-content").html(data);
 			$("#" + model).modal("show").find(".modal-dialog").css("width", "850px");
 	}).done(function () {
@@ -183,10 +183,10 @@ function OpenDiaFleeetBackupQuoteUploadPopUp(recordid, model = "myModal") {
 			layoutTemplates: {
 				icon: '<i class="icon-file-check"></i>',
 			},
-			uploadUrl: SITE_URL + "admin/insurance/dia_fleet_backup_quotes/saveImage", // server upload action
+			uploadUrl: SITE_URL + "admin/dia_fleet_backup_quotes/saveImage", // server upload action
 			uploadAsync: true,
 			maxFileCount: 1,
-			deleteUrl: SITE_URL + "admin/insurance/dia_fleet_backup_quotes/deleteImage",
+			deleteUrl: SITE_URL + "admin/dia_fleet_backup_quotes/deleteImage",
 			allowedFileExtensions: ["jpeg", "jpg", "png", "pdf"],
 			overwriteInitial: false,
 			maxFileSize: 10024,
@@ -202,10 +202,10 @@ function OpenDiaFleeetBackupQuoteUploadPopUp(recordid, model = "myModal") {
 			layoutTemplates: {
 				icon: '<i class="icon-file-check"></i>',
 			},
-			uploadUrl: SITE_URL + "admin/insurance/dia_fleet_backup_quotes/saveImage", // server upload action
+			uploadUrl: SITE_URL + "admin/dia_fleet_backup_quotes/saveImage", // server upload action
 			uploadAsync: true,
 			maxFileCount: 1,
-			deleteUrl: SITE_URL + "admin/insurance/dia_fleet_backup_quotes/deleteImage",
+			deleteUrl: SITE_URL + "admin/dia_fleet_backup_quotes/deleteImage",
 			allowedFileExtensions: ["jpeg", "jpg", "png", "pdf"],
 			overwriteInitial: false,
 			maxFileSize: 10024,
@@ -233,7 +233,7 @@ function SaveDiaFleetBackupQuoteUploadPopUp(model = "myModal",approve=false) {
 			message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Just a moment...</h1>',
 		});
         var oData = $("#DriverFinancedInsuranceQuoteAdminPopupForm").serialize()+ "&approve="+ approve;
-        jQuery.post(SITE_URL + "admin/insurance/dia_fleet_backup_quotes/save",oData,function (data) {
+        jQuery.post(SITE_URL + "admin/dia_fleet_backup_quotes/save",oData,function (data) {
 			$("#" + model).modal("hide");
 		},'json').done(function () {
 			jQuery.unblockUI();
@@ -247,7 +247,7 @@ function SaveDiaFleetBackupPolicyDetails(model = "myModal"){
 			message:'<h1><img src="' +SITE_URL +'img/select2-spinner.gif" /> Just a moment...</h1>',
 		});
         var oData = $("#PolicyDetailsAdminPopupForm").serialize()+ "&policy=true";
-        jQuery.post(SITE_URL + "admin/insurance/dia_fleet_backup_quotes/save",oData,function (data) {
+        jQuery.post(SITE_URL + "admin/dia_fleet_backup_quotes/save",oData,function (data) {
 			$("#" + model).modal("hide");
 		},'json').done(function () {
 			jQuery.unblockUI();

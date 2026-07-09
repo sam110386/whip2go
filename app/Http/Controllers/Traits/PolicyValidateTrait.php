@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Traits;
 
+use App\Models\Legacy\CsVehicleIssue;
 use App\Services\Legacy\AxleService;
 use Illuminate\Support\Facades\DB;
 use App\Services\Legacy\IntercomClient;
@@ -125,7 +126,7 @@ trait PolicyValidateTrait
                 return;
             }
 
-            $depositRule = DB::table('deposit_rules')
+            $depositRule = DB::table('cs_deposit_rules')
                 ->where('vehicle_id', $orderDepositRule->vehicle_id)
                 ->select('insurance_fee', 'emf_insu')
                 ->first();
@@ -166,8 +167,7 @@ trait PolicyValidateTrait
             ]);
 
             if ($AxleStatus['axle_status'] == 3) {
-                $oldTicket = DB::table('cs_vehicle_issues')
-                    ->where('vehicle_id', $orderDepositRule->vehicle_id)
+                $oldTicket = CsVehicleIssue::where('vehicle_id', $orderDepositRule->vehicle_id)
                     ->where('type', 10)
                     ->where('status', '!=', 3)
                     ->first();
@@ -176,7 +176,7 @@ trait PolicyValidateTrait
                     return;
                 }
 
-                DB::table('cs_vehicle_issues')->insert([
+                CsVehicleIssue::create([
                     'user_id' => $orderDepositRule->user_id,
                     'vehicle_id' => $orderDepositRule->vehicle_id,
                     'renter_id' => $orderDepositRule->renter_id,
@@ -186,7 +186,6 @@ trait PolicyValidateTrait
             }
         }
     }
-
     private function _getInsurance($milesOptions, $vehicleData, $depositRule): array
     {
         $allowedMiles = $vehicleData->allowed_miles ?? 0;

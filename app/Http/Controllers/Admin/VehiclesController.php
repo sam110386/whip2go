@@ -817,7 +817,7 @@ class VehiclesController extends LegacyAppController
     public function getvehicledetails(Request $request)
     {
         $vehicleId = $this->decodeId($request->input('vehicleid', ''));
-        $orderId = $this->decodeId($request->input('orderid', ''));
+        $orderid = $this->decodeId($request->input('orderid', ''));
 
         $vehicle = Vehicle::select([
             'id',
@@ -845,7 +845,7 @@ class VehiclesController extends LegacyAppController
             ]
         ];
 
-        return view('vehicles.getvehicledetails', compact('vehicle', 'orderId', 'stateopt', ));
+        return view('vehicles.getvehicledetails', compact('vehicle', 'orderid', 'stateopt', ));
     }
 
     public function updateVehicleDetails(Request $request)

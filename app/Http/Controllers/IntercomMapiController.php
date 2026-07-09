@@ -190,7 +190,7 @@ class IntercomMapiController extends LegacyAppController
             return response()->json(['error' => 'Sorry, you dont have any active booking with us.']);
         }
 
-        $depositRule = DB::table('order_deposit_rules')
+        $depositRule = DB::table('cs_order_deposit_rules')
             ->where('cs_order_id', $orderData->parent_id ?: $orderData->id)
             ->select('rental', 'insurance', 'tax')
             ->first();

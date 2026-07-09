@@ -20,7 +20,7 @@ class InsuranceQuotesController extends LegacyAppController
         }
 
         $booking = DB::table('vehicle_reservations as VehicleReservation')
-            ->leftJoin('order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', 'OrderDepositRule.vehicle_reservation_id', '=', 'VehicleReservation.id')
             ->where('VehicleReservation.id', $order)
             ->where('VehicleReservation.status', 0)
             ->whereNotNull('OrderDepositRule.id')
