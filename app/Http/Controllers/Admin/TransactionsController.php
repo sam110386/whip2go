@@ -1209,11 +1209,9 @@ class TransactionsController extends LegacyAppController
             $time = $request->input('time');
         }
 
-        if (!empty($userId)) {
+        if (!empty($time)) {
             $dateFrom = Carbon::now()->sub($time)->format('Y-m-d');
             $dateTo = Carbon::now()->format('Y-m-d');
-            $dateFrom = Carbon::createFromFormat('Y-m-d', $dateFrom, config('app.timezone'))->toDateTimeString();
-            $dateTo = Carbon::createFromFormat('Y-m-d', $dateTo, config('app.timezone'))->toDateTimeString();
         }
 
 
@@ -1230,9 +1228,11 @@ class TransactionsController extends LegacyAppController
             ->where('cs_order_payments.status', 1);
 
         if (!empty($dateFrom)) {
+            $dateFrom = Carbon::createFromFormat('Y-m-d', $dateFrom, config('app.timezone'))->toDateTimeString();
             $baseQuery->where('cs_order_payments.created', '>=', $dateFrom);
         }
         if (!empty($dateTo)) {
+            $dateTo = Carbon::createFromFormat('Y-m-d', $dateTo, config('app.timezone'))->toDateTimeString();
             $baseQuery->where('cs_order_payments.created', '<=', $dateTo);
         }
 

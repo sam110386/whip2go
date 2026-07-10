@@ -774,10 +774,10 @@ class VehicleReservationsController extends LegacyAppController
             return response()->json(['error' => 'Lease ID missing'], 400);
         }
 
-        $leaseId = $this->decodeId($request->input('lease_id'));
+        $lease_id = $this->decodeId($request->input('lease_id'));
         $allowedStatus = array_keys($this->commonService->getReservationStatus(true, true));
         $reserveData = VehicleReservation::with('vehicle')
-            ->where('id', $leaseId)
+            ->where('id', $lease_id)
             ->where('buy', 0)
             ->whereIn('status', $allowedStatus)
             ->first();
@@ -833,7 +833,8 @@ class VehicleReservationsController extends LegacyAppController
             'chargeButton',
             'tax',
             'promo',
-            'paidDeposit'
+            'paidDeposit',
+            'lease_id'
         ));
     }
     public function processcapturepayment(Request $request)

@@ -1,6 +1,6 @@
 function OpenBoyiByDIAListPopUp(bookingid){
     jQuery.blockUI({ message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> Just a moment...</h1>' });
-    jQuery.post(SITE_URL+"admin/insuprovider/quotes/listpopup", {bookingid:bookingid}, function (data) {
+    jQuery.post(SITE_URL+"admin/insurance_quotes/listpopup", {bookingid:bookingid}, function (data) {
         jQuery.unblockUI();
         $("#plaidModal .modal-content").html(data);
         $("#plaidModal").modal('show').find('.modal-dialog').css('width','850px');
@@ -12,7 +12,7 @@ function OpenBoyiByDIAListPopUp(bookingid){
 
 function OpenBoyiByDIAPopUp(bookingid,id=''){
     jQuery.blockUI({ message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> Just a moment...</h1>' });
-    jQuery.post(SITE_URL+"admin/insuprovider/quotes/popup", {bookingid:bookingid,id:id}, function (data) {
+    jQuery.post(SITE_URL+"admin/insurance_quotes/popup", {bookingid:bookingid,id:id}, function (data) {
         jQuery.unblockUI();
         $("#statementModal .modal-content").html(data);
         $("#statementModal").modal('show').find('.modal-dialog').css('width','650px');
@@ -27,7 +27,7 @@ function OpenBoyiByDIAPopUp(bookingid,id=''){
 
 function DeleteBoyiByDIAPopUp(bookingid,id=''){
     jQuery.blockUI({ message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> Just a moment...</h1>' });
-    jQuery.post(SITE_URL+"admin/insuprovider/quotes/delete", {bookingid:bookingid,id:id}, function (data) {
+    jQuery.post(SITE_URL+"admin/insurance_quotes/delete", {bookingid:bookingid,id:id}, function (data) {
         jQuery.unblockUI();
 		if(!data.status){
 			alert(data.message);
@@ -49,7 +49,7 @@ function SaveInsuranceProviderQuotePopUp() {
 		});
 		var data = new FormData($("#InsuranceQuoteAdminPopupForm").get(0));
 		$.ajax({
-			url: SITE_URL + "admin/insuprovider/quotes/save",
+			url: SITE_URL + "admin/insurance_quotes/save",
 			type: "post",
 			dataType: "JSON",
 			data: data,

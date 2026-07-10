@@ -9,7 +9,7 @@
 </script>
 <div class="panel">
 
-    <form action="{{ url('admin/insurance/payers/save') }}" method="POST" name="frmadmin" id="InsurancePayerPopupForm" class="form-horizontal" enctype="multipart/form-data">
+    <form action="{{ url('admin/payers/save') }}" method="POST" name="frmadmin" id="InsurancePayerPopupForm" class="form-horizontal" enctype="multipart/form-data">
     @csrf
     <div class="panel-body">
         <legend class="text-size-large text-bold">Declaration Doc :</legend>

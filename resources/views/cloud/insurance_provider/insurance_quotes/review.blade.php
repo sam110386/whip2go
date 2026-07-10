@@ -20,7 +20,7 @@
 
 <div class="">
     <div class="">
-        <form action="{{ url('/insuprovider/quotes/review') }}" method="POST" class="form-horizontal">
+        <form action="{{ url('/insurance_quotes/review') }}" method="POST" class="form-horizontal">
             @csrf
             <div class="row">
                 
@@ -44,7 +44,7 @@
                                 <p class="mb-5 reviewbox"><small class="display-block pull-left text-muted">Collision (deductible)</small><span class="text-semibold pull-right price">$1K</span></p>
                                 <p class="mb-5 reviewbox"><small class="display-block pull-left text-muted">Comprehensive (deductible)</small><span class="text-semibold pull-right price">$1K</span></p>
                                 <div class="w-100 text-center">
-                                    <a href="{{ config('app.url') }}/insuprovider/quotes/providers/1/{{ $orderandusers }}" class="btn btn-blank btn-rounded">Show quotes on this coverage</a>
+                                    <a href="{{ config('app.url') }}/insurance_quotes/providers/1/{{ $orderandusers }}" class="btn btn-blank btn-rounded">Show quotes on this coverage</a>
                                 </div>
                             </div>
                         </div>
@@ -71,7 +71,7 @@
                                 <p class="mb-5 reviewbox"><small class="display-block pull-left text-muted">Collision (deductible)</small><span class="text-semibold pull-right price">$1K</span></p>
                                 <p class="mb-5 reviewbox"><small class="display-block pull-left text-muted">Comprehensive (deductible)</small><span class="text-semibold pull-right price">$1K</span></p>
                                 <div class="w-100 text-center">
-                                    <a href="{{ config('app.url') }}/insuprovider/quotes/providers/2/{{ $orderandusers }}"  class="btn btn-danger btn-rounded">Show quotes on this coverage</a>
+                                    <a href="{{ config('app.url') }}/insurance_quotes/providers/2/{{ $orderandusers }}"  class="btn btn-danger btn-rounded">Show quotes on this coverage</a>
                                 </div>
                             </div>
                         </div>
@@ -95,7 +95,7 @@
                                 <p class="mb-5 reviewbox"><small class="display-block pull-left text-muted">Collision (deductible)</small><span class="text-semibold pull-right price">$1K</span></p>
                                 <p class="mb-5 reviewbox"><small class="display-block pull-left text-muted">Comprehensive (deductible)</small><span class="text-semibold pull-right price">$1K</span></p>
                                 <div class="w-100 text-center">
-                                <a href="{{ config('app.url') }}/insuprovider/quotes/providers/3/{{ $orderandusers }}" class="btn btn-blank btn-rounded">Show quotes on this coverage</a>
+                                <a href="{{ config('app.url') }}/insurance_quotes/providers/3/{{ $orderandusers }}" class="btn btn-blank btn-rounded">Show quotes on this coverage</a>
                                 </div>
                             </div>
                         </div>

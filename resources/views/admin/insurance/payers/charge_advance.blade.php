@@ -3,7 +3,7 @@
 </div>
 <div class="modal-body">
 
-    <form action="{{ config('app.url') }}/admin/insurance/payers/process_charge_advance" method="POST" name="frmadmin" class="form-horizontal">
+    <form action="{{ config('app.url') }}/admin/payers/process_charge_advance" method="POST" name="frmadmin" class="form-horizontal">
     @csrf
     <div class="panel-body">
         <legend class="text-size-large text-bold">BYOI Advance Insurance Charge:</legend>

@@ -35,11 +35,11 @@
 
 @section('content')
 
-    <div id="myModal" class="modal fade" role="dialog">
+    {{-- <div id="myModal" class="modal fade" role="dialog">
         <div class="modal-dialog">
             <div class="modal-content"></div>
         </div>
-    </div>
+    </div> --}}
 
     <div class="page-header">
         <div class="page-header-content">

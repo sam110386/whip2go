@@ -2583,7 +2583,7 @@ function OpenInsurancePayerUploadPopUp(order, model = "myModal") {
 	});
 	jQuery
 		.post(
-			SITE_URL + "admin/insurance/payers/popup",
+			SITE_URL + "admin/payers/popup",
 			{ order: order, model: model },
 			function (data) {
 				jQuery.unblockUI();
@@ -2603,10 +2603,10 @@ function OpenInsurancePayerUploadPopUp(order, model = "myModal") {
 				layoutTemplates: {
 					icon: '<i class="icon-file-check"></i>',
 				},
-				uploadUrl: SITE_URL + "admin/insurance/payers/saveImage", // server upload action
+				uploadUrl: SITE_URL + "admin/payers/saveImage", // server upload action
 				uploadAsync: true,
 				maxFileCount: 1,
-				deleteUrl: SITE_URL + "admin/insurance/payers/deleteImage",
+				deleteUrl: SITE_URL + "admin/payers/deleteImage",
 				allowedFileExtensions: ["jpeg", "jpg", "png", "pdf"],
 				overwriteInitial: false,
 				maxFileSize: 10024,
@@ -2622,10 +2622,10 @@ function OpenInsurancePayerUploadPopUp(order, model = "myModal") {
 				layoutTemplates: {
 					icon: '<i class="icon-file-check"></i>',
 				},
-				uploadUrl: SITE_URL + "admin/insurance/payers/saveImage", // server upload action
+				uploadUrl: SITE_URL + "admin/payers/saveImage", // server upload action
 				uploadAsync: true,
 				maxFileCount: 1,
-				deleteUrl: SITE_URL + "admin/insurance/payers/deleteImage",
+				deleteUrl: SITE_URL + "admin/payers/deleteImage",
 				allowedFileExtensions: ["jpeg", "jpg", "png", "pdf"],
 				overwriteInitial: false,
 				maxFileSize: 10024,
@@ -2652,7 +2652,7 @@ function SaveInsurancePayerUploadPopUp(model = "myModal") {
 		});
 		jQuery
 			.post(
-				SITE_URL + "admin/insurance/payers/save",
+				SITE_URL + "admin/payers/save",
 				$("#InsurancePayerAdminPopupForm").serialize(),
 				function (data) {
 					$("#" + model).modal("hide");
@@ -3008,7 +3008,7 @@ function OpenInsurancePayerListPopUp(order, model = "myModal") {
 	});
 	jQuery
 		.post(
-			SITE_URL + "admin/insurance/payers/list",
+			SITE_URL + "admin/payers/list",
 			{ order: order, model: model },
 			function (data) {
 				$("#" + model + " .modal-content").html(data);
@@ -3036,7 +3036,7 @@ function OpenInsurancePayerListUploadPopUp(
 	});
 	jQuery
 		.post(
-			SITE_URL + "admin/insurance/payers/popup",
+			SITE_URL + "admin/payers/popup",
 			{ order: order, model: model, isNew: isNew },
 			function (data) {
 				$("#" + model + " .modal-content").html(data);
@@ -3056,10 +3056,10 @@ function OpenInsurancePayerListUploadPopUp(
 				layoutTemplates: {
 					icon: '<i class="icon-file-check"></i>',
 				},
-				uploadUrl: SITE_URL + "admin/insurance/payers/saveImage", // server upload action
+				uploadUrl: SITE_URL + "admin/payers/saveImage", // server upload action
 				uploadAsync: true,
 				maxFileCount: 1,
-				deleteUrl: SITE_URL + "admin/insurance/payers/deleteImage",
+				deleteUrl: SITE_URL + "admin/payers/deleteImage",
 				allowedFileExtensions: ["jpeg", "jpg", "png", "pdf"],
 				overwriteInitial: false,
 				maxFileSize: 10024,
@@ -3075,10 +3075,10 @@ function OpenInsurancePayerListUploadPopUp(
 				layoutTemplates: {
 					icon: '<i class="icon-file-check"></i>',
 				},
-				uploadUrl: SITE_URL + "admin/insurance/payers/saveImage", // server upload action
+				uploadUrl: SITE_URL + "admin/payers/saveImage", // server upload action
 				uploadAsync: true,
 				maxFileCount: 1,
-				deleteUrl: SITE_URL + "admin/insurance/payers/deleteImage",
+				deleteUrl: SITE_URL + "admin/payers/deleteImage",
 				allowedFileExtensions: ["jpeg", "jpg", "png", "pdf"],
 				overwriteInitial: false,
 				maxFileSize: 10024,

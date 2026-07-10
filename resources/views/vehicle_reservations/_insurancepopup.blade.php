@@ -5,7 +5,7 @@
 <div class="modal-body">
     <div class="panel-body">
         <div class="col-md-6">
-            <form action="#" method="POST" name="frmadmin" class="form-horizontal">
+            <form action="#" method="POST" name="frmadmin" class="form-horizontal" id="insurancePayerForm">
                 @csrf
 
                 <legend class="text-size-large text-bold">Insurance Details:</legend>
@@ -54,6 +54,8 @@
                                 onclick="OpenDiaFleeetBackupQuoteUploadPopUp({{ data_get($trip, 'id') }})">
                                 {{ $commonService->getInsurancePayer(data_get($trip, 'orderDepositRule.insurance_payer')) }}
                             </a>
+                        @else
+                            {{ $commonService->getInsurancePayer(data_get($trip, 'orderDepositRule.insurance_payer')) }}
                         @endif
                     </div>
                 </div>

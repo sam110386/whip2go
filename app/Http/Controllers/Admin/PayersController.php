@@ -1,17 +1,22 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\InsurancePayer;
+use App\Models\Legacy\InsurancePayerPayment;
+use App\Models\Legacy\InsurancePayerToken;
+use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\DriverFinancedInsuranceQuote;
+use App\Models\Legacy\CsOrder;
 use App\Services\Legacy\StripeProcessor;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class PayersController extends LegacyAppController
 {
-    private array $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf', 'doc', 'docx'];
+    private array $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf', 'doc', 'docx', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    private int $imageSize = 2097152;
 
     public function list(Request $request)
     {
@@ -21,11 +26,10 @@ class PayersController extends LegacyAppController
 
         $recordid = $request->input('order');
         $myModal = $request->input('model', 'myModal');
-        $records = DB::table('insurance_payers')->where('order_deposit_rule_id', $recordid)->get()->toArray();
+        $records = InsurancePayer::where('order_deposit_rule_id', $recordid)->get();
 
         return view('admin.insurance.payers._list', compact('records', 'recordid', 'myModal'));
     }
-
     public function popup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -35,16 +39,15 @@ class PayersController extends LegacyAppController
         $recordid = $request->input('order');
         $isNew = $request->input('isNew', false);
         $myModal = $request->input('model', 'myModal');
-        $data = null;
+        $iPayer = null;
 
         if (!$isNew) {
-            $data = DB::table('insurance_payers')->where('order_deposit_rule_id', $recordid)->first();
+            $iPayer = InsurancePayer::where('order_deposit_rule_id', $recordid)->first();
         }
 
-        return view('admin.insurance.payers.popup', compact('recordid', 'myModal', 'data'));
+        return view('admin.insurance.payers.popup', compact('recordid', 'myModal', 'iPayer'));
     }
-
-    public function save(Request $request): JsonResponse
+    public function save(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
@@ -52,17 +55,15 @@ class PayersController extends LegacyAppController
 
         if ($request->ajax()) {
             $payerData = $request->input('InsurancePayer', []);
-            if (!empty($payerData['id'])) {
-                DB::table('insurance_payers')->where('id', $payerData['id'])->update($payerData);
-            } else {
-                unset($payerData['id']);
-                DB::table('insurance_payers')->insert($payerData);
-            }
+            InsurancePayer::updateOrCreate(
+                ['id' => $payerData['id']],
+                $payerData
+            );
         }
+
         return response()->json(['status' => true, "message" => "Vehicle has been updated successfully"]);
     }
-
-    public function saveImage(Request $request): JsonResponse
+    public function saveImage(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
@@ -73,8 +74,7 @@ class PayersController extends LegacyAppController
         $return = $this->handleUpload($request->file($type), $id, $type);
         return response()->json($return);
     }
-
-    private function handleUpload($file, $id, string $filetype): array
+    private function handleUpload($file, $id, string $filetype)
     {
         if (!$file || !$file->isValid()) {
             return ['error' => 'No files were uploaded.'];
@@ -84,11 +84,12 @@ class PayersController extends LegacyAppController
         }
 
         $ext = strtolower($file->getClientOriginalExtension());
+
         if (!in_array($ext, $this->allowedExtensions)) {
             return ['error' => 'File has an invalid extension.'];
         }
 
-        $OrderDepositRuleObj = DB::table('cs_order_deposit_rules')->where('id', $id)->first(['id', 'insurance_payer', 'vehicle_reservation_id']);
+        $OrderDepositRuleObj = OrderDepositRule::select('id', 'insurance_payer', 'vehicle_reservation_id')->find($id);
         $insurance_payer = $OrderDepositRuleObj->insurance_payer ?? null;
 
         if (in_array($insurance_payer, [5, 6, 7])) {
@@ -96,24 +97,20 @@ class PayersController extends LegacyAppController
             $filename = $filetype . '_' . $vehicle_reservation_id . '.' . $ext;
             $file->move(public_path('files/reservation'), $filename);
 
-            $exits = DB::table('driver_financed_insurance_quotes')->where('order_id', $vehicle_reservation_id)->first();
-            if (!empty($exits)) {
-                DB::table('driver_financed_insurance_quotes')->where('id', $exits->id)->update([$filetype => $filename]);
-            } else {
-                DB::table('driver_financed_insurance_quotes')->insert(['order_id' => $vehicle_reservation_id, $filetype => $filename]);
-            }
+            DriverFinancedInsuranceQuote::updateOrCreate(
+                ['order_id' => $vehicle_reservation_id],
+                [$filetype => $filename]
+            );
             return ['success' => true];
         }
 
         $filename = $filetype . '_' . $id . '.' . $ext;
         $file->move(public_path('files/reservation'), $filename);
 
-        $exits = DB::table('insurance_payers')->where('order_deposit_rule_id', $id)->first();
-        if (!empty($exits)) {
-            DB::table('insurance_payers')->where('id', $exits->id)->update([$filetype => $filename]);
-        } else {
-            DB::table('insurance_payers')->insert(['order_deposit_rule_id' => $id, $filetype => $filename]);
-        }
+        InsurancePayer::updateOrCreate(
+            ['order_deposit_rule_id' => $id],
+            [$filetype => $filename]
+        );
 
         return ['success' => true];
     }
@@ -125,7 +122,7 @@ class PayersController extends LegacyAppController
         }
 
         $orderruleid = base64_decode($request->input('orderruleid'));
-        $data = DB::table('insurance_payers')->where('order_deposit_rule_id', $orderruleid)->first();
+        $data = InsurancePayer::where('order_deposit_rule_id', $orderruleid)->first();
 
         return view('admin.insurance.payers.charge_advance', ['data' => $data, 'orderruleid' => $orderruleid]);
     }
@@ -148,14 +145,13 @@ class PayersController extends LegacyAppController
             return response()->json($return);
         }
 
-        $InsurancePayerObj = DB::table('insurance_payers')->where('order_deposit_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])->first();
+        $InsurancePayerObj = InsurancePayer::where('order_deposit_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])->first();
         if (empty($InsurancePayerObj) || empty($InsurancePayerObj->stripe_key)) {
             $return["message"] = "Sorry, ROI vendor stripe account is not configured yet";
             return response()->json($return);
         }
 
-        $InsurancePayerTokenObj = DB::table('insurance_payer_tokens')
-            ->where('order_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])
+        $InsurancePayerTokenObj = InsurancePayerToken::where('order_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])
             ->where('is_default', 1)
             ->first();
         if (empty($InsurancePayerTokenObj)) {
@@ -178,11 +174,11 @@ class PayersController extends LegacyAppController
         );
         if ($paymentResult['status'] != 'success') {
             $return["message"] = $paymentResult['message'];
-            DB::table('insurance_payers')->where('id', $InsurancePayerObj->id)->update(['last_attempt' => now()]);
+            $InsurancePayerObj->update(['last_attempt' => now()]);
             return response()->json($return);
         }
 
-        DB::table('insurance_payer_payments')->insert([
+        InsurancePayerPayment::create([
             "order_rule_id" => $InsurancePayerObj->order_deposit_rule_id,
             "amount" => $calculatedAmount,
             "transaction_id" => $paymentResult['transaction_id'],
@@ -193,7 +189,7 @@ class PayersController extends LegacyAppController
             ? Carbon::today()->addDays($days)->format('Y-m-d')
             : Carbon::parse($InsurancePayerObj->next)->addDays($days)->format('Y-m-d');
 
-        DB::table('insurance_payers')->where('id', $InsurancePayerObj->id)->update([
+        $InsurancePayerObj->update([
             "last_attempt" => now(),
             "amount" => $calculatedAmount,
             'attepmt' => 1,
@@ -211,9 +207,9 @@ class PayersController extends LegacyAppController
 
         $ruleid = $request->input('ruleid');
         $orderid = $request->input('order');
-        $OrderDepositRuleObj = DB::table('cs_order_deposit_rules')->where('id', $ruleid)->first(['id', 'insurance_payer', 'start_datetime']);
+        $OrderDepositRuleObj = OrderDepositRule::select('id', 'insurance_payer', 'start_datetime')->find($ruleid);
 
-        $data = DB::table('insurance_payers')->where('order_deposit_rule_id', $OrderDepositRuleObj->id)->first();
+        $data = InsurancePayer::where('order_deposit_rule_id', $OrderDepositRuleObj->id)->first();
         $last_date = empty($data->next)
             ? Carbon::parse($OrderDepositRuleObj->start_datetime)->format('Y-m-d')
             : $data->next;
@@ -240,8 +236,7 @@ class PayersController extends LegacyAppController
         $limit = $request->input('Record.limit', session('payers_limit', 20));
         session(['payers_limit' => $limit]);
 
-        $records = DB::table('insurance_payer_payments')
-            ->where('order_rule_id', $order_rule_id)
+        $records = InsurancePayerPayment::where('order_rule_id', $order_rule_id)
             ->orderBy('id', 'DESC')
             ->paginate($limit);
 
@@ -270,8 +265,7 @@ class PayersController extends LegacyAppController
         }
 
         $data = $request->all();
-        $InsurancePayerObj = DB::table('insurance_payers')
-            ->where('order_deposit_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])
+        $InsurancePayerObj = InsurancePayer::where('order_deposit_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])
             ->first();
         if (empty($InsurancePayerObj) || empty($InsurancePayerObj->stripe_key)) {
             $return["message"] = "Sorry, ROI vendor stripe account is not configured yet";
@@ -284,8 +278,7 @@ class PayersController extends LegacyAppController
             return $return;
         }
 
-        $InsurancePayerTokenObj = DB::table('insurance_payer_tokens')
-            ->where('order_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])
+        $InsurancePayerTokenObj = InsurancePayerToken::where('order_rule_id', $data['InsurancePayer']['order_deposit_rule_id'])
             ->where('is_default', 1)
             ->first();
         if (empty($InsurancePayerTokenObj)) {
@@ -308,25 +301,24 @@ class PayersController extends LegacyAppController
         );
         if ($paymentResult['status'] != 'success') {
             $return["message"] = $paymentResult['message'];
-            DB::table('insurance_payers')->where('id', $InsurancePayerObj->id)->update(['last_attempt' => now()]);
+            $InsurancePayerObj->update(['last_attempt' => now()]);
             return $return;
         }
 
-        DB::table('insurance_payer_payments')->insert([
+        InsurancePayerPayment::create([
             "order_rule_id" => $InsurancePayerObj->order_deposit_rule_id,
             "amount" => $calculatedAmount,
             "transaction_id" => $paymentResult['transaction_id'],
             "created" => now(),
         ]);
 
-        $OrderDepositRuleObj = DB::table('cs_order_deposit_rules')
-            ->where('id', $InsurancePayerObj->order_deposit_rule_id)
-            ->first(['id', 'start_datetime']);
+        $OrderDepositRuleObj = OrderDepositRule::select('id', 'start_datetime')
+            ->find($InsurancePayerObj->order_deposit_rule_id);
         $last_date = $InsurancePayerObj->next
             ? Carbon::parse($OrderDepositRuleObj->start_datetime)->format('Y-m-d')
             : $InsurancePayerObj->next;
 
-        DB::table('insurance_payers')->where('id', $InsurancePayerObj->id)->update([
+        $InsurancePayerObj->update([
             "last_attempt" => now(),
             "amount" => $calculatedAmount,
             'attepmt' => 1,
@@ -344,8 +336,7 @@ class PayersController extends LegacyAppController
 
         $expectedAmount = sprintf('%0.2f', ($daysTillDate * $InsurancePayerObj->daily_rate));
         if ($expectedAmount > $calculatedAmount) {
-            DB::table('cs_orders')
-                ->where('id', $data['InsurancePayer']['orderid'])
+            CsOrder::where('id', $data['InsurancePayer']['orderid'])
                 ->update(['pending_insu' => ($expectedAmount - $calculatedAmount)]);
         }
 

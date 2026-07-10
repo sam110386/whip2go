@@ -2,7 +2,7 @@
     <button type="button" class="close" data-dismiss="modal">&times;</button>
 </div>
 <div class="modal-body">
-    <form action="{{ url('admin/insurance/payers/save') }}" method="POST" name="frmadmin" class="form-horizontal">
+    <form action="{{ url('admin/payers/save') }}" method="POST" name="frmadmin" class="form-horizontal">
         @csrf
         <div class="panel-body">
             <legend class="text-size-large text-bold">BYOI Details:</legend>

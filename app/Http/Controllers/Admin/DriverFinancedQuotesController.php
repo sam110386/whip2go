@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\DriverFinancedInsuranceQuote;
+use App\Models\Legacy\InsuranceProvider;
+use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\VehicleReservation;
+use App\Services\Legacy\IntercomClient;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class DriverFinancedQuotesController extends LegacyAppController
 {
@@ -20,32 +23,30 @@ class DriverFinancedQuotesController extends LegacyAppController
         $recordid = $request->input('recordid', '');
         $id = $request->input('id', '');
         $myModal = $request->input('model', 'myModal');
-        $data = [];
+        $quoteData = [];
 
         if (empty($recordid) && !empty($id)) {
-            $data = DB::table('driver_financed_insurance_quotes')->where('id', $id)->first();
-            $recordid = $data->order_id ?? '';
+            $quoteData = DriverFinancedInsuranceQuote::find($id);
+            $recordid = $quoteData->order_id ?? '';
         }
+
         if (empty($id) && !empty($recordid)) {
-            $data = DB::table('driver_financed_insurance_quotes')->where('order_id', $recordid)->first();
+            $quoteData = DriverFinancedInsuranceQuote::where('order_id', $recordid)->first();
         }
 
-        $quoteData = $data ? (array) $data : [];
-        $creditCard = !empty($quoteData['credit_card']) ? json_decode($quoteData['credit_card'], true) : [];
-        $providerAccount = !empty($quoteData['provider_account']) ? json_decode($quoteData['provider_account'], true) : [];
-        $quotes = !empty($quoteData['quote']) ? json_decode($quoteData['quote'], true) : [];
-        $providers = DB::table('insurance_providers')->where('status', 1)->get()->toArray();
+        $creditCard = !empty($quoteData->credit_card) ? json_decode($quoteData->credit_card, true) : [];
+        $providerAccount = !empty($quoteData->provider_account) ? json_decode($quoteData->provider_account, true) : [];
+        $quotes = !empty($quoteData->quote) ? json_decode($quoteData->quote, true) : [];
+        $providers = InsuranceProvider::where('status', 1)->get()->toArray();
 
-        $orderDepositRuleObj = DB::table('cs_order_deposit_rules')
-            ->leftJoin('vehicle_reservations', 'vehicle_reservations.id', '=', 'cs_order_deposit_rules.vehicle_reservation_id')
-            ->leftJoin('axle_statuses', 'axle_statuses.order_id', '=', 'cs_order_deposit_rules.id')
-            ->where('cs_order_deposit_rules.vehicle_reservation_id', $recordid)
-            ->select('cs_order_deposit_rules.id', 'cs_order_deposit_rules.insurance_payer', 'vehicle_reservations.renter_id', 'vehicle_reservations.id as reservation_id')
+        $orderDepositRuleObj = OrderDepositRule::select('id', 'insurance_payer', 'vehicle_reservation_id')
+            ->where('vehicle_reservation_id', $recordid)
+            ->with('reservation:id,renter_id')
             ->first();
 
         $orderandusers = '';
-        if ($orderDepositRuleObj) {
-            $orderandusers = base64_encode($orderDepositRuleObj->reservation_id . '|' . $orderDepositRuleObj->renter_id);
+        if ($orderDepositRuleObj && $orderDepositRuleObj->reservation) {
+            $orderandusers = base64_encode($orderDepositRuleObj->reservation->id . '|' . $orderDepositRuleObj->reservation->renter_id);
         }
 
         $viewData = compact('recordid', 'myModal', 'providers', 'quotes', 'orderDepositRuleObj', 'orderandusers', 'quoteData', 'creditCard', 'providerAccount');
@@ -57,14 +58,17 @@ class DriverFinancedQuotesController extends LegacyAppController
 
         return view('admin.insurance.driver_financed_quotes.popup', $viewData);
     }
-
-    public function save(Request $request): JsonResponse
+    public function save(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) {
+        if ($this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $return = ['status' => false, "message" => "Sorry, your request is not valid"];
+        $return = [
+            'status' => false,
+            "message" => "Sorry, your request is not valid"
+        ];
+
         if ($request->ajax() && $request->isMethod('post')) {
             $dataToSave = $request->all();
             $isApproved = $request->input('approve', false);
@@ -76,78 +80,63 @@ class DriverFinancedQuotesController extends LegacyAppController
             $recordid = $dataToSave['DriverFinancedInsuranceQuote']['order_id'];
 
             $quoteRow = $dataToSave['DriverFinancedInsuranceQuote'];
-            if (!empty($quoteRow['id'])) {
-                DB::table('driver_financed_insurance_quotes')->where('id', $quoteRow['id'])->update(array_filter($quoteRow, fn($v) => $v !== null));
-            } else {
-                DB::table('driver_financed_insurance_quotes')->insert($quoteRow);
-            }
+            DriverFinancedInsuranceQuote::updateOrCreate(
+                ['id' => $quoteRow['id'] ?? null],
+                array_filter($quoteRow, fn($v) => $v !== null)
+            );
 
             if ($isApproved) {
-                $vhicleReservationObj = DB::table('vehicle_reservations')
-                    ->leftJoin('users', 'users.id', '=', 'vehicle_reservations.renter_id')
-                    ->where('vehicle_reservations.id', $recordid)
-                    ->select('vehicle_reservations.id', 'users.*')
-                    ->first();
+                $vhicleReservationObj = VehicleReservation::with('renter')->find($recordid);
 
-                if ($vhicleReservationObj) {
+                if ($vhicleReservationObj && $vhicleReservationObj->renter) {
                     $url = config('app.url') . '/insurance/driver_financed_docusign/signDocument/' . base64_encode($vhicleReservationObj->id . '|' . $vhicleReservationObj->renter_id);
                     try {
-                        (new \Intercom())->createEvents([
-                            "event_name" => "insurance_quote_approved",
-                            "created_at" => time(),
-                            "external_id" => $vhicleReservationObj->id,
-                            "user_id" => $vhicleReservationObj->id,
-                            "metadata" => [
-                                'docusign_url' => $url,
-                                'booking' => $recordid,
-                                'user' => $vhicleReservationObj->first_name . ' ' . $vhicleReservationObj->first_name,
-                            ],
-                        ]);
+                        (new IntercomClient())->sendEvent($vhicleReservationObj->renter->toArray(), [
+                            'docusign_url' => $url,
+                            'booking' => $recordid,
+                            'user' => $vhicleReservationObj->renter->first_name . ' ' . $vhicleReservationObj->renter->last_name,
+                        ], "insurance_quote_approved");
                     } catch (\Exception $e) {
                         // Intercom event failed silently
                     }
                 }
             }
-            $return = ['status' => true, "message" => "Record has been updated successfully"];
+
+            $return = [
+                'status' => true,
+                "message" => "Record has been updated successfully"
+            ];
         }
+
         return response()->json($return);
     }
-
-    public function virtualcard(Request $request): JsonResponse
+    public function virtaulcard(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) {
+        if ($this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $return = ['status' => false, "message" => "Sorry, your request is not valid"];
+
         if ($request->ajax() && $request->isMethod('post')) {
             $dataToSave = $request->input('DriverFinancedCreditCard');
             $toSave = ['id' => $dataToSave['id'], 'order_id' => $dataToSave['order_id']];
             unset($dataToSave['id'], $dataToSave['order_id']);
             $creditCardJson = json_encode($dataToSave);
 
-            DB::table('driver_financed_insurance_quotes')
-                ->where('id', $toSave['id'])
+            DriverFinancedInsuranceQuote::where('id', $toSave['id'])
                 ->update(['credit_card' => $creditCardJson]);
 
             $return = ['status' => true, "message" => "CC details saved successfully"];
 
             if (!empty($creditCardJson)) {
-                $vhicleReservationObj = DB::table('vehicle_reservations')
-                    ->leftJoin('users', 'users.id', '=', 'vehicle_reservations.renter_id')
-                    ->where('vehicle_reservations.id', $dataToSave['order_id'] ?? $toSave['order_id'])
-                    ->select('vehicle_reservations.id', 'users.*')
-                    ->first();
+                $vhicleReservationObj = VehicleReservation::with('renter')->find($dataToSave['order_id'] ?? $toSave['order_id']);
 
-                if ($vhicleReservationObj) {
+                if ($vhicleReservationObj && $vhicleReservationObj->renter) {
                     try {
-                        (new \Intercom())->createEvents([
-                            "event_name" => "insurance_quote_virtualcard_added",
-                            "created_at" => time(),
-                            "external_id" => $vhicleReservationObj->id,
-                            "user_id" => $vhicleReservationObj->id,
-                            "metadata" => ['booking' => $toSave['order_id']],
-                        ]);
+                        (new IntercomClient())->sendEvent($vhicleReservationObj->renter->toArray(), [
+                            'booking' => $toSave['order_id']
+                        ], "insurance_quote_virtualcard_added");
                     } catch (\Exception $e) {
                         // Intercom event failed silently
                     }
@@ -156,25 +145,24 @@ class DriverFinancedQuotesController extends LegacyAppController
         }
         return response()->json($return);
     }
-
-    public function deleteVirtualcard(Request $request): JsonResponse
+    public function deletevirtaulcard(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
         }
 
         $return = ['status' => false, "message" => "Sorry, your request is not valid"];
+
         if ($request->ajax() && $request->isMethod('post')) {
             $orderid = $request->input('orderid');
-            DB::table('driver_financed_insurance_quotes')
-                ->where('order_id', $orderid)
+            DriverFinancedInsuranceQuote::where('order_id', $orderid)
                 ->update(['credit_card' => null]);
             $return = ['status' => true, "message" => "CC details cleaned successfully"];
         }
+
         return response()->json($return);
     }
-
-    public function saveImage(Request $request): JsonResponse
+    public function saveImage(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
@@ -185,8 +173,7 @@ class DriverFinancedQuotesController extends LegacyAppController
         $return = $this->handleUpload($request->file($type), $id, $type);
         return response()->json($return);
     }
-
-    private function handleUpload($file, $id, string $filetype): array
+    private function handleUpload($file, $id, string $filetype)
     {
         if (!$file || !$file->isValid()) {
             return ['error' => 'No files were uploaded.'];
@@ -204,16 +191,10 @@ class DriverFinancedQuotesController extends LegacyAppController
         $destination = public_path('files/reservation');
         $file->move($destination, $filename);
 
-        $exits = DB::table('driver_financed_insurance_quotes')->where('order_id', $id)->first();
-        $dataToSave = [
-            $filetype => $filename,
-            'order_id' => $id,
-        ];
-        if (!empty($exits)) {
-            DB::table('driver_financed_insurance_quotes')->where('id', $exits->id)->update([$filetype => $filename]);
-        } else {
-            DB::table('driver_financed_insurance_quotes')->insert($dataToSave);
-        }
+        DriverFinancedInsuranceQuote::updateOrCreate(
+            ['order_id' => $id],
+            [$filetype => $filename]
+        );
 
         return ['success' => true];
     }

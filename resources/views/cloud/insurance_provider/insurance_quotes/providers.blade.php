@@ -51,7 +51,7 @@
                             </div>
 
                             <div class="w-100 mt-5 text-center">
-                                <a href="{{ config('app.url') }}/insuprovider/quotes/finalreview/{{ $provider['InsuranceQuote']['id'] }}/{{ $orderandusers }}" class="btn btn-blank btn-danger btn-rounded">Select</a>
+                                <a href="{{ config('app.url') }}/insurance_quotes/finalreview/{{ $provider['InsuranceQuote']['id'] }}/{{ $orderandusers }}" class="btn btn-blank btn-danger btn-rounded">Select</a>
                             </div>
                         </div>
                     </div>

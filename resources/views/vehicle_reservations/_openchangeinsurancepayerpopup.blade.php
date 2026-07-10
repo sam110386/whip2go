@@ -4,7 +4,7 @@
 
 <div class="modal-body">
 
-    <form action="#" method="POST" name="frmadmin" id="insurancePayerForm" class="form-horizontal"
+    <form action="#" method="POST" name="frmadmin" class="form-horizontal"
         id="OrderDepositRuleAdminChangeinsurancetypepopupForm">
         @csrf
 

@@ -28,7 +28,7 @@
                     <span>Please fill the following Insurance Quote from</span>
                 </div>
 
-                <form action="{{ url('/insuprovider/quotes/lincolnquotesave/' . $orderandusers) }}" method="POST" name="frmadmin" class="form-horizontal stepy-validation">
+                <form action="{{ url('/insurance_quotes/lincolnquotesave/' . $orderandusers) }}" method="POST" name="frmadmin" class="form-horizontal stepy-validation">
                     @csrf
 
                 <div class="panel-group panel-group-control panel-group-control-right content-group-lg" id="accordion-control-right">

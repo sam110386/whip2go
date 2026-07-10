@@ -6,7 +6,7 @@
     <div class="panel-body">
         <div class="row">
             <div class="col-lg-6">
-                <form action="{{ config('app.url') }}/admin/insurance/payers/charge" method="POST" name="frmadmin" class="form-horizontal">
+                <form action="{{ config('app.url') }}/admin/payers/charge" method="POST" name="frmadmin" class="form-horizontal">
                 @csrf
 
                 <legend class="text-size-large text-bold">BYOI Details:</legend>

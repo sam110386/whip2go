@@ -32,7 +32,8 @@
 
 <div class="panel">
     <div class="panel-body">
-        <form id="ReportDriverTransactionForm" action="{{ url()->current() }}" method="GET" class="form-horizontal">
+        <form id="ReportDriverTransactionAdminUsertransactionsForm" action="{{ url()->current() }}" method="GET"
+            class="form-horizontal">
             @csrf
 
             <div class="row pb-10">
@@ -49,7 +50,7 @@
                             $selectedTime = old('time', $time ?? '');
                         @endphp
 
-                        <select name="time" class="form-control" onchange="this.form.submit()">
+                        <select name="time" class="form-control" id="SearchTime">
                             @foreach($options as $value => $label)
                                 <option value="{{ $value }}" {{ $selectedTime == $value ? 'selected' : '' }}>
                                     {{ $label }}

@@ -3,7 +3,7 @@ function chargeInsuranceInAdvance(orderruleid){
         message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> loading...</h1>', 
         css:{'z-index':'9999'}
     });
-    $.post(SITE_URL+"admin/insurance/payers/charge_advance", {'orderruleid':orderruleid},function (data) {
+    $.post(SITE_URL+"admin/payers/charge_advance", {'orderruleid':orderruleid},function (data) {
         jQuery.unblockUI();
         $("#myModal .modal-content").html(data);
         $("#myModal").modal('show').find('.modal-dialog').css('width','650px');;
@@ -21,7 +21,7 @@ function processInsuranceInAdvanceCharge(){
         css:{'z-index':'9999'}
     });
     let params=$("#InsurancePayerAdminChargeAdvanceForm").serialize();
-    $.post(SITE_URL+"admin/insurance/payers/process_charge_advance", params,function (data) {
+    $.post(SITE_URL+"admin/payers/process_charge_advance", params,function (data) {
         jQuery.unblockUI();
         alert(data.message);
         if(data.status){
@@ -36,13 +36,13 @@ function pendingInsurancePopup(order,ruleid){
         message: '<h1><img src="'+SITE_URL+'img/select2-spinner.gif" /> loading...</h1>', 
         css:{'z-index':'9999'}
     });
-    $.post(SITE_URL+"admin/insurance/payers/pendinginsurancepopup", {'order':order,'ruleid':ruleid},function (data) {
+    $.post(SITE_URL+"admin/payers/pendinginsurancepopup", {'order':order,'ruleid':ruleid},function (data) {
         jQuery.unblockUI();
         $("#myModal .modal-content").html(data);
         $("#myModal").modal('show').find('.modal-dialog').css('width','850px');
     }).done(function(){
         $("#InsurancePayerAdminPendinginsurancepopupForm").validate();
-        $.post(SITE_URL+"admin/insurance/payers/usertransactions/"+ruleid, {},function (data) {
+        $.post(SITE_URL+"admin/payers/usertransactions/"+ruleid, {},function (data) {
             $("#transsactionlisting").html(data);
         });
         
@@ -58,7 +58,7 @@ function pendingInsurancePopup(order,ruleid){
             return false;
         }
         var params=$("#InsurancePayerAdminPendinginsurancepopupForm").serialize();
-        $.post(SITE_URL+"admin/insurance/payers/process_boyi_insurance", params,function (data) {
+        $.post(SITE_URL+"admin/payers/process_boyi_insurance", params,function (data) {
             alert(data.message);
             if(data.status){
                 $("#myModal").modal('hide');

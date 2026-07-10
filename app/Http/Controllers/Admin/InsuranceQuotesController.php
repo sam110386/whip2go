@@ -3,16 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\InsuranceQuote;
+use App\Models\Legacy\InsuranceProvider;
+use App\Models\Legacy\VehicleReservation;
+use App\Services\Legacy\IntercomClient;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-
 class InsuranceQuotesController extends LegacyAppController
 {
-    private array $allowedExtensions = [
-        'jpeg', 'jpg', 'png', 'pdf', 'doc', 'docx',
-        'application/pdf', 'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
+    private array $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf', 'doc', 'docx', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
     public function listpopup(Request $request)
     {
@@ -22,15 +20,12 @@ class InsuranceQuotesController extends LegacyAppController
 
         $bookingid = $request->input('bookingid');
 
-        $quotes = DB::table('insurance_quotes as InsuranceQuote')
-            ->leftJoin('insurance_providers as InsuranceProvider', 'InsuranceProvider.id', '=', 'InsuranceQuote.provider_id')
-            ->where('InsuranceQuote.order_id', $bookingid)
-            ->select('InsuranceQuote.*', 'InsuranceProvider.id as provider_table_id', 'InsuranceProvider.name as provider_name')
+        $quotes = InsuranceQuote::with('provider')
+            ->where('order_id', $bookingid)
             ->get();
 
         return view('admin.insurance_provider.insurance_quotes.listpopup', compact('bookingid', 'quotes'));
     }
-
     public function popup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -40,22 +35,17 @@ class InsuranceQuotesController extends LegacyAppController
         $id = $request->input('id');
         $bookingid = $request->input('bookingid');
 
-        $providers = DB::table('insurance_providers')
-            ->where('status', 1)
+        $providers = InsuranceProvider::where('status', 1)
             ->pluck('name', 'id')
             ->toArray();
 
-        $record = [];
+        $record = null;
         if (!empty($id)) {
-            $record = DB::table('insurance_quotes')->where('id', $id)->first();
-            if ($record) {
-                $record = (array) $record;
-            }
+            $record = InsuranceQuote::find($id);
         }
 
         return view('admin.insurance_provider.insurance_quotes.popup', compact('bookingid', 'providers', 'record'));
     }
-
     public function delete(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -63,18 +53,15 @@ class InsuranceQuotesController extends LegacyAppController
         }
 
         $id = $request->input('id');
-        $bookingid = $request->input('bookingid');
+        $quote = InsuranceQuote::select('id', 'selected')->find($id);
 
-        $quote = DB::table('insurance_quotes')->where('id', $id)->first(['id', 'selected']);
-
-        if (!empty($id) && !empty($quote) && $quote->selected != 1) {
-            DB::table('insurance_quotes')->where('id', $id)->delete();
+        if ($quote && $quote->selected != 1) {
+            $quote->delete();
             return response()->json(['status' => true, 'message' => 'Record deleted successfully']);
         }
 
         return response()->json(['status' => false, 'message' => 'Sorry, this record cant be deleted']);
     }
-
     public function save(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -90,7 +77,7 @@ class InsuranceQuotesController extends LegacyAppController
         $dataToSave = $request->input('InsuranceQuote', []);
         unset($dataToSave['policy_doc']);
 
-        $maxSize = $this->fileSizeInBytes(ini_get('upload_max_filesize'));
+        $maxSize = $this->commonService->FileSizeInBytes(ini_get('upload_max_filesize'));
 
         if ($request->hasFile('InsuranceQuote.policy_doc')) {
             $file = $request->file('InsuranceQuote.policy_doc');
@@ -119,47 +106,29 @@ class InsuranceQuotesController extends LegacyAppController
         unset($dataToSave['notify']);
 
         if (!empty($dataToSave['id'])) {
-            DB::table('insurance_quotes')->where('id', $dataToSave['id'])->update($dataToSave);
+            $quote = InsuranceQuote::find($dataToSave['id']);
+            if ($quote) {
+                $quote->update($dataToSave);
+            }
         } else {
             unset($dataToSave['id']);
-            $dataToSave['id'] = DB::table('insurance_quotes')->insertGetId($dataToSave);
+            $quote = InsuranceQuote::create($dataToSave);
+            $dataToSave['id'] = $quote->id;
         }
 
         if ($notify) {
-            $reservation = DB::table('vehicle_reservations as VehicleReservation')
-                ->leftJoin('users as Renter', 'Renter.id', '=', 'VehicleReservation.renter_id')
-                ->where('VehicleReservation.id', $dataToSave['order_id'])
-                ->select(
-                    'VehicleReservation.id',
-                    'Renter.id as renter_id',
-                    'Renter.email',
-                    'Renter.contact_number',
-                    'Renter.first_name',
-                    'Renter.last_name'
-                )
-                ->first();
+            $reservation = VehicleReservation::with('renter')->find($dataToSave['order_id']);
 
-            if ($reservation) {
+            if ($reservation && $reservation->renter) {
                 $metadata = [
                     'url' => config('app.url') . '/insurance_provider/insurance_quotes/review/'
                         . base64_encode($reservation->id . '|' . $reservation->renter_id),
                 ];
-                // TODO: Send Intercom event – (new Intercom())->sendEvent($reservation, $metadata, 'InsuranceOption')
+
+                (new IntercomClient())->sendEvent($reservation->renter->toArray(), $metadata, 'InsuranceOption');
             }
         }
 
         return response()->json(['status' => true, 'message' => 'Request saved successfully']);
-    }
-
-    private function fileSizeInBytes(string $size): int
-    {
-        $unit = strtolower(substr($size, -1));
-        $value = (int) $size;
-        switch ($unit) {
-            case 'g': return $value * 1073741824;
-            case 'm': return $value * 1048576;
-            case 'k': return $value * 1024;
-            default:  return $value;
-        }
     }
 }

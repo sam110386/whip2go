@@ -112,6 +112,10 @@ class AxledocsController extends LegacyAppController
                 ->select('OrderDepositRule.id', 'Renter.id as renter_id', 'Renter.first_name', 'Renter.last_name')
                 ->first();
 
+            if (!$odr) {
+                return redirect()->back()->with('error', 'No record found!');
+            }
+
             $dataToPass = [
                 "order_id" => $odr->id,
                 'renter_id' => $odr->renter_id,
