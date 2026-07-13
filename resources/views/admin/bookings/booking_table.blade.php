@@ -15,7 +15,7 @@
         <tbody>
             @forelse ($tripLog as $trip)
                 <tr id="booking_{{ (int)($trip->id ?? 0) }}">
-                    @include('admin.bookings._single_row', ['trip' => $trip])
+                    @include('admin.bookings.load_single_row', ['trip' => $trip])
                 </tr>
             @empty
                 <tr><td colspan="8" style="text-align:center;">No orders found.</td></tr>

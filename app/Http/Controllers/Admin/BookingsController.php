@@ -1,17 +1,25 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\AxleStatus;
 use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\CsUserBalance;
+use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\DriverFinancedInsuranceQuote;
+use App\Models\Legacy\DynamicDeposit;
 use App\Models\Legacy\InsuranceQuote;
+use App\Models\Legacy\User;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\CsTwilioOrder;
 use App\Models\Legacy\VehicleReservation;
+use App\Services\Legacy\AxleService;
+use App\Services\Legacy\Notifier;
+use App\Services\Legacy\Passtime;
 use App\Services\Legacy\PaymentProcessor;
+use App\Services\Legacy\UnlockVehicle;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,333 +70,565 @@ class BookingsController extends LegacyAppController
 
         return view('admin.bookings.index', ['tripLog' => $tripLog, 'limit' => $limit]);
     }
-
-    /**
-     * Cake BookingsController::admin_getVehicle
-     */
-    public function getVehicle(Request $request): JsonResponse
-    {
-        $q = Vehicle::query()
-            ->where('status', 1)
-            ->where('trash', 0)
-            ->where(function ($q2) {
-                $q2->where('booked', 0)->orWhere('type', 'demo');
-            })
-            ->select(['id', 'vehicle_unique_id', 'vehicle_name', 'address', 'rate', 'lat', 'lng']);
-
-        if ($request->filled('id')) {
-            $q->where('id', (int) $request->query('id'));
-        } else {
-            $term = (string) $request->query('term', '');
-            $like = '%' . addcslashes($term, '%_\\') . '%';
-            $q->where(function ($q2) use ($like) {
-                $q2->where('vehicle_unique_id', 'like', $like)
-                    ->orWhere('vehicle_name', 'like', $like);
-            });
-        }
-
-        $rows = $q->orderBy('vehicle_unique_id')->limit(10)->get();
-        $out = [];
-        foreach ($rows as $v) {
-            $out[] = [
-                'id' => $v->id,
-                'tag' => $v->vehicle_unique_id . '-' . $v->vehicle_name,
-                'address' => $v->address,
-                'lat' => $v->lat,
-                'lng' => $v->lng,
-                'rate' => $v->rate,
-            ];
-        }
-
-        return response()->json($out);
-    }
-
-    public function customerautocomplete(Request $request): JsonResponse
-    {
-        return $this->respondCustomerAutocomplete($request, 'admin');
-    }
-
-    /**
-     * Cake BookingsController::admin_autocomplete / _autocomplete (POST term|id).
-     */
-    public function autocomplete(Request $request): JsonResponse
-    {
-        $bookingId = trim((string) $request->input('id', ''));
-        $searchTerm = trim((string) $request->input('term', ''));
-
-        $q = DB::table('cs_orders')->select(['id', 'increment_id', 'vehicle_id']);
-
-        if ($bookingId !== '') {
-            $q->where('id', (int) $bookingId);
-        } else {
-            $q->where(function ($q2) use ($searchTerm) {
-                $q2->where('id', 'like', $searchTerm . '%')
-                    ->orWhere('increment_id', 'like', '%' . addcslashes($searchTerm, '%_\\') . '%');
-            });
-        }
-
-        $lists = $q->orderByDesc('id')->limit(10)->get();
-        $bookings = [];
-        foreach ($lists as $row) {
-            $bookings[] = [
-                'id' => $row->id,
-                'tag' => $row->increment_id,
-                'vehicle' => $row->vehicle_id,
-            ];
-        }
-
-        return response()->json($bookings);
-    }
-
-    public function load_single_row(Request $request)
+    public function startBooking(Request $request)
     {
         $orderId = $this->decodeId((string) $request->input('orderid', ''));
+
         if (!$orderId) {
-            return response('Invalid order id', 400);
+            return response()->json(['status' => false, 'message' => 'Invalid inputs', 'result' => []]);
         }
 
-        $trip = CsOrder::with(['vehicle'])->where('id', $orderId)->first();
+        $csOrder = CsOrder::with('depositRule:id,cs_order_id,insurance_payer')
+            ->where('id', $orderId)
+            ->where('parent_id', 0)
+            ->first();
 
-        if (!$trip) {
-            return response('Order not found', 404);
+        if (!$csOrder) {
+            return response()->json(['status' => false, 'message' => 'sorry, you are not authorize user.', 'result' => []]);
         }
 
-        return response()->view('admin.bookings._single_row', ['trip' => $trip]);
+        if ($csOrder->status != 0) {
+            return response()->json(['status' => false, 'message' => 'sorry, booking already accepted.', 'result' => []]);
+        }
+
+        $return = $this->_startBooking($csOrder);
+
+        return response()->json($return);
     }
-
     public function loadcancelBooking(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $orderId = $this->decodeId($request->input('orderid', ''));
+
         if (!$orderId) {
             return response('Invalid order id', 400);
         }
 
         $order = CsOrder::where('id', $orderId)->first(['id', 'vehicle_id']);
+
         if (!$order) {
             return response('Order not found', 404);
         }
 
-        $cancellation_fee = 0;
-        // Ported from CakePHP: $cancellation_fee = $this->DepositRule->getCancellationFee($order->vehicle_id);
-        // Assuming DepositRule model exists with this logic or it's simple enough to calculate.
+        $cancellation_fee = (new DepositRule())->getCancellationFee($order->vehicle_id);
 
         return response()->view('admin.bookings._cancel_popup', [
-            'orderid' => base64_encode((string) $order->id),
+            'orderid' => base64_encode($order->id),
             'cancellation_fee' => $cancellation_fee,
         ]);
     }
-
-    public function loadcompleteBooking(Request $request)
+    public function load_single_row(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $orderId = $this->decodeId($request->input('orderid', ''));
+
         if (!$orderId) {
             return response('Invalid order id', 400);
         }
 
-        $trip = CsOrder::where('id', $orderId)->first();
+        $trip = CsOrder::select([
+            'cs_orders.*',
+            'OrderDepositRule.insurance_payer as rule_insurance_payer',
+            'OrderDepositRule.id as rule_id'
+        ])
+            ->with(['owner', 'driver'])
+            ->leftJoin('cs_order_deposit_rules as OrderDepositRule', function ($join) {
+                $join->on('OrderDepositRule.cs_order_id', '=', 'cs_orders.id')
+                    ->orOn('OrderDepositRule.cs_order_id', '=', 'cs_orders.parent_id');
+            })
+            ->find($orderId);
+
         if (!$trip) {
             return response('Order not found', 404);
         }
 
-        // Logic ported from CakePHP admin_loadcompleteBooking
-        $autorenew = $request->input('autorenew');
-        // In CakePHP: $all_fee = $this->DepositRule->getAllFee($trip, $autorenew);
-        // We'll simulate this or call a service if available. 
-        // For now, using the existing data but keeping parity in mind.
-
-        $allFee = [
-            'estimated_rent' => (float) ($trip->rent ?? 0),
-            'discount' => (float) ($trip->discount ?? 0),
-            'rent' => (float) ($trip->rent ?? 0),
-            'tax' => (float) ($trip->tax ?? 0),
-            'dia_fee' => (float) ($trip->dia_fee ?? 0),
-            'extra_mileage_fee' => (float) ($trip->extra_mileage_fee ?? 0),
-            'emf_tax' => (float) ($trip->emf_tax ?? 0),
-            'lateness_fee' => (float) ($trip->lateness_fee ?? 0),
-            'damage_fee' => (float) ($trip->damage_fee ?? 0),
-            'uncleanness_fee' => (float) ($trip->uncleanness_fee ?? 0),
-            'initial_fee' => (float) ($trip->initial_fee ?? 0),
-            'initial_fee_tax' => (float) ($trip->initial_fee_tax ?? 0),
-            'insurance_amt' => (float) ($trip->insurance_amt ?? 0),
-            'dia_insu' => (float) ($trip->dia_insu ?? 0),
-            'pending_toll' => (float) ($trip->pending_toll ?? 0),
-        ];
-
-        $calculatedInsurance = (float) ($trip->insurance_penalty ?? 0);
-
-        return response()->view('admin.bookings._complete_popup', [
-            'trip' => $trip,
-            'orderid' => base64_encode((string) $trip->id),
-            'autorenew' => $autorenew,
-            'end_datetime' => (string) ($trip->end_datetime ?? ''),
-            'all_fee' => $allFee,
-            'calculatedInsurance' => $calculatedInsurance,
-        ]);
+        return response()->view('admin.bookings.load_single_row', ['trip' => $trip]);
     }
-
-    public function startBooking(Request $request): JsonResponse
+    public function cancelBooking(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
+        $orderId = $this->decodeId($request->input('Text.orderid', $request->input('orderid', '')));
+        $cancelNote = trim($request->input('Text.cancel_note', $request->input('cancel_note', '')));
+        $cancellationFee = $request->input('Text.cancellation_fee', $request->input('cancellation_fee', 0));
+
         if (!$orderId) {
             return response()->json(['status' => false, 'message' => 'Invalid inputs', 'result' => []]);
         }
 
-        $order = CsOrder::where('id', $orderId)->where('parent_id', 0)->first();
-        if (!$order) {
+        $csOrder = CsOrder::find($orderId);
+
+        if (!$csOrder) {
             return response()->json(['status' => false, 'message' => 'sorry, you are not authorize user.', 'result' => []]);
         }
-        if ((int) $order->status !== 0) {
-            return response()->json(['status' => false, 'message' => 'sorry, booking already accepted.', 'result' => []]);
+
+        if ($csOrder->status != 0 && $csOrder->status != 2) {
+            return response()->json(['status' => false, 'message' => 'sorry, you cant cancel this booking. Please mark it complete if you really want to finish this booking.', 'result' => []]);
         }
 
-        // Logic from CakePHP: $return = $this->_startBooking($CsOrder);
-        // We'll perform the updates and call payment processor if needed.
-        $order->update([
-            'status' => 1,
-            'start_timing' => now()->toDateTimeString(),
-        ]);
-
-        // Ported from CakePHP: $this->Passtime->startPasstime($order->vehicle_id, $orderId);
-        // Assuming Passtime service is available.
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Your request processed successfully.',
-            'orderid' => $orderId,
-            'result' => [],
-        ]);
-    }
-
-    public function cancelBooking(Request $request): JsonResponse
-    {
-        $orderId = $this->decodeId((string) $request->input('Text.orderid', $request->input('orderid', '')));
-        $cancelNote = trim((string) $request->input('Text.cancel_note', $request->input('cancel_note', '')));
-        $cancellationFee = (float) $request->input('Text.cancellation_fee', $request->input('cancellation_fee', 0));
-        if (!$orderId) {
-            return response()->json(['status' => false, 'message' => 'Invalid inputs', 'result' => []]);
-        }
-
-        $order = CsOrder::where('id', $orderId)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'sorry, you are not authorize user.', 'result' => []]);
-        }
-        if ((int) $order->status !== 0) {
+        if ($csOrder->status !== 0) {
             return response()->json(['status' => false, 'message' => 'sorry, booking already canceled.', 'result' => []]);
         }
 
-        $order->update([
-            'status' => 2,
-            'cancel_note' => $cancelNote,
-            'cancellation_fee' => $cancellationFee,
-            'rent' => 0,
-            'tax' => 0,
-        ]);
 
-        if ($order->vehicle) {
-            $order->vehicle->update(['booked' => 0]);
+        $result = DB::transaction(function () use ($csOrder, $orderId, $cancellationFee, $cancelNote) {
+            Vehicle::where('id', $csOrder->vehicle_id)->update(['booked' => 0]);
+
+            $paymentProcessor = new PaymentProcessor();
+            $csOrderPayment = new CsOrderPayment();
+            $payReturn = $paymentProcessor->ChargeCancelAmount($csOrder->toArray(), $cancellationFee);
+
+            if (($payReturn['status'] ?? '') === 'success') {
+                $csOrder->status = 2;
+                $csOrder->cancellation_fee = $cancellationFee;
+                $csOrder->cancel_note = $cancelNote;
+                $csOrder->rent = 0;
+                $csOrder->tax = 0;
+
+                if (!empty($payReturn['cancel_fee_transaction_id'])) {
+                    $csOrderPayment->saveCancelTransaction(
+                        $orderId,
+                        $cancellationFee,
+                        $payReturn['cancel_fee_transaction_id'],
+                        $csOrder->user_id
+                    );
+                }
+
+                $csOrder->save();
+
+                Notifier::updateIntercomeUserAttrbute($csOrder->renter_id, ['Booking_Status' => '']);
+
+                return [
+                    'status' => true,
+                    'message' => 'Your booking canceled successfully.',
+                    'orderid' => $orderId,
+                    'result' => []
+                ];
+            }
+
+            return [
+                'status' => false,
+                'message' => $payReturn['message'] ?? 'Payment authorization failed.',
+                'result' => []
+            ];
+        });
+
+        return response()->json($result);
+    }
+    public function loadcompleteBooking(Request $request)
+    {
+        $orderId = $this->decodeId($request->input('orderid', ''));
+        $autorenew = $request->input('autorenew');
+
+        if (!$orderId) {
+            return response('Invalid order id', 400);
         }
 
-        // Ported from CakePHP: PaymentProcessor::ChargeCancelAmount
-        $paymentProcessor = new PaymentProcessor();
-        // $paymentProcessor->ChargeCancelAmount($order, $cancellationFee);
+        $csOrder = CsOrder::findOrFail($orderId);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Your booking canceled successfully.',
-            'orderid' => $orderId,
-            'result' => [],
+        if (!$csOrder) {
+            return response('Order not found', 404);
+        }
+
+        $allFee = (new DepositRule())->getAllFee($csOrder->toArray(), $autorenew);
+
+        if (($allFee['end_odometer'] ?? 0) > 0) {
+            CsOrder::where('id', $orderId)->update(['end_odometer' => $allFee['end_odometer']]);
+        }
+
+        if ($csOrder->insu_status == 2 && ($allFee['insurance_amt'] ?? 0) <= $csOrder->insurance_amt) {
+            $allFee['insurance_amt'] = $csOrder->insurance_amt;
+        }
+
+        $allFee['pending_toll'] = $csOrder->pending_toll;
+        $allFee['estimated_rent'] = ($allFee['estimated_rent'] ?? 0) + ($allFee['discount'] ?? 0);
+
+        $startTime = Carbon::parse($csOrder->start_datetime);
+        $endTime = Carbon::parse($csOrder->end_datetime);
+        $daysGapInSeconds = $endTime->diffInSeconds($startTime);
+
+        $endDateTime = Carbon::parse($csOrder->end_datetime)
+            ->addSeconds($daysGapInSeconds)
+            ->timezone($csOrder->timezone ?? 'UTC')
+            ->format('Y-m-d H:i:s');
+
+        $targetRuleId = $csOrder->parent_id ?: $csOrder->id;
+
+        $duration = OrderDepositRule::nextDuration($targetRuleId, $csOrder->end_datetime, $endDateTime);
+
+        if ($duration) {
+            $endDateTime = Carbon::parse($csOrder->end_datetime)
+                ->addDays($duration)
+                ->timezone($csOrder->timezone ?? 'UTC')
+                ->format('Y-m-d H:i:s');
+        }
+
+        $orderDepositRule = OrderDepositRule::where('cs_order_id', $targetRuleId)
+            ->select(['id', 'cs_order_id', 'insurance'])
+            ->first();
+
+        $calculatedInsurance = 0;
+        if ($orderDepositRule) {
+            $axleStatusObj = AxleStatus::where('order_id', $orderDepositRule->id)->first();
+
+            if ($axleStatusObj && in_array($axleStatusObj->axle_status, [3, 4]) && $axleStatusObj->expired_on < now()->format('Y-m-d')) {
+                $days = $this->commonService->days_between_dates($axleStatusObj->expired_on, now()->format('Y-m-d'));
+                $totalInsurance = sprintf('%0.2f', ($days * $orderDepositRule->insurance));
+                $calculatedInsurance = sprintf('%0.2f', ($totalInsurance - $axleStatusObj->calculated_insurance));
+            }
+        }
+
+        return view('admin.bookings.loadcompleteBooking', [
+            'calculatedInsurance' => $calculatedInsurance,
+            'end_datetime' => $endDateTime,
+            'autorenew' => $autorenew,
+            'all_fee' => $allFee,
+            'orderid' => base64_encode($orderId),
         ]);
     }
-
-    public function completeBooking(Request $request): JsonResponse
+    public function completeBooking(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('Text.orderid', $request->input('orderid', '')));
-        if (!$orderId) {
+        $textInputs = $request->input('Text', []);
+        $orderId = isset($textInputs['orderid']) ? $this->decodeId(trim($textInputs['orderid'])) : null;
+        $rent = $textInputs['rent'] ?? null;
+        $tax = $textInputs['tax'] ?? null;
+        $extra_mileage_fee = $textInputs['extra_mileage_fee'] ?? null;
+
+        if (empty($orderId)) {
             return response()->json(['status' => false, 'message' => 'Invalid inputs', 'result' => []]);
         }
 
-        $order = CsOrder::with(['vehicle', 'owner'])
+        $csOrder = CsOrder::with([
+            'vehicle:id,make,model,year,vin_no,user_id,allowed_miles,msrp,vehicleCostInclRecon,plate_number,passtime_status,disclosure',
+            'user:id,first_name,last_name,company_address,company_city,company_state,company_zip,timezone,distance_unit,company_name,representative_name,representative_role,representative_sign,contact_number'
+        ])
             ->where('id', $orderId)
             ->where('status', 1)
             ->first();
 
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Booking not found or not in active status.', 'result' => []]);
+        if (!$csOrder) {
+            return response()->json(['status' => false, 'message' => 'sorry, you are not authorize user.', 'result' => []]);
         }
 
-        $rent = (float) $request->input('Text.rent', 0);
-        $tax = (float) $request->input('Text.tax', 0);
-        $diaFee = (float) $request->input('Text.dia_fee', 0);
-        $diaInsu = (float) $request->input('Text.dia_insu', 0);
-        $extraMileageFee = (float) $request->input('Text.extra_mileage_fee', 0);
-        $latenessFee = (float) $request->input('Text.lateness_fee', 0);
-        $damageFee = (float) $request->input('Text.damage_fee', 0);
-        $uncleannessFee = (float) $request->input('Text.uncleanness_fee', 0);
-        $insuranceFee = (float) $request->input('Text.insurance_fee', 0);
-        $initialFee = (float) $request->input('Text.initial_fee', 0);
-        $initialFeeTax = (float) $request->input('Text.initial_fee_tax', 0);
-        $discount = (float) $request->input('Text.discount', 0);
-        $pendingToll = (float) $request->input('Text.pending_toll', 0);
-        $insurancePenalty = (float) $request->input('Text.insurance_penalty', 0);
-        $details = (string) $request->input('Text.details', '');
-        $autorenew = (int) $request->input('Text.autorenew', 0);
-        $autorenewEndDate = (string) $request->input('Text.autorenewenddate', '');
-        $renewButDontCharge = (int) $request->input('Text.renew_but_dont_charge', 0);
+        if (!in_array($csOrder->status, [0, 1])) {
+            return response()->json(['status' => false, 'message' => 'sorry, booking already completed.', 'result' => []]);
+        }
 
-        $depositRule = OrderDepositRule::where('cs_order_id', $orderId)
-            ->orWhere('cs_order_id', (int) ($order->parent_id ?? 0))
+        $targetRuleId = $csOrder->parent_id ?: $csOrder->id;
+        $bookingRentalChoice = OrderDepositRule::where('cs_order_id', $targetRuleId)
+            ->select(['id', 'insurance_payer', 'tax', 'insurance'])
             ->first();
 
-        // EMF Tax calculation (simplified for now, matches existing logic)
-        $emfTax = 0;
-        if ($extraMileageFee > 0 && $depositRule) {
-            // In Cake: calculated via DepositRule
-            $emfTax = round($extraMileageFee * (float) ($depositRule->tax_rate ?? 0) / 100, 2);
+        if (!$bookingRentalChoice) {
+            return response()->json(['status' => false, 'message' => 'Sorry, Renter booking rent preference data not found', 'result' => []]);
         }
 
+        $csOrderTemp = clone $csOrder;
         $paymentProcessor = new PaymentProcessor();
-        // $payreturn = $paymentProcessor->ChargeAmountOnComplete($order, $order->toArray());
+        $csOrderPayment = new CsOrderPayment();
 
-        $order->update([
-            'rent' => $rent,
-            'tax' => $tax,
-            'dia_fee' => $diaFee,
-            'dia_insu' => $diaInsu,
-            'extra_mileage_fee' => $extraMileageFee,
-            'emf_tax' => $emfTax,
-            'lateness_fee' => $latenessFee,
-            'damage_fee' => $damageFee,
-            'uncleanness_fee' => $uncleannessFee,
-            'insurance_amt' => $insuranceFee,
-            'initial_fee' => $initialFee,
-            'initial_fee_tax' => $initialFeeTax,
-            'discount' => $discount,
-            'pending_toll' => $pendingToll,
-            'insurance_penalty' => $insurancePenalty,
-            'details' => $details,
-            'status' => 3,
-            'end_timing' => now()->toDateTimeString(),
-        ]);
+        $csOrder->extra_mileage_fee = trim($textInputs['extra_mileage_fee'] ?? 0);
+        $csOrder->lateness_fee = trim($textInputs['lateness_fee'] ?? 0);
+        $csOrder->damage_fee = trim($textInputs['damage_fee'] ?? 0);
+        $csOrder->uncleanness_fee = trim($textInputs['uncleanness_fee'] ?? 0);
+        $csOrder->rent = trim($textInputs['rent'] ?? 0);
+        $csOrder->tax = trim($textInputs['tax'] ?? 0);
+        $csOrder->dia_fee = trim($textInputs['dia_fee'] ?? 0);
+        $csOrder->dia_insu = trim($textInputs['dia_insu'] ?? 0);
+        $csOrder->discount = trim($textInputs['discount'] ?? 0) > $csOrder->rent ? 0 : trim($textInputs['discount'] ?? 0);
+        $csOrder->insurance_amt = trim($textInputs['insurance_fee'] ?? 0);
+        $csOrder->pending_toll = trim($textInputs['pending_toll'] ?? 0);
+        $csOrder->initial_fee = trim($textInputs['initial_fee'] ?? 0);
+        $csOrder->initial_fee_tax = trim($textInputs['initial_fee_tax'] ?? 0);
+        $csOrder->end_timing = now();
+        $csOrder->details = trim($textInputs['details'] ?? '') ?: $csOrder->details;
+        $csOrder->insurance_payer = $bookingRentalChoice->insurance_payer;
+        $csOrder->order_rule_id = $bookingRentalChoice->id;
 
-        if ($order->vehicle) {
-            $order->vehicle->update([
-                'booked' => 0,
-                'status' => 10,
-            ]);
+        $totalPaid = $csOrder->rent + $csOrder->tax + $csOrder->uncleanness_fee + $csOrder->damage_fee + $csOrder->dia_fee;
+        $emfTax = number_format((($csOrder->extra_mileage_fee * $bookingRentalChoice->tax) / 100), 2, '.', '');
+        $totalEmf = $csOrder->extra_mileage_fee + $emfTax;
+        $csOrder->emf_tax = $emfTax;
+
+        $alreadyPaid = CsOrderPayment::getTotalPaidRental($csOrder->id);
+        $paidLateFee = CsOrderPayment::getTotalPaidLateFee($csOrder->id);
+        $paidInitialFee = CsOrderPayment::getTotalInitialFee($csOrder->id);
+
+        $autoRenew = isset($textInputs['autorenew']);
+        $renewButDontCharge = isset($textInputs['renew_but_dont_charge']) && $textInputs['renew_but_dont_charge'] == 1;
+        $autoRenewEndDateInput = $textInputs['autorenewenddate'] ?? null;
+        $autoRenewEndDateTime = !empty($autoRenewEndDateInput) ? Carbon::parse($autoRenewEndDateInput)->format('Y-m-d H:i:s') : false;
+
+        $hasBalanceChanges = (
+            $totalEmf > 0 ||
+            $totalPaid > 0 ||
+            $alreadyPaid > 0 ||
+            $csOrder->insurance_amt > 0 ||
+            $csOrder->dia_insu > 0 ||
+            $csOrder->pending_toll > 0 ||
+            ($csOrder->lateness_fee != $paidLateFee) ||
+            (($paidInitialFee['initial_fee'] ?? 0) != $csOrder->initial_fee) ||
+            (($paidInitialFee['initial_fee_tax'] ?? 0) != $csOrder->initial_fee_tax)
+        );
+
+        $payReturn = ['status' => 'success'];
+
+        if ($autoRenew && $autoRenewEndDateTime && $hasBalanceChanges) {
+            $payReturn = $paymentProcessor->ChargeAmountOnCompleteForRenew($csOrder->toArray(), $csOrderTemp->toArray());
+        } elseif (!$autoRenew && $hasBalanceChanges) {
+            $payReturn = $paymentProcessor->ChargeAmountOnComplete($csOrder->toArray(), $csOrderTemp->toArray());
         }
 
-        if ($autorenew === 1 && $autorenewEndDate !== '') {
-            $this->_OrderAutoRenew($orderId, $autorenewEndDate);
-        }
+        $csOrder->dpa_status = $payReturn['dpa_status'] ?? $csOrder->dpa_status;
+        $csOrder->insu_status = $payReturn['insu_status'] ?? $csOrder->insu_status;
+        $csOrder->emf_status = $payReturn['emf_status'] ?? $csOrder->emf_status;
+        $csOrder->infee_status = $payReturn['infee_status'] ?? $csOrder->infee_status;
+        $csOrder->payment_status = $payReturn['payment_status'] ?? $csOrder->payment_status;
+        $csOrder->dia_insu_status = $payReturn['dia_insu_status'] ?? $csOrder->dia_insu_status;
+        $csOrder->paid_amount = $csOrder->payment_status ? $totalPaid : 0;
+        $csOrder->lateness_fee_status = $payReturn['latefee_status'] ?? $csOrder->lateness_fee_status;
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Booking completed successfully.',
-            'orderid' => $orderId,
-            'result' => [],
-        ]);
+        return DB::transaction(function () use ($csOrder, $payReturn, $csOrderPayment, $orderId, $totalPaid, $rent, $tax, $extra_mileage_fee, $emfTax, $autoRenew, $autoRenewEndDateTime, $renewButDontCharge, $bookingRentalChoice, $csOrderTemp) {
+
+            $csOrderPayment->setOrderId($orderId);
+            $csOrderPayment->setCurrency($payReturn['currency']);
+            $csOrderPayment->setRenterId($csOrder->renter_id);
+
+            if (!empty($payReturn['insurance_transaction_id'])) {
+                $csOrderPayment->setAmount($payReturn['insurance_amt']);
+                $csOrderPayment->setTransactionidId($payReturn['insurance_transaction_id']);
+                $csOrderPayment->setPayerId($payReturn['insu_payerid']);
+                $csOrderPayment->saveInsuranceTransaction();
+            }
+
+            if (!empty($payReturn['transaction_id'])) {
+                $newPayment = $payReturn['new_payment'] ?? null;
+
+                if ($newPayment == 1) {
+                    $csOrderPayment->setAmount($totalPaid);
+                    $csOrderPayment->setTransactionidId($payReturn['transaction_id']);
+                    $csOrderPayment->setTax($tax);
+                    $csOrderPayment->setDiaFee($csOrder->dia_fee);
+                    $csOrderPayment->saveRentalTransaction();
+                } elseif ($newPayment == 3) {
+                    $csOrderPayment->setAmount(($payReturn['balance_rent'] + $payReturn['balance_tax'] + $payReturn['balance_dia_fee']));
+                    $csOrderPayment->setTransactionidId($payReturn['transaction_id']);
+                    $csOrderPayment->setTax($payReturn['balance_tax']);
+                    $csOrderPayment->setDiaFee($payReturn['balance_dia_fee']);
+                    $csOrderPayment->saveRentalTransaction();
+                } elseif ($newPayment == 4) {
+                    CsOrderPayment::where([
+                        'id' => $orderId,
+                        'transaction_id' => $payReturn['transaction_id'],
+                        'type' => 2
+                    ])
+                        ->update([
+                            'amount' => $csOrder->paid_amount,
+                            'rent' => $rent,
+                            'tax' => $tax,
+                            'dia_fee' => $csOrder->dia_fee
+                        ]);
+                }
+            }
+
+            if (!empty($payReturn['emf_transaction_id'])) {
+                $newEmfPayment = $payReturn['new_emf_payment'] ?? null;
+
+                if ($newEmfPayment == 1) {
+                    $csOrderPayment->setAmount(($csOrder->extra_mileage_fee + $csOrder->emf_tax));
+                    $csOrderPayment->setTransactionidId($payReturn['emf_transaction_id']);
+                    $csOrderPayment->setTax($emfTax);
+                    $csOrderPayment->saveEmfTransaction();
+                } elseif ($newEmfPayment == 3) {
+                    $csOrderPayment->setAmount(($payReturn['balance_emf'] + $payReturn['balance_emf_tax']));
+                    $csOrderPayment->setTransactionidId($payReturn['emf_transaction_id']);
+                    $csOrderPayment->setTax($payReturn['balance_emf_tax']);
+                    $csOrderPayment->saveEmfTransaction();
+                } elseif ($newEmfPayment == 4) {
+                    CsOrderPayment::where([
+                        'id' => $orderId,
+                        'transaction_id' => $payReturn['emf_transaction_id'],
+                        'type' => 16
+                    ])
+                        ->update([
+                            'amount' => ($csOrder->extra_mileage_fee + $csOrder->emf_tax),
+                            'rent' => $extra_mileage_fee,
+                            'tax' => $emfTax
+                        ]);
+                }
+            }
+
+            if (!empty($payReturn['initial_fee_id'])) {
+                $csOrderPayment->setAmount($csOrder->initial_fee + $csOrder->initial_fee_tax);
+                $csOrderPayment->setTax($csOrder->initial_fee_tax);
+                $csOrderPayment->setTransactionidId($payReturn['initial_fee_id']);
+                $csOrderPayment->saveInitialFeeTransaction();
+            }
+
+            if (!empty($payReturn['toll_transaction_id'])) {
+                $csOrderPayment->saveTollTransaction($orderId, $payReturn['pending_toll'], $payReturn['toll_transaction_id'], $csOrder->user_id);
+                $csOrder->toll += $payReturn['pending_toll'];
+                $csOrder->toll_status = $payReturn['toll_status'];
+                $csOrder->pending_toll -= $payReturn['pending_toll'];
+            }
+
+            if (!empty($payReturn['dia_insu_transaction_id'])) {
+                $csOrderPayment->setAmount($payReturn['dia_insu']);
+                $csOrderPayment->setTransactionidId($payReturn['dia_insu_transaction_id']);
+                $csOrderPayment->setPayerId($payReturn['insu_payerid']);
+                $csOrderPayment->saveDiaInsuranceTransaction();
+            }
+
+            if (!empty($payReturn['latefee_transaction_id'])) {
+                $csOrderPayment->setAmount($payReturn['latefee']);
+                $csOrderPayment->setTransactionidId($payReturn['latefee_transaction_id']);
+                $csOrderPayment->saveLateFeeTransaction();
+            }
+
+            if (!$autoRenew) {
+                $csOrder->auto_renew = 0;
+            }
+
+            $statusResult = $payReturn['status'] ?? 'error';
+
+            if ($statusResult === 'success') {
+                $csOrder->status = 3;
+
+                if ($autoRenew && $autoRenewEndDateTime) {
+                    $csOrder->auto_renew = 1;
+                }
+
+                $csOrder->save();
+
+                Notifier::updateIntercomeUserAttrbute($csOrder->renter_id, ["Rental_Status" => "Paid"]);
+
+                if ($autoRenew && $autoRenewEndDateTime) {
+                    $this->withautorenew(['status' => true], $autoRenewEndDateTime, $renewButDontCharge);
+                } else {
+                    Vehicle::where('id', $csOrder->vehicle_id)->update(['booked' => 0, 'status' => 10]);
+                    Notifier::updateIntercomeUserAttrbute($csOrder->renter_id, ['Booking_Status' => ""]);
+                    (new AxleService())->closeAxleConnection($bookingRentalChoice->id);
+                }
+
+                $unlocked = $this->ActivatePasstimeVehicle($csOrder->vehicle_id);
+
+                if ($unlocked) {
+                    Notifier::createIntercomeUserEvent([
+                        "event_name" => "starter_enabled",
+                        "created_at" => time(),
+                        "external_id" => $csOrder->renter_id,
+                        "user_id" => $csOrder->renter_id,
+                        "metadata" => [
+                            "id" => $csOrder->id,
+                            "booking_id" => $csOrder->increment_id,
+                            "begin_date" => Carbon::parse($csOrder->start_datetime)->timezone($csOrder->timezone ?? 'UTC')->format('m/d/Y'),
+                            "end_date" => Carbon::parse($csOrder->end_datetime)->timezone($csOrder->timezone ?? 'UTC')->format('m/d/Y'),
+                            "type" => "auto_renew"
+                        ]
+                    ]);
+                }
+
+                $this->_getagreementForCompletedBooking($csOrderTemp->toArray());
+
+                return response()->json(['status' => true, 'message' => "Your request processed successfully.", 'orderid' => $orderId, 'result' => $csOrderTemp]);
+
+            } elseif (!$autoRenew && $statusResult === 'error') {
+                $csOrder->status = 3;
+                $csOrder->bad_debt = $payReturn['bad_debt'] ?? 0;
+                $csOrder->save();
+
+                Vehicle::where('id', $csOrder->vehicle_id)->update(['booked' => 0, 'status' => 10]);
+
+                if ($csOrder->bad_debt > 0) {
+                    CsUserBalance::addBadDebtRecord([
+                        'user_id' => $csOrder->renter_id,
+                        'amount' => $csOrder->bad_debt,
+                        'note' => "Debt amount deducted for booking #" . $csOrder->increment_id . " complete cause of failed payment"
+                    ]);
+                }
+
+                Notifier::updateIntercomeUserAttrbute($csOrder->renter_id, ['Booking_Status' => ""]);
+                (new AxleService())->closeAxleConnection($bookingRentalChoice->id);
+                $this->_getagreementForCompletedBooking($csOrderTemp->toArray());
+            }
+
+            return response()->json(['status' => false, 'message' => $payReturn['message'] ?? 'Payment error occurred', 'result' => []]);
+        });
     }
+    public function getVehicle(Request $request)
+    {
+        $searchTerm = trim($request->query('term'));
+        $id = $request->query('id');
+        $query = Vehicle::query();
 
+        if (!empty($id)) {
+            $query->where('id', $id);
+        } else {
+            $query->where('status', 1)
+                ->where('trash', 0)
+                ->where(function ($q) {
+                    $q->where('booked', 0)
+                        ->orWhere('type', 'demo');
+                });
+
+            if (!empty($searchTerm)) {
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('vehicle_unique_id', 'LIKE', "%{$searchTerm}%")
+                        ->orWhere('vehicle_name', 'LIKE', "%{$searchTerm}%");
+                });
+            }
+        }
+
+        $vehicles = $query->orderBy('vehicle_unique_id', 'ASC')
+            ->limit(10)
+            ->get(['id', 'vehicle_unique_id', 'vehicle_name', 'address', 'rate', 'lat', 'lng'])
+            ->map(function ($vehicle) {
+                return [
+                    'id' => $vehicle->id,
+                    'tag' => "{$vehicle->vehicle_unique_id}-{$vehicle->vehicle_name}",
+                    'address' => $vehicle->address,
+                    'lat' => $vehicle->lat,
+                    'lng' => $vehicle->lng,
+                    'rate' => $vehicle->rate,
+                ];
+            });
+
+        return response()->json($vehicles);
+    }
+    public function customerautocomplete(Request $request)
+    {
+        $searchTerm = trim($request->query('term'));
+        $isDealer = $request->query('is_dealer');
+        $dealerId = $request->query('dealer_id');
+        $id = $request->query('id');
+
+        $query = User::where('status', 1);
+
+        if (!empty($id)) {
+            $query->where('id', $id);
+        } elseif (!empty($dealerId)) {
+            $query->where('dealer_id', $dealerId);
+        } elseif (isset($isDealer) && empty($dealerId)) {
+            $query->where('is_dealer', 1);
+        }
+
+        if (!empty($searchTerm)) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('contact_number', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('first_name', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('email', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('last_name', 'LIKE', "%{$searchTerm}%");
+            });
+        }
+
+        $users = $query->orderBy('first_name', 'ASC')
+            ->limit(10)
+            ->get(['id', 'first_name', 'contact_number'])
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'tag' => "{$user->first_name} - {$user->contact_number}",
+                ];
+            });
+
+        return response()->json($users);
+    }
     public function getinsurancetoken(Request $request)
     {
         $return = [
@@ -406,7 +646,6 @@ class BookingsController extends LegacyAppController
 
         return response()->json($return);
     }
-
     public function overdue(Request $request)
     {
         $sessionLimitName = "admin_overdue_limit";
@@ -457,187 +696,551 @@ class BookingsController extends LegacyAppController
 
         return view('admin.bookings.overdue', ['title' => $title, 'tripLog' => $bookings, 'limit' => $limit]);
     }
-
-    public function retryinsurancefee(Request $request): JsonResponse
+    public function retryinsurancefee(Request $request)
     {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
         }
 
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('insu_status', 2)->first();
+        $order = CsOrder::where('id', $orderId)
+            ->where('insu_status', 2)
+            ->where('insurance_amt', '>', 0)
+            ->first([
+                'id',
+                'user_id',
+                'insurance_amt',
+                'renter_id',
+                'cc_token_id',
+                'insu_status',
+                'payment_status',
+                'emf_status',
+                'dia_insu_status',
+                'infee_status',
+                'start_datetime',
+                'currency',
+                'parent_id'
+            ]);
+
         if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or insurance not in failed status.', 'result' => []]);
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
         }
 
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 3)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->insurance_amt ?? 0) - $alreadyPaid);
+        $originalStatus = $order->insu_status;
+        $rule = OrderDepositRule::where('cs_order_id', $order->parent_id ?: $order->id)->first(['insurance_payer']);
+        $order->insurance_payer = $rule ? $rule->insurance_payer : 0;
 
-        \Log::warning('PaymentProcessor::retryInsuranceFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
+        $paidInsurance = CsOrderPayment::getTotalInsurance($order->id);
+        $pendingInsurance = sprintf('%0.2f', ($order->insurance_amt - $paidInsurance));
 
-        DB::table('cs_orders')->where('id', $orderId)->update(['insu_status' => 1]);
+        $return = ['status' => 'success', 'message' => 'There were no pending insurance to charge', 'result' => []];
 
-        return response()->json(['status' => true, 'message' => 'Insurance fee retried successfully.', 'result' => []]);
+        if ($pendingInsurance > 0) {
+            $return = (new PaymentProcessor())->retryInsurance($pendingInsurance, $order->toArray());
+            if (($return['status'] ?? '') === 'success') {
+                $order->insu_status = 1;
+            }
+        } else {
+            $order->insu_status = 1;
+        }
+
+        $order->save();
+        $return['orderid'] = base64_encode($orderId);
+
+        if ($originalStatus === 2 && $order->insu_status === 1) {
+            Notifier::updateUserStatusFromRetryPayment($order->toArray());
+            UnlockVehicle::unlock($order->id);
+        }
+
+        return response()->json($return);
+    }
+    public function retrydiainsurancefee(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $order = CsOrder::where('id', $orderId)
+            ->where('dia_insu_status', 2)
+            ->where('dia_insu', '>', 0)
+            ->first([
+                'id',
+                'user_id',
+                'dia_insu',
+                'renter_id',
+                'cc_token_id',
+                'start_datetime',
+                'insu_status',
+                'payment_status',
+                'emf_status',
+                'dia_insu_status',
+                'infee_status',
+                'currency',
+                'parent_id'
+            ]);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $originalStatus = $order->dia_insu_status;
+
+        $rule = OrderDepositRule::where('cs_order_id', $order->parent_id ?: $order->id)->first(['insurance_payer']);
+        $order->insurance_payer = $rule ? $rule->insurance_payer : 0;
+
+        $paidInsurance = CsOrderPayment::getTotalDiaInsurance($order->id);
+        $pendingInsurance = sprintf('%0.2f', ($order->dia_insu - $paidInsurance));
+
+        $return = ['status' => 'success', 'message' => 'There were no pending insurance to charge', 'result' => []];
+
+        if ($pendingInsurance > 0) {
+            $return = (new PaymentProcessor())->retryDiaInsurance($pendingInsurance, $order->toArray());
+            if (($return['status'] ?? '') === 'success') {
+                $order->dia_insu_status = 1;
+            }
+        } else {
+            $order->dia_insu_status = 1;
+        }
+
+        $order->save();
+        $return['orderid'] = base64_encode($orderId);
+
+        if ($originalStatus === 2 && $order->dia_insu_status === 1) {
+            Notifier::updateUserStatusFromRetryPayment($order->toArray());
+            UnlockVehicle::unlock($order->id);
+        }
+
+        return response()->json($return);
+    }
+    public function retryinitialfee(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $order = CsOrder::where('id', $orderId)
+            ->where('infee_status', 2)
+            ->where('initial_fee', '>', 0)
+            ->first([
+                'id',
+                'initial_fee',
+                'initial_fee_tax',
+                'cc_token_id',
+                'renter_id',
+                'user_id',
+                'insu_status',
+                'payment_status',
+                'emf_status',
+                'dia_insu_status',
+                'infee_status',
+                'start_datetime',
+                'currency'
+            ]);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $originalStatus = $order->infee_status;
+
+        $paidInitial = CsOrderPayment::getTotalInitialFee($order->id);
+        $pendingFee = sprintf('%0.2f', ($order->initial_fee - ($paidInitial['initial_fee'] ?? 0)));
+        $pendingTax = sprintf('%0.2f', ($order->initial_fee_tax - ($paidInitial['initial_fee_tax'] ?? 0)));
+        $return = ['status' => 'success', 'message' => 'There were no pendings to charge', 'result' => []];
+
+        if ($pendingFee > 0) {
+            $return = (new PaymentProcessor())->retryInitialfee($pendingFee, $order->toArray(), $pendingTax);
+            if (($return['status'] ?? '') === 'success') {
+                $order->infee_status = 1;
+            }
+        } else {
+            $order->infee_status = 1;
+        }
+
+        $order->save();
+        $return['orderid'] = base64_encode($orderId);
+
+        if ($originalStatus === 2 && $order->infee_status === 1) {
+            Notifier::updateUserStatusFromRetryPayment($order->toArray());
+            UnlockVehicle::unlock($order->id);
+        }
+
+        return response()->json($return);
+    }
+    public function retrydepositfee(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $order = CsOrder::where('id', $orderId)
+            ->where('dpa_status', 2)
+            ->where('deposit', '>', 0)
+            ->first(['id', 'deposit', 'deposit_type', 'renter_id', 'cc_token_id', 'start_datetime', 'currency']);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $processor = new PaymentProcessor();
+        $return = ['status' => 'success', 'message' => 'There were no pendings to charge', 'result' => []];
+
+        if ($order->deposit_type === 'D') {
+            $order->dpa_status = 1;
+            $failedDeposits = DynamicDeposit::where('cs_order_id', $order->id)
+                ->where('status', 2)
+                ->get();
+
+            foreach ($failedDeposits as $failedDeposit) {
+                $chargeReturn = $processor->retryDeposit($failedDeposit->amount, $order->toArray(), 'C');
+
+                if (($chargeReturn['status'] ?? '') === 'success') {
+                    $order->deposit += $failedDeposit->amount;
+                    $failedDeposit->update(['status' => 1]);
+                } else {
+                    $order->dpa_status = 2;
+                    $return = $chargeReturn;
+                }
+            }
+        } else {
+            $paidDeposit = CsOrderPayment::getTotalDeposit($order->id);
+            $balanceDeposit = sprintf('%0.2f', ($order->deposit - $paidDeposit));
+
+            if ($balanceDeposit > 0) {
+                $return = $processor->retryDeposit($balanceDeposit, $order->toArray(), $order->deposit_type);
+                if (($return['status'] ?? '') === 'success') {
+                    $order->dpa_status = 1;
+                }
+            } else {
+                $order->dpa_status = 1;
+            }
+        }
+
+        $order->save();
+        $return['orderid'] = base64_encode($orderId);
+
+        return response()->json($return);
+    }
+    public function retryrentalfee(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $order = CsOrder::where('id', $orderId)
+            ->where('payment_status', 2)
+            ->where('rent', '>', 0)
+            ->first([
+                'id',
+                'rent',
+                'tax',
+                'dia_fee',
+                'renter_id',
+                'cc_token_id',
+                'user_id',
+                'lateness_fee',
+                'damage_fee',
+                'uncleanness_fee',
+                'insu_status',
+                'payment_status',
+                'emf_status',
+                'dia_insu_status',
+                'infee_status',
+                'start_datetime',
+                'currency'
+            ]);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $originalStatus = $order->payment_status;
+        $paidData = CsOrderPayment::getTotalRentalTax($order->id);
+
+        $pendingRent = sprintf('%0.2f', (($order->rent + $order->lateness_fee + $order->damage_fee + $order->uncleanness_fee) - ($paidData['rent'] ?? 0)));
+        $pendingTax = sprintf('%0.2f', ($order->tax - ($paidData['tax'] ?? 0)));
+        $pendingDiaFee = sprintf('%0.2f', ($order->dia_fee - ($paidData['dia_fee'] ?? 0)));
+
+        $totalPending = ($order->rent + $order->tax + $order->dia_fee);
+        $totalPaid = (($paidData['rent'] ?? 0) + ($paidData['tax'] ?? 0) + ($paidData['dia_fee'] ?? 0));
+
+        $return = ['status' => 'success', 'message' => 'There were no pendings to charge', 'result' => []];
+
+        if ($totalPending > $totalPaid && ($pendingRent > 0 || $pendingTax > 0 || $pendingDiaFee > 0)) {
+            $return = (new PaymentProcessor())->retryRental($pendingRent, $pendingTax, $pendingDiaFee, $order->toArray());
+            if (($return['status'] ?? '') === 'success') {
+                $order->payment_status = 1;
+            }
+        } else {
+            $order->payment_status = 1;
+        }
+
+        $order->save();
+        $return['orderid'] = base64_encode($orderId);
+
+        if ($originalStatus === 2 && $order->payment_status === 1) {
+            Notifier::updateUserStatusFromRetryPayment($order->toArray());
+            UnlockVehicle::unlock($order->id);
+        }
+
+        return response()->json($return);
+    }
+    public function retryemf(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $order = CsOrder::where('id', $orderId)
+            ->where('emf_status', 2)
+            ->where('extra_mileage_fee', '>', 0)
+            ->first([
+                'id',
+                'emf_tax',
+                'renter_id',
+                'cc_token_id',
+                'user_id',
+                'extra_mileage_fee',
+                'insu_status',
+                'payment_status',
+                'emf_status',
+                'dia_insu_status',
+                'infee_status',
+                'start_datetime',
+                'currency'
+            ]);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $originalEmfStatus = $order->emf_status;
+        $paidData = CsOrderPayment::getTotalEmf($order->id);
+
+        $pendingRent = sprintf('%0.2f', ($order->extra_mileage_fee - ($paidData['emf'] ?? 0)));
+        $pendingTax = sprintf('%0.2f', ($order->emf_tax - ($paidData['tax'] ?? 0)));
+        $return = ['status' => 'success', 'message' => 'There were no pendings to charge', 'result' => []];
+
+        if ($pendingRent > 0 || $pendingTax > 0) {
+            $return = (new PaymentProcessor())->retryEmf($pendingRent, $pendingTax, $order->toArray());
+            if (($return['status'] ?? '') === 'success') {
+                $order->emf_status = 1;
+            }
+        } else {
+            $order->emf_status = 1;
+        }
+
+        $order->save();
+        $return['orderid'] = base64_encode($orderId);
+
+        if ($originalEmfStatus === 2 && $order->emf_status === 1) {
+            Notifier::updateUserStatusFromRetryPayment($order->toArray());
+            UnlockVehicle::unlock($order->id);
+        }
+
+        return response()->json($return);
+    }
+    public function retrytollfee(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid', '')));
+
+        if (empty($orderId)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $order = CsOrder::where('id', $orderId)
+            ->where('pending_toll', '>', 0)
+            ->first(['id', 'toll', 'pending_toll', 'cc_token_id', 'renter_id', 'user_id', 'start_datetime', 'currency']);
+
+        if (!$order) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $return = (new PaymentProcessor())->retryTollfee($order->pending_toll, $order->toArray());
+
+        if (($return['status'] ?? '') !== 'success' && !empty($return['transaction_id']) && is_array($return['transaction_id'])) {
+            $partialAmount = collect($return['transaction_id'])->sum('amt');
+            $order->decrement('pending_toll', $partialAmount);
+            $order->increment('toll', $partialAmount);
+        }
+
+        if (($return['status'] ?? '') === 'success') {
+            $pendingToll = $order->pending_toll;
+            $order->update([
+                'toll' => $order->toll + $pendingToll,
+                'pending_toll' => $order->pending_toll - $pendingToll,
+                'toll_status' => 1
+            ]);
+
+            $return['orderid'] = base64_encode($orderId);
+            UnlockVehicle::unlock($order->id);
+        }
+
+        return response()->json($return);
+    }
+    public function edit($id)
+    {
+        $title = 'Update Booking';
+        $curpickuptime = '12:01 AM';
+        $curendtime = '11:59 PM';
+
+        $orderId = $this->decodeId($id);
+
+        if (!$orderId) {
+            return redirect('/admin/bookings/index');
+        }
+
+        $order = CsOrder::with('vehicle:id,vehicle_name')
+            ->where('id', $orderId)
+            ->first();
+
+        if (!$order) {
+            return redirect('/admin/bookings/index')->with('error', 'Booking record not found.');
+        }
+
+        return view('admin.bookings.edit', compact('title', 'curpickuptime', 'curendtime', 'order'));
+    }
+    public function editsave(Request $request)
+    {
+        $textData = $request->input('Text', []);
+        $startTime = date('h:i A', strtotime(str_replace('AM', '', $textData['start_time'] ?? '')));
+        $endTime = date('h:i A', strtotime(str_replace('AM', '', $textData['end_time'] ?? '')));
+        $vehicleId = $textData['vehicle_id'] ?? null;
+        $orderId = $textData['id'] ?? null;
+        $address = trim($textData['location'] ?? '');
+        $latLng = explode(',', $textData['originlatlng'] ?? '');
+
+        if (empty($vehicleId) || empty($orderId)) {
+            return response()->json(['status' => false, 'message' => 'Invalid inputs', 'result' => []]);
+        }
+
+        $vehicle = Vehicle::find($vehicleId);
+        $order = CsOrder::find($orderId);
+
+        if (!$vehicle || !$order) {
+            return response()->json(['status' => false, 'message' => 'Sorry, you are not authorized owner of selected Vehicle', 'result' => []]);
+        }
+
+        $startDateStr = $request->input('daterangefrom');
+        $endDateStr = $request->input('daterangeto');
+        $startDate = Carbon::parse($startDateStr)->format('Y-m-d');
+        $endDate = Carbon::parse($endDateStr)->format('Y-m-d');
+        $startDateTimeString = Carbon::parse($startDate . ' ' . $startTime);
+        $endDateTimeString = Carbon::parse($endDate . ' ' . $endTime);
+        $timezone = $order->timezone ?: 'UTC';
+        $serverTimezone = config('app.timezone', 'UTC');
+        $userBoundStartDate = Carbon::parse($startDateTimeString)->timezone($timezone)->format('Y-m-d');
+
+        if (
+            empty($startDateStr) ||
+            empty($endDateStr) ||
+            $startDateTimeString->gt($endDateTimeString) ||
+            (!empty($order->start_timing) && Carbon::parse($userBoundStartDate)->timestamp > Carbon::parse($startDate)->timestamp)
+        ) {
+            return response()->json(['status' => false, 'message' => 'Sorry, please select correct date range', 'result' => []]);
+        }
+
+        $lat = !empty($latLng[0]) ? trim($latLng[0]) : $vehicle->lat;
+        $lng = !empty($latLng[1]) ? trim($latLng[1]) : $vehicle->lng;
+        $hoursNeeded = intval($startDateTimeString->diffInHours($endDateTimeString));
+
+        if ($hoursNeeded >= 24) {
+            $endDateTimeString = Carbon::parse($endDate . ' ' . $startTime);
+        }
+
+        $oldVehicleId = $order->vehicle_id;
+        $order->update([
+            'pickup_address' => $address,
+            'lat' => $lat,
+            'lng' => $lng,
+            'vehicle_name' => $vehicle->vehicle_name,
+            'start_datetime' => Carbon::parse($startDateTimeString, $timezone)->setTimezone($serverTimezone)->format('Y-m-d H:i:s'),
+            'end_datetime' => Carbon::parse($endDateTimeString, $timezone)->setTimezone($serverTimezone)->format('Y-m-d H:i:s'),
+            'vehicle_id' => $vehicleId,
+            'user_id' => $vehicle->user_id,
+        ]);
+
+        if ((int) $vehicleId !== (int) $oldVehicleId) {
+            Vehicle::where('id', $vehicleId)->update(['booked' => 1]);
+            Vehicle::where('id', $oldVehicleId)->update(['booked' => 0]);
+
+            (new Passtime())->startPasstime($vehicleId, $orderId);
+
+            if (!empty($textData['updatebooking'])) {
+                $bookingParentId = $order->parent_id ?: $order->id;
+                OrderDepositRule::where('cs_order_id', $bookingParentId)->update(['rental' => $vehicle->day_rent]);
+            }
+        }
+
+        $oldEndDate = Carbon::parse($order->getOriginal('end_datetime'))->format('Y-m-d');
+        $newEndDate = Carbon::parse($endDateTimeString)->format('Y-m-d');
+
+        if ($oldEndDate !== $newEndDate) {
+            $order->refresh();
+            $allFee = (new DepositRule())->getFeeRenewBooking($order->toArray(), ($order->parent_id ?: $order->id));
+
+            $feeUpdates = [
+                'rent' => $allFee['time_fee'] ?? 0,
+                'tax' => $allFee['tax'] ?? 0,
+                'dia_fee' => $allFee['dia_fee'] ?? 0,
+                'insurance_amt' => $allFee['insurance_amt'] ?? 0
+            ];
+
+            if (($order->getOriginal('rent') ?? 0) < $feeUpdates['rent']) {
+                $feeUpdates['payment_status'] = 2;
+            }
+            if (($order->getOriginal('insurance_amt') ?? 0) < $feeUpdates['insurance_amt']) {
+                $feeUpdates['insu_status'] = 2;
+            }
+
+            $order->update($feeUpdates);
+        }
+
+        return response()->json(['status' => true, 'message' => 'Your acceptance booked successfully', 'result' => []]);
     }
 
-    public function retrydiainsurancefee(Request $request): JsonResponse
+
+
+
+
+    public function autocomplete(Request $request): JsonResponse
     {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
+        $bookingId = trim((string) $request->input('id', ''));
+        $searchTerm = trim((string) $request->input('term', ''));
+
+        $q = DB::table('cs_orders')->select(['id', 'increment_id', 'vehicle_id']);
+
+        if ($bookingId !== '') {
+            $q->where('id', (int) $bookingId);
+        } else {
+            $q->where(function ($q2) use ($searchTerm) {
+                $q2->where('id', 'like', $searchTerm . '%')
+                    ->orWhere('increment_id', 'like', '%' . addcslashes($searchTerm, '%_\\') . '%');
+            });
         }
 
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('dia_insu_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or DIA insurance not in failed status.', 'result' => []]);
+        $lists = $q->orderByDesc('id')->limit(10)->get();
+        $bookings = [];
+        foreach ($lists as $row) {
+            $bookings[] = [
+                'id' => $row->id,
+                'tag' => $row->increment_id,
+                'vehicle' => $row->vehicle_id,
+            ];
         }
 
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 3)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->dia_insu ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryDiaInsuranceFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['dia_insu_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'DIA insurance fee retried successfully.', 'result' => []]);
-    }
-
-    public function retryinitialfee(Request $request): JsonResponse
-    {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('initial_fee_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or initial fee not in failed status.', 'result' => []]);
-        }
-
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 1)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->initial_fee ?? 0) + (float) ($order->initial_fee_tax ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryInitialFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['initial_fee_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'Initial fee retried successfully.', 'result' => []]);
-    }
-
-    public function retrydepositfee(Request $request): JsonResponse
-    {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('deposit_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or deposit not in failed status.', 'result' => []]);
-        }
-
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 4)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->deposit ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryDepositFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['deposit_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'Deposit fee retried successfully.', 'result' => []]);
-    }
-
-    public function retryrentalfee(Request $request): JsonResponse
-    {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('rent_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or rental not in failed status.', 'result' => []]);
-        }
-
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 2)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->rent ?? 0) + (float) ($order->tax ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryRentalFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['rent_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'Rental fee retried successfully.', 'result' => []]);
-    }
-
-    public function retryemf(Request $request): JsonResponse
-    {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('emf_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or EMF not in failed status.', 'result' => []]);
-        }
-
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 6)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->extra_mileage_fee ?? 0) + (float) ($order->emf_tax ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryEmf not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['emf_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'EMF retried successfully.', 'result' => []]);
-    }
-
-    public function retrytollfee(Request $request): JsonResponse
-    {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('toll_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or toll not in failed status.', 'result' => []]);
-        }
-
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 7)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->pending_toll ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryTollFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['toll_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'Toll fee retried successfully.', 'result' => []]);
+        return response()->json($bookings);
     }
 
     public function retrylatefee(Request $request): JsonResponse
@@ -664,39 +1267,6 @@ class BookingsController extends LegacyAppController
         DB::table('cs_orders')->where('id', $orderId)->update(['late_fee_status' => 1]);
 
         return response()->json(['status' => true, 'message' => 'Late fee retried successfully.', 'result' => []]);
-    }
-
-    public function edit($id)
-    {
-        $orderId = $this->decodeId((string) $id);
-        if (!$orderId) {
-            return redirect('/admin/bookings/index');
-        }
-        $order = DB::table('cs_orders')->where('id', $orderId)->first();
-        if (!$order) {
-            return redirect('/admin/bookings/index');
-        }
-
-        return view('admin.bookings.edit', ['order' => $order]);
-    }
-
-    public function editsave(Request $request)
-    {
-        $id = (int) $request->input('CsOrder.id', 0);
-        if ($id <= 0) {
-            return redirect()->back()->with('error', 'Invalid booking');
-        }
-        $save = [];
-        foreach (['start_datetime', 'end_datetime', 'rent', 'tax', 'dia_fee', 'status', 'cancel_note'] as $field) {
-            if ($request->has('CsOrder.' . $field)) {
-                $save[$field] = $request->input('CsOrder.' . $field);
-            }
-        }
-        if ($save !== []) {
-            DB::table('cs_orders')->where('id', $id)->update($save);
-        }
-
-        return redirect('/admin/bookings/index')->with('success', 'Booking updated');
     }
 
     public function getagreement(Request $request)

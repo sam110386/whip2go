@@ -137,4 +137,8 @@ class CsOrder extends LegacyModel
     {
         return $this->hasMany(OrderExtlog::class, 'cs_order_id');
     }
+    public function csSetting(): BelongsTo
+    {
+        return $this->belongsTo(CsSetting::class, 'user_id', 'user_id');
+    }
 }

@@ -1,19 +1,227 @@
 <?php
-
 namespace App\Http\Controllers\Traits;
 
-use App\Models\Legacy\CsOrder;
-use App\Models\Legacy\Vehicle;
-use App\Models\Legacy\User;
-use App\Models\Legacy\OrderDepositRule;
-use App\Models\Legacy\CsOrderPayment;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\DepositRule;
+use App\Models\Legacy\DepositTemplate;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\OrderDepositRule;
+use App\Models\Legacy\CsOrderPayment;
+use App\Services\Legacy\Notifier;
+use App\Services\Legacy\Passtime;
+use App\Services\Legacy\PaymentProcessor;
 use Carbon\Carbon;
 
 trait BookingsTrait
 {
-    use CommonTrait, MobileApi, AgreementTrait, VehicleDynamicFareMatrix, InsuranceToken, ActiveBookingTotalPending, PasstimeActivateVehicle, RespondsWithCustomerAutocomplete, CompleteAndRenewBookingTrait;
+    use MobileApi, AgreementTrait, VehicleDynamicFareMatrix, InsuranceToken, ActiveBookingTotalPending, PasstimeActivateVehicle, CompleteAndRenewBookingTrait;
+
+    public function _startBooking(CsOrder $csOrder)
+    {
+        $orderId = $csOrder->id;
+
+        $csOrder->status = 1;
+        $csOrder->insurance_payer = $csOrder->depositRule->insurance_payer;
+        $csOrder->order_rule_id = $csOrder->depositRule->id;
+        $csOrder->start_timing = now();
+        unset($csOrder->start_odometer);
+
+        (new Passtime())->startPasstime($csOrder->vehicle_id, $orderId);
+        $depositRule = (new DepositRule())->getBookingChargeEvent($csOrder->vehicle_id);
+
+        $shouldCharge = in_array('S', [
+            $depositRule['charge_rent_event'] ?? '',
+            $depositRule['deposit_event'] ?? '',
+            $depositRule['insurance_event'] ?? '',
+            $depositRule['initial_event'] ?? ''
+        ]);
+
+        if ($shouldCharge) {
+            return DB::transaction(function () use ($csOrder, $depositRule, $orderId) {
+                $paymentProcessor = new PaymentProcessor();
+                $payReturn = $paymentProcessor->ChargeAmount($csOrder->toArray(), $depositRule);
+
+                $csOrder->deposit_type = $payReturn['deposit_type'] ?? $csOrder->deposit_type;
+                $csOrder->insurance_amt = $payReturn['insurance_amt'] ?? $csOrder->insurance_amt;
+                $csOrder->dpa_status = $payReturn['dpa_status'] ?? $csOrder->dpa_status;
+                $csOrder->insu_status = $payReturn['insu_status'] ?? $csOrder->insu_status;
+                $csOrder->emf_status = $payReturn['emf_status'] ?? $csOrder->emf_status;
+                $csOrder->infee_status = $payReturn['infee_status'] ?? $csOrder->infee_status;
+                $csOrder->payment_status = $payReturn['payment_status'] ?? $csOrder->payment_status;
+
+                $csOrderPayment = new CsOrderPayment();
+                $csOrderPayment->setOrderId($orderId);
+                $csOrderPayment->setCurrency($payReturn['currency']);
+                $csOrderPayment->setRenterId($csOrder->renter_id);
+
+                if (!empty($payReturn['deposit_auth'])) {
+                    $csOrderPayment->setAmount($csOrder->deposit);
+                    $csOrderPayment->setTransactionidId($payReturn['deposit_auth']);
+                    $csOrderPayment->setType($payReturn['deposit_type']);
+                    $csOrderPayment->saveDepositTransaction();
+                }
+
+                if (!empty($payReturn['insurance_transaction_id'])) {
+                    $csOrderPayment->setAmount($csOrder->insurance_amt);
+                    $csOrderPayment->setTransactionidId($payReturn['insurance_transaction_id']);
+                    $csOrderPayment->setPayerId($payReturn['insu_payerid']);
+                    $csOrderPayment->saveInsuranceTransaction();
+                }
+
+                if (!empty($payReturn['transaction_id'])) {
+                    $rentalAmount = $csOrder->rent + $csOrder->tax + $csOrder->dia_fee;
+                    $csOrderPayment->setAmount($rentalAmount);
+                    $csOrderPayment->setTransactionidId($payReturn['transaction_id']);
+                    $csOrderPayment->setTax($csOrder->tax);
+                    $csOrderPayment->setDiaFee($csOrder->dia_fee);
+                    $csOrderPayment->saveRentalTransaction();
+                }
+
+                if (!empty($payReturn['emf_transaction_id'])) {
+                    $emfAmount = $csOrder->extra_mileage_fee + $csOrder->emf_tax;
+                    $csOrderPayment->setAmount($emfAmount);
+                    $csOrderPayment->setTransactionidId($payReturn['emf_transaction_id']);
+                    $csOrderPayment->setTax($csOrder->emf_tax);
+                    $csOrderPayment->saveEmfTransaction();
+                }
+
+                if (!empty($payReturn['initial_fee_id'])) {
+                    $initialAmount = $csOrder->initial_fee + $csOrder->initial_fee_tax;
+                    $csOrderPayment->setAmount($initialAmount);
+                    $csOrderPayment->setTax($csOrder->initial_fee_tax);
+                    $csOrderPayment->setTransactionidId($payReturn['initial_fee_id']);
+                    $csOrderPayment->saveInitialFeeTransaction();
+                }
+
+                $csOrder->save();
+
+                if (($payReturn['status'] ?? '') === 'error') {
+                    return [
+                        'status' => false,
+                        'message' => $payReturn['message'] ?? 'Payment failed',
+                        'result' => []
+                    ];
+                }
+
+            });
+        } else {
+            $csOrder->save();
+        }
+
+
+        return [
+            'status' => true,
+            'message' => "Your request processed successfully.",
+            'orderid' => $orderId,
+            'result' => []
+        ];
+    }
+    private function withautorenew(array $result, string $autoRenewEndDateTime, bool $dontCharge = false)
+    {
+        if (empty($result['status']) || empty($result['result'] || $result['status'] != 1)) {
+            return;
+        }
+
+        $tempCsOrder = $result['result'];
+        $startDateTime = data_get($tempCsOrder, 'end_datetime');
+        $timezone = data_get($tempCsOrder, 'timezone', 'UTC');
+        $newOrderData = [
+            'status' => 1,
+            'pickup_address' => data_get($tempCsOrder, 'pickup_address'),
+            'lat' => data_get($tempCsOrder, 'lat'),
+            'lng' => data_get($tempCsOrder, 'lng'),
+            'vehicle_name' => data_get($tempCsOrder, 'vehicle_name'),
+            'user_id' => data_get($tempCsOrder, 'user_id'),
+            'cc_token_id' => data_get($tempCsOrder, 'cc_token_id'),
+            'timezone' => $timezone,
+            'currency' => data_get($tempCsOrder, 'currency'),
+            'start_datetime' => $startDateTime,
+            'end_datetime' => Carbon::parse($autoRenewEndDateTime, $timezone)->setTimezone(config('app.timezone', 'UTC'))->format('Y-m-d H:i:s'),
+            'renter_id' => data_get($tempCsOrder, 'renter_id'),
+            'vehicle_id' => data_get($tempCsOrder, 'vehicle_id'),
+            'accepted_time' => now()->setTimezone(config('app.timezone', 'UTC'))->format('Y-m-d H:i:s'),
+            'details' => data_get($tempCsOrder, 'details'),
+            'start_timing' => $startDateTime,
+            'parent_id' => data_get($tempCsOrder, 'parent_id') ?: data_get($tempCsOrder, 'id'),
+            'deposit' => data_get($tempCsOrder, 'deposit'),
+            'start_odometer' => data_get($tempCsOrder, 'end_odometer'),
+        ];
+
+        $priceRulesAmt = (new DepositRule())->getFeeRenewBooking($newOrderData, $newOrderData['parent_id']);
+
+        $newOrderData['rent'] = $priceRulesAmt['time_fee'] ?? 0;
+        $newOrderData['tax'] = $priceRulesAmt['tax'] ?? 0;
+        $newOrderData['dia_fee'] = $priceRulesAmt['dia_fee'] ?? 0;
+        $newOrderData['insurance_amt'] = $priceRulesAmt['insurance_amt'] ?? 0;
+        $newOrderData['discount'] = $priceRulesAmt['discount'] ?? 0;
+        $newOrderData['extra_mileage_fee'] = $priceRulesAmt['extra_mileage_fee'] ?? 0;
+        $currentIncrementId = data_get($tempCsOrder, 'increment_id', '');
+
+        if (data_get($tempCsOrder, 'parent_id') && Str::contains($currentIncrementId, '-')) {
+            $incrementParts = explode('-', $currentIncrementId);
+            $nextSequenceNumber = ((int) end($incrementParts)) + 1;
+            $newOrderData['increment_id'] = $incrementParts[0] . '-' . $nextSequenceNumber;
+        } else {
+            $newOrderData['increment_id'] = $currentIncrementId . '-1';
+        }
+
+        $newOrder = CsOrder::create($newOrderData);
+
+        Notifier::createIntercomeUserEvent([
+            "event_name" => "booking_autorenew",
+            "created_at" => time(),
+            "external_id" => $newOrder->renter_id,
+            "user_id" => $newOrder->renter_id,
+            "metadata" => [
+                "booking_id" => $newOrder->increment_id,
+                "id" => $newOrder->id,
+                "start_date" => Carbon::parse($startDateTime)->timezone($timezone)->format('Y-m-d H:i:s'),
+                "end_date" => $autoRenewEndDateTime,
+                "path" => "withautorenew"
+            ]
+        ]);
+
+        if ($dontCharge) {
+            $updatePayload = [
+                'rent' => $priceRulesAmt['time_fee'] ?? 0,
+                'tax' => $priceRulesAmt['tax'] ?? 0,
+                'dia_fee' => $priceRulesAmt['dia_fee'] ?? 0,
+                'extra_mileage_fee' => $priceRulesAmt['extra_mileage_fee'] ?? 0,
+                'insurance_amt' => $priceRulesAmt['insurance_amt'] ?? 0,
+                'insu_status' => 0,
+                'payment_status' => 0,
+            ];
+
+            $paymentManager = new CsOrderPayment();
+            $preDeposits = CsOrderPayment::getTotalDeposit(data_get($tempCsOrder, 'id'));
+
+            if ($preDeposits > 0) {
+                if (DepositTemplate::checkDepositRefundable($newOrder->user_id)) {
+                    $updatePayload['deposit'] = $preDeposits;
+                    $updatePayload['dpa_status'] = 1;
+                    CsOrderPayment::copyDeposits(data_get($tempCsOrder, 'id'), $newOrder->id);
+                }
+            }
+
+            $newOrder->update($updatePayload);
+            return;
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $paymentProcessor->checkAndProcessRenew(
+            $newOrder->renter_id,
+            $newOrder->user_id,
+            $priceRulesAmt,
+            $newOrder->id,
+            data_get($tempCsOrder, 'id'),
+            $newOrder->cc_token_id,
+            $newOrder->parent_id
+        );
+    }
+
 
     public function _editsave($data)
     {
@@ -65,30 +273,6 @@ trait BookingsTrait
             });
         } catch (\Exception $e) {
             Log::error("Error in _editsave: " . $e->getMessage());
-            return ['status' => false, 'message' => $e->getMessage()];
-        }
-    }
-
-    public function _startBooking($csOrder)
-    {
-        // Logic for activating booking, payments, etc.
-        try {
-            return DB::transaction(function () use ($csOrder) {
-                $orderId = $csOrder->id;
-                $csOrder->update([
-                    'status' => 1,
-                    'start_timing' => now()
-                ]);
-
-                $this->ActivatePasstimeVehicle($csOrder->vehicle_id);
-
-                // Placeholder for PaymentProcessor::ChargeAmount
-                Log::info("Charging for booking $orderId");
-
-                return ['status' => true, 'message' => "Booking started successfully"];
-            });
-        } catch (\Exception $e) {
-            Log::error("Error in _startBooking: " . $e->getMessage());
             return ['status' => false, 'message' => $e->getMessage()];
         }
     }

@@ -2,28 +2,25 @@
 
 <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table  table-responsive">
     <thead>
-        <tr> 
-            @include('partials.dispacher.sortable_header', [
-                'columns' => [
-                    ['title' => 'Booking#', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Vehicle#', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Passtime Status', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Moving Status', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => '# of days late', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Start Date', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'End Date', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Customer', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Cal. Rent', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Deposit', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Insu. Fee', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Ini. Fee', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Extended Date', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Note', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Cycle Ext(s)', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Total Ext(s)', 'sortable' => false, 'style' => 'text-align:center;'],
-                    ['title' => 'Action', 'sortable' => false, 'style' => 'text-align:center;']
-                ]
-            ])
+        <tr>
+            <th style="text-align:center;"> Booking# </th>
+            <th style="text-align:center;"> Vehicle# </th>
+            <th style="text-align:center;"> Passtime Status </th>
+            <th style="text-align:center;"> Moving Status </th>
+            <th style="text-align:center;"> # of days late </th>
+            <th style="text-align:center;"> Start Date </th>
+            <th style="text-align:center;"> End Date </th>
+            <th style="text-align:center;"> Customer </th>
+            <th style="text-align:center;"> Cal. Rent </th>
+            <th style="text-align:center;"> Deposit </th>
+            <th style="text-align:center;"> Insu. Fee </th>
+            <th style="text-align:center;"> Ini. Fee </th>
+            <th style="text-align:center;"> Extended Date </th>
+            <th style="text-align:center;"> Note </th>
+            <th style="text-align:center;"> Cycle Ext(s) </th>
+            <th style="text-align:center;"> Total Ext(s) </th>
+            <th style="text-align:center;"> Action </th>
+
         </tr>
     </thead>
     <tbody>
@@ -40,7 +37,7 @@
                     $class .= " text-warning-700";
                 }
 
-               $moving = $commonService->getVehicleMovementFromHistory($trip->vehicle_id);
+                $moving = $commonService->getVehicleMovementFromHistory($trip->vehicle_id);
             @endphp
 
             <tr id="tripRow{{ $trip->id }}" class="anchor {{ $class }} {{ $trip->status }}_status">
@@ -168,40 +165,47 @@
                     </a>
                 </td>
 
-                 <td>
+                <td>
                     @if ($trip->status == 0)
-                        <a href="javascript:void(0)" title = "Start" onclick="return startBooking('{{ base64_encode($trip->id) }}');">
+                        <a href="javascript:void(0)" title="Start"
+                            onclick="return startBooking('{{ base64_encode($trip->id) }}');">
                             <i class="glyphicon glyphicon-ok-circle"></i>
                         </a>
                     @endif
 
                     @if ($trip->status == 0 || $trip->status == 1)
-                        <a href="javascript:void(0)" title = "Complete" onclick="return completeBooking('{{ base64_encode($trip->id) }}');">
+                        <a href="javascript:void(0)" title="Complete"
+                            onclick="return completeBooking('{{ base64_encode($trip->id) }}');">
                             <i class="glyphicon glyphicon-saved"></i>
                         </a>
                     @endif
 
                     @if ($trip->status == 0)
-                        <a href="javascript:void(0)" title = "Cancel" onclick="return cancelBooking('{{ base64_encode($trip->id) }}');">
-                            <img src="{{ legacy_asset('img/b_drop.png') }}" alt = "Cancel" style = "border:0px;" />
+                        <a href="javascript:void(0)" title="Cancel"
+                            onclick="return cancelBooking('{{ base64_encode($trip->id) }}');">
+                            <img src="{{ legacy_asset('img/b_drop.png') }}" alt="Cancel" style="border:0px;" />
                         </a>
                     @endif
 
                     @if ($trip->status == 1)
-                        <a href="javascript:void(0)" title = "Download Doc" onclick="return downloadBookingDoc('{{ base64_encode($trip->id) }}');">
+                        <a href="javascript:void(0)" title="Download Doc"
+                            onclick="return downloadBookingDoc('{{ base64_encode($trip->id) }}');">
                             <i class="icon-magazine"></i>
                         </a>
                     @endif
 
-                    <a href="javascript:void(0)" title = "Message History" onclick="return getmessagehistory('{{ base64_encode($trip->id) }}');">
+                    <a href="javascript:void(0)" title="Message History"
+                        onclick="return getmessagehistory('{{ base64_encode($trip->id) }}');">
                         <i class="icon-comments"></i>
                     </a>
 
-                    <a href="javascript:void(0)" title = "Transaction logs" onclick="return gettransactionlogs('{{ base64_encode($trip->id) }}');">
+                    <a href="javascript:void(0)" title="Transaction logs"
+                        onclick="return gettransactionlogs('{{ base64_encode($trip->id) }}');">
                         <i class="icon-coin-dollar"></i>
                     </a>
-                    
-                    <a href="javascript:void(0)" title = "Extend Vehicle Lock Time" onclick="return changeVehicleLockTime('{{ base64_encode($trip->id) }}');">
+
+                    <a href="javascript:void(0)" title="Extend Vehicle Lock Time"
+                        onclick="return changeVehicleLockTime('{{ base64_encode($trip->id) }}');">
                         <i class="icon-alarm"></i>
                     </a>
 

@@ -63,4 +63,20 @@ class DepositTemplate extends LegacyModel
         'id',
     ];
 
+    public static function checkDepositRefundable($user_id): bool
+    {
+        if (empty($user_id)) {
+            return true;
+        }
+
+        $depositTemplate = self::where('user_id', $user_id)
+            ->select('is_deposit_refundable')
+            ->first();
+
+        if (!$depositTemplate) {
+            return true;
+        }
+
+        return (bool) $depositTemplate->is_deposit_refundable;
+    }
 }
