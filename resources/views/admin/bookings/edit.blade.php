@@ -267,7 +267,7 @@
                             confirmButtonColor: "#2196F3",
                             timer: 2000
                         });
-                        goBack('/admin/bookings');
+                        goBack('/admin/bookings/index');
                     } else {
                         alert(data.message);
                     }

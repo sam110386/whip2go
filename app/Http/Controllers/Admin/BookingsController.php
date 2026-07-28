@@ -9,6 +9,7 @@ use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\DriverFinancedInsuranceQuote;
 use App\Models\Legacy\DynamicDeposit;
 use App\Models\Legacy\InsuranceQuote;
+use App\Models\Legacy\OrderExtlog;
 use App\Models\Legacy\User;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\CsOrderPayment;
@@ -1209,6 +1210,173 @@ class BookingsController extends LegacyAppController
 
         return response()->json(['status' => true, 'message' => 'Your acceptance booked successfully', 'result' => []]);
     }
+    public function getagreement(Request $request)
+    {
+        $return = [
+            'status' => false,
+            'message' => "Invalid Booking ID",
+            'result' => []
+        ];
+
+        $bookingId = $this->decodeId($request->input('orderid'));
+
+        if (!empty($bookingId)) {
+            $conditions = [['id', '=', $bookingId]];
+            $return = $this->_getAgreement($conditions);
+        }
+
+        return response()->json($return);
+    }
+    public function loadvehicleexpiretime(Request $request)
+    {
+        $encodedBooking = $request->input('booking');
+        $booking = $this->decodeId($encodedBooking);
+        $vehicle = [];
+        $unpaidlatefee = '0.00';
+
+        $orderData = CsOrder::select(['id', 'vehicle_id', 'timezone', 'lateness_fee'])
+            ->where('id', $booking)
+            ->whereIn('status', [0, 1])
+            ->first();
+
+        if ($orderData) {
+            $vehicle = Vehicle::select(['passtime_threshold', 'id'])
+                ->where('id', $orderData->vehicle_id)
+                ->first();
+
+            $paidlatefee = CsOrderPayment::getTotalPaidLateFee($booking);
+            $unpaidlatefee = sprintf('%0.2f', ($orderData->lateness_fee - $paidlatefee));
+        }
+
+        $orderExtlog = OrderExtlog::where('cs_order_id', $booking)
+            ->latest('id')
+            ->first();
+
+        $timezone = $orderData ? $orderData->timezone : null;
+
+        return view('admin.bookings.loadvehicleexpiretime', compact(
+            'booking',
+            'vehicle',
+            'orderExtlog',
+            'unpaidlatefee',
+            'timezone'
+        ));
+
+    }
+    public function processvehicleexpiretime(Request $request)
+    {
+        if (!$request->isMethod('post')) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, you are not authorized user for this action.',
+                'result' => []
+            ]);
+        }
+
+        $booking = $request->input('booking');
+        $vehicleId = $request->input('vehicle_id');
+        $passtimeThreshold = $request->input('passtime_threshold');
+        $balAmt = (float) $request->input('amt');
+        $adminCount = (int) $request->input('admin_count', 0);
+        $chargeLateFee = (int) $request->input('charge_late_fee', 0);
+        $note = $request->input('note');
+
+        $order = CsOrder::where('id', $booking)
+            ->whereIn('status', [0, 1])
+            ->first();
+
+        if ($order && $vehicleId) {
+
+            if ($chargeLateFee) {
+                $this->_chargeLateFee($order);
+            }
+
+            $unlocked = $this->activatePasstimeVehicle($vehicleId);
+
+            if ($unlocked) {
+                Notifier::createIntercomeUserEvent([
+                    'event_name' => 'starter_enabled',
+                    'created_at' => time(),
+                    'external_id' => $order->renter_id,
+                    'user_id' => $order->renter_id,
+                    'metadata' => [
+                        'id' => $order->id,
+                        'booking_id' => $order->increment_id,
+                        'extension_date' => $passtimeThreshold,
+                        'from' => 'processvehicleexpiretime'
+                    ]
+                ]);
+            }
+
+            $userTimezone = $order->timezone ?? config('app.timezone');
+            $serverDateTime = Carbon::createFromFormat('m/d/Y h:i A', $passtimeThreshold, $userTimezone)
+                ->setTimezone(config('app.timezone'));
+
+            Vehicle::where('id', $vehicleId)->update([
+                'passtime_threshold' => $serverDateTime->timestamp
+            ]);
+
+            OrderExtlog::create([
+                'cs_order_id' => $booking,
+                'ext_date' => $serverDateTime->toDateTimeString(),
+                'note' => $note,
+                'owner' => auth()->id(),
+                'created' => now(),
+                'amt' => $balAmt,
+                'admin_count' => $adminCount
+            ]);
+
+            $failedPaymentsList = [];
+
+            if ($order->payment_status == 2)
+                $failedPaymentsList[] = 'Rental';
+            if ($order->insu_status == 2)
+                $failedPaymentsList[] = 'Insurance';
+            if ($order->dpa_status == 2)
+                $failedPaymentsList[] = 'Deposit';
+            if ($order->infee_status == 2)
+                $failedPaymentsList[] = 'Initial Fee';
+            if ($order->dia_insu_status == 2)
+                $failedPaymentsList[] = 'EMF Insurance';
+            if ($order->emf_status == 2)
+                $failedPaymentsList[] = 'EMF';
+            if ($order->lateness_fee_status == 2)
+                $failedPaymentsList[] = 'Late Fee';
+
+            $failedPayments = implode(', ', $failedPaymentsList);
+
+            Notifier::createIntercomeUserEvent([
+                'event_name' => 'extension_request',
+                'created_at' => time(),
+                'external_id' => $order->renter_id,
+                'user_id' => $order->renter_id,
+                'metadata' => [
+                    'booking_id' => $order->increment_id,
+                    'id' => $order->id,
+                    'begin_date' => Carbon::parse($order->start_datetime)->setTimezone($userTimezone)->format('m/d/Y'),
+                    'end_date' => Carbon::parse($order->end_datetime)->setTimezone($userTimezone)->format('m/d/Y'),
+                    'failed_payments' => $failedPayments,
+                    'extension_date' => $passtimeThreshold,
+                    'reason' => $note,
+                    'from' => 'admin_processvehicleexpiretime'
+                ]
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Your request is processed successfully',
+                'result' => []
+            ]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => 'Sorry, you are not authorized user for this action.',
+            'result' => []
+        ]);
+    }
+
+
 
 
 
@@ -1268,74 +1436,7 @@ class BookingsController extends LegacyAppController
 
         return response()->json(['status' => true, 'message' => 'Late fee retried successfully.', 'result' => []]);
     }
-
-    public function getagreement(Request $request)
-    {
-        $return = [
-            'status' => false,
-            'message' => "Invalid Booking ID",
-            'result' => []
-        ];
-
-        $bookingId = $this->decodeId($request->input('orderid'));
-
-        if (!empty($bookingId)) {
-            $conditions = [['id', '=', $bookingId]];
-            $return = $this->_getAgreement($conditions);
-        }
-
-        return response()->json($return);
-    }
-
-    public function loadvehicleexpiretime(Request $request)
-    {
-        return response()->view('admin.bookings._vehicle_expiretime', ['orderid' => (string) $request->input('orderid', '')]);
-    }
-
-    public function processvehicleexpiretime(Request $request): JsonResponse
-    {
-        $orderId = $this->decodeId((string) $request->input('Text.booking', $request->input('booking', '')));
-        $vehicleId = (int) $request->input('Text.vehicle_id', $request->input('vehicle_id', 0));
-        $passThresh = (string) $request->input('Text.passtime_threshold', $request->input('passtime_threshold', ''));
-        $amt = (float) $request->input('Text.amt', $request->input('amt', 0));
-        $adminCount = (int) $request->input('Text.admin_count', $request->input('admin_count', 0));
-        $chargeLateFee = (int) $request->input('Text.charge_late_fee', $request->input('charge_late_fee', 0));
-
-        if (!$orderId || $vehicleId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid inputs', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')
-            ->where('id', $orderId)
-            ->whereIn('status', [0, 1])
-            ->first();
-
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or not active.', 'result' => []]);
-        }
-
-        if ($chargeLateFee && $amt > 0) {
-            \Log::warning('PaymentProcessor::chargeLateFee not yet ported — order ' . $orderId . ', amt $' . $amt);
-        }
-
-        if ($passThresh !== '') {
-            DB::table('vehicles')->where('id', $vehicleId)->update([
-                'passtime_threshold' => $passThresh,
-            ]);
-        }
-
-        DB::table('order_extlogs')->insert([
-            'cs_order_id' => $orderId,
-            'vehicle_id' => $vehicleId,
-            'admin_count' => $adminCount,
-            'amount' => $amt,
-            'threshold' => $passThresh,
-            'created' => now()->toDateTimeString(),
-        ]);
-
-        return response()->json(['status' => true, 'message' => 'Vehicle expiry updated successfully.', 'result' => []]);
-    }
-
+    
     public function getinsurancepopup(Request $request)
     {
         $bookingId = $this->decodeId($request->input('orderid'));

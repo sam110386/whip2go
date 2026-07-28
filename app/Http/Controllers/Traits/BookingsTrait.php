@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Traits;
 
+use App\Models\Legacy\CsPaymentLog;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -221,7 +222,80 @@ trait BookingsTrait
             $newOrder->parent_id
         );
     }
+    protected function _getAgreement(array $conditions): array
+    {
+        $csLeaseLists = CsOrder::with([
+            'vehicle:id,make,model,year,vin_no,user_id,allowed_miles,msrp,premium_msrp,vehicleCostInclRecon,plate_number,disclosure',
+            'owner:id,first_name,last_name,company_address,company_city,company_state,company_zip,timezone,distance_unit,company_name,representative_name,representative_role,representative_sign,contact_number'
+        ])->where($conditions)->first();
 
+        if (!$csLeaseLists) {
+            return [
+                'status' => false,
+                'message' => "Sorry, you are not authorized for this booking",
+                'result' => []
+            ];
+        }
+
+        $leaseDataArray = $csLeaseLists->toArray();
+
+        if ($csLeaseLists->status == 3 && $csLeaseLists->auto_renew == 0) {
+            return $this->_getAgreementForCompletedBooking($leaseDataArray);
+        }
+
+        return $this->_generateAgreementForBooking($leaseDataArray);
+    }
+    private function _chargeLateFee(CsOrder $order): void
+    {
+        $depositRule = DepositRule::where('vehicle_id', $order->vehicle_id)
+            ->select('lateness_fee')
+            ->first();
+
+        $extFee = ($depositRule && $depositRule->lateness_fee) ? $depositRule->lateness_fee : 0;
+
+        if ($extFee <= 0) {
+            return;
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $payreturn = $paymentProcessor->chargeAmtToUser(
+            $extFee,
+            $order->renter_id,
+            'DIA Late Fee',
+            $order->currency
+        );
+
+        if (isset($payreturn['status']) && $payreturn['status'] === 'success') {
+            CsPaymentLog::savePartialPaymentLog([
+                'orderid' => $order->id,
+                'amount' => $payreturn['amt'],
+                'transaction_id' => $payreturn['transaction_id'],
+                'note' => 'Late fee is charged by admin booking extension'
+            ], 30);
+
+            $csOrderPayment = new CsOrderPayment();
+            $csOrderPayment->setOrderId($order->id);
+            $csOrderPayment->setCurrency($payreturn['currency']);
+            $csOrderPayment->setRenterId($order->renter_id);
+            $csOrderPayment->setAmount($payreturn['amt']);
+            $csOrderPayment->setTransactionidId($payreturn['transaction_id']);
+            $csOrderPayment->setTax(0);
+            $csOrderPayment->setDiaFee(0);
+            $csOrderPayment->saveLateFeeTransaction();
+        }
+
+        $latenessFeeStatus = $order->lateness_fee_status;
+
+        if (!isset($payreturn['status']) || $payreturn['status'] !== 'success') {
+            $latenessFeeStatus = 2;
+        }
+
+        $order->timestamps = false;
+        $order->update([
+            'lateness_fee' => ($order->lateness_fee + $extFee),
+            'lateness_fee_status' => $latenessFeeStatus
+        ]);
+    }
 
     public function _editsave($data)
     {
@@ -300,29 +374,5 @@ trait BookingsTrait
             Log::error("Error in _cancelBooking: " . $e->getMessage());
             return ['status' => false, 'message' => $e->getMessage()];
         }
-    }
-
-    protected function _getAgreement(array $conditions): array
-    {
-        $csLeaseLists = CsOrder::with([
-            'vehicle:id,make,model,year,vin_no,user_id,allowed_miles,msrp,premium_msrp,vehicleCostInclRecon,plate_number,disclosure',
-            'owner:id,first_name,last_name,company_address,company_city,company_state,company_zip,timezone,distance_unit,company_name,representative_name,representative_role,representative_sign,contact_number'
-        ])->where($conditions)->first();
-
-        if (!$csLeaseLists) {
-            return [
-                'status' => false,
-                'message' => "Sorry, you are not authorized for this booking",
-                'result' => []
-            ];
-        }
-
-        $leaseDataArray = $csLeaseLists->toArray();
-
-        if ($csLeaseLists->status == 3 && $csLeaseLists->auto_renew == 0) {
-            return $this->_getAgreementForCompletedBooking($leaseDataArray);
-        }
-
-        return $this->_generateAgreementForBooking($leaseDataArray);
     }
 }
