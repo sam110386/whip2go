@@ -141,4 +141,8 @@ class CsOrder extends LegacyModel
     {
         return $this->belongsTo(CsSetting::class, 'user_id', 'user_id');
     }
+    public function twilioOrder(): HasOne
+    {
+        return $this->hasOne(CsTwilioOrder::class, 'cs_order_id', 'id');
+    }
 }

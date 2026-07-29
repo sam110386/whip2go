@@ -1,16 +1,19 @@
+@php
+    $booking ??= collect();
+@endphp
 <div class="modal-header">
     <button type="button" class="close" data-dismiss="modal">&times;</button>
-    <h4 class="modal-title">{{ $paymenttype }} Payment Retry</h4>
+    <h4 class="modal-title">{{ $paymenttype ?? '' }} Payment Retry</h4>
 </div>
 
 <div class="modal-body">
     <form id="paymentretry" class="form-horizontal" method="POST">
         @csrf
         <input type="hidden" name="Booking[id]" value="{{ $booking->id }}">
-        
+
         <div class="row">
             <div class="col-sm-6 col-sx-12">
-                <legend class="text-semibold">{{ $paymenttype }} Payment Details</legend>
+                <legend class="text-semibold">{{ $paymenttype ?? '' }} Payment Details</legend>
                 <div class="form-group">
                     <label class="col-lg-6 control-label">Uses Fee :</label>
                     <div class="col-lg-6 control-label">
@@ -162,13 +165,16 @@
                     <div class="col-lg-5 checkbox">
                         <label class="control-label">
                             <input type="radio" checked="checked" class="paymenttype" name="payment" value="fullpay">
-                            <strong>Amount Due : {{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}</strong>
+                            <strong>Amount Due :
+                                {{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}</strong>
                         </label>
                     </div>
 
                     <div class="col-lg-6 show" id="fullpay_div">
-                        <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Make Full Payment</button>
-                        <input type="hidden" name="Booking[famt]" value="{{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}">
+                        <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Make Full
+                            Payment</button>
+                        <input type="hidden" name="Booking[famt]"
+                            value="{{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -180,16 +186,19 @@
                     </div>
                     <span id="partial_div" class="hidden">
                         <div class="col-sm-2">
-                            <input type="text" name="Booking[pamt]" class="form-control required" value="{{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}">
+                            <input type="text" name="Booking[pamt]" class="form-control required"
+                                value="{{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}">
                         </div>
                         <div class="col-sm-2 mt-2">
                             <label class="control-label"> I will Pay due on date </label>
                         </div>
                         <div class="col-sm-2">
-                            <input type="text" name="Booking[date]" class="form-control datepicker required" autocomplete="off" value="">
+                            <input type="text" name="Booking[date]" class="form-control datepicker required"
+                                autocomplete="off" value="">
                         </div>
                         <div class="col-sm-3">
-                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Process Payment</button>
+                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Process
+                                Payment</button>
                         </div>
                     </span>
                 </div>
@@ -203,10 +212,12 @@
                     </div>
                     <span id="advance_div" class="hidden">
                         <div class="col-sm-2">
-                            <input type="text" name="Booking[advamt]" class="form-control required" value="{{ $booking->least_advance_payment }}">
+                            <input type="text" name="Booking[advamt]" class="form-control required"
+                                value="{{ $booking->least_advance_payment }}">
                         </div>
                         <div class="col-sm-3">
-                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Process Payment</button>
+                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Process
+                                Payment</button>
                         </div>
                     </span>
                 </div>
@@ -224,7 +235,7 @@
 </style>
 
 <script type="text/javascript">
-    $(document).ready(function() {
+    $(document).ready(function () {
         $('.datepicker').datepicker({
             format: 'mm/dd/yyyy',
             startDate: '{{ $allowed_min_date }}',
@@ -232,7 +243,7 @@
             autoclose: true
         });
 
-        $('.paymenttype').on('change', function() {
+        $('.paymenttype').on('change', function () {
             var val = $(this).val();
             $('#fullpay_div, #partial_div, #advance_div').addClass('hidden');
             if (val === 'fullpay') {

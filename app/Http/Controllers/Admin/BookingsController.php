@@ -1375,68 +1375,6 @@ class BookingsController extends LegacyAppController
             'result' => []
         ]);
     }
-
-
-
-
-
-
-
-    public function autocomplete(Request $request): JsonResponse
-    {
-        $bookingId = trim((string) $request->input('id', ''));
-        $searchTerm = trim((string) $request->input('term', ''));
-
-        $q = DB::table('cs_orders')->select(['id', 'increment_id', 'vehicle_id']);
-
-        if ($bookingId !== '') {
-            $q->where('id', (int) $bookingId);
-        } else {
-            $q->where(function ($q2) use ($searchTerm) {
-                $q2->where('id', 'like', $searchTerm . '%')
-                    ->orWhere('increment_id', 'like', '%' . addcslashes($searchTerm, '%_\\') . '%');
-            });
-        }
-
-        $lists = $q->orderByDesc('id')->limit(10)->get();
-        $bookings = [];
-        foreach ($lists as $row) {
-            $bookings[] = [
-                'id' => $row->id,
-                'tag' => $row->increment_id,
-                'vehicle' => $row->vehicle_id,
-            ];
-        }
-
-        return response()->json($bookings);
-    }
-
-    public function retrylatefee(Request $request): JsonResponse
-    {
-        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('late_fee_status', 2)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or late fee not in failed status.', 'result' => []]);
-        }
-
-        $alreadyPaid = (float) DB::table('cs_order_payments')
-            ->where('cs_order_id', $orderId)
-            ->where('payment_type', 8)
-            ->where('status', 1)
-            ->sum('amount');
-        $pendingAmt = max(0, (float) ($order->lateness_fee ?? 0) - $alreadyPaid);
-
-        \Log::warning('PaymentProcessor::retryLateFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
-
-        DB::table('cs_orders')->where('id', $orderId)->update(['late_fee_status' => 1]);
-
-        return response()->json(['status' => true, 'message' => 'Late fee retried successfully.', 'result' => []]);
-    }
-    
     public function getinsurancepopup(Request $request)
     {
         $bookingId = $this->decodeId($request->input('orderid'));
@@ -1503,363 +1441,588 @@ class BookingsController extends LegacyAppController
             'paymentTypeValue'
         ));
     }
-
-    public function checkrapprove(Request $request): JsonResponse
+    public function checkrapprove(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        if (!$orderId) {
-            return response()->json(['status' => false, 'message' => 'Invalid order id', 'result' => []]);
-        }
+        $orderId = $this->decodeId($request->input('orderid', ''));
+        $return = [
+            'status' => 'error',
+            'message' => 'Invalid inputs',
+            'result' => []
+        ];
 
-        $order = DB::table('cs_orders')->where('id', $orderId)->where('checkr_status', 1)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or checkr not pending.', 'result' => []]);
-        }
-
-        \Log::warning('PaymentProcessor::PaymentCaptureOnly not yet ported — checkr approve order ' . $orderId);
-
-        DB::table('cs_orders')->where('id', $orderId)->update([
-            'checkr_status' => 0,
-        ]);
-
-        return response()->json(['status' => true, 'message' => 'Checkr approved successfully.', 'result' => []]);
-    }
-
-    public function checkrdisapprove(Request $request): JsonResponse
-    {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        if (!$orderId) {
-            return response()->json(['status' => false, 'message' => 'Invalid order id', 'result' => []]);
-        }
-
-        $order = DB::table('cs_orders as o')
-            ->leftJoin('users as u', 'u.id', '=', 'o.renter_id')
-            ->where('o.id', $orderId)
-            ->where('o.checkr_status', 1)
-            ->select(['o.*', 'u.id as renter_uid', 'u.email as renter_email'])
+        $orderData = CsOrder::select('id', 'user_id')
+            ->where('id', $orderId)
+            ->where('checkr_status', 1)
             ->first();
 
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found or checkr not pending.', 'result' => []]);
+        if ($orderData) {
+            $paymentProcessor = new PaymentProcessor();
+            $return = $paymentProcessor->PaymentCaptureOnly($orderData->id, $orderData->user_id);
+
+            if (isset($return['status']) && $return['status'] === 'success') {
+                CsOrder::where('id', $orderId)->update(['checkr_status' => 0]);
+
+                $return['orderid'] = $orderId;
+                $return['message'] = "Transaction captured successfully and booking activated.";
+            }
         }
 
-        \Log::warning('PaymentProcessor::ReleaseAuthorizePayment not yet ported — checkr disapprove order ' . $orderId);
-
-        DB::table('cs_orders')->where('id', $orderId)->update([
-            'status' => 2,
-            'checkr_status' => 2,
-        ]);
-
-        DB::table('vehicles')->where('id', (int) $order->vehicle_id)->update(['booked' => 0]);
-
-        return response()->json(['status' => true, 'message' => 'Checkr disapproved, booking cancelled.', 'result' => []]);
+        return response()->json($return);
     }
+    public function checkrdisapprove(Request $request)
+    {
+        $orderId = $this->decodeId($request->input('orderid', ''));
+        $return = [
+            'status' => 'error',
+            'message' => 'Invalid inputs',
+            'result' => []
+        ];
 
+        $orderData = CsOrder::with('renter:id:contact_number')
+            ->where('id', $orderId)
+            ->where('checkr_status', 1)
+            ->first();
+
+        if (!$orderData) {
+            return response()->json($return);
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $return = $paymentProcessor->ReleaseAuthorizePayment($orderData->id, $orderData->user_id);
+
+        if (isset($return['status']) && $return['status'] === 'success') {
+            $orderData->update([
+                'status' => 2,
+                'note' => 'Booking canceled due to suspected info',
+            ]);
+
+            $return['orderid'] = $orderId;
+            $return['message'] = "Transaction refunded successfully and booking closed.";
+
+            Vehicle::where('id', $orderData->vehicle_id)->update(['booked' => 0]);
+
+            $contactNumber = $orderData->renter->contact_number ?? null;
+            $supportPhone = config('app.support_phone', env('SUPPORT_PHONE'));
+            $msg = "Sorry, your booking has been canceled due to suspected account information. Please contact to support {$supportPhone}";
+
+            $notifier = new Notifier();
+            $notifier->notifyByIntercom($contactNumber, $msg, $orderData->toArray());
+        }
+
+        return response()->json($return);
+    }
     public function loadvehiclegps(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        if (!$orderId) {
-            return response()->view('admin.bookings._vehicle_gps', ['vehicle' => null, 'booking' => 0]);
-        }
+        $booking = $this->decodeId($request->input('booking', ''));
+        $vehicle = null;
 
-        $order = CsOrder::where('id', $orderId)->first(['id', 'vehicle_id']);
-        if (!$order || empty($order->vehicle_id)) {
-            return response()->view('admin.bookings._vehicle_gps', ['vehicle' => null, 'booking' => $orderId]);
-        }
-
-        $vehicle = Vehicle::with(['owner.setting'])
-            ->where('id', (int) $order->vehicle_id)
+        $orderData = CsOrder::select('id', 'vehicle_id')
+            ->where('id', $booking)
             ->first();
 
-        return response()->view('admin.bookings._vehicle_gps', [
-            'vehicle' => $vehicle,
-            'booking' => (int) $order->id,
+        if ($orderData) {
+            $vehicle = Vehicle::with('csSetting:user_id,passtime,gps_provider')
+                ->select(
+                    'id',
+                    'user_id',
+                    'passtime_serialno',
+                    'passtime_status',
+                    'plate_number',
+                    'gps_serialno',
+                    'battery'
+                )
+                ->where('id', $orderData->vehicle_id)
+                ->first();
+        }
+
+        return view('admin.bookings.loadvehiclegps', compact('booking', 'vehicle'));
+    }
+    public function updatevehiclegps(Request $request)
+    {
+        $vehicleId = base64_decode(trim($request->input('Text.vehicle_id')));
+        $booking = base64_decode(trim($request->input('Text.booking')));
+        $passtimeSerial = $request->input('Text.passtime_serialno');
+        $gpsSerial = $request->input('Text.gps_serialno');
+        $plateNumber = $request->input('Text.plate_number');
+        $sync = $request->input('sync');
+
+        $unauthorizedResponse = [
+            'status' => false,
+            'message' => 'Sorry, you are not authorized user for this action.',
+            'result' => []
+        ];
+
+        $orderData = CsOrder::select('id', 'vehicle_id')
+            ->where('id', $booking)
+            ->whereIn('status', [0, 1])
+            ->first();
+
+        if (!$orderData) {
+            return response()->json($unauthorizedResponse);
+        }
+
+        if ($sync === 'true' || $sync === true) {
+            return $this->_syncvehiclegps($orderData->toArray());
+        }
+
+        Vehicle::where('id', $orderData->vehicle_id)->update([
+            'passtime_serialno' => $passtimeSerial,
+            'plate_number' => $plateNumber,
+            'gps_serialno' => $gpsSerial,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Your request is processed successfully',
+            'result' => []
         ]);
     }
-
-    public function updatevehiclegps(Request $request): JsonResponse
+    public function diabletempvehicle(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        $gps = (string) $request->input('gps_serialno', '');
-        if ($orderId && $gps !== '') {
-            $order = CsOrder::where('id', $orderId)->first(['vehicle_id']);
-            if ($order && !empty($order->vehicle_id)) {
-                Vehicle::where('id', (int) $order->vehicle_id)->update(['gps_serialno' => $gps]);
+        $vehicleId = $this->decodeId(trim($request->input('vehicle_id')));
+        $booking = $this->decodeId(trim($request->input('booking')));
+        $status = $request->input('status') === 1 ? 2 : 1;
+        $unauthorizedResponse = [
+            'status' => false,
+            'message' => 'Sorry, you are not authorized user for this action.',
+            'result' => []
+        ];
+
+        $vehicleData = Vehicle::with(['csSetting', 'vehicleSetting'])
+            ->where('id', $vehicleId)
+            ->first();
+
+        if (!$vehicleData) {
+            return response()->json($unauthorizedResponse);
+        }
+
+        $bookingObj = CsOrder::select('id', 'renter_id')->find($booking);
+        $passtime = new Passtime();
+
+        if ($status === 2) {
+            $resp = $passtime->deActivateVehicle($vehicleData->toArray());
+            if (($resp['status'] ?? '') !== 'success') {
+                return response()->json([
+                    'status' => false,
+                    'message' => $resp['message'] ?? 'Failed to deactivate vehicle',
+                    'result' => []
+                ]);
             }
+
+            $vehicleData->update(['passtime_status' => $status]);
+            $starterDisableState = 'Disabled';
         }
 
-        return response()->json(['status' => true, 'message' => 'GPS updated']);
-    }
+        if ($status === 1) {
+            $resp = $passtime->ActivateVehicle($vehicleData->toArray());
+            if (($resp['status'] ?? '') !== 'success') {
+                return response()->json([
+                    'status' => false,
+                    'message' => $resp['message'] ?? 'Failed to activate vehicle',
+                    'result' => []
+                ]);
+            }
 
-    public function diabletempvehicle(Request $request): JsonResponse
-    {
-        $vehicleId = (int) $request->input('vehicle_id', 0);
-        if ($vehicleId > 0) {
-            Vehicle::where('id', $vehicleId)->update(['status' => 0]);
+            $vehicleData->update(['passtime_status' => $status]);
+            $starterDisableState = 'Enabled';
         }
 
-        return response()->json(['status' => true, 'message' => 'Vehicle disabled']);
-    }
+        if ($bookingObj) {
+            Notifier::createIntercomeUserEvent([
+                'event_name' => 'starter_' . strtolower($starterDisableState),
+                'created_at' => time(),
+                'external_id' => $bookingObj->renter_id,
+                'user_id' => $bookingObj->renter_id,
+                'metadata' => [
+                    'booking_id' => $booking,
+                    'vehicle_id' => $vehicleId,
+                    'type' => 'admin_diabletempvehicle'
+                ]
+            ]);
+        }
 
+        return response()->json([
+            'status' => true,
+            'message' => 'Your request is processed successfully',
+            'result' => []
+        ]);
+    }
     public function goalrecalculate($id = null)
     {
-        $orderId = $id ? (int) base64_decode((string) $id) : 0;
-        if ($orderId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid booking id']);
-        }
-
+        $orderId = $this->decodeId($id);
+        $adminUser = $this->getAdminUserid();
+        $timezone = $adminUser['timezone'] ?? config('app.timezone');
         $depositRule = OrderDepositRule::where('cs_order_id', $orderId)->first();
 
-        if (!$depositRule) {
-            $parentId = (int) CsOrder::where('id', $orderId)->value('parent_id');
-            if ($parentId > 0) {
-                $depositRule = OrderDepositRule::where('cs_order_id', $parentId)->first();
-            }
+        if ($depositRule) {
+            $depositRule->rent_opt = is_string($depositRule->rent_opt) ? json_decode($depositRule->rent_opt, true) : [];
+            $depositRule->initial_fee_opt = is_string($depositRule->initial_fee_opt) ? json_decode($depositRule->initial_fee_opt, true) : [];
+            $depositRule->deposit_opt = is_string($depositRule->deposit_opt) ? json_decode($depositRule->deposit_opt, true) : [];
+            $depositRule->duration_opt = is_string($depositRule->duration_opt) ? json_decode($depositRule->duration_opt, true) : [];
+            $depositRule->calculation = is_string($depositRule->calculation) ? json_decode($depositRule->calculation, true) : [];
         }
 
-        if (!$depositRule) {
-            return response()->json(['status' => false, 'message' => 'Deposit rule not found']);
-        }
+        $csOrder = CsOrder::select('id', 'vehicle_id')->find($depositRule->cs_order_id ?? null);
+        $vehicles = [];
 
-        $rentOpt = json_decode($depositRule->rent_opt ?? '{}', true) ?: [];
-        $initialFeeOpt = json_decode($depositRule->initial_fee_opt ?? '{}', true) ?: [];
-        $depositOpt = json_decode($depositRule->deposit_opt ?? '{}', true) ?: [];
-        $durationOpt = json_decode($depositRule->duration_opt ?? '{}', true) ?: [];
-        $calculation = json_decode($depositRule->calculation ?? '{}', true) ?: [];
-
-        $order = CsOrder::where('id', $orderId)->first();
-        $vehicle = $order ? Vehicle::where('id', (int) $order->vehicle_id)->first(['id', 'msrp', 'allowed_miles']) : null;
-
-        $milesOptions = [];
-        if ($vehicle && !empty($vehicle->allowed_miles)) {
-            $decoded = json_decode($vehicle->allowed_miles, true);
-            if (is_array($decoded)) {
-                $milesOptions = $decoded;
-            }
-        }
-
-        return view('admin.bookings.goalrecalculate', [
-            'orderId' => $orderId,
-            'depositRule' => $depositRule,
-            'rentOpt' => $rentOpt,
-            'initialFeeOpt' => $initialFeeOpt,
-            'depositOpt' => $depositOpt,
-            'durationOpt' => $durationOpt,
-            'calculation' => $calculation,
-            'vehicle' => $vehicle,
-            'milesOptions' => $milesOptions,
-            'order' => $order,
-        ]);
-    }
-
-    public function getVehicleDynamicFareMatrix(Request $request): JsonResponse
-    {
-        return response()->json(['status' => true, 'data' => ['matrix' => []]]);
-    }
-
-    public function saveGoalRecalculation(Request $request): JsonResponse
-    {
-        $ruleId = (int) $request->input('VehicleOffer.id', 0);
-        if ($ruleId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid deposit rule id']);
-        }
-
-        $rule = OrderDepositRule::where('id', $ruleId)->first();
-        if (!$rule) {
-            return response()->json(['status' => false, 'message' => 'Deposit rule not found']);
-        }
-
-        $updateData = [];
-        $fields = [
-            'rent_opt',
-            'initial_fee_opt',
-            'deposit_opt',
-            'duration_opt',
-            'calculation',
-            'rent',
-            'initial_fee',
-            'deposit',
-            'tax_rate',
-            'insurance_rate',
-            'allowed_miles',
-            'extra_mile_rate',
-        ];
-        foreach ($fields as $field) {
-            $val = $request->input('VehicleOffer.' . $field);
-            if ($val !== null) {
-                $updateData[$field] = is_array($val) ? json_encode($val) : $val;
-            }
-        }
-
-        $jsonField = $request->input('VehicleOffer.json');
-        if ($jsonField !== null) {
-            if (is_array($jsonField)) {
-                $updateData = array_merge($updateData, $jsonField);
-            }
-        }
-
-        if (!empty($updateData)) {
-            $updateData['modified'] = now()->toDateTimeString();
-            $rule->update($updateData);
-        }
-
-        return response()->json(['status' => true, 'message' => 'Goal recalculation saved successfully.']);
-    }
-
-    public function savemanualcalculation(Request $request): JsonResponse
-    {
-        $ruleId = (int) $request->input('VehicleOffer.id', 0);
-        if ($ruleId <= 0) {
-            return response()->json(['status' => false, 'message' => 'Invalid deposit rule id']);
-        }
-
-        $rule = OrderDepositRule::where('id', $ruleId)->first();
-        if (!$rule) {
-            return response()->json(['status' => false, 'message' => 'Deposit rule not found']);
-        }
-
-        $updateData = [];
-        $fields = [
-            'rent',
-            'initial_fee',
-            'deposit',
-            'tax_rate',
-            'insurance_rate',
-            'allowed_miles',
-            'extra_mile_rate',
-            'rent_opt',
-            'initial_fee_opt',
-            'deposit_opt',
-            'duration_opt',
-            'calculation',
-        ];
-        foreach ($fields as $field) {
-            $val = $request->input('VehicleOffer.' . $field);
-            if ($val !== null) {
-                $updateData[$field] = is_array($val) ? json_encode($val) : $val;
-            }
-        }
-
-        $jsonField = $request->input('VehicleOffer.json');
-        if ($jsonField !== null && is_array($jsonField)) {
-            $updateData = array_merge($updateData, $jsonField);
-        }
-
-        if (!empty($updateData)) {
-            $updateData['modified'] = now()->toDateTimeString();
-            $rule->update($updateData);
-        }
-
-        return response()->json(['status' => true, 'message' => 'Manual calculation saved successfully.']);
-    }
-
-    public function loadextendtime(Request $request)
-    {
-        $encodedId = (string) $request->input('orderid', '');
-        $orderId = $this->decodeId($encodedId);
-        $suggestedEndDatetime = '';
-
-        if ($orderId) {
-            $order = CsOrder::with(['twilio_order'])
-                ->where('id', $orderId)
+        if ($csOrder) {
+            $vehicleList = Vehicle::select('id', 'msrp', 'allowed_miles')
+                ->where('id', $csOrder->vehicle_id)
                 ->first();
 
-            if ($order && !empty($order->start_datetime) && !empty($order->end_datetime)) {
-                $start = strtotime($order->start_datetime);
-                $end = strtotime($order->end_datetime);
-                $gap = $end - $start;
-                if ($gap > 0) {
-                    $suggestedEndDatetime = date('Y-m-d H:i:s', $end + $gap);
+            if ($vehicleList) {
+                $vehicles['id'] = $vehicleList->id;
+                $startMiles = $vehicleList->allowed_miles
+                    ? (int) ceil($vehicleList->allowed_miles * 30)
+                    : 1000;
+
+                $milesOptions = [];
+
+                while ($startMiles <= 15000) {
+                    $milesOptions[$startMiles] = $startMiles;
+                    $startMiles += 500;
                 }
+
+                $vehicles['miles_options'] = $milesOptions;
             }
         }
 
-        return response()->view('admin.bookings._extend_time', [
-            'orderid' => $encodedId,
-            'order' => $order ?? null,
-            'suggestedEndDatetime' => $suggestedEndDatetime,
+        return view('admin.bookings.goalrecalculate', compact('depositRule', 'vehicles', 'timezone'));
+    }
+    public function getVehicleDynamicFareMatrix(Request $request)
+    {
+        $offer = $request->input('VehicleOffer', []);
+        $result = $this->_bookingVehicleDynamicFareMatrix($offer);
+        return response()->json($result);
+    }
+    public function saveGoalRecalculation(Request $request)
+    {
+        $offer = $request->input('VehicleOffer', []);
+        $jsonDecoded = isset($offer['json']) ? json_decode($offer['json'], true) : [];
+
+        if (is_array($jsonDecoded)) {
+            $offer = array_merge($offer, $jsonDecoded);
+        }
+
+        if (empty($offer['id'])) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, required input data are missing.',
+                'result' => []
+            ]);
+        }
+
+        $dataToSave = [
+            'totalcost' => $offer['totalcost'] ?? null,
+            'goal' => $offer['goal'] ?? null,
+            'downpayment' => $offer['downpayment'] ?? null,
+            'miles' => sprintf('%0.2f', ($offer['miles'] ?? 0) / 30),
+            'insurance' => $offer['insurance'] ?? null,
+            'emf' => $offer['emf'] ?? null,
+            'total_program_cost' => $offer['total_program_cost'] ?? null,
+            'rental' => $offer['dayEmfRent'] ?? null,
+            'num_of_days' => $offer['days'] ?? null,
+            'tax' => $offer['tax_rate'] ?? null,
+            'total_initial_fee' => $offer['total_initial_fee'] ?? null,
+            'write_down_allocation' => $offer['write_down_allocation'] ?? null,
+            'finance_allocation' => $offer['finance_allocation'] ?? null,
+            'maintenance_allocation' => $offer['maintenance_allocation'] ?? null,
+            'financing_total' => $offer['financing_total'] ?? null,
+            'disposition_fee' => $offer['disposition_fee'] ?? null,
+            'calculation' => $offer['json'] ?? null,
+        ];
+
+        OrderDepositRule::where('id', $offer['id'])->update($dataToSave);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data updated successfully',
+            'result' => []
         ]);
     }
-
-    public function changeExtendTime(Request $request): JsonResponse
+    public function savemanualcalculation(Request $request)
     {
-        $orderId = $this->decodeId((string) $request->input('orderid', ''));
-        $end = (string) $request->input('end_datetime', '');
+        $offer = $request->input('VehicleOffer', []);
+        $calc = $offer['calculation'] ?? [];
 
-        if (!$orderId || $end === '') {
-            return response()->json(['status' => false, 'message' => 'Invalid inputs']);
+        if (empty($offer['id'])) {
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Sorry, required input data are missing.',
+                    'result' => []
+                ]);
+            }
+
+            return redirect()->back()->with('error', 'Sorry, required input data are missing.');
         }
 
-        $order = CsOrder::where('id', $orderId)->first();
-        if (!$order) {
-            return response()->json(['status' => false, 'message' => 'Order not found']);
-        }
+        $dataToSave = [
+            'totalcost' => $calc['totalcost'] ?? null,
+            'goal' => $calc['goal'] ?? null,
+            'downpayment' => $calc['downpayment'] ?? null,
+            'miles' => sprintf('%0.2f', $offer['miles'] ?? 0),
+            'insurance' => $offer['insurance'] ?? null,
+            'emf' => $offer['emf'] ?? null,
+            'total_program_cost' => $calc['total_program_cost'] ?? null,
+            'rental' => $calc['rental'] ?? null,
+            'base_rent' => $calc['base_dayrent'] ?? null,
+            'num_of_days' => $calc['num_of_days'] ?? null,
+            'tax' => $calc['tax_rate'] ?? null,
+            'initial_fee' => $calc['initial_fee'] ?? null,
+            'total_initial_fee' => $calc['initial_fee'] ?? null,
+            'write_down_allocation' => $calc['write_down_allocation'] ?? null,
+            'finance_allocation' => $calc['finance_allocation'] ?? null,
+            'maintenance_allocation' => $calc['maintenance_allocation'] ?? null,
+            'financing_total' => $calc['financing_total'] ?? null,
+            'disposition_fee' => $calc['disposition_fee'] ?? null,
+            'calculation' => is_array($calc) ? json_encode($calc) : $calc,
+        ];
 
-        $order->update(['end_datetime' => $end]);
-
-        $existingTwilio = CsTwilioOrder::where('cs_order_id', $orderId)->first();
-        if ($existingTwilio) {
-            $existingTwilio->update([
-                'extend_datetime' => $end,
-                'approved' => 1,
-                'modified' => now()->toDateTimeString(),
-            ]);
-        } else {
-            CsTwilioOrder::create([
-                'cs_order_id' => $orderId,
-                'extend_datetime' => $end,
-                'approved' => 1,
-                'created' => now()->toDateTimeString(),
-                'modified' => now()->toDateTimeString(),
-            ]);
-        }
-
-        return response()->json(['status' => true, 'message' => 'Booking extended successfully.']);
+        OrderDepositRule::where('id', $offer['id'])->update($dataToSave);
+        return redirect()->back()->with('success', 'Data updated successfully');
     }
-
-    public function partial_payment(Request $request)
+    public function loadextendtime(Request $request)
     {
-        $encodedId = (string) $request->input('orderid', '');
-        $orderId = $this->decodeId($encodedId);
-        if (!$orderId) {
-            return response('Invalid order id', 400);
-        }
-
-        $order = CsOrder::with(['vehicle', 'owner', 'renter', 'twilio_order'])
-            ->where('id', $orderId)
+        $bookingId = $this->decodeId($request->input('orderid'));
+        $order = [];
+        $order = CsOrder::with('twilioOrder')
+            ->select('id', 'timezone', 'renter_id', 'user_id', 'end_datetime', 'start_datetime')
+            ->whereIn('status', [0, 1])
+            ->where('id', $bookingId)
             ->first();
 
-        if (!$order) {
-            return response('Order not found', 404);
+        if ($order) {
+            $tz = $order->timezone ?? config('app.timezone');
+            $start = Carbon::parse($order->start_datetime);
+            $end = Carbon::parse($order->end_datetime);
+            $daysGapInSeconds = $end->diffInSeconds($start);
+
+            $suggestAutorenewEnd = $end->copy()
+                ->addSeconds($daysGapInSeconds)
+                ->setTimezone($tz)
+                ->format('m/d/Y h:i A');
+
+            $extendDate = $orderData->twilioOrder->extend ?? null;
+            $order->scheduled_till = $extendDate
+                ? Carbon::parse($extendDate)->setTimezone($tz)->format('m/d/Y h:i A')
+                : $suggestAutorenewEnd;
         }
 
-        $order = $this->getActiveBookingTotalPending($order);
+        return view('admin.bookings.loadextendtime', compact('order'));
+    }
+    public function changeExtendTime(Request $request)
+    {
+        $booking = $request->input('Text.booking');
 
-        $payments = CsOrderPayment::where('cs_order_id', $orderId)
-            ->orderByDesc('id')
-            ->get();
+        if (empty($booking)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'something went wrong',
+                'result' => []
+            ]);
+        }
 
-        $totalPaid = $payments->where('status', 1)->sum('amount');
+        $orderData = CsOrder::find($booking);
 
-        $startDate = $order->start_datetime ? date('m/d/Y', strtotime($order->start_datetime)) : '';
-        $endDate = $order->end_datetime ? date('m/d/Y', strtotime($order->end_datetime)) : '';
+        if (!$orderData) {
+            return response()->json([
+                'status' => false,
+                'message' => 'You dont have permission for this action.',
+                'result' => []
+            ]);
+        }
 
-        // These dates are used in the view for partial payment date restriction
-        $allowed_min_date = now()->format('m/d/Y');
-        $allowed_max_date = now()->addDays(7)->format('m/d/Y');
+        $tz = $orderData->timezone ?? config('app.timezone');
+        $extendInput = $request->input('Text.extend');
+        $autoRenewEndDatetime = null;
 
-        return response()->view('admin.bookings.partial_payment', [
-            'orderid' => $encodedId,
-            'booking' => $order,
-            'payments' => $payments,
-            'totalPaid' => (float) $totalPaid,
-            'startDate' => $startDate,
-            'endDate' => $endDate,
-            'allowed_min_date' => $allowed_min_date,
-            'allowed_max_date' => $allowed_max_date,
-            'paymenttype' => 'Rental', // Or dynamically determined
+        if (!empty($extendInput) && strtotime($extendInput)) {
+            $autoRenewEndDatetime = Carbon::parse($extendInput, $tz)
+                ->setTimezone(config('app.timezone'))
+                ->format('Y-m-d H:i:s');
+            $diffInHours = (strtotime($autoRenewEndDatetime) - strtotime($orderData->end_datetime)) / 3600;
+
+            if ($diffInHours >= 24) {
+                $targetDate = Carbon::parse($autoRenewEndDatetime)->format('Y-m-d');
+                $targetTime = Carbon::parse($orderData->end_datetime)->format('H:i:s');
+                $autoRenewEndDatetime = Carbon::parse("{$targetDate} {$targetTime}")->format('Y-m-d H:i:s');
+            }
+        }
+
+        if ($autoRenewEndDatetime) {
+            $alreadySent = CsTwilioOrder::where('cs_order_id', $orderData->id)->first();
+
+            if (!$alreadySent) {
+                $renterData = $this->commonService->getRenterDetails($orderData->renter_id);
+                $twilioLog = $orderData->toArray();
+                unset($twilioLog['id'], $twilioLog['created_at'], $twilioLog['updated_at'], $twilioLog['status']);
+                $twilioLog['renter_phone'] = $renterData['contact_number'] ?? null;
+                $twilioLog['cs_order_id'] = $orderData->id;
+                $twilioLog['approved'] = 1;
+                $twilioLog['extend'] = $autoRenewEndDatetime;
+                $twilioLog['status'] = 0;
+                CsTwilioOrder::create($twilioLog);
+            } else {
+                $alreadySent->update([
+                    'approved' => 1,
+                    'extend' => $autoRenewEndDatetime
+                ]);
+            }
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Your request is processed successfully',
+            'result' => []
         ]);
     }
+    public function partial_payment(Request $request)
+    {
+        $orderId = $this->decodeId(trim($request->input('orderid')));
+        $leaseOrder = $csOrder = CsOrder::with([
+            'vehicle:id,engine,last_mile,modified',
+            'owner:id,distance_unit',
+            'twilioOrder:cs_order_id,extend'
+        ])
+            ->whereIn('status', [0, 1])
+            ->where('id', $orderId)
+            ->latest('id')
+            ->first();
+
+        if (!$csOrder) {
+            abort(404, 'Order not found');
+        }
+
+        $tz = $csOrder->timezone ?? config('app.timezone');
+        $startSec = strtotime($csOrder->start_datetime);
+        $endSec = strtotime($csOrder->end_datetime);
+        $daysGap = $endSec - $startSec;
+        $suggestedSec = $endSec + $daysGap;
+        $suggestedAutorenewDatetime = Carbon::createFromTimestamp($suggestedSec)
+            ->setTimezone($tz)
+            ->format('Y-m-d H:i:s');
+
+        $paymentStatuses = [
+            $csOrder->payment_status,
+            $csOrder->dpa_status,
+            $csOrder->insu_status,
+            $csOrder->infee_status,
+            $csOrder->toll_status,
+            $csOrder->dia_insu_status,
+            $csOrder->emf_status
+        ];
+        $leaseOrder->payment_retry = in_array(2, $paymentStatuses) ? 1 : 0;
+        $leaseOrder->suggested_autorenew_datetime = $suggestedAutorenewDatetime;
+        $extendDate = $csOrder->twilioOrder->extend ?? null;
+        $leaseOrder->scheduled_till = $extendDate
+            ? Carbon::parse($extendDate)->setTimezone($tz)->format('Y-m-d H:i:s')
+            : '';
+
+        foreach ($csOrder->getAttributes() as $key => $value) {
+            if (is_null($value)) {
+                $csOrder->setAttribute($key, '');
+            }
+        }
+
+        // $leaseOrder = $this->getActiveBookingTotalPending($leaseOrder, $csOrder); pending
+        $leaseOrder->start_datetime = Carbon::parse($csOrder->start_datetime)->setTimezone($tz)->format('Y-m-d H:i:s');
+        $leaseOrder->end_datetime = Carbon::parse($csOrder->end_datetime)->setTimezone($tz)->format('Y-m-d H:i:s');
+
+        $booking = $leaseOrder;
+        $extCount = OrderExtlog::where('cs_order_id', $orderId)->count();
+
+        if (($endSec + (7 * 86400)) < time()) {
+            $allowed_min_date = Carbon::now($tz)->addDay()->format('m/d/Y');
+            $allowed_max_date = Carbon::parse($allowed_min_date, $tz)->addDays(2)->format('m/d/Y');
+        } else {
+            $allowed_min_date = (($endSec + 86400) > time())
+                ? Carbon::now($tz)->format('m/d/Y')
+                : Carbon::createFromTimestamp($endSec + 86400, $tz)->format('m/d/Y');
+
+            $daysToAdd = ($extCount === 0) ? 7 : 14;
+            $allowed_max_date = Carbon::parse($allowed_min_date, $tz)->addDays($daysToAdd)->format('m/d/Y');
+        }
+
+        return view('admin.bookings.partial_payment', compact('allowed_min_date', 'allowed_max_date', 'booking'));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function autocomplete(Request $request): JsonResponse
+    {
+        $bookingId = trim((string) $request->input('id', ''));
+        $searchTerm = trim((string) $request->input('term', ''));
+
+        $q = DB::table('cs_orders')->select(['id', 'increment_id', 'vehicle_id']);
+
+        if ($bookingId !== '') {
+            $q->where('id', (int) $bookingId);
+        } else {
+            $q->where(function ($q2) use ($searchTerm) {
+                $q2->where('id', 'like', $searchTerm . '%')
+                    ->orWhere('increment_id', 'like', '%' . addcslashes($searchTerm, '%_\\') . '%');
+            });
+        }
+
+        $lists = $q->orderByDesc('id')->limit(10)->get();
+        $bookings = [];
+        foreach ($lists as $row) {
+            $bookings[] = [
+                'id' => $row->id,
+                'tag' => $row->increment_id,
+                'vehicle' => $row->vehicle_id,
+            ];
+        }
+
+        return response()->json($bookings);
+    }
+
+    public function retrylatefee(Request $request): JsonResponse
+    {
+        $orderId = (int) base64_decode((string) $request->input('orderid', ''));
+        if ($orderId <= 0) {
+            return response()->json(['status' => false, 'message' => 'Invalid order', 'result' => []]);
+        }
+
+        $order = DB::table('cs_orders')->where('id', $orderId)->where('late_fee_status', 2)->first();
+        if (!$order) {
+            return response()->json(['status' => false, 'message' => 'Order not found or late fee not in failed status.', 'result' => []]);
+        }
+
+        $alreadyPaid = (float) DB::table('cs_order_payments')
+            ->where('cs_order_id', $orderId)
+            ->where('payment_type', 8)
+            ->where('status', 1)
+            ->sum('amount');
+        $pendingAmt = max(0, (float) ($order->lateness_fee ?? 0) - $alreadyPaid);
+
+        \Log::warning('PaymentProcessor::retryLateFee not yet ported — order ' . $orderId . ', pending $' . $pendingAmt);
+
+        DB::table('cs_orders')->where('id', $orderId)->update(['late_fee_status' => 1]);
+
+        return response()->json(['status' => true, 'message' => 'Late fee retried successfully.', 'result' => []]);
+    }
+
+
 
     public function process_partial_payment(Request $request): JsonResponse
     {

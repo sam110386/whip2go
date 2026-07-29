@@ -2,6 +2,9 @@
 namespace App\Http\Controllers\Traits;
 
 use App\Models\Legacy\CsPaymentLog;
+use App\Services\Legacy\AutoPiFleetClient;
+use App\Services\Legacy\GeotabClient;
+use App\Services\Legacy\OnestepGpsClient;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -295,6 +298,118 @@ trait BookingsTrait
             'lateness_fee' => ($order->lateness_fee + $extFee),
             'lateness_fee_status' => $latenessFeeStatus
         ]);
+    }
+    private function _syncvehiclegps(array $orderData = [])
+    {
+        $defaultErrorResponse = [
+            'status' => false,
+            'message' => 'Sorry, you are not authorized user for this action.',
+            'result' => []
+        ];
+
+        $vehicleId = $orderData['vehicle_id'];
+
+        if (!$orderData || !$vehicleId) {
+            return response()->json($defaultErrorResponse);
+        }
+
+        $vehicleData = Vehicle::with(['csSetting', 'vehicleSetting'])
+            ->select('id', 'user_id', 'vin_no')
+            ->where('id', $vehicleId)
+            ->first();
+
+        if (!$vehicleData) {
+            return response()->json($defaultErrorResponse);
+        }
+
+        $passtimeService = new Passtime();
+        $passtimeService->parseVehicleSetting($vehicleData->toArray());
+
+        $csSetting = $vehicleData->csSetting;
+        $passtimeSetting = $csSetting->passtime ?? null;
+        $gpsProvider = $csSetting->gps_provider ?? null;
+        $vinNo = $vehicleData->vin_no;
+
+        if ($passtimeSetting !== 'geotab' || $gpsProvider !== 'geotab') {
+            $geotab = new GeotabClient();
+            $geotabResponse = $geotab->getDealerDevices([
+                'geotab_server' => $csSetting->geotab_server ?? null,
+                'geotab_user' => $csSetting->geotab_user ?? null,
+                'geotab_pwd' => $csSetting->geotab_pwd ?? null,
+                'geotab_db' => $csSetting->geotab_db ?? null,
+            ], [
+                'vehicleIdentificationNumber' => $vinNo
+            ]);
+
+            if (empty($geotabResponse['status']) || empty($geotabResponse['result'])) {
+                $geotabResponse['message'] = "Sorry no device found";
+                return response()->json($geotabResponse);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => "Your request is processed successfully",
+                'result' => $geotabResponse['result'][0]['id'] ?? ''
+            ]);
+        }
+
+        if ($passtimeSetting === 'onestepgps' || $gpsProvider === 'onestepgps') {
+            $params = [
+                'api-key' => $csSetting->onestepgps ?? null,
+                'device_id' => 1,
+                'vin' => 1
+            ];
+
+            $onestepgps = new OnestepGpsClient();
+            $gpsResponse = $onestepgps->ExecuteCustomCall('device-info', $params);
+
+            if (empty($gpsResponse['status'])) {
+                return response()->json($gpsResponse);
+            }
+
+            $deviceMap = collect($gpsResponse['result'] ?? [])
+                ->pluck('device_id', 'vin')
+                ->toArray();
+
+            return response()->json([
+                'status' => true,
+                'message' => "Your request is processed successfully",
+                'result' => $deviceMap[$vinNo] ?? ""
+            ]);
+        }
+
+        if ($passtimeSetting === 'autopi' || $gpsProvider === 'autopi') {
+            $params = [
+                'autopi_token' => $csSetting->autopi_token ?? null
+            ];
+
+            $autoPi = new AutoPiFleetClient();
+            $autoPiResponse = $autoPi->getDealerDevices($csSetting->autopi_token);
+
+            if (empty($autoPiResponse['status'])) {
+                return response()->json($autoPiResponse);
+            }
+
+            $connectionsMap = collect($autoPiResponse['result'] ?? [])
+                ->pluck('connections', 'vin')
+                ->toArray();
+
+            $vinConnections = $connectionsMap[$vinNo] ?? [];
+            $firstConnection = is_array($vinConnections) ? reset($vinConnections) : null;
+
+            return response()->json([
+                'status' => true,
+                'message' => "Your request is processed successfully",
+                'result' => $firstConnection['id'] ?? ""
+            ]);
+        }
+
+        return response()->json([
+            'status' => false,
+            'message' => "Sorry, we support only geotab vehicle sync. Please check your passtime setting to use this feature",
+            'result' => []
+        ]);
+
     }
 
     public function _editsave($data)
