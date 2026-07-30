@@ -1926,7 +1926,7 @@ class BookingsController extends LegacyAppController
             }
         }
 
-        // $leaseOrder = $this->getActiveBookingTotalPending($leaseOrder, $csOrder); pending
+        $leaseOrder = $this->getActiveBookingTotalPending($leaseOrder, $csOrder);
         $leaseOrder->start_datetime = Carbon::parse($csOrder->start_datetime)->setTimezone($tz)->format('Y-m-d H:i:s');
         $leaseOrder->end_datetime = Carbon::parse($csOrder->end_datetime)->setTimezone($tz)->format('Y-m-d H:i:s');
 
