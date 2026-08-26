@@ -3,59 +3,80 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use Illuminate\Http\JsonResponse;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\CsTwilioOrder;
+use App\Services\Legacy\TwilioClient;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class MessageHistoriesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     public function loadmessagehistory(Request $request)
     {
-        $renterId = (int)$request->input('renter_id', 0);
-        $ownerId = (int)$request->input('owner_id', 0);
-        if ($renterId <= 0 || $ownerId <= 0) {
-            return response('Invalid participants', 400);
-        }
-        $rows = DB::table('message_histories')
-            ->where(function ($q) use ($renterId, $ownerId) {
-                $q->where('sender_id', $ownerId)->where('receiver_id', $renterId);
-            })
-            ->orWhere(function ($q) use ($renterId, $ownerId) {
-                $q->where('sender_id', $renterId)->where('receiver_id', $ownerId);
-            })
-            ->orderBy('id')
-            ->limit(500)
-            ->get();
+        $orderId = $this->decodeId(trim($request->input('orderid')));
+        $csTwilioOrder = CsTwilioOrder::with('csTwilioLogs')
+            ->where('cs_order_id', $orderId)
+            ->first();
 
-        return response()->view('admin.message_histories.history', compact('rows', 'renterId', 'ownerId'));
+        return view('admin.message_histories.loadmessagehistory', [
+            'csTwilioOrder' => $csTwilioOrder,
+            'orderId' => base64_encode($orderId),
+        ]);
     }
-
     public function loadnewmessage(Request $request)
     {
-        return response()->view('admin.message_histories.new_message', [
-            'renterId' => (int)$request->input('renter_id', 0),
-            'ownerId' => (int)$request->input('owner_id', 0),
+        $orderId = $this->decodeId(trim($request->input('orderid')));
+        $csTwilioOrder = CsTwilioOrder::select('id', 'cs_order_id')
+            ->with(['csOrder:id,renter_id', 'csOrder.user:id,contact_number'])
+            ->where('cs_order_id', $orderId)
+            ->first();
+
+        return view('admin.message_histories.loadnewmessage', [
+            'csTwilioOrder' => $csTwilioOrder,
+            'orderId' => base64_encode($orderId),
         ]);
     }
-
-    public function sendnewmessage(Request $request): JsonResponse
+    public function sendnewmessage(Request $request)
     {
-        $sender = (int)$request->input('sender_id', 0);
-        $receiver = (int)$request->input('receiver_id', 0);
-        $message = trim((string)$request->input('message', ''));
-        if ($sender <= 0 || $receiver <= 0 || $message === '') {
-            return response()->json(['status' => false, 'message' => 'Invalid request']);
-        }
-        DB::table('message_histories')->insert([
-            'sender_id' => $sender,
-            'receiver_id' => $receiver,
-            'message' => $message,
-            'created' => now()->toDateTimeString(),
-        ]);
+        $orderId = $this->decodeId(trim($request->input('cs_order_id')));
+        $msg = trim($request->input('details'));
+        $return = [
+            'status' => false,
+            'message' => 'Sorry, related order not found.'
+        ];
 
-        return response()->json(['status' => true, 'message' => 'Message sent successfully']);
+        $orderData = CsOrder::with('user:id,contact_number')->find($orderId);
+
+        if ($orderData) {
+            $return['message'] = 'Sorry, required data not passed.';
+            $renterPhone = $orderData->user?->contact_number;
+
+            if (!empty($renterPhone) && !empty($msg)) {
+                $alreadySent = CsTwilioOrder::where('cs_order_id', $orderId)->first();
+
+                if (!$alreadySent) {
+                    $twilioOrder = CsTwilioOrder::create([
+                        'cs_order_id' => $orderData->id,
+                        'renter_phone' => $renterPhone,
+                        'user_id' => $orderData->user_id,
+                        'vehicle_id' => $orderData->vehicle_id,
+                        'status' => 0,
+                    ]);
+
+                    $csTwilioOrderId = $twilioOrder->id;
+                } else {
+                    $csTwilioOrderId = $alreadySent->id;
+                }
+
+                $return = (new TwilioClient())->autonotifyByTwilio(
+                    $renterPhone,
+                    $msg,
+                    $csTwilioOrderId,
+                    $orderData->user_id
+                );
+            }
+        }
+
+        return response()->json($return);
     }
 }
 

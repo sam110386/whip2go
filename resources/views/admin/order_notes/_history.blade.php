@@ -1,7 +1,4 @@
-{{-- Pagination links --}}
-@if($history->hasPages())
-<div class="text-center">{{ $history->appends(['orderid' => $orderid, 'parentid' => $parentid])->links() }}</div>
-@endif
+@include('partials.dispacher.paging_box', ['paginator' => $history, 'limit' => $limit ?? 10, 'position' => 'top'])
 
 <table width="100%" cellpadding="1" cellspacing="1" border="0" class="table table-responsive">
     <thead>
@@ -14,9 +11,9 @@
     <tbody>
         @foreach ($history as $hist)
             <tr>
-                <td>{{ $hist->increment_id }}</td>
-                <td>{{ $hist->msg }}</td>
-                <td>{{ $hist->created }}</td>
+                <td>{{ data_get($hist, 'csOrder.increment_id', '') }}</td>
+                <td>{{ data_get($hist, 'msg', '') }}</td>
+                <td>{{ data_get($hist, 'created', '') }}</td>
             </tr>
         @endforeach
     </tbody>

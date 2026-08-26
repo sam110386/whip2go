@@ -49,7 +49,7 @@
                                 <div class="col-lg-7">
                                     <select name="VehicleOffer[goal]" class="required form-control select2">
                                         <option value=""></option>
-                                        <option value="custom" {{ $depositRule->goal == 'custom' ? 'selected' : '' }}>
+                                        <option value="custom" {{ (!in_array($depositRule->goal, ['20', '30', '40', '50', '60', '70', '80', '90', '100']) || $depositRule->goal == 'custom') ? 'selected' : '' }}>
                                             Custom
                                         </option>
                                         @foreach(['20', '30', '40', '50', '60', '70', '80', '90', '100'] as $val)
@@ -87,7 +87,7 @@
                                 </label>
                                 <div class="col-lg-7">
                                     <select name="VehicleOffer[miles]" class="form-control required">
-                                        @foreach($milesOptions as $key => $val)
+                                        @foreach(data_get($vehicles, 'miles_options', []) as $key => $val)
                                             <option value="{{ $key }}" {{ $depositRule->miles == $key ? 'selected' : '' }}>
                                                 {{ $val }}
                                             </option>
@@ -295,7 +295,7 @@
                             </div>
                         </div>
 
-                        @foreach($calculation as $key => $calculate)
+                        @foreach(data_get($depositRule, 'calculation', []) as $key => $calculate)
                             @if(is_array($calculate) || str_contains($key, '_opt'))
                                 @continue
                             @endif

@@ -1,43 +1,56 @@
 <?php
+namespace App\Http\Controllers\Legacy;
 
-namespace App\Http\Controllers;
-
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Legacy\LegacyAppController;
 
 /**
- * Intercom Mapi – mobile payment helpers invoked from Intercom popup actions.
- *
  * Mirrors legacy Intercom/MservicesController + MapiController flow.
- * Heavy business logic (traits ActiveBookingTotalPending, ValidateExtensionRequestTrait,
- * PasstimeActivateVehicle) are called from their existing legacy service layer.
  */
 class IntercomMapiController extends LegacyAppController
 {
     protected bool $shouldLoadLegacyModules = false;
-
     private string $_security = '7750ca3559e5b8e1f442103368fcgc';
-
     protected static int $_STATUSFAIL = 0;
     protected static int $_STATUSSUCCESS = 1;
-
     protected $userObj;
-
     protected array $_userfields = [
-        'id', 'first_name', 'middle_name', 'last_name', 'email', 'photo',
-        'contact_number', 'address', 'ss_no', 'dob', 'city', 'state', 'zip',
-        'licence_type', 'licence_number', 'licence_state', 'licence_exp_date',
-        'is_renter', 'is_owner', 'is_driver', 'is_passenger',
-        'license_doc_1', 'license_doc_2', 'is_staff', 'staff_parent',
-        'checkr_status', 'auto_renew', 'uberlyft_verified', 'bank', 'currency', 'address_doc',
+        'id',
+        'first_name',
+        'middle_name',
+        'last_name',
+        'email',
+        'photo',
+        'contact_number',
+        'address',
+        'ss_no',
+        'dob',
+        'city',
+        'state',
+        'zip',
+        'licence_type',
+        'licence_number',
+        'licence_state',
+        'licence_exp_date',
+        'is_renter',
+        'is_owner',
+        'is_driver',
+        'is_passenger',
+        'license_doc_1',
+        'license_doc_2',
+        'is_staff',
+        'staff_parent',
+        'checkr_status',
+        'auto_renew',
+        'uberlyft_verified',
+        'bank',
+        'currency',
+        'address_doc',
     ];
 
-    /**
-     * Authenticate via X-Security header + userid param.
-     */
-    private function authenticateMapiUser(Request $request): ?\Illuminate\Http\JsonResponse
+    private function authenticateMapiUser(Request $request)
     {
         $xsecurity = $request->header('X-Security', $request->header('x-security', ''));
         if (empty($xsecurity) || strtolower($xsecurity) !== $this->_security) {

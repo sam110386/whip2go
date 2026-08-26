@@ -145,4 +145,8 @@ class CsOrder extends LegacyModel
     {
         return $this->hasOne(CsTwilioOrder::class, 'cs_order_id', 'id');
     }
+    public function csOrderNote(): HasMany
+    {
+        return $this->hasMany(CsOrderNote::class, 'order_id', 'id');
+    }
 }

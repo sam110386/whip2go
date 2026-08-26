@@ -3131,7 +3131,7 @@ function pullVehicleOdometer() {
 		params,
 		function (data) {
 			if (data.status) {
-				$("form#loadupdateodometer").find("#TextCurrentOdomter").val(miles);
+				$("form#loadupdateodometer").find("#TextCurrentOdomter").val(data.miles);
 			} else {
 				alert(data.message);
 			}

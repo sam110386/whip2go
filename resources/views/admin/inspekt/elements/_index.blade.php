@@ -30,3 +30,5 @@
 </table>
 
 @include('partials.dispacher.paging_box', ['paginator' => $lists, 'limit' => $limit ?? 50])
+
+<script src="{{ legacy_asset('js/inspekt/inspektscan.js') }}"></script>

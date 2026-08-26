@@ -18,4 +18,9 @@ class CsOrderNote extends LegacyModel
         'msg',
         'created',
     ];
+
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'order_id', 'id');
+    }
 }

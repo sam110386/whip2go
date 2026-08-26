@@ -2,22 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\CsOrder;
+use App\Models\Legacy\CsOrderNote;
 
 /**
  * Migrated from: app/Plugin/OrderNote/Controller/OrderNotesController.php
- *
- * Admin booking notes: history listing, new-note popup, save.
- * CTP views migrated to: resources/views/admin/order_notes/
  */
 class OrderNotesController extends LegacyAppController
 {
-    /**
-     * admin_loadhistory → loadhistory
-     */
     public function loadhistory(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -32,26 +26,20 @@ class OrderNotesController extends LegacyAppController
             $parentid = $parent;
         } else {
             $orderid = trim($request->input('orderid', ''));
-            $orderid = base64_decode($orderid);
-
-            $csOrder = DB::table('cs_orders')
+            $orderid = $this->decodeId($orderid);
+            $csOrder = CsOrder::select('id', 'parent_id')
                 ->where('id', $orderid)
-                ->select('id', 'parent_id')
                 ->first();
-
             $parentid = !empty($csOrder->parent_id) ? $csOrder->parent_id : ($csOrder->id ?? null);
         }
 
-        $perPage = 10;
+        $limit = 10;
+        $history = CsOrderNote::with('csOrder:id,increment_id')
+            ->where('parent_order_id', $parentid)
+            ->latest('id')
+            ->paginate($limit);
 
-        $history = DB::table('cs_order_notes as OrderNote')
-            ->leftJoin('cs_orders as CsOrder', 'CsOrder.id', '=', 'OrderNote.order_id')
-            ->where('OrderNote.parent_order_id', $parentid)
-            ->select('CsOrder.increment_id', 'OrderNote.*')
-            ->orderByDesc('OrderNote.id')
-            ->paginate($perPage);
-
-        $data = compact('history', 'orderid', 'parentid');
+        $data = compact('history', 'orderid', 'parentid', 'limit');
 
         if ($request->ajax() && $order !== null && $parent !== null) {
             return view('admin.order_notes._history', $data);
@@ -59,10 +47,6 @@ class OrderNotesController extends LegacyAppController
 
         return view('admin.order_notes._loadhistory', $data);
     }
-
-    /**
-     * admin_loadnewnotepopup → loadnewnotepopup
-     */
     public function loadnewnotepopup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -74,26 +58,30 @@ class OrderNotesController extends LegacyAppController
 
         return view('admin.order_notes._loadnewnotepopup', compact('orderid', 'parentid'));
     }
-
-    /**
-     * admin_savenote → savenote
-     */
-    public function savenote(Request $request): JsonResponse
+    public function savenote(Request $request)
     {
-        if ($redirect = $this->ensureAdminSession()) {
-            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        if ($this->ensureAdminSession()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
-        $return = ['status' => false, 'message' => 'Sorry, related order not found.'];
+        $return = [
+            'status' => false,
+            'message' => 'Sorry, related order not found.'
+        ];
 
         if ($request->ajax()) {
             $noteData = $request->input('OrderNote', []);
             $noteData['user_id'] = 0;
             $noteData['craeted'] = now()->toDateTimeString();
+            CsOrderNote::create($noteData);
 
-            DB::table('cs_order_notes')->insert($noteData);
-
-            $return = ['status' => true, 'message' => 'Your record is saved successfully'];
+            $return = [
+                'status' => true,
+                'message' => 'Your record is saved successfully'
+            ];
         }
 
         return response()->json($return);

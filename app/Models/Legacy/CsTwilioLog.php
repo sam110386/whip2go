@@ -23,4 +23,9 @@ class CsTwilioLog extends LegacyModel
         'id',
     ];
 
+    public function csTwilioOrder()
+    {
+        return $this->belongsTo(CsTwilioOrder::class, 'cs_twilio_order_id', 'id');
+    }
+
 }

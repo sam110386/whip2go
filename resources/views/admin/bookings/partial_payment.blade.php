@@ -1,158 +1,226 @@
 @php
     $booking ??= collect();
 @endphp
+
 <div class="modal-header">
     <button type="button" class="close" data-dismiss="modal">&times;</button>
-    <h4 class="modal-title">{{ $paymenttype ?? '' }} Payment Retry</h4>
 </div>
 
 <div class="modal-body">
     <form id="paymentretry" class="form-horizontal" method="POST">
         @csrf
-        <input type="hidden" name="Booking[id]" value="{{ $booking->id }}">
+
+        <input type="hidden" name="Booking[id]" value="{{ data_get($booking, 'id', '') }}">
 
         <div class="row">
             <div class="col-sm-6 col-sx-12">
-                <legend class="text-semibold">{{ $paymenttype ?? '' }} Payment Details</legend>
+                <legend class="text-semibold">
+                    {{ $paymenttype ?? '' }} Payment Retry
+                </legend>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">Uses Fee :</label>
+                    <label class="col-lg-6 control-label">
+                        Uses Fee :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->rent }}
+                        {{ data_get($booking, 'rent', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">EMF :</label>
+                    <label class="col-lg-6 control-label">
+                        EMF :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->extra_mileage_fee }}
+                        {{ data_get($booking, 'extra_mileage_fee', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">TAX :</label>
+                    <label class="col-lg-6 control-label">
+                        TAX :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->tax }}
+                        {{ data_get($booking, 'tax', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">Booking Fee :</label>
+                    <label class="col-lg-6 control-label">
+                        Booking Fee :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->dia_fee }}
+                        {{ data_get($booking, 'dia_fee', '') }}
                     </div>
                 </div>
-                @if ($booking->lateness_fee > 0)
+
+                @if (data_get($booking, 'lateness_fee', 0))
                     <div class="form-group">
-                        <label class="col-lg-6 control-label">Lateness Fee :</label>
+                        <label class="col-lg-6 control-label">
+                            Lateness Fee :
+                        </label>
                         <div class="col-lg-6 control-label">
-                            {{ $booking->lateness_fee }}
+                            {{ data_get($booking, 'lateness_fee', '') }}
                         </div>
                     </div>
                 @endif
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">Total Uses Fee :</label>
+                    <label class="col-lg-6 control-label">
+                        Total Uses Fee :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->carsharing_fee_total }}
+                        {{ data_get($booking, 'carsharing_fee_total', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">Paid Amount :</label>
+                    <label class="col-lg-6 control-label">
+                        Paid Amount :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->carsharing_fee_paid }}
+                        {{ data_get($booking, 'carsharing_fee_paid', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">Uses Fee Due :</label>
+                    <label class="col-lg-6 control-label">
+                        Uses Fee Due :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->total_rental_remaining }}
+                        {{ data_get($booking, 'total_rental_remaining', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label">Toll/Deduction Due :</label>
+                    <label class="col-lg-6 control-label">
+                        Toll/Deduction Due :
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ $booking->pending_toll }}
+                        {{ data_get($booking, 'pending_toll', '') }}
                     </div>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label"><strong>Total Due Current Cycle:</strong></label>
+                    <label class="col-lg-6 control-label">
+                        <strong>Total Due Current Cycle:</strong>
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}
+                        {{ data_get($booking, 'total_remaining_autorenew.amount', '') }}
                     </div>
-                    <span class="help-block">{{ $booking->total_remaining_autorenew['hint'] ?? '' }}</span>
+                    <span class="help-block">{{ data_get($booking, 'total_remaining_autorenew.hint', '') }}</span>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label"><strong>Total to Close Program:</strong></label>
+                    <label class="col-lg-6 control-label">
+                        <strong>Total to Close Program:</strong>
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ is_array($booking->total_remaining_close) ? $booking->total_remaining_close['amount'] : $booking->total_remaining_close }}
+                        {{ data_get($booking, 'total_remaining_close.amount', '') }}
                     </div>
-                    <span class="help-block">{{ $booking->total_remaining_close['hint'] ?? '' }}</span>
+                    <span class="help-block">{{ data_get($booking, 'total_remaining_close.hint', '')}}</span>
                 </div>
+
                 <div class="form-group">
-                    <label class="col-lg-6 control-label"><strong>Total Due Next Cycle:</strong></label>
+                    <label class="col-lg-6 control-label">
+                        <strong>Total Due Next Cycle:</strong>
+                    </label>
                     <div class="col-lg-6 control-label">
-                        {{ is_array($booking->total_remaining_nextschedule) ? $booking->total_remaining_nextschedule['amount'] : $booking->total_remaining_nextschedule }}
+                        {{ data_get($booking, 'total_remaining_nextschedule.amount', '') }}
                     </div>
-                    <span class="help-block">{{ $booking->total_remaining_nextschedule['hint'] ?? '' }}</span>
+                    <span class="help-block">{{ data_get($booking, 'total_remaining_nextschedule.hint', '') }}</span>
                 </div>
+
             </div>
 
             <div class="col-sm-6 col-sx-12">
-                <div class="panel panel-white">
-                    <div class="panel-heading">
+                <div class="panelpanelwhite">
+                    <div class="panel-heading nopadding">
                         <legend>INSURANCE</legend>
+                        <div class="heading-elements">
+                            <ul class="icons-list">
+                                <li><a data-action="collapse" data-popup="tooltip" title="Collapse" class=""></a></li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="panel-body">
+
+                    <div class="panel-body panel-collapsed nopadding">
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Insurance & Fees :</label>
+                            <label class="col-lg-6 control-label">
+                                Insurance & Fees :
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->insurance_amt }}
+                                {{ data_get($booking, 'insurance_amt', '') }}
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">EMF Insurance :</label>
+                            <label class="col-lg-6 control-label">
+                                EMF Insurance :
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->dia_insu }}
+                                {{ data_get($booking, 'dia_insu', '') }}
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Total Insurance & Fees:</label>
+                            <label class="col-lg-6 control-label">
+                                Total Insurance & Fees:
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->total_insurance_calculated }}
+                                {{ data_get($booking, 'total_insurance_calculated', '') }}
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Total Paid Insurance & Fees :</label>
+                            <label class="col-lg-6 control-label">
+                                Total Paid Insurance & Fees :
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->total_insurance_paid }}
+                                {{ data_get($booking, 'total_insurance_paid', '') }}
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Total Due Insurance & Fees :</label>
+                            <label class="col-lg-6 control-label">
+                                Total Due Insurance & Fees :
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->total_insurance_remaining }}
+                                {{ data_get($booking, 'total_insurance_remaining', '') }}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="panel panel-white">
-                    <div class="panel-heading">
+                <div class="panelpanelwhite">
+                    <div class="panel-heading nopadding">
                         <legend>INITIAL FEE</legend>
+                        <div class="heading-elements">
+                            <ul class="icons-list">
+                                <li><a data-action="collapse" data-popup="tooltip" title="Collapse" class=""></a></li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="panel-body">
+
+                    <div class="panel-body panel-collapsed nopadding">
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Initial Fee :</label>
+                            <label class="col-lg-6 control-label">
+                                Initial Fee :
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->total_initial_fee_calculated }}
+                                {{ data_get($booking, 'total_initial_fee_calculated', '') }}
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Paid Initial Fee :</label>
+                            <label class="col-lg-6 control-label">
+                                Paid Initial Fee :
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->total_initial_fee_paid }}
+                                {{ data_get($booking, 'total_initial_fee_paid', '') }}
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="col-lg-6 control-label">Initial Fee Due:</label>
+                            <label class="col-lg-6 control-label">
+                                Initial Fee Due:
+                            </label>
                             <div class="col-lg-6 control-label">
-                                {{ $booking->total_initial_fee_remaining }}
+                                {{ data_get($booking, 'total_initial_fee_remaining', '') }}
                             </div>
                         </div>
                     </div>
@@ -161,20 +229,24 @@
 
             <div class="col-sm-12">
                 <legend>Make Payment</legend>
+
                 <div class="form-group">
                     <div class="col-lg-5 checkbox">
                         <label class="control-label">
                             <input type="radio" checked="checked" class="paymenttype" name="payment" value="fullpay">
-                            <strong>Amount Due :
-                                {{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}</strong>
+                            <strong>
+                                Amount Due :
+                                {{ data_get($booking, 'total_remaining_autorenew.amount', '') }}
+                            </strong>
                         </label>
                     </div>
 
                     <div class="col-lg-6 show" id="fullpay_div">
-                        <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Make Full
-                            Payment</button>
+                        <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">
+                            Make Full Payment
+                        </button>
                         <input type="hidden" name="Booking[famt]"
-                            value="{{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}">
+                            value="{{ data_get($booking, 'total_remaining_autorenew.amount', '') }}">
                     </div>
                 </div>
                 <div class="form-group">
@@ -187,7 +259,7 @@
                     <span id="partial_div" class="hidden">
                         <div class="col-sm-2">
                             <input type="text" name="Booking[pamt]" class="form-control required"
-                                value="{{ is_array($booking->total_remaining_autorenew) ? $booking->total_remaining_autorenew['amount'] : $booking->total_remaining_autorenew }}">
+                                value="{{ data_get($booking, 'total_remaining_autorenew.amount', '') }}">
                         </div>
                         <div class="col-sm-2 mt-2">
                             <label class="control-label"> I will Pay due on date </label>
@@ -197,8 +269,9 @@
                                 autocomplete="off" value="">
                         </div>
                         <div class="col-sm-3">
-                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Process
-                                Payment</button>
+                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">
+                                Process Payment
+                            </button>
                         </div>
                     </span>
                 </div>
@@ -213,11 +286,12 @@
                     <span id="advance_div" class="hidden">
                         <div class="col-sm-2">
                             <input type="text" name="Booking[advamt]" class="form-control required"
-                                value="{{ $booking->least_advance_payment }}">
+                                value="{{ data_get($booking, 'least_advance_payment', '') }}">
                         </div>
                         <div class="col-sm-3">
-                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">Process
-                                Payment</button>
+                            <button type="button" class="btn btn-primary" onclick="processPaymentRetry()">
+                                Process Payment
+                            </button>
                         </div>
                     </span>
                 </div>
@@ -226,7 +300,9 @@
     </form>
 </div>
 
-<div class="modal-footer"></div>
+<div class="modal-footer">
+
+</div>
 
 <style>
     #paymentretry .form-group {
@@ -246,6 +322,7 @@
         $('.paymenttype').on('change', function () {
             var val = $(this).val();
             $('#fullpay_div, #partial_div, #advance_div').addClass('hidden');
+
             if (val === 'fullpay') {
                 $('#fullpay_div').removeClass('hidden');
             } else if (val === 'partial') {
@@ -253,6 +330,8 @@
             } else if (val === 'advance') {
                 $('#advance_div').removeClass('hidden');
             }
+
         });
     });
+
 </script>

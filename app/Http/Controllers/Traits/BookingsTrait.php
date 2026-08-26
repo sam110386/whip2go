@@ -1,19 +1,25 @@
 <?php
 namespace App\Http\Controllers\Traits;
 
-use App\Models\Legacy\CsPaymentLog;
-use App\Services\Legacy\AutoPiFleetClient;
-use App\Services\Legacy\GeotabClient;
-use App\Services\Legacy\OnestepGpsClient;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Models\Legacy\CsPaymentLog;
+use App\Models\Legacy\CsPaymentRetry;
+use App\Models\Legacy\CsWallet;
+use App\Models\Legacy\OrderExtlog;
 use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\DepositRule;
 use App\Models\Legacy\DepositTemplate;
 use App\Models\Legacy\Vehicle;
 use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\CsOrderPayment;
+use App\Services\Legacy\AutoPiFleetClient;
+use App\Services\Legacy\EmailQueueService;
+use App\Services\Legacy\GeotabClient;
+use App\Services\Legacy\GeotabkeylessClient;
+use App\Services\Legacy\OnestepGpsClient;
 use App\Services\Legacy\Notifier;
 use App\Services\Legacy\Passtime;
 use App\Services\Legacy\PaymentProcessor;
@@ -410,6 +416,409 @@ trait BookingsTrait
             'result' => []
         ]);
 
+    }
+    private function processfullpayment(CsOrder $order): array
+    {
+        $hasRetryInQueue = CsPaymentRetry::where('cs_order_id', $order->id)
+            ->where('status', 0)
+            ->exists();
+
+        if ($hasRetryInQueue) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, we cant perform this request now because same request is already in queue. Please try again later',
+                'result' => []
+            ];
+        }
+
+        $error = $this->processRetryPendingPayment($order);
+
+        if ($error) {
+            return [
+                'status' => false,
+                'message' => 'Payment has failed due to a lack of funds on the card or your bank denying the charge for another reason. Please add funds to your card or change the default credit card by going to My Account and the Make Payments section. Then, reattempt making a payment',
+                'result' => []
+            ];
+        }
+
+        $failedPayments = '';
+
+        if ($order->payment_status == 2) {
+            $failedPayments .= 'Rental, ';
+        }
+        if ($order->insu_status == 2) {
+            $failedPayments .= ' Insurance,';
+        }
+        if ($order->dpa_status == 2) {
+            $failedPayments .= ' Deposit,';
+        }
+        if ($order->infee_status == 2) {
+            $failedPayments .= ' Initial Fee,';
+        }
+        if ($order->dia_insu_status == 2) {
+            $failedPayments .= ' EMF Insurance,';
+        }
+        if ($order->emf_status == 2 || $order->emf_status) {
+            $failedPayments .= ' EMF';
+        }
+
+        $beginDate = Carbon::parse($order->start_datetime)->setTimezone($order->timezone)->format('m/d/Y');
+        $endDate = Carbon::parse($order->end_datetime)->setTimezone($order->timezone)->format('m/d/Y');
+
+        Notifier::createIntercomeUserEvent([
+            'event_name' => 'full_payment',
+            'created_at' => time(),
+            'external_id' => $order->renter_id,
+            'user_id' => $order->renter_id,
+            'metadata' => [
+                'id' => $order->id,
+                'booking_id' => $order->increment_id,
+                'begin_date' => $beginDate,
+                'end_date' => $endDate,
+                'failed_payments' => $failedPayments,
+                'type' => 'retryPendingPayment'
+            ]
+        ]);
+
+        $unlocked = $this->ActivatePasstimeVehicle($order->vehicle_id);
+
+        if ($unlocked) {
+            Notifier::createIntercomeUserEvent([
+                'event_name' => 'starter_enabled',
+                'created_at' => time(),
+                'external_id' => $order->renter_id,
+                'user_id' => $order->renter_id,
+                'metadata' => [
+                    'id' => $order->id,
+                    'booking_id' => $order->increment_id,
+                    'begin_date' => $beginDate,
+                    'end_date' => $endDate,
+                    'failed_payments' => $failedPayments,
+                    'type' => 'retryPendingPayment'
+                ]
+            ]);
+        }
+
+        return [
+            'status' => true,
+            'message' => 'Your payment was successful and the vehicle is now activated.',
+            'result' => []
+        ];
+    }
+    private function processAdvancePayment(array $post): array
+    {
+        $booking = $post['Booking'] ?? [];
+        $advAmt = (float) preg_replace("/[^0-9.]/", "", $booking['advamt'] ?? 0);
+        $bookingId = $booking['id'] ?? null;
+
+        if (empty($post) || $advAmt === 0.0 || empty($bookingId)) {
+            return [
+                'status' => false,
+                'message' => 'Invalid request body',
+                'result' => []
+            ];
+        }
+
+        $order = CsOrder::where('id', $bookingId)
+            ->whereIn('status', [0, 1])
+            ->first();
+
+        if (!$order) {
+            return [
+                'status' => false,
+                'message' => 'You dont have permission for this request',
+                'result' => []
+            ];
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $res = $paymentProcessor->chargeAmtToUser(
+            $advAmt,
+            $order->renter_id,
+            'Advance Payment',
+            $order->currency
+        );
+
+        if (($res['status'] ?? '') !== 'success') {
+            return [
+                'status' => false,
+                'message' => $res['message'] ?? 'Payment charging failed',
+                'result' => []
+            ];
+        }
+
+        $formattedAmt = sprintf('%0.2f', $advAmt);
+        $note = "I advance payment {$formattedAmt}";
+
+        CsPaymentLog::savePartialPaymentLog([
+            'orderid' => $order->id,
+            'amount' => $res['amt'],
+            'transaction_id' => $res['transaction_id'],
+            'note' => $note,
+        ], 29);
+
+        CsWallet::addBalance(
+            $res['amt'],
+            $order->renter_id,
+            $res['transaction_id'],
+            'Advance Payment',
+            $order->id,
+            now()
+        );
+
+        OrderExtlog::create([
+            'admin_count' => 1,
+            'cs_order_id' => $order->id,
+            'ext_date' => now(),
+            'note' => $note,
+            'owner' => $order->renter_id,
+            'amt' => $formattedAmt,
+            'created' => now(),
+        ]);
+
+        $msg = "Advance Payment $" . $res['amt'] . " was made successfully, of your DriveItAway order ";
+        (new EmailQueueService())->saveEmailToQueue(null, $res['amt'], $msg, $order->id, 'card');
+
+        return [
+            'status' => true,
+            'message' => 'Payment is processed successfully',
+            'result' => []
+        ];
+    }
+    private function _geotabkeylesslock($vehicleId): array
+    {
+        if (!$vehicleId) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, respective dealer setting is not geotab keyless provider',
+                'result' => []
+            ];
+        }
+
+        $vehicleData = Vehicle::select(['id', 'user_id', 'passtime_serialno'])
+            ->with([
+                'vehicleSetting',
+                'csSetting:user_id,passtime,geotab_user,geotab_server,geotab_pwd,geotab_db'
+            ])
+            ->where('id', $vehicleId)
+            ->whereHas('csSetting', function ($query) {
+                $query->where('passtime', 'geotabkeyless');
+            })
+            ->first();
+
+        if (!$vehicleData) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, respective dealer setting is not geotab keyless provider',
+                'result' => []
+            ];
+        }
+
+        $parsedData = (new Passtime())->parseVehicleSetting($vehicleData->toArray());
+
+        if (empty($parsedData['passtime_serialno'])) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, vehicle serial number not saved.',
+                'result' => []
+            ];
+        }
+
+        return (new GeotabkeylessClient())->lock($parsedData);
+    }
+    private function _geotabkeylessunlock($vehicleId): array
+    {
+        if (!$vehicleId) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, respective dealer setting is not geotab keyless provider',
+                'result' => []
+            ];
+        }
+
+        $vehicleData = Vehicle::select(['id', 'user_id', 'passtime_serialno'])
+            ->with([
+                'vehicleSetting',
+                'csSetting:user_id,passtime,geotab_user,geotab_server,geotab_pwd,geotab_db'
+            ])
+            ->where('id', $vehicleId)
+            ->whereHas('csSetting', function ($query) {
+                $query->where('passtime', 'geotabkeyless');
+            })
+            ->first();
+
+        if (!$vehicleData) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, respective dealer setting is not geotab keyless provider',
+                'result' => []
+            ];
+        }
+
+        $parsedData = (new Passtime())->parseVehicleSetting($vehicleData->toArray());
+
+        if (empty($parsedData['passtime_serialno'])) {
+            return [
+                'status' => false,
+                'message' => 'Sorry, vehicle serial number not saved.',
+                'result' => []
+            ];
+        }
+
+        return (new GeotabkeylessClient())->unlock($parsedData);
+    }
+    private function _overdue_booking_details(Request $request)
+    {
+        $orderId = $request->input('order');
+
+        if (!$orderId) {
+            return view('_overdue_booking_details', ['bookings' => collect()]);
+        }
+
+        $orderObj = CsOrder::select(['id', 'parent_id'])->find($orderId);
+
+        $suborders = [$orderId];
+
+        if ($orderObj && $orderObj->parent_id) {
+            $suborders = CsOrder::where('id', $orderObj->parent_id)
+                ->orWhere('parent_id', $orderObj->parent_id)
+                ->pluck('id')
+                ->toArray();
+        }
+
+        $bookings = CsOrder::select([
+            'id',
+            'increment_id',
+            'start_datetime',
+            'end_datetime',
+            'timezone'
+        ])
+            ->with([
+                'orderExtlogs' => function ($query) {
+                    $query->orderBy('id', 'desc');
+                }
+            ])
+            ->whereIn('id', $suborders)
+            ->get();
+
+        return view('bookings._overdue_booking_details', compact('bookings'));
+    }
+    public function _saveBookingOdometer(Request $request)
+    {
+        $bookingId = $this->decodeId($request->input('Text.booking', $request->input('booking')));
+        $currentOdometer = $request->input('Text.current_odomter', $request->input('current_odomter'));
+        $currentOdometerTo = $request->input('Text.current_odomter_to', $request->input('current_odomter_to'));
+
+        $order = CsOrder::select(['id', 'vehicle_id'])
+            ->where('id', $bookingId)
+            ->whereIn('status', [0, 1])
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, you are not authorized user for this action.',
+                'result' => []
+            ]);
+        }
+
+        if (!in_array($currentOdometerTo, ['start_odometer', 'end_odometer'])) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, wrong selection, to update.',
+                'result' => []
+            ]);
+        }
+
+        $order->update([
+            $currentOdometerTo => $currentOdometer
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Your request is processed successfully',
+            'result' => []
+        ]);
+    }
+    public function _pullVehicleOdometer(Request $request)
+    {
+        $bookingId = $this->decodeId($request->input('Text.booking', $request->input('booking')));
+        $order = CsOrder::select(['id', 'vehicle_id'])
+            ->where('id', $bookingId)
+            ->whereIn('status', [0, 1])
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, you are not authorized user for this action.',
+                'result' => []
+            ]);
+        }
+
+        $vehicle = Vehicle::select([
+            'id',
+            'user_id',
+            'passtime_serialno',
+            'gps_serialno',
+            'passtime_status',
+            'last_mile',
+        ])
+            ->with([
+                'csSetting',
+                'vehicleSetting',
+                'owner:id,distance_unit'
+            ])
+            ->find($order->vehicle_id);
+
+        if (!$vehicle) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, you are not authorized user for this action.',
+                'result' => []
+            ]);
+        }
+
+        $passtimeService = new Passtime();
+        $response = $passtimeService->getVehicleLastMile($vehicle->toArray());
+
+        if (empty($response['status'])) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Sorry, GPS didnt responded, please check GPS provider setting again',
+                'result' => []
+            ]);
+        }
+
+        return response()->json($response);
+    }
+    public function _autocomplete(Request $request)
+    {
+        $searchTerm = trim($request->input('term', ''));
+        $bookingId = trim($request->input('id', ''));
+        $query = CsOrder::select(['id', 'increment_id', 'vehicle_id']);
+
+        if ($bookingId !== '') {
+            $query->where('id', $bookingId);
+        } else {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('id', 'LIKE', "{$searchTerm}%")
+                    ->orWhere('increment_id', 'LIKE', "%{$searchTerm}%");
+            });
+        }
+
+        $bookings = $query->orderBy('id', 'DESC')
+            ->limit(10)
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'tag' => $order->increment_id,
+                    'vehicle' => $order->vehicle_id,
+                ];
+            });
+
+        return response()->json($bookings);
     }
 
     public function _editsave($data)

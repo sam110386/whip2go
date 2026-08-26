@@ -13,7 +13,7 @@ class IntercomPopupsController extends LegacyAppController
             return $redirect;
         }
 
-        $userid = base64_decode(trim($request->input('userid')));
+        $userid = $this->decodeId(trim($request->input('userid')));
         $xtoken = '7750ca3559e5b8e1f442103368fcgc';
 
         return view('admin.intercom_popups._popup', compact('userid', 'xtoken'));
