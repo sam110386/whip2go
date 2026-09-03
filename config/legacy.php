@@ -209,4 +209,10 @@ return [
         'secret_key' => env('DOCUSIGN_SECRET_KEY', ''),
     ],
 
+    'Intercom' => [
+        'security' => env('INTERCOM_SECURITY', ''),
+    ],
+
+    'MAX_ALLOWED_BOOKING_EXT' => 2,
+
 ];

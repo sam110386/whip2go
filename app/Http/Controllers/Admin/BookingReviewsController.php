@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -19,35 +17,23 @@ use App\Models\Legacy\CsOrderStatuslog;
 use App\Models\Legacy\CsWalletTransaction;
 use App\Models\Legacy\CsWallet;
 use App\Models\Legacy\RevSetting;
+use App\Services\Legacy\VehicleIssueLib;
 use App\Services\Legacy\PaymentProcessor;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Http\Controllers\Traits\BookingReviewsTrait;
 
 /**
  * CakePHP `BookingReviewsController` — admin (and shared) booking / reservation review flows.
  */
 class BookingReviewsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
-    /** @var array<string, string> */
+    use BookingReviewsTrait;
     protected array $extrasLabels = [
         'cancel_insurance' => 'Cancel insurance',
         'vehicle_inspection' => 'Vehicle inspection',
         'service_needed' => 'Service needed',
         'body_damage' => 'Any body damage',
     ];
-
-    protected function reviewImageDir(): string
-    {
-        return dirname(base_path()) . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'webroot'
-            . DIRECTORY_SEPARATOR . 'files' . DIRECTORY_SEPARATOR . 'reviewimages';
-    }
-
-    protected function bookingReviewsBasePath(): string
-    {
-        return '/admin/booking_reviews';
-    }
-
-
     public function nonreview(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -86,365 +72,7 @@ class BookingReviewsController extends LegacyAppController
             'limit' => $limit
         ]);
     }
-
-    public function initial(Request $request, $orderid = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $orderId = $this->decodeB64Id($orderid);
-        if (!$orderId) {
-            return redirect($this->bookingReviewsBasePath() . '/nonreview');
-        }
-
-        if ($request->isMethod('POST')) {
-            $reviewId = (int) $request->input('CsOrderReview.id', 0);
-            $this->saveOrderReviewFields($request, $reviewId, ['details', 'mileage']);
-
-            return $this->refererRedirect($request, $this->bookingReviewsBasePath() . '/nonreview');
-        }
-
-        $csOrder = CsOrder::where('id', $orderId)->where('auto_renew', 0)->first();
-        if (!$csOrder) {
-            return redirect($this->bookingReviewsBasePath() . '/nonreview');
-        }
-
-        $odr = OrderDepositRule::where('cs_order_id', $orderId)->first();
-        $review = $this->findOrCreateInitialReview($orderId, $odr);
-        $pickupData = [];
-        if ($odr && !empty($odr->pickup_data)) {
-            $decoded = json_decode((string) $odr->pickup_data, true);
-            $pickupData = is_array($decoded) ? $decoded : [];
-        }
-
-        return view('admin.booking_reviews.initial', [
-            'CsOrder' => ['CsOrder' => (array) $csOrder],
-            'CsOrderReview' => ['CsOrderReview' => (array) $review],
-            'orderid' => $orderId,
-            'pickup_data' => $pickupData,
-            'basePath' => $this->bookingReviewsBasePath(),
-        ]);
-    }
-
-    public function finalreview(Request $request, $orderid = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $orderId = $this->decodeB64Id($orderid);
-        if (!$orderId) {
-            return redirect($this->bookingReviewsBasePath() . '/nonreview');
-        }
-
-        if ($request->isMethod('POST')) {
-            $payload = (array) $request->input('CsOrderReview', []);
-            $reviewId = (int) ($payload['id'] ?? 0);
-            if ($reviewId <= 0) {
-                $existing = CsOrderReview::where('cs_order_id', $orderId)
-                    ->where('event', 2)
-                    ->first();
-                if ($existing) {
-                    $reviewId = (int) $existing->id;
-                } else {
-                    $review = CsOrderReview::create([
-                        'cs_order_id' => $orderId,
-                        'reservation_id' => null,
-                        'event' => 2,
-                        'details' => '',
-                        'mileage' => 0,
-                        'is_cleaned' => 0,
-                        'vehicle_service' => 0,
-                        'extra' => null,
-                        'created' => now()->toDateTimeString(),
-                        'modified' => now()->toDateTimeString(),
-                    ]);
-                    $reviewId = (int) $review->id;
-                }
-            }
-            $submit = (string) $request->input('submit', '');
-
-            $extra = isset($payload['extra']) && is_array($payload['extra']) ? $payload['extra'] : [];
-            $save = [
-                'details' => (string) ($payload['details'] ?? ''),
-                'mileage' => (int) ($payload['mileage'] ?? 0),
-                'is_cleaned' => (int) ($payload['is_cleaned'] ?? 0),
-                'service_date' => $payload['service_date'] ?? null,
-                'vehicle_service' => (($payload['vehicle_service'] ?? '') === 'done') ? 1 : 0,
-                'extra' => json_encode($extra),
-            ];
-
-            CsOrderReview::where('id', $reviewId)->update(array_merge($save, [
-                'modified' => now()->toDateTimeString(),
-            ]));
-
-            if ($submit === 'save') {
-                return redirect($this->bookingReviewsBasePath() . '/nonreview')->with('success', 'Review data saved successfully');
-            }
-
-            CsOrder::where('id', $orderId)->update(['review_status' => 1]);
-
-            $orderRow = CsOrder::where('id', $orderId)->first();
-            if ($orderRow) {
-                $this->insertBookingCloseEvent($orderId, (int) $orderRow->user_id);
-                Vehicle::where('id', (int) $orderRow->vehicle_id)->update(['status' => 1]);
-                // VehicleIssueLib tickets omitted (not ported).
-            }
-
-            return redirect($this->bookingReviewsBasePath() . '/nonreview')->with('success', 'Final review completed successfully');
-        }
-
-        $csOrder = CsOrder::where('id', $orderId)->where('auto_renew', 0)->first();
-        if (!$csOrder) {
-            return redirect($this->bookingReviewsBasePath() . '/nonreview');
-        }
-
-        $review = CsOrderReview::where('cs_order_id', $orderId)
-            ->where('event', 2)
-            ->first();
-
-        if (!$review) {
-            $review = CsOrderReview::create([
-                'cs_order_id' => $orderId,
-                'reservation_id' => null,
-                'event' => 2,
-                'details' => '',
-                'mileage' => 0,
-                'is_cleaned' => 0,
-                'vehicle_service' => 0,
-                'extra' => null,
-                'created' => now()->toDateTimeString(),
-                'modified' => now()->toDateTimeString(),
-            ]);
-        }
-
-        $reviewArr = (array) $review;
-        if (!empty($reviewArr['extra'])) {
-            $decoded = json_decode((string) $reviewArr['extra'], true);
-            $reviewArr['extra'] = is_array($decoded) ? $decoded : [];
-        } else {
-            $reviewArr['extra'] = [];
-        }
-
-        $reviewImages = CsOrderReviewImage::where('cs_order_review_id', (int) ($reviewArr['id'] ?? 0))
-            ->orderBy('id')
-            ->get();
-
-        return view('admin.booking_reviews.finalreview', [
-            'CsOrder' => ['CsOrder' => (array) $csOrder],
-            'CsOrderReview' => ['CsOrderReview' => $reviewArr],
-            'CsOrderReviewImages' => $reviewImages,
-            'orderid' => $orderId,
-            'extras' => $this->extrasLabels,
-            'basePath' => $this->bookingReviewsBasePath(),
-        ]);
-    }
-
-    public function reservationreview(Request $request, $orderid = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $reservationId = $this->decodeB64Id($orderid);
-        if (!$reservationId) {
-            return redirect('/admin/vehicle_reservations/index');
-        }
-
-        if ($request->isMethod('POST')) {
-            $reviewId = (int) $request->input('CsOrderReview.id', 0);
-            $this->saveOrderReviewFields($request, $reviewId, ['details', 'mileage']);
-
-            return redirect('/admin/vehicle_reservations/index')->with('success', 'Review data saved successfully');
-        }
-
-        $reservation = VehicleReservation::where('id', $reservationId)
-            ->where('status', 0)
-            ->first();
-        if (!$reservation) {
-            return redirect('/admin/vehicle_reservations/index');
-        }
-
-        $review = CsOrderReview::where('reservation_id', $reservationId)
-            ->where('event', 1)
-            ->first();
-
-        if (!$review) {
-            $review = CsOrderReview::create([
-                'cs_order_id' => null,
-                'reservation_id' => $reservationId,
-                'event' => 1,
-                'details' => '',
-                'mileage' => 0,
-                'created' => now()->toDateTimeString(),
-                'modified' => now()->toDateTimeString(),
-            ]);
-        }
-
-        $odr = OrderDepositRule::where('vehicle_reservation_id', $reservationId)->first();
-        $pickupData = [];
-        if ($odr && !empty($odr->pickup_data)) {
-            $decoded = json_decode((string) $odr->pickup_data, true);
-            $pickupData = is_array($decoded) ? $decoded : [];
-        }
-
-        return view('admin.booking_reviews.reservationreview', [
-            'CsOrder' => null,
-            'CsOrderReview' => ['CsOrderReview' => (array) $review],
-            'orderid' => $reservationId,
-            'pickup_data' => $pickupData,
-            'basePath' => $this->bookingReviewsBasePath(),
-        ]);
-    }
-
-    public function saveImage(Request $request): JsonResponse
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return response()->json(['error' => 'Unauthorized'], 401);
-        }
-
-        return $this->jsonHandleUpload($request);
-    }
-
-    public function deleteImage(Request $request): JsonResponse
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return response()->json(['success' => false, 'key' => ''], 401);
-        }
-
-        return $this->jsonDeleteReviewImage($request);
-    }
-
-    public function settlefinaldamage(Request $request): JsonResponse
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized']);
-        }
-
-        $payload = (array) $request->input('CsOrderReview', []);
-        $orderId = (int) ($payload['cs_order_id'] ?? 0);
-        $reviewId = (int) ($payload['id'] ?? 0);
-
-        $userId = (int) session()->get('userParentId', session()->get('userid', 0));
-
-        $review = CsOrderReview::where('cs_order_id', $orderId)
-            ->where('event', 2)
-            ->where('id', $reviewId)
-            ->first();
-
-        $csOrder = CsOrder::where('id', $orderId)
-            ->where('user_id', $userId)
-            ->where('deposit_type', 'C')
-            ->where('review_status', 0)
-            ->first();
-
-        if (!$csOrder || !$review) {
-            return response()->json(['status' => 'error', 'message' => 'Sorry, you are not authorized for this action now.']);
-        }
-
-        $refundAmount = (float) $csOrder->deposit;
-        $adjustToll = (bool) ($payload['adjusttollfromdeposit'] ?? false);
-
-        $revSetting = RevSetting::where('user_id', $userId)->first();
-        $revShare = $revSetting ? (float) $revSetting->rev : config('legacy.OWNER_PART', 85);
-
-        $pp = new PaymentProcessor();
-        $return = ['status' => 'error', 'message' => 'Unknown error'];
-
-        if ($refundAmount > 0) {
-            if ($refundAmount <= (float) $csOrder->deposit) {
-                if ($csOrder->pending_toll > 0 && $adjustToll) {
-                    $pendingToll = (float) $csOrder->pending_toll;
-                    $tollResp = $pp->chargeTollFromDeposit($pendingToll, $csOrder);
-                    if ($tollResp['status'] === 'success') {
-                        $csOrder->toll += $pendingToll;
-                        $csOrder->deposit -= $pendingToll;
-                        $csOrder->pending_toll = 0;
-                        if ($refundAmount > $csOrder->deposit) {
-                            $refundAmount = $csOrder->deposit;
-                        }
-                        $csOrder->details .= ", $pendingToll was deducted from deposits";
-                        $return = $pp->refundBalanceDeposit($refundAmount, $csOrder);
-                    }
-                } elseif ($refundAmount > 1) {
-                    $return = $pp->refundBalanceDeposit($refundAmount, $csOrder);
-                }
-
-                if ($refundAmount == 0 || (isset($return['status']) && $return['status'] === 'success')) {
-                    $balanceRefund = (float) $csOrder->deposit - $refundAmount;
-                    $csOrder->review_status = 1;
-                    $csOrder->deposit = $balanceRefund;
-                    $csOrder->save();
-
-                    $review->update([
-                        'original_amt' => $csOrder->deposit + $refundAmount,
-                        'refund_amt' => $refundAmount,
-                        'details' => (string) ($payload['details'] ?? ''),
-                        'mileage' => (int) ($payload['mileage'] ?? 0),
-                    ]);
-
-                    $return['status'] = 'success';
-                    $return['message'] = "Your request has been processed successfully";
-
-                    $transferResp = $pp->transferDepositToDealer(sprintf('%0.2f', ($balanceRefund * $revShare) / 100), $csOrder);
-                    if ($transferResp['status'] === 'error') {
-                        $return['message'] = "Customer refund is done but Dealer transfer is not done. Please contact to administrator.";
-                    }
-                }
-            } else {
-                $return['message'] = "Sorry, refund can't be more than deposit.";
-            }
-        } elseif ((float) $csOrder->deposit > 0) {
-            $balanceRefund = (float) $csOrder->deposit;
-            $csOrder->review_status = 1;
-            $csOrder->save();
-
-            $review->update([
-                'original_amt' => $csOrder->deposit,
-                'refund_amt' => 0,
-                'details' => (string) ($payload['details'] ?? ''),
-                'mileage' => (int) ($payload['mileage'] ?? 0),
-            ]);
-
-            $return['status'] = 'success';
-            $return['message'] = "Your request has been processed successfully";
-
-            $transferResp = $pp->transferDepositToDealer(sprintf('%0.2f', (($balanceRefund * $revShare) / 100)), $csOrder);
-            if ($transferResp['status'] === 'error') {
-                $return['message'] = "Customer refund is done but Dealer transfer is not done. Please contact to administrator.";
-            }
-        }
-
-        return response()->json($return);
-    }
-
-    public function reviewimages(Request $request, $orderid = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return response('Unauthorized', 401);
-        }
-
-        $orderId = $this->decodeB64Id($orderid);
-
-        if (!$orderId) {
-            return response('Unauthorized', 401);
-        }
-
-        $CsOrderReview = CsOrderReview::with('csOrderReviewImages')
-            ->where('cs_order_id', $orderId)
-            ->get();
-        $result = [];
-
-        foreach ($CsOrderReview as $CsOrderRvws) {
-            $title = ($CsOrderRvws->event == 1) ? 'initial' : 'final';
-            $result[$title] = $CsOrderRvws->toArray();
-        }
-
-        return response()->view('admin.booking_reviews.reviewimages', compact('result'));
-    }
-
-    public function reviewpopup(Request $request): Response
+    public function reviewpopup(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response('Unauthorized', 401);
@@ -454,337 +82,490 @@ class BookingReviewsController extends LegacyAppController
 
         return response()->view('admin.booking_reviews.reviewpopup', ['orderid' => $orderid]);
     }
-
-    public function reopenbookingpopup(Request $request): Response
+    public function initial(Request $request, $orderid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
-            return response('Unauthorized', 401);
+            return $redirect;
         }
 
-        $orderid = $this->decodeB64Id((string) $request->input('BookingReview.orderid', $request->input('orderid', '')));
+        $title = 'Initial booking review';
+        $orderid = $this->decodeId($orderid);
+
         if (!$orderid) {
-            return response('Sorry, something went wrong, please try again later.', 400);
-        }
-        $order = CsOrder::where('id', $orderid)->first();
-        if (!$order) {
-            return response('Sorry, booking not found', 404);
+            return redirect('/admin/booking_reviews/nonreview');
         }
 
-        return response()->view('admin.booking_reviews._reopenpopup', [
-            'orderid' => $orderid,
-            'basePath' => $this->bookingReviewsBasePath(),
-        ]);
+        if ($request->isMethod('post')) {
+            $data = $request->input('CsOrderReview');
+            CsOrderReview::where('id', $data['id'])->update([
+                'details' => $data['details'] ?? null,
+                'mileage' => $data['mileage'] ?? null,
+            ]);
+
+            return redirect()->back()->with('success', 'Review data saved successfully');
+        }
+
+        $csOrder = CsOrder::where('id', $orderid)
+            ->where('auto_renew', 0)
+            ->first();
+
+        if (!$csOrder) {
+            return redirect('/admin/booking_reviews/nonreview');
+        }
+
+        $orderDepositRule = OrderDepositRule::select(['vehicle_reservation_id', 'cs_order_id', 'pickup_data'])
+            ->where('cs_order_id', $orderid)
+            ->first();
+
+        $query = CsOrderReview::with('csOrderReviewImages')->where('event', 1);
+
+        if ($orderDepositRule && !empty($orderDepositRule->vehicle_reservation_id)) {
+            $query->where(function ($q) use ($orderid, $orderDepositRule) {
+                $q->where('cs_order_id', $orderid)
+                    ->orWhere('reservation_id', $orderDepositRule->vehicle_reservation_id);
+            });
+        } else {
+            $query->where('cs_order_id', $orderid);
+        }
+
+        $csOrderReview = $query->first();
+
+        if (!$csOrderReview) {
+            $csOrderReview = CsOrderReview::create([
+                'cs_order_id' => $orderid,
+                'event' => 1,
+            ]);
+        }
+
+        if (empty($csOrderReview->cs_order_id)) {
+            $csOrderReview->update(['cs_order_id' => $orderid]);
+        }
+
+        $pickupData = [];
+
+        if (!empty($orderDepositRule->pickup_data)) {
+            $pickupData = is_array($orderDepositRule->pickup_data)
+                ? $orderDepositRule->pickup_data
+                : json_decode($orderDepositRule->pickup_data, true);
+        }
+
+        return view('admin.booking_reviews.initial', compact(
+            'title',
+            'csOrderReview',
+            'orderid',
+            'pickupData'
+        ));
     }
+    public function finalreview(Request $request, $orderid = null)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
 
-    public function reopenbooking(Request $request): JsonResponse
+        $title = 'Final booking review';
+        $orderid = $this->decodeId($orderid);
+
+        if (!$orderid) {
+            return redirect('/admin/booking_reviews/nonreview');
+        }
+
+        if ($request->isMethod('POST')) {
+            $data = $request->input('CsOrderReview', []);
+            $isCleaned = $data['is_cleaned'] ?? 0;
+            $vehicleService = ($data['vehicle_service'] ?? '') === 'done' ? 1 : 0;
+            $extraData = is_array($data['extra'] ?? null) ? json_encode($data['extra']) : ($data['extra'] ?? null);
+
+            $csOrderReview = CsOrderReview::updateOrCreate(
+                ['id' => $data['id'] ?? null],
+                [
+                    'details' => $data['details'] ?? null,
+                    'mileage' => $data['mileage'] ?? null,
+                    'is_cleaned' => $isCleaned,
+                    'service_date' => $data['service_date'] ?? null,
+                    'vehicle_service' => $vehicleService,
+                    'extra' => $extraData,
+                ]
+            );
+
+            if ($request->input('submit') === 'save') {
+                return redirect('/admin/booking_reviews/nonreview')
+                    ->with('success', 'Review data saved successfully');
+            }
+
+
+            CsOrder::where('id', $orderid)->update(['review_status' => 1]);
+
+            $csOrderObj = CsOrder::select(['user_id', 'vehicle_id', 'renter_id'])
+                ->find($orderid);
+
+            if ($csOrderObj) {
+                (new CsOrderStatuslog())->saveBookingCloseEvent($orderid, $csOrderObj->user_id);
+
+                Vehicle::where('id', $csOrderObj->vehicle_id)->update(['status' => 1]);
+
+                $vehicleIssueLib = new VehicleIssueLib();
+
+                if ((int) $isCleaned === 0) {
+                    $vehicleIssueLib->createTicketOnBookingComplete([
+                        'type' => 5,
+                        'vehicle_id' => $csOrderObj->vehicle_id,
+                        'user_id' => $csOrderObj->user_id,
+                        'renter_id' => $csOrderObj->renter_id,
+                        'booking_id' => $orderid,
+                    ]);
+                }
+
+                if ($vehicleService === 0) {
+                    $vehicleIssueLib->createTicketOnBookingComplete([
+                        'type' => 6,
+                        'vehicle_id' => $csOrderObj->vehicle_id,
+                        'user_id' => $csOrderObj->user_id,
+                        'renter_id' => $csOrderObj->renter_id,
+                        'booking_id' => $orderid,
+                    ]);
+                }
+            }
+
+            return redirect('/admin/booking_reviews/nonreview')
+                ->with('success', 'Final review completed successfully');
+        }
+
+        $csOrder = CsOrder::where('id', $orderid)
+            ->where('auto_renew', 0)
+            ->first();
+
+        if (!$csOrder) {
+            return redirect('/admin/booking_reviews/nonreview');
+        }
+
+        $csOrderReview = CsOrderReview::with('csOrderReviewImages')->firstOrCreate(
+            [
+                'cs_order_id' => $orderid,
+                'event' => 2,
+            ]
+        );
+
+        if (!is_array($csOrderReview->extra)) {
+            $csOrderReview->extra = json_decode($csOrderReview->extra, true) ?? [];
+        }
+
+        $extras = $this->extrasLabels;
+
+        return view('admin.booking_reviews.finalreview', compact(
+            'title',
+            'orderid',
+            'csOrder',
+            'csOrderReview',
+            'extras'
+        ));
+    }
+    public function saveImage(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        if (!$request->hasFile('reviewimage') || !$request->filled('id')) {
+            return response()->json(['error' => 'No files were uploaded or missing ID.']);
+        }
+
+        $file = $request->file('reviewimage');
+        $reviewId = $request->input('id');
+        $result = $this->handleUpload($file, $reviewId);
+        return response()->json($result);
+    }
+    public function deleteImage(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $key = $request->input('key');
+
+        if (!$key) {
+            return response()->json(['success' => false, 'key' => '']);
+        }
+
+        $reviewImage = CsOrderReviewImage::find($key);
+
+        if ($reviewImage) {
+            $filePath = public_path('files/reviewimages/' . $reviewImage->image);
+
+            if (!empty($reviewImage->image) && file_exists($filePath)) {
+                @unlink($filePath);
+            }
+
+            $reviewImage->delete();
+
+            return response()->json(['success' => true, 'key' => '']);
+        }
+
+        return response()->json(['success' => false, 'key' => '']);
+    }
+    public function settlefinaldamage(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $return = [
+            'status' => 'error',
+            'message' => 'Sorry, you are not authorized for this action now.',
+        ];
+
+        $data = $request->input('CsOrderReview', []);
+
+        if (empty($data) || empty($data['cs_order_id']) || empty($data['id'])) {
+            return response()->json($return);
+        }
+
+        $csOrderReview = CsOrderReview::where('cs_order_id', $data['cs_order_id'])
+            ->where('event', 2)
+            ->where('id', $data['id'])
+            ->first();
+
+        if (!$csOrderReview) {
+            return response()->json($return);
+        }
+
+        $csOrder = CsOrder::where('id', $data['cs_order_id'])
+            ->where('deposit_type', 'C')
+            ->first();
+
+        if (!$csOrder) {
+            return response()->json($return);
+        }
+
+        $paymentProcessor = new PaymentProcessor();
+        $refundAmount = floatval($data['refund'] ?? 0);
+        $currentDeposit = floatval($csOrder->deposit ?? 0);
+
+        if ($refundAmount <= $currentDeposit) {
+            if ($refundAmount > 0) {
+                $return = $paymentProcessor->refundBalanceDeposit($refundAmount, $csOrder->toArray());
+            }
+
+            if ($refundAmount == 0 || ($return['status'] ?? '') === 'success') {
+                $balanceRefund = $currentDeposit - $refundAmount;
+
+                $csOrder->update([
+                    'review_status' => 1,
+                    'deposit' => $refundAmount == 0 ? 0 : $balanceRefund,
+                ]);
+
+                $csOrderReview->update([
+                    'original_amt' => $currentDeposit,
+                    'refund_amt' => $refundAmount,
+                    'details' => $data['details'] ?? null,
+                    'mileage' => $data['mileage'] ?? null,
+                ]);
+
+                $return['status'] = 'success';
+
+                if ($refundAmount < $currentDeposit) {
+                    $revSetting = RevSetting::where('user_id', $csOrder->user_id)->first();
+                    $revShare = $revSetting ? $revSetting->rev : config('legacy.OWNER_PART');
+
+                    $transferAmount = sprintf('%0.2f', ($balanceRefund * $revShare) / 100);
+                    $transferResp = $paymentProcessor->transferDepositToDealer($transferAmount, $csOrder->toArray());
+
+                    if (($transferResp['status'] ?? '') === 'error') {
+                        $return['message'] = 'Customer refund is done but Dealer transfer is not done. Please contact to administrator.';
+                    } else {
+                        $return['message'] = 'Transaction settled successfully';
+                    }
+                }
+            }
+        } else {
+            $return['message'] = "Sorry, refund can't be more than deposit.";
+        }
+
+        return response()->json($return);
+    }
+    public function reviewimages($orderid = null)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $orderid = $this->decodeId($orderid);
+
+        if (!$orderid) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $CsOrderReview = CsOrderReview::with('csOrderReviewImages')
+            ->where('cs_order_id', $orderid)
+            ->get();
+
+        $result = [];
+
+        foreach ($CsOrderReview as $review) {
+            $key = ($review->event == 1) ? 'initial' : 'final';
+            $result[$key] = $review->toArray();
+        }
+
+        return response()->view('admin.booking_reviews.reviewimages', compact('result'));
+    }
+    public function reopenbookingpopup(Request $request)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $orderid = $this->decodeId($request->input('BookingReview.orderid', $request->input('orderid', '')));
+
+        if (!$orderid) {
+            return response()->json(['error' => 'Sorry, something went wrong, please try again later.'], 400);
+        }
+
+        $csOrder = CsOrder::where('id', $orderid)->first();
+
+        if (!$csOrder) {
+            return response('Sorry, booking not found', 444);
+        }
+
+        return view('admin.booking_reviews._reopenpopup', compact('orderid'));
+    }
+    public function reopenbooking(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized']);
         }
 
-        $data = (array) $request->input('BookingReview', []);
-        $orderid = $this->decodeB64Id((string) ($data['orderid'] ?? ''));
-        if (!$orderid) {
-            return response()->json(['status' => false, 'message' => 'Sorry, something went wrong, please try again later.']);
+        $data = $request->input('BookingReview', []);
+        $return = [
+            'status' => false,
+            'message' => 'Sorry, something went wrong, please try again later.'
+        ];
+
+        $orderid = $data['orderid'] ?? null;
+        $orderid = $this->decodeId($orderid);
+
+        if (empty($orderid)) {
+            return response()->json($return);
         }
 
-        $order = CsOrder::where('id', $orderid)->first();
-        if (!$order) {
+        $csOrder = CsOrder::select(['id', 'user_id', 'renter_id', 'status', 'vehicle_id'])
+            ->find($orderid);
+
+        if (!$csOrder) {
             return response()->json(['status' => false, 'message' => 'Sorry, booking not found']);
         }
 
-        CsOrder::where('id', $orderid)->update([
+        $csOrder->update([
             'status' => 1,
             'bad_debt' => 0,
             'dia_bad_debt' => 0,
         ]);
 
-        if (!empty($order->vehicle_id)) {
-            Vehicle::where('id', (int) $order->vehicle_id)->update(['booked' => 1]);
-        }
+        Vehicle::where('id', $csOrder->vehicle_id)->update(['booked' => 1]);
 
-        if ((!empty($data['reset_bad_debt']) || !empty($data['remove_wallet_debt'])) && Schema::hasTable('cs_wallet_transactions')) {
-            $this->removeWalletDebtForOrder($orderid, (int) $order->renter_id);
-        }
+        $response = [
+            'status' => true,
+            'message' => 'Your request processed successfully',
+            'orderid' => $orderid,
+        ];
 
-        $message = 'Your request processed successfully';
-        if (!empty($data['refund_py'])) {
-            $pp = new PaymentProcessor();
-            $refundResp = $pp->deailerPaidInsuranceRefund($order, true);
-            if ($refundResp['status'] === 'success') {
-                $message = 'Booking reopened successfully and dealer paid insurance refunded successfully';
-            } else {
-                $message .= ' (Dealer-paid insurance refund failed: ' . ($refundResp['message'] ?? 'Unknown error') . ')';
+        if (!empty($data['remove_wallet_debt'])) {
+            $walletTransactions = CsWalletTransaction::where('cs_order_id', $orderid)
+                ->where('balance', '<', 0)
+                ->where('type', 1)
+                ->get();
+
+            $totalDebt = 0;
+            foreach ($walletTransactions as $transaction) {
+                $totalDebt += (float) $transaction->amount;
+                $transaction->delete();
+            }
+
+            if ($totalDebt > 0 && !empty($csOrder->renter_id)) {
+                CsWallet::where('user_id', $csOrder->renter_id)
+                    ->increment('balance', $totalDebt);
             }
         }
 
-        return response()->json([
-            'status' => true,
-            'message' => $message,
-            'orderid' => $orderid,
-        ]);
-    }
+        if (!empty($data['refund_py'])) {
+            $paymentProcessor = new PaymentProcessor();
+            $paymentResult = $paymentProcessor->deailerPaidInsuranceRefund($csOrder->toArray(), true);
 
-    public function pullVehicleOdometer(Request $request): JsonResponse
+            if (($paymentResult['status'] ?? '') === 'success') {
+                $response['status'] = true;
+                $response['message'] = 'Booking reopened successfully and dealer paid insurance refunded successfully';
+            } else {
+                $response['status'] = false;
+                $response['message'] = $paymentResult['message'] ?? 'Insurance refund failed.';
+            }
+        }
+
+        return response()->json($response);
+    }
+    public function reservationreview(Request $request, $orderid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $orderid = $this->decodeId($orderid);
+
+        if (!$orderid) {
+            return redirect('/admin/vehicle_reservations/index');
+        }
+
+        if ($request->isMethod('POST')) {
+            $data = $request->input('CsOrderReview', []);
+
+            CsOrderReview::where('id', $data['id'] ?? null)->update([
+                'details' => $data['details'] ?? null,
+                'mileage' => $data['mileage'] ?? null,
+            ]);
+
+            return redirect('/admin/vehicle_reservations/index')
+                ->with('success', 'Review data saved successfully');
+        }
+
+        $vehicleReservation = VehicleReservation::where('id', $orderid)
+            ->where('status', 0)
+            ->first();
+
+        if (!$vehicleReservation) {
+            return redirect('/admin/vehicle_reservations/index');
+        }
+
+        $csOrderReview = CsOrderReview::with('csOrderReviewImages')->firstOrCreate(
+            [
+                'reservation_id' => $orderid,
+                'event' => 1,
+            ],
+            [
+                'cs_order_id' => null,
+            ]
+        );
+
+        $orderDepositRule = OrderDepositRule::select(['pickup_data'])
+            ->where('vehicle_reservation_id', $orderid)
+            ->first();
+
+        $pickupData = [];
+        if (!empty($orderDepositRule->pickup_data)) {
+            $pickupData = is_array($orderDepositRule->pickup_data)
+                ? $orderDepositRule->pickup_data
+                : json_decode($orderDepositRule->pickup_data, true);
+        }
+
+        return view('admin.booking_reviews.reservationreview', compact(
+            'csOrderReview',
+            'orderid',
+            'pickupData',
+            'vehicleReservation'
+        ));
+    }
+    public function pullVehicleOdometer(Request $request)
+    {
+        if ($this->ensureAdminSession()) {
             return response()->json(['status' => false, 'message' => 'Unauthorized', 'result' => []]);
         }
 
-        $vehicleId = $this->decodeB64Id((string) $request->input('vehicle', ''));
-        if (!$vehicleId) {
-            return response()->json(['status' => false, 'message' => 'Invalid vehicle.', 'result' => []]);
-        }
-
-        $lastMile = Vehicle::where('id', $vehicleId)->value('last_mile');
-
-        return response()->json([
-            'status' => true,
-            'message' => '',
-            'miles' => $lastMile !== null ? (int) $lastMile : 0,
-            'result' => [],
-        ]);
-    }
-
-    protected function nonreviewOrdersQuery(?array $dealerUserIds, string $sort = 'id', string $direction = 'desc')
-    {
-        $q = CsOrder::query()
-            ->from('cs_orders as o')
-            ->leftJoin('vehicles as v', 'v.id', '=', 'o.vehicle_id')
-            ->leftJoin('users as renter', 'renter.id', '=', 'o.renter_id')
-            ->where('o.status', 3)
-            ->where('o.review_status', 0)
-            ->where('o.auto_renew', 0);
-
-        $allowedSorts = ['increment_id', 'vehicle_unique_id', 'start_datetime', 'end_datetime', 'renter_name', 'id'];
-        if (in_array($sort, $allowedSorts, true)) {
-            if ($sort === 'renter_name') {
-                $q->orderBy($sort, $direction);
-            } elseif ($sort === 'vehicle_unique_id') {
-                $q->orderBy('v.vehicle_unique_id', $direction);
-            } else {
-                $q->orderBy('o.' . $sort, $direction);
-            }
-        } else {
-            $q->orderByDesc('o.id');
-        }
-
-        $q->select([
-            'o.*',
-            'v.vehicle_unique_id',
-            'o.insurance_amt',
-            'o.initial_fee',
-            'o.insu_status',
-            'o.infee_status',
-            'o.payment_status',
-            'o.dpa_status',
-            DB::raw("TRIM(CONCAT(COALESCE(renter.first_name,''),' ',COALESCE(renter.last_name,''))) as renter_name"),
-        ]);
-
-        if ($dealerUserIds !== null) {
-            if ($dealerUserIds === []) {
-                $q->whereRaw('1 = 0');
-            } else {
-                $q->whereIn('o.user_id', $dealerUserIds);
-            }
-        }
-
-        return $q;
-    }
-
-    protected function resolveNonreviewLimit(Request $request, string $sessionKey): int
-    {
-        $allowed = [25, 50, 100, 200];
-        $fromForm = $request->input('Record.limit');
-        if ($fromForm !== null && $fromForm !== '') {
-            $lim = (int) $fromForm;
-            if (in_array($lim, $allowed, true)) {
-                session()->put($sessionKey, $lim);
-
-                return $lim;
-            }
-        }
-        $sess = (int) session()->get($sessionKey, 0);
-
-        return in_array($sess, $allowed, true) ? $sess : 25;
-    }
-
-    protected function decodeB64Id(?string $value): ?int
-    {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        $tmp = base64_decode($value, true);
-        if ($tmp !== false && ctype_digit((string) $tmp)) {
-            return (int) $tmp;
-        }
-        if (ctype_digit((string) $value)) {
-            return (int) $value;
-        }
-
-        return null;
-    }
-
-    protected function refererRedirect(Request $request, string $fallback): RedirectResponse
-    {
-        $referer = $request->headers->get('referer');
-        if (!empty($referer)) {
-            return redirect()->to($referer);
-        }
-
-        return redirect($fallback)->with('success', 'Saved.');
-    }
-
-    /**
-     * @param object|null $odr deposit rule row
-     * @return object cs_order_reviews row
-     */
-    protected function findOrCreateInitialReview(int $orderId, $odr): object
-    {
-        $review = null;
-        if ($odr && !empty($odr->vehicle_reservation_id)) {
-            $resId = (int) $odr->vehicle_reservation_id;
-            $review = CsOrderReview::where('event', 1)
-                ->where(function ($q) use ($orderId, $resId) {
-                    $q->where('cs_order_id', $orderId)->orWhere('reservation_id', $resId);
-                })
-                ->first();
-        } else {
-            $review = CsOrderReview::where('cs_order_id', $orderId)
-                ->where('event', 1)
-                ->first();
-        }
-
-        if (!$review) {
-            $review = CsOrderReview::create([
-                'cs_order_id' => $orderId,
-                'reservation_id' => null,
-                'event' => 1,
-                'details' => '',
-                'mileage' => 0,
-                'created' => now()->toDateTimeString(),
-                'modified' => now()->toDateTimeString(),
-            ]);
-        } elseif (empty($review->cs_order_id)) {
-            $review->update([
-                'cs_order_id' => $orderId,
-                'modified' => now()->toDateTimeString(),
-            ]);
-            $review->refresh();
-        }
-
-        return $review;
-    }
-
-    protected function saveOrderReviewFields(Request $request, int $reviewId, array $fields): void
-    {
-        if ($reviewId <= 0) {
-            return;
-        }
-        $payload = (array) $request->input('CsOrderReview', []);
-        $save = ['modified' => now()->toDateTimeString()];
-        foreach ($fields as $f) {
-            if (array_key_exists($f, $payload)) {
-                $save[$f] = $payload[$f];
-            }
-        }
-        if (array_key_exists('mileage', $save)) {
-            $save['mileage'] = (int) $save['mileage'];
-        }
-        CsOrderReview::where('id', $reviewId)->update($save);
-    }
-
-    protected function insertBookingCloseEvent(int $orderId, int $userId): void
-    {
-        if (!Schema::hasTable('cs_order_statuslogs')) {
-            return;
-        }
-        CsOrderStatuslog::insert([
-            'cs_order_id' => $orderId,
-            'vehicle_id' => null,
-            'user_id' => $userId,
-            'status' => 0,
-            'requestStatus' => 4,
-            'target' => 'SF',
-            'created' => now()->toDateTimeString(),
-        ]);
-    }
-
-    protected function jsonHandleUpload(Request $request): JsonResponse
-    {
-        $reviewId = (int) $request->input('id', 0);
-        if ($reviewId <= 0 || !$request->hasFile('reviewimage')) {
-            return response()->json(['error' => 'Invalid upload.']);
-        }
-        $file = $request->file('reviewimage');
-        if (!$file->isValid()) {
-            return response()->json(['error' => 'Upload error #' . (int) $file->getError()]);
-        }
-
-        $ext = strtolower((string) $file->getClientOriginalExtension());
-        $allowed = ['jpeg', 'jpg', 'png', 'pdf'];
-        if (!in_array($ext, $allowed, true)) {
-            return response()->json(['error' => 'File has an invalid extension.']);
-        }
-
-        $dir = $this->reviewImageDir();
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
-        $count = 1 + (int) CsOrderReviewImage::where('cs_order_review_id', $reviewId)->count();
-        $basename = 'review_' . $reviewId . '_' . $count . '.' . $ext;
-        $file->move($dir, $basename);
-
-        $imageId = CsOrderReviewImage::insertGetId([
-            'cs_order_review_id' => $reviewId,
-            'image' => $basename,
-            'created' => now()->toDateTimeString(),
-            'modified' => now()->toDateTimeString(),
-        ]);
-
-        return response()->json(['success' => true, 'key' => $imageId]);
-    }
-
-    protected function jsonDeleteReviewImage(Request $request): JsonResponse
-    {
-        $key = (int) $request->input('key', 0);
-        if ($key <= 0) {
-            return response()->json(['success' => false, 'key' => '']);
-        }
-        $row = CsOrderReviewImage::where('id', $key)->first();
-        if ($row && !empty($row->image)) {
-            $path = $this->reviewImageDir() . DIRECTORY_SEPARATOR . $row->image;
-            if (is_file($path)) {
-                @unlink($path);
-            }
-        }
-        CsOrderReviewImage::where('id', $key)->delete();
-
-        return response()->json(['success' => true, 'key' => '']);
-    }
-
-    protected function removeWalletDebtForOrder(int $orderId, int $renterId): void
-    {
-        if (!Schema::hasTable('cs_wallet_transactions') || !Schema::hasTable('cs_wallets')) {
-            return;
-        }
-        $rows = CsWalletTransaction::where('cs_order_id', $orderId)
-            ->where('balance', '<', 0)
-            ->where('type', 1)
-            ->get();
-
-        $totalDebt = 0.0;
-        foreach ($rows as $r) {
-            $amt = (float) ($r->amt ?? 0);
-            if ($amt == 0.0) {
-                $amt = (float) ($r->amount ?? 0);
-            }
-            $totalDebt += $amt;
-            $r->delete();
-        }
-        if ($totalDebt != 0.0) {
-            CsWallet::where('user_id', $renterId)->increment('balance', $totalDebt);
-        }
+        return $this->_pullVehicleOdometer($request);
     }
 }
