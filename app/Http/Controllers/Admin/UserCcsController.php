@@ -11,8 +11,6 @@ use Illuminate\View\View;
 
 class UserCcsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     public function index(Request $request, ?string $userid = null): View|RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {

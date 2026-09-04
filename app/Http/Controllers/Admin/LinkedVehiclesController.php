@@ -14,8 +14,6 @@ class LinkedVehiclesController extends LegacyAppController
 {
     use BuildsLinkedVehicleIndex;
 
-    protected bool $shouldLoadLegacyModules = true;
-
     public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {

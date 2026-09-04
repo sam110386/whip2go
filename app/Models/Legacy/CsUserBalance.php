@@ -33,6 +33,11 @@ class CsUserBalance extends LegacyModel
         'id',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
     public function csUserBalanceLog()
     {
         return $this->hasMany(CsUserBalanceLog::class, 'user_id', 'user_id');

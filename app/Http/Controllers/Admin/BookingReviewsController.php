@@ -1,12 +1,7 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use App\Models\Legacy\CsOrder;
 use App\Models\Legacy\OrderDepositRule;
 use App\Models\Legacy\CsOrderReview;
@@ -506,6 +501,7 @@ class BookingReviewsController extends LegacyAppController
             return $redirect;
         }
 
+        $title = 'Reservation pickup review';
         $orderid = $this->decodeId($orderid);
 
         if (!$orderid) {
@@ -554,10 +550,10 @@ class BookingReviewsController extends LegacyAppController
         }
 
         return view('admin.booking_reviews.reservationreview', compact(
+            'title',
             'csOrderReview',
             'orderid',
             'pickupData',
-            'vehicleReservation'
         ));
     }
     public function pullVehicleOdometer(Request $request)

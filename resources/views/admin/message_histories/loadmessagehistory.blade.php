@@ -1,5 +1,7 @@
 @php
     $phone = optional($csTwilioOrder?->csTwilioLogs?->first())->renter_phone ?? '';
+    $csTwilioOrder ??= collect();
+    $csTwilioLogs = data_get($csTwilioOrder, 'csTwilioLogs', collect());
 @endphp
 
 <div class="panel">
@@ -23,12 +25,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @if ($csTwilioOrder->csTwilioLogs->isEmpty())
+                    @if ($csTwilioLogs->isEmpty())
                         <tr id="set_hide">
                             <td colspan="4" class="text-center font-weight-bold">No Record Available!</td>
                         </tr>
                     @else
-                        @foreach ($csTwilioOrder->csTwilioLogs as $log)
+                        @foreach ($csTwilioLogs as $log)
                             <tr>
                                 <td class="text-center">
                                     {{ $loop->iteration }}

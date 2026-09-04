@@ -28,4 +28,10 @@ class PromotionRule extends Model
         'created',
         'modified',
     ];
+
+    public function promoTerms()
+    {
+        return $this->hasMany(PromoTerm::class, 'promo_rule_id');
+    }
 }
+

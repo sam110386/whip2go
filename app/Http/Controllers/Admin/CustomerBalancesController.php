@@ -1,20 +1,16 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\CsUserBalance;
-use App\Models\Legacy\CsUserBalanceLog;
-use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Models\Legacy\CsOrderPayment;
+use App\Models\Legacy\CsUserBalance;
+use App\Models\Legacy\CsUserBalanceLog;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use Carbon\Carbon;
 
 class CustomerBalancesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
-    /** @see app/Controller/CustomerBalancesController::$_balanceType */
     private static function balanceTypes(): array
     {
         return [
@@ -29,7 +25,6 @@ class CustomerBalancesController extends LegacyAppController
             '21' => 'Credit Deposit to Virtual Card',
         ];
     }
-
     private static function weekdays(): array
     {
         return [
@@ -42,8 +37,6 @@ class CustomerBalancesController extends LegacyAppController
             'sat' => 'Saturday',
         ];
     }
-
-    /** Cake admin_addsubscription balance type list (GeoTab / chargebacks). */
     private static function subscriptionBalanceTypes(): array
     {
         return [
@@ -51,14 +44,12 @@ class CustomerBalancesController extends LegacyAppController
             10 => 'Credit Card Chargebacks',
         ];
     }
-
     private function adminTimezone(): string
     {
         $tz = $this->getAdminUserid()['timezone'] ?? null;
 
-        return $tz !== null && $tz !== '' ? (string)$tz : (string)config('app.timezone');
+        return $tz !== null && $tz !== '' ? (string) $tz : (string) config('app.timezone');
     }
-
     private function formatAdminDateTime(?string $value): string
     {
         if ($value === null || $value === '') {
@@ -67,25 +58,22 @@ class CustomerBalancesController extends LegacyAppController
         try {
             return Carbon::parse($value)->timezone($this->adminTimezone())->format('Y-m-d h:i A');
         } catch (\Throwable $e) {
-            return (string)$value;
+            return (string) $value;
         }
     }
-
-    /**
-     * Cake CustomerBalancesController::admin_index
-     */
     public function index(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
+        $title = 'Customer Balance';
+
         if ($request->has('ClearFilter')) {
             $request->session()->forget('customer_balances_search');
             return redirect('/admin/customer_balances/index');
         }
 
-        // Handle POST search (Cake admin_list pattern)
         if ($request->isMethod('post')) {
             if ($request->has('Search')) {
                 $search = $request->input('Search');
@@ -95,22 +83,21 @@ class CustomerBalancesController extends LegacyAppController
         }
 
         if ($request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
+            $lim = (int) $request->input('Record.limit');
             if ($lim > 0 && $lim <= 500) {
                 session(['customer_balances_limit' => $lim]);
             }
         }
 
-        $limit = (int)session('customer_balances_limit', 50);
+        $limit = (int) session('customer_balances_limit', 50);
         if ($limit < 1) {
             $limit = 50;
         }
 
-        // Load from session or request
         $search = $request->session()->get('customer_balances_search', []);
-        $keyword = trim((string)($search['keyword'] ?? ''));
-        $type = trim((string)($search['type'] ?? ''));
-        $statusStr = (string)($search['status'] ?? '');
+        $keyword = trim((string) ($search['keyword'] ?? ''));
+        $type = trim((string) ($search['type'] ?? ''));
+        $statusStr = (string) ($search['status'] ?? '');
 
         $sort = $request->input('sort', 'id');
         $direction = $request->input('direction', 'desc');
@@ -118,53 +105,35 @@ class CustomerBalancesController extends LegacyAppController
             $direction = 'desc';
         }
 
-        $query = DB::table('cs_user_balances as cub')
-            ->leftJoin('users as u', 'u.id', '=', 'cub.user_id')
-            ->select([
-                'cub.id',
-                'cub.user_id',
-                'cub.type',
-                'cub.credit',
-                'cub.debit',
-                'cub.balance',
-                'cub.chargetype',
-                'cub.installment_type',
-                'cub.installment',
-                'cub.last_processed',
-                'cub.note',
-                'cub.created',
-                'cub.status',
-                'u.first_name',
-                'u.last_name',
-                'u.business_name',
-                'u.id as linked_user_id',
-            ]);
+        $query = CsUserBalance::with('user');
 
-        // Dynamic sorting
         if ($sort === 'first_name') {
-            $query->orderBy('u.first_name', $direction)->orderBy('u.last_name', $direction);
+            $query->select('cs_user_balances.*')
+                ->join('users as u', 'u.id', '=', 'cs_user_balances.user_id')
+                ->orderBy('u.first_name', $direction)
+                ->orderBy('u.last_name', $direction);
         } elseif (in_array($sort, ['id', 'credit', 'debit', 'balance', 'created', 'status'])) {
-            $query->orderBy('cub.' . $sort, $direction);
+            $query->orderBy($sort, $direction);
         } else {
-            $query->orderByDesc('cub.id');
+            $query->orderByDesc('id');
         }
 
         if ($keyword !== '') {
             $like = '%' . $keyword . '%';
-            $query->where(function($qq) use ($like) {
-                $qq->where('u.first_name', 'LIKE', $like)
-                   ->orWhere('u.last_name', 'LIKE', $like)
-                   ->orWhere('u.business_name', 'LIKE', $like);
+            $query->whereHas('user', function ($qq) use ($like) {
+                $qq->where('first_name', 'LIKE', $like)
+                    ->orWhere('last_name', 'LIKE', $like)
+                    ->orWhere('business_name', 'LIKE', $like);
             });
         }
         if ($statusStr !== '') {
-            $query->where('cub.status', (int)$statusStr);
+            $query->where('status', (int) $statusStr);
         }
         if ($type === '1') {
-            $query->where('u.is_driver', 1);
+            $query->whereHas('user', fn($q) => $q->where('is_driver', 1));
         }
         if ($type === '2') {
-            $query->where('u.is_dealer', 1);
+            $query->whereHas('user', fn($q) => $q->where('is_dealer', 1));
         }
 
         $records = $query->paginate($limit)->appends([
@@ -173,7 +142,7 @@ class CustomerBalancesController extends LegacyAppController
         ]);
 
         $balanceTypes = self::balanceTypes();
-        $formatDt = fn ($v) => $this->formatAdminDateTime($v !== null ? (string)$v : null);
+        $formatDt = fn($v) => $this->formatAdminDateTime($v !== null ? (string) $v : null);
 
         if ($request->ajax()) {
             return view('admin.customer_balances._listing', [
@@ -186,6 +155,7 @@ class CustomerBalancesController extends LegacyAppController
         }
 
         return view('admin.customer_balances.index', [
+            'title',
             'records' => $records,
             'keyword' => $keyword,
             'type' => $type,
@@ -196,9 +166,6 @@ class CustomerBalancesController extends LegacyAppController
         ]);
     }
 
-    /**
-     * Cake CustomerBalancesController::admin_status
-     */
     public function status($id = null, $status = null): RedirectResponse
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -207,16 +174,13 @@ class CustomerBalancesController extends LegacyAppController
 
         $pk = $this->decodeId($id);
         if ($pk !== null) {
-            $newStatus = ((int)$status === 1) ? 1 : 0;
-            CsUserBalance::where('id', (int)$pk)->update(['status' => $newStatus]);
+            $newStatus = ((int) $status === 1) ? 1 : 0;
+            CsUserBalance::where('id', (int) $pk)->update(['status' => $newStatus]);
         }
 
         return redirect()->back()->with('success', 'Record status is changed successfully.');
     }
 
-    /**
-     * Cake CustomerBalancesController::admin_relatedpayments
-     */
     public function relatedpayments($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -228,29 +192,26 @@ class CustomerBalancesController extends LegacyAppController
             return redirect('/admin/customer_balances/index')->with('error', 'Sorry, wrong attempt');
         }
 
-        $row = CsUserBalance::find((int)$pk);
+        $row = CsUserBalance::find((int) $pk);
         if ($row === null) {
             return redirect('/admin/customer_balances/index')->with('error', 'Sorry, respective record is not found');
         }
 
-        $userId = (int)$row->user_id;
+        $userId = (int) $row->user_id;
 
         $balances = CsUserBalance::query()
             ->where('user_id', $userId)
             ->orderByDesc('id')
             ->get();
 
-        $payments = DB::table('cs_order_payments as cop')
-            ->leftJoin('cs_orders as o', 'o.id', '=', 'cop.cs_order_id')
-            ->where('cop.type', 6)
-            ->where('cop.status', 1)
-            ->whereNotNull('o.id')
-            ->where('o.renter_id', $userId)
-            ->orderByDesc('cop.id')
-            ->select(['cop.*', 'o.increment_id'])
+        $payments = CsOrderPayment::with('csOrder')
+            ->where('type', 6)
+            ->where('status', 1)
+            ->whereHas('csOrder', fn($q) => $q->where('renter_id', $userId))
+            ->orderByDesc('id')
             ->get();
 
-        $formatDt = fn ($v) => $this->formatAdminDateTime($v !== null ? (string)$v : null);
+        $formatDt = fn($v) => $this->formatAdminDateTime($v !== null ? (string) $v : null);
 
         return view('admin.customer_balances.relatedpayments', [
             'listTitle' => 'Credit/Debit Payment Details',
@@ -260,9 +221,6 @@ class CustomerBalancesController extends LegacyAppController
         ]);
     }
 
-    /**
-     * Cake CustomerBalancesController::admin_subscription
-     */
     public function subscription(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -275,13 +233,13 @@ class CustomerBalancesController extends LegacyAppController
         }
 
         if ($request->has('Record.limit')) {
-            $lim = (int)$request->input('Record.limit');
+            $lim = (int) $request->input('Record.limit');
             if ($lim > 0 && $lim <= 500) {
                 session(['customer_balances_limit' => $lim]);
             }
         }
 
-        $limit = (int)session('customer_balances_limit', 50);
+        $limit = (int) session('customer_balances_limit', 50);
         if ($limit < 1) {
             $limit = 50;
         }
@@ -292,29 +250,13 @@ class CustomerBalancesController extends LegacyAppController
             $direction = 'desc';
         }
 
-        $query = DB::table('cs_user_balances as cub')
-            ->where('cub.user_id', $userId)
-            ->select([
-                'cub.id',
-                'cub.user_id',
-                'cub.type',
-                'cub.credit',
-                'cub.debit',
-                'cub.balance',
-                'cub.chargetype',
-                'cub.installment_type',
-                'cub.installment',
-                'cub.last_processed',
-                'cub.note',
-                'cub.created',
-                'cub.status',
-            ]);
+        $query = CsUserBalance::where('user_id', $userId);
 
         // Dynamic sorting
         if (in_array($sort, ['id', 'credit', 'debit', 'balance', 'created', 'status'])) {
-            $query->orderBy('cub.' . $sort, $direction);
+            $query->orderBy($sort, $direction);
         } else {
-            $query->orderByDesc('cub.id');
+            $query->orderByDesc('id');
         }
 
         $records = $query->paginate($limit)->appends([
@@ -323,7 +265,7 @@ class CustomerBalancesController extends LegacyAppController
         ]);
 
         $balanceTypes = self::balanceTypes();
-        $formatDt = fn ($v) => $this->formatAdminDateTime($v !== null ? (string)$v : null);
+        $formatDt = fn($v) => $this->formatAdminDateTime($v !== null ? (string) $v : null);
 
         if ($request->ajax()) {
             return view('admin.customer_balances._listing', [
@@ -338,18 +280,13 @@ class CustomerBalancesController extends LegacyAppController
         return view('admin.customer_balances.subscription', [
             'records' => $records,
             'userid' => $userId,
-            'useridB64' => base64_encode((string)$userId),
+            'useridB64' => base64_encode((string) $userId),
             'limit' => $limit,
             'balanceTypes' => $balanceTypes,
             'formatDt' => $formatDt,
         ]);
     }
 
-    /**
-     * Cake CustomerBalancesController::admin_addsubscription
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Contracts\View\View
-     */
     public function addsubscription(Request $request, $userid = null, $id = '')
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -377,7 +314,7 @@ class CustomerBalancesController extends LegacyAppController
                 ->where('id', $balancePk)
                 ->first();
             if ($balance === null) {
-                return redirect('/admin/customer_balances/subscription/' . base64_encode((string)$userId))
+                return redirect('/admin/customer_balances/subscription/' . base64_encode((string) $userId))
                     ->with('error', 'Record not found.');
             }
         }
@@ -386,7 +323,7 @@ class CustomerBalancesController extends LegacyAppController
             'listTitle' => 'Dealer Charges',
             'balance' => $balance,
             'userid' => $userId,
-            'useridB64' => base64_encode((string)$userId),
+            'useridB64' => base64_encode((string) $userId),
             'balanceTypes' => $balanceTypes,
             'weekdays' => $weekdays,
         ]);
@@ -399,15 +336,15 @@ class CustomerBalancesController extends LegacyAppController
             $row = [];
         }
 
-        $type = isset($row['type']) ? (int)$row['type'] : 0;
+        $type = isset($row['type']) ? (int) $row['type'] : 0;
         if (!array_key_exists($type, $balanceTypes)) {
             return redirect()->back()->with('error', 'Invalid charge type.');
         }
 
-        $note = isset($row['note']) ? (string)$row['note'] : '';
-        $amount = isset($row['balance']) ? (float)$row['balance'] : 0.0;
+        $note = isset($row['note']) ? (string) $row['note'] : '';
+        $amount = isset($row['balance']) ? (float) $row['balance'] : 0.0;
 
-        $postBalId = isset($row['id']) && $row['id'] !== '' ? (int)$row['id'] : 0;
+        $postBalId = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : 0;
         $model = null;
         if ($postBalId > 0) {
             $model = CsUserBalance::query()
@@ -424,8 +361,8 @@ class CustomerBalancesController extends LegacyAppController
         $model->user_id = $userId;
 
         if ($amount > 0) {
-            $debit = (float)($model->debit ?: 0);
-            $credit = (float)($model->credit ?: 0);
+            $debit = (float) ($model->debit ?: 0);
+            $credit = (float) ($model->credit ?: 0);
             $bal = $amount;
 
             if ($type !== 9) {
@@ -438,10 +375,10 @@ class CustomerBalancesController extends LegacyAppController
                     $credit = $credit + $bal;
                 }
                 $model->credit = $credit;
-                $oldBalance = (float)($model->balance ?: 0);
+                $oldBalance = (float) ($model->balance ?: 0);
                 $model->balance = (($oldBalance - $bal) > 0 ? 0 : $bal);
                 $model->debit = $debit;
-                $model->installment = isset($row['installment']) ? (float)$row['installment'] : 0;
+                $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
             } else {
                 $model->balance = $amount;
                 $model->installment = $amount;
@@ -449,25 +386,22 @@ class CustomerBalancesController extends LegacyAppController
 
             $model->type = $type;
             $model->note = $note;
-            $model->chargetype = isset($row['chargetype']) ? (string)$row['chargetype'] : 'subscription';
-            $model->installment_type = isset($row['installment_type']) ? (string)$row['installment_type'] : 'daily';
-            $model->installment_day = isset($row['installment_day']) ? (string)$row['installment_day'] : 'sun';
+            $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'subscription';
+            $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
+            $model->installment_day = isset($row['installment_day']) ? (string) $row['installment_day'] : 'sun';
         }
 
         if (!$model->exists) {
-            $model->status = (int)($model->status ?? 1);
+            $model->status = (int) ($model->status ?? 1);
         }
 
         $this->primeBalanceFields($model);
         $model->save();
 
-        return redirect('/admin/customer_balances/subscription/' . base64_encode((string)$userId))
+        return redirect('/admin/customer_balances/subscription/' . base64_encode((string) $userId))
             ->with('success', 'Customer balance updated successfully.');
     }
 
-    /**
-     * Cake CustomerBalancesController::admin_add
-     */
     public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -515,13 +449,13 @@ class CustomerBalancesController extends LegacyAppController
             $row = [];
         }
 
-        $type = isset($row['type']) ? (string)$row['type'] : '';
-        $note = isset($row['note']) ? (string)$row['note'] : '';
-        $creditdebit = isset($row['creditdebit']) ? (string)$row['creditdebit'] : '';
-        $amount = isset($row['balance']) ? (float)$row['balance'] : 0.0;
+        $type = isset($row['type']) ? (string) $row['type'] : '';
+        $note = isset($row['note']) ? (string) $row['note'] : '';
+        $creditdebit = isset($row['creditdebit']) ? (string) $row['creditdebit'] : '';
+        $amount = isset($row['balance']) ? (float) $row['balance'] : 0.0;
         $balancelog = $amount;
 
-        $existingId = isset($row['id']) && $row['id'] !== '' ? (int)$row['id'] : 0;
+        $existingId = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : 0;
         $model = $existingId > 0 ? CsUserBalance::find($existingId) : new CsUserBalance();
         if ($existingId > 0 && $model === null) {
             return redirect()->back()->with('error', 'Record not found.');
@@ -535,8 +469,8 @@ class CustomerBalancesController extends LegacyAppController
                 return redirect()->back()->with('error', 'Sorry, please select the correct type');
             }
             if ($amount > 0) {
-                $debit = (float)($model->debit ?: 0);
-                $credit = (float)($model->credit ?: 0);
+                $debit = (float) ($model->debit ?: 0);
+                $credit = (float) ($model->credit ?: 0);
                 $bal = $amount;
                 if ($bal <= $debit && $debit > 0) {
                     $debit = $debit - $bal;
@@ -551,33 +485,33 @@ class CustomerBalancesController extends LegacyAppController
                 $model->credit = $credit;
                 $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
                 $model->debit = $debit;
-                $model->type = (int)$type;
-                $model->chargetype = isset($row['chargetype']) ? (string)$row['chargetype'] : 'lumpsum';
-                $model->installment_type = isset($row['installment_type']) ? (string)$row['installment_type'] : 'daily';
+                $model->type = (int) $type;
+                $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'lumpsum';
+                $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
                 $model->installment_day = $row['installment_day'] ?? null;
-                $model->installment = isset($row['installment']) ? (float)$row['installment'] : 0;
+                $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
 
-                $uidForLog = (int)($model->user_id ?: ($row['user_id'] ?? 0));
+                $uidForLog = (int) ($model->user_id ?: ($row['user_id'] ?? 0));
                 if ($uidForLog > 0) {
-                    CsUserBalanceLog::query()->insert([
+                    CsUserBalanceLog::create([
                         'user_id' => $uidForLog,
                         'credit' => $balancelog,
                         'debit' => 0,
-                        'type' => (int)$type,
+                        'type' => (int) $type,
                         'owner_id' => 0,
                         'note' => $note,
                     ]);
                 }
             } else {
                 $model->note = $note;
-                $model->type = (int)$type;
-                $model->chargetype = isset($row['chargetype']) ? (string)$row['chargetype'] : 'lumpsum';
-                $model->installment_type = isset($row['installment_type']) ? (string)$row['installment_type'] : 'daily';
+                $model->type = (int) $type;
+                $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'lumpsum';
+                $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
                 $model->installment_day = $row['installment_day'] ?? null;
-                $model->installment = isset($row['installment']) ? (float)$row['installment'] : 0;
+                $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
             }
             $this->fillAdminAddMeta($model, $row);
-            if ((int)$model->user_id < 1) {
+            if ((int) $model->user_id < 1) {
                 return redirect()->back()->with('error', 'Driver / customer user id is required.');
             }
             $this->primeBalanceFields($model);
@@ -590,11 +524,11 @@ class CustomerBalancesController extends LegacyAppController
             if (!array_key_exists($type, $balanceTypes)) {
                 return redirect()->back()->with('error', 'Sorry, please select the correct type');
             }
-            $model->type = (int)$type;
+            $model->type = (int) $type;
             $model->note = $note;
             if ($amount > 0) {
-                $debit = (float)($model->debit ?: 0);
-                $credit = (float)($model->credit ?: 0);
+                $debit = (float) ($model->debit ?: 0);
+                $credit = (float) ($model->credit ?: 0);
                 $bal = $amount;
                 if ($bal <= $credit && $credit > 0) {
                     $credit = $credit - $bal;
@@ -609,24 +543,24 @@ class CustomerBalancesController extends LegacyAppController
                 $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
                 $model->credit = $credit;
 
-                $uidForLog = (int)($model->user_id ?: ($row['user_id'] ?? 0));
+                $uidForLog = (int) ($model->user_id ?: ($row['user_id'] ?? 0));
                 if ($uidForLog > 0) {
-                    CsUserBalanceLog::query()->insert([
+                    CsUserBalanceLog::create([
                         'user_id' => $uidForLog,
                         'credit' => 0,
                         'debit' => $balancelog,
-                        'type' => (int)$type,
+                        'type' => (int) $type,
                         'owner_id' => 0,
                         'note' => $note,
                     ]);
                 }
             }
-            $model->chargetype = isset($row['chargetype']) ? (string)$row['chargetype'] : 'lumpsum';
-            $model->installment_type = isset($row['installment_type']) ? (string)$row['installment_type'] : 'daily';
+            $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'lumpsum';
+            $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
             $model->installment_day = $row['installment_day'] ?? null;
-            $model->installment = isset($row['installment']) ? (float)$row['installment'] : 0;
+            $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
             $this->fillAdminAddMeta($model, $row);
-            if ((int)$model->user_id < 1) {
+            if ((int) $model->user_id < 1) {
                 return redirect()->back()->with('error', 'Driver / customer user id is required.');
             }
             $this->primeBalanceFields($model);
@@ -647,12 +581,13 @@ class CustomerBalancesController extends LegacyAppController
 
     private function fillAdminAddMeta(CsUserBalance $model, array $row): void
     {
-        if (isset($row['user_id']) && (int)$row['user_id'] > 0) {
-            $model->user_id = (int)$row['user_id'];
+        if (isset($row['user_id']) && (int) $row['user_id'] > 0) {
+            $model->user_id = (int) $row['user_id'];
         }
         if (isset($row['status'])) {
-            $model->status = (int)$row['status'];
+            $model->status = (int) $row['status'];
         }
         $model->owner_id = 0;
     }
 }
+

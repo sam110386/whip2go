@@ -56,7 +56,7 @@
 @section('content')
 
     <form
-        action="{{!empty(data_get($vehicle, 'id')) ? url('admin/vehicles/add' . base64_encode(data_get($vehicle, 'id'))) : url('/admin/vehicles/add')}}"
+        action="{{!empty(data_get($vehicle, 'id')) ? url('admin/vehicles/add/' . base64_encode(data_get($vehicle, 'id'))) : url('/admin/vehicles/add')}}"
         method="POST" enctype="multipart/form-data" id="VehicleAdminAddForm" name="VehicleAdminAddForm"
         class="form-horizontal">
         @csrf
@@ -103,6 +103,7 @@
                     <legend class="text-size-large text-bold">1. Details</legend>
                     @if (!empty(data_get($vehicle, 'id')))
                         <input type="hidden" name="Vehicle[id]" value="{{ data_get($vehicle, 'id') }}">
+                        <input type="hidden" name="Vehicle[user_id]" value="{{ data_get($vehicle, 'user_id') }}">
                     @else
                         <div class="form-group">
                             <label class="col-lg-4 control-label">

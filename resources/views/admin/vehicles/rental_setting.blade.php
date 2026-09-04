@@ -343,8 +343,8 @@
                         <h5 class="panel-title">Deposits & Scheduled Fees</h5>
                     </div>
                     <div class="panel-body"
-                        rel-deposit="{{ count(data_get($vehicle, 'depositRule.deposit_amt_opt')) ?: 1 }}"
-                        rel-initialfee="{{ count(data_get($vehicle, 'depositRule.initial_fee_opt')) ?: 1 }}">
+                        rel-deposit="{{ count(data_get($vehicle, 'depositRule.deposit_amt_opt', [])) ?: 1 }}"
+                        rel-initialfee="{{ count(data_get($vehicle, 'depositRule.initial_fee_opt', [])) ?: 1 }}">
                         <div class="form-group">
                             <label class="col-lg-3 control-label">Deposit Charge Event:</label>
                             <div class="col-lg-8">
@@ -372,8 +372,8 @@
                         </div>
                         <div id="deposit">
                             @php $i = 1; @endphp
-                            @if (count(data_get($vehicle, 'depositRule.deposit_amt_opt')))
-                                @foreach (data_get($vehicle, 'depositRule.deposit_amt_opt') as $val)
+                            @if (count(data_get($vehicle, 'depositRule.deposit_amt_opt', [])))
+                                @foreach (data_get($vehicle, 'depositRule.deposit_amt_opt', []) as $val)
                                     <div class="form-group" id="ele-{{ $i }}">
                                         <label class="col-lg-3 control-label">&nbsp;</label>
                                         <div class="col-lg-2">After Days</div>
@@ -433,8 +433,8 @@
                         </div>
                         <div id="initialfee">
                             @php $i = 1; @endphp
-                            @if (count(data_get($vehicle, 'depositRule.initial_fee_opt')))
-                                @foreach (data_get($vehicle, 'depositRule.initial_fee_opt') as $val)
+                            @if (count(data_get($vehicle, 'depositRule.initial_fee_opt', [])))
+                                @foreach (data_get($vehicle, 'depositRule.initial_fee_opt', []) as $val)
                                     <div class="form-group" id="ele-{{ $i }}">
                                         <label class="col-lg-3 control-label">&nbsp;</label>
                                         <div class="col-lg-2">After Days</div>

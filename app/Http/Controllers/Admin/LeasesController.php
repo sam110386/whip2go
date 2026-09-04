@@ -15,8 +15,6 @@ use Illuminate\View\View;
  */
 class LeasesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     private const STATUS_FAIL = 0;
 
     private const STATUS_SUCCESS = 1;

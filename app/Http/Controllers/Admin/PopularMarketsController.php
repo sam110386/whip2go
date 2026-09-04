@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 class PopularMarketsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     private const SESSION_LIMIT_KEY = 'popular_markets_limit';
 
     protected function basePath(): string

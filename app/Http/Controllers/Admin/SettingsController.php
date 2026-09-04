@@ -18,8 +18,6 @@ use Illuminate\Support\Facades\Schema;
 
 class SettingsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     public function index(Request $request, $userId)
     {
         $decodedUserId = $this->decodeId($userId);

@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\Schema;
  */
 class OrderDepositRulesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     /** @return array<int, string> */
     protected function insurancePayerOptions(): array
     {

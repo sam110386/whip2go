@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\Schema;
 
 class EmailTemplatesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     private const SESSION_LIMIT_KEY = 'email_templates_limit';
 
     public function index(Request $request)

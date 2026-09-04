@@ -1,11 +1,11 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Models\Legacy\PromoTerm;
+use App\Models\Legacy\PromotionRule;
 use App\Services\Legacy\PromoService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PromoRulesController extends LegacyAppController
 {
@@ -15,6 +15,7 @@ class PromoRulesController extends LegacyAppController
             return $redirect;
         }
 
+        $title = 'Promotion Rules';
         $conditions = [];
         $keyword = $request->input('Search.keyword', $request->query('keyword', ''));
         $show = $request->input('Search.show', $request->query('showtype', ''));
@@ -25,7 +26,7 @@ class PromoRulesController extends LegacyAppController
             ?: session($sessLimitName, 20);
         session([$sessLimitName => $limit]);
 
-        $query = DB::table('promotion_rules');
+        $query = PromotionRule::query();
 
         if (!empty($keyword)) {
             $query->where('promo', 'LIKE', '%' . $keyword . '%');
@@ -44,16 +45,25 @@ class PromoRulesController extends LegacyAppController
         $showArr = ['Active' => 'Active', 'Deactive' => 'Deactive'];
 
         if ($request->ajax()) {
-            return view('admin.promo_rules._index', compact(
-                'PromotionRules', 'keyword', 'show', 'fieldname'
+            return view('admin.promo_rules.elements.index', compact(
+                'limit',
+                'PromotionRules',
+                'keyword',
+                'show',
+                'fieldname'
             ));
         }
 
         return view('admin.promo_rules.index', compact(
-            'PromotionRules', 'keyword', 'show', 'fieldname', 'options', 'showArr'
+            'limit',
+            'PromotionRules',
+            'keyword',
+            'show',
+            'fieldname',
+            'options',
+            'showArr'
         ));
     }
-
     public function changeStatus($id = null, $status = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -61,12 +71,11 @@ class PromoRulesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        DB::table('promotion_rules')->where('id', $id)->update(['status' => $status]);
+        PromotionRule::where('id', $id)->update(['status' => $status]);
 
         return redirect('/admin/promo_rules/index')
             ->with('success', 'Status has been changed for selected record');
     }
-
     public function delete($id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -74,19 +83,18 @@ class PromoRulesController extends LegacyAppController
         }
 
         $id = $this->decodeId($id);
-        $allowed = DB::table('promotion_rules')->where('id', $id)->first();
+        $allowed = PromotionRule::find($id);
 
         if (empty($allowed)) {
             return redirect('/admin/promo_rules/index')
                 ->with('error', 'Sorry, you are not allowed to delete this promo record.');
         }
 
-        DB::table('promotion_rules')->where('id', $id)->delete();
+        $allowed->delete();
 
         return redirect('/admin/promo_rules/index')
             ->with('success', 'Selected record deleted successfully');
     }
-
     public function add(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -106,9 +114,8 @@ class PromoRulesController extends LegacyAppController
 
             $existingId = $dataToSave['id'] ?? null;
 
-            $existsCheck = DB::table('promotion_rules')
-                ->where('promo', $dataToSave['promo'])
-                ->when($existingId, fn ($q) => $q->where('id', '!=', $existingId))
+            $existsCheck = PromotionRule::where('promo', $dataToSave['promo'])
+                ->when($existingId, fn($q) => $q->where('id', '!=', $existingId))
                 ->exists();
 
             if ($existsCheck) {
@@ -122,14 +129,12 @@ class PromoRulesController extends LegacyAppController
             }
 
             if ($existingId) {
-                DB::table('promotion_rules')->where('id', $existingId)->update(
-                    collect($dataToSave)->except(['id'])->toArray()
-                );
+                $promotionRule = PromotionRule::findOrFail($existingId);
+                $promotionRule->update(collect($dataToSave)->except(['id'])->toArray());
                 $savedId = $existingId;
             } else {
-                $savedId = DB::table('promotion_rules')->insertGetId(
-                    collect($dataToSave)->except(['id'])->toArray()
-                );
+                $promotionRule = PromotionRule::create(collect($dataToSave)->except(['id'])->toArray());
+                $savedId = $promotionRule->id;
             }
 
             if ($request->hasFile('PromotionRule.logo')) {
@@ -142,7 +147,7 @@ class PromoRulesController extends LegacyAppController
                     }
                     $filename = 'promo_' . $savedId . '.' . $ext;
                     $file->move($promoDir, $filename);
-                    DB::table('promotion_rules')->where('id', $savedId)->update(['logo' => $filename]);
+                    PromotionRule::where('id', $savedId)->update(['logo' => $filename]);
                 }
             }
 
@@ -151,9 +156,9 @@ class PromoRulesController extends LegacyAppController
         }
 
         if (!empty($id)) {
-            $data = DB::table('promotion_rules')->where('id', $id)->first();
-            if ($data) {
-                $data = (array) $data;
+            $promotionRule = PromotionRule::find($id);
+            if ($promotionRule) {
+                $data = $promotionRule->toArray();
                 $data['conditions'] = !empty($data['conditions']) ? json_decode($data['conditions'], true) : [];
                 $listTitle = 'Update';
             }
@@ -165,7 +170,6 @@ class PromoRulesController extends LegacyAppController
 
         return view('admin.promo_rules.add', compact('data', 'listTitle', 'promoconditions', 'rules'));
     }
-
     public function deletePromoterm(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -174,19 +178,19 @@ class PromoRulesController extends LegacyAppController
 
         if ($request->ajax()) {
             $promotermid = $request->input('promoid');
-            DB::table('promo_terms')->where('id', $promotermid)->delete();
+            PromoTerm::where('id', $promotermid)->delete();
             return response()->json(['status' => true, 'message' => 'Promo rule deleted for respective user']);
         }
 
         return response()->json(['status' => false, 'message' => 'Sorry, something went wrong']);
     }
-
     public function promousers(Request $request, $promo)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
+        $title = 'Promotion Rule Users';
         $promoRuleId = $this->decodeId($promo);
         $keyword = $request->input('Search.keyword', $request->query('keyword', ''));
 
@@ -195,35 +199,27 @@ class PromoRulesController extends LegacyAppController
             ?: session($sessLimitName, 20);
         session([$sessLimitName => $limit]);
 
-        $query = DB::table('promo_terms')
-            ->leftJoin('users', 'users.id', '=', 'promo_terms.user_id')
-            ->where('promo_terms.promo_rule_id', $promoRuleId)
-            ->select(
-                'promo_terms.*',
-                'users.id as user_id',
-                'users.first_name',
-                'users.last_name',
-                'users.contact_number',
-                'users.email'
-            );
+        $query = PromoTerm::with('user')
+            ->where('promo_rule_id', $promoRuleId);
 
         if (!empty($keyword)) {
-            $query->where(function ($q) use ($keyword) {
-                $q->where('users.first_name', 'LIKE', '%' . $keyword . '%')
-                    ->orWhere('users.last_name', 'LIKE', '%' . $keyword . '%')
-                    ->orWhere('users.email', 'LIKE', $keyword . '%')
-                    ->orWhere('users.contact_number', 'LIKE', '%' . $keyword . '%');
+            $query->whereHas('user', function ($q) use ($keyword) {
+                $q->where('first_name', 'LIKE', '%' . $keyword . '%')
+                    ->orWhere('last_name', 'LIKE', '%' . $keyword . '%')
+                    ->orWhere('email', 'LIKE', $keyword . '%')
+                    ->orWhere('contact_number', 'LIKE', '%' . $keyword . '%');
             });
         }
 
-        $PromoTerms = $query->orderByDesc('promo_terms.created')
+        $PromoTerms = $query->orderByDesc('created')
             ->paginate($limit)
             ->appends($request->query());
 
         if ($request->ajax()) {
-            return view('admin.promo_rules._promousers', compact('PromoTerms', 'promo', 'keyword'));
+            return view('admin.promo_rules.elements.promousers', compact('PromoTerms', 'promo', 'keyword', 'limit'));
         }
 
-        return view('admin.promo_rules.promousers', compact('PromoTerms', 'promo', 'keyword'));
+        return view('admin.promo_rules.promousers', compact('title', 'PromoTerms', 'promo', 'keyword', 'limit'));
     }
 }
+

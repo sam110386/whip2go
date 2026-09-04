@@ -10,8 +10,6 @@ use App\Http\Controllers\Legacy\LegacyAppController;
  */
 class HomesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     public function dashboard(Request $request)
     {
         if (!session()->has('SESSION_ADMIN')) {

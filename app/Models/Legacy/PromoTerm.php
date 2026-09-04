@@ -22,4 +22,10 @@ class PromoTerm extends Model
     {
         return $this->belongsTo(PromotionRule::class, 'promo_rule_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }
+

@@ -212,16 +212,16 @@ class VehiclesController extends LegacyAppController
         $extensionString = implode(', ', $this->allowedExtensions);
 
         $validatedData = $request->validate([
-            'Vehicle.vehicle_name' => 'bail|required|string',
+            // 'Vehicle.vehicle_name' => 'bail|required|string',
             'Vehicle.vin_no' => 'bail|required|unique:vehicles,vin_no' . ($vehicleId ? ',' . $vehicleId : ''),
-            'Vehicle.user_id' => 'bail|required|integer',
+            'Vehicle.user_id' => $vehicleId ? 'nullable|integer' : 'bail|required|integer',
 
             // --- Image File Inputs ---
             'registration_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
             'insurance_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
             'inspection_image' => "nullable|file|mimes:{$extensionString}|max:{$allowedSizeInKb}",
         ], [
-            'Vehicle.vehicle_name.required' => 'Please enter the Vehicle Name.',
+            // 'Vehicle.vehicle_name.required' => 'Please enter the Vehicle Name.',
             'Vehicle.vin_no.required' => 'Please enter VIN number.',
             'Vehicle.vin_no.unique' => 'Entered VIN number already registered.',
             'Vehicle.user_id.required' => 'Please enter Vehicle owner Id.',
@@ -785,7 +785,7 @@ class VehiclesController extends LegacyAppController
         $formData = [];
         $vehicle = null;
 
-        if (!empty($id) && !$request->isMethod('post') && !$request->isMethod('put')) {
+        if (!empty($id)) {
             $vehicle = Vehicle::select([
                 'id',
                 'vehicle_unique_id',
@@ -1109,7 +1109,7 @@ class VehiclesController extends LegacyAppController
                 return redirect()->route('vehicles.index')->with('success', 'Vehicle duplicated successfully');
 
             } catch (\Exception $e) {
-                return redirect()->back()->with('error', $e->getMessage());
+                return redirect()->back()->with('error', "Something went wrong!");
             }
         }
 

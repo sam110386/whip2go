@@ -21,8 +21,6 @@ class UsersController extends LegacyAppController
 {
     use UsersTrait, DriverBackgroundReport;
 
-    protected bool $shouldLoadLegacyModules = true;
-
     public function index(Request $request)
     {
         $keyword = trim((string) ($request->query('keyword') ?? ''));

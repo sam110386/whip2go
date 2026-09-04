@@ -182,4 +182,10 @@ class Vehicle extends LegacyModel
     {
         return $this->hasMany(VehicleVariation::class, 'vehicle_id');
     }
+
+    public function csVehicleIssues(): HasMany
+    {
+        return $this->hasMany(CsVehicleIssue::class, 'vehicle_id');
+    }
 }
+

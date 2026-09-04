@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\Schema;
 
 class MarketplacePdealersController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     private const SESSION_LIMIT_KEY = 'marketplace_pdealers_limit';
 
     protected function basePath(): string

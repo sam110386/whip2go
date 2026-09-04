@@ -1,8 +1,13 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Promo Rules')
+@php
+    $title ??= 'Promotion Rules';
+@endphp
+
+@section('title', $title)
 
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -24,32 +29,12 @@
     </div>
 
     <div class="panel">
-        <div class="panel-body" id="postsPaging">
-            <div id="listing">
-                @include('admin.promo_rules._index')
-            </div>
+        <div style="width:100%; overflow: visible;" id="postsPaging" class="panel-body">
+            @include('admin.promo_rules.elements.index')
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
-
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
 
 @push('scripts')
     <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>

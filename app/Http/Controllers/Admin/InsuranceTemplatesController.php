@@ -12,8 +12,6 @@ use Throwable;
 
 class InsuranceTemplatesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     /**
      * @return View|RedirectResponse
      */

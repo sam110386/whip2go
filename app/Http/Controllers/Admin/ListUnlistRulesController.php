@@ -9,8 +9,6 @@ use Illuminate\Support\Facades\DB;
 
 class ListUnlistRulesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     /**
      * Admin: manage list/unlist rules for a dealer.
      */

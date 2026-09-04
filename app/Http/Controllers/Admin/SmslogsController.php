@@ -10,8 +10,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 class SmslogsController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     private const SESSION_LIMIT_KEY = 'smslogs_limit';
 
     public function index(Request $request)

@@ -8,8 +8,6 @@ use Illuminate\Http\Request;
 
 class PagesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     public function index(Request $request)
     {
         $searchIn = trim((string)($request->input('Search.searchin', $request->query('searchin', ''))));

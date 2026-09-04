@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\Schema;
  */
 class WalletController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = true;
-
     private function decodeWalletUserId(?string $b64): ?int
     {
         if ($b64 === null || $b64 === '') {

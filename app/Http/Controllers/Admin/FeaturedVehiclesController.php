@@ -113,6 +113,7 @@ class FeaturedVehiclesController extends LegacyAppController
 
         $colors = (new Colors())->getColors();
         $vehicle = null;
+        $vehicleVariants = null;
 
         if (!empty($vehicle_id)) {
             $vehicle = Vehicle::with([
@@ -143,7 +144,7 @@ class FeaturedVehiclesController extends LegacyAppController
             if (!empty($vehicleObj->interior_color)) {
                 $colors[$vehicle->interior_color] = $vehicle->interior_color;
             }
-            
+
             $vehicleVariants = VehicleVariation::with('variant')
                 ->where('vehicle_id', $vehicle_id)
                 ->get();
