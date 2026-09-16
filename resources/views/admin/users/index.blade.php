@@ -1,28 +1,27 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Manage Users')
-
 @php
+    $title ??= 'Manage Users';
     $keyword ??= '';
     $show ??= null;
     $type ??= null;
 @endphp
 
+@section('title', $title)
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
-                    <span class="text-semibold">
-                        {{ 'Manage' }}
-                    </span>
-                    {{ 'Users' }}
+                    <span class="text-semibold"> Manage </span> Users
                 </h4>
             </div>
             <div class="heading-elements">
                 <a href="{{ url('admin/users/add') }}" class="btn btn-success">
-                    {{ 'Add New' }}
+                    Add New
                 </a>
             </div>
         </div>

@@ -1,6 +1,11 @@
 @extends('admin.layouts.app')
 
-@section('title', $listTitle)
+@php
+    $title ??= 'View User';
+    $user ??= collect();
+@endphp
+
+@section('title', $title)
 
 @section('content')
     <div class="page-header">
@@ -9,7 +14,7 @@
                 <h4>
                     <i class="icon-arrow-left52 position-left"></i>
                     <span class="text-semibold">
-                        {{ $listTitle }}
+                        {{ $title }}
                     </span>
                 </h4>
             </div>
@@ -33,21 +38,23 @@
                         {{ 'First Name :' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->first_name }}
+                        {{ data_get($user, 'first_name', '') }}
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-2 control-label">
                         {{ 'Last Name :' }}
                     </label>
-                    <div class="col-lg-4">{{ $user->last_name }}</div>
+                    <div class="col-lg-4">
+                        {{ data_get($user, 'last_name', '') }}
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="col-lg-2 control-label">
                         {{ 'Email :' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->email }}
+                        {{ data_get($user, 'email', '') }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -55,7 +62,7 @@
                         {{ 'Notification Email :' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->notify_email }}
+                        {{ data_get($user, 'notify_email', '') }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -63,7 +70,7 @@
                         {{ 'Phone # :' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->contact_number }}
+                        {{ data_get($user, 'contact_number', '') }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -71,7 +78,7 @@
                         {{ 'DOB:' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->dob }}
+                        {{ data_get($user, 'dob', '') }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -79,7 +86,7 @@
                         {{ 'Social S. # :' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ !empty($user->ss_no) ? \App\Helpers\Legacy\Security::decrypt($user->ss_no) : '' }}
+                        {{ !empty(data_get($user, 'ss_no', false)) ? \App\Helpers\Legacy\Security::decrypt(data_get($user, 'ss_no')) : '' }}
                     </div>
                 </div>
 
@@ -88,7 +95,7 @@
                         {{ 'License # :' }}
                     </label>
                     <div class="col-lg-4">
-                        {{ !empty($user->licence_number) ? \App\Helpers\Legacy\Security::decrypt($user->licence_number) : '' }}
+                        {{ !empty(data_get($user, 'licence_number', false)) ? \App\Helpers\Legacy\Security::decrypt(data_get($user, 'licence_number')) : '' }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -96,7 +103,7 @@
                         {{'License Type :'}}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->licence_type }}
+                        {{ data_get($user, 'licence_type', '') }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -104,7 +111,7 @@
                         {{'License Exp Date :'}}
                     </label>
                     <div class="col-lg-4">
-                        {{ $user->licence_exp_date }}
+                        {{ data_get($user, 'licence_exp_date', '') }}
                     </div>
                 </div>
                 <div class="form-group">
@@ -113,7 +120,7 @@
                         <div>
                             <div id="old_pic">
                                 <img width='150' height='150'
-                                    src="{{ legacy_asset('files/userdocs/' . ($user->license_doc_1 ?: 'no_image.gif')) }}">
+                                    src="{{ legacy_asset('files/userdocs/' . (data_get($user, 'license_doc_1', 'no_image.gif'))) }}">
                             </div>
                         </div>
                         <div style="clear:both;"></div>
@@ -125,7 +132,7 @@
                         <div style="float:left;width:150px;height:150px;">
                             <div id="old_pic">
                                 <img width='150' height='150'
-                                    src="{{ legacy_asset('files/userdocs/' . ($user->license_doc_2 ?: 'no_image.gif')) }}">
+                                    src="{{ legacy_asset('files/userdocs/' . (data_get($user, 'license_doc_2', 'no_image.gif'))) }}">
                             </div>
                         </div>
                         <div style="clear:both;"></div>
@@ -137,7 +144,7 @@
                         <div style="float:left;width:150px;height:150px;">
                             <div id="old_pic">
                                 <img width='150' height='150'
-                                    src="{{ legacy_asset('img/user_pic/' . ($user->photo ?: 'no_image.gif')) }}">
+                                    src="{{ legacy_asset('img/user_pic/' . (data_get($user, 'photo', 'no_image.gif'))) }}">
                             </div>
                         </div>
                         <div style="clear:both;"></div>

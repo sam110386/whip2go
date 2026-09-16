@@ -1,49 +1,69 @@
+@php
+    $users ??= collect();
+    $limit ??= 50;
+    $columns = [
+        ['title' => '#', 'field' => 'id'],
+        ['title' => 'First Name', 'field' => 'first_name'],
+        ['title' => 'Last Name', 'field' => 'last_name'],
+        ['title' => 'Email', 'field' => 'email', 'style' => 'width: 30px;'],
+        ['title' => 'Contact#', 'field' => 'contact_number'],
+        ['title' => 'Created', 'field' => 'created'],
+        ['title' => 'Status', 'field' => 'status'],
+        ['title' => 'Verified', 'field' => 'is_verified'],
+        ['title' => 'Renter', 'field' => 'is_renter'],
+        ['title' => 'Driver', 'field' => 'is_driver'],
+        ['title' => 'Dealer', 'field' => 'is_dealer'],
+        ['title' => 'Checkr Status', 'field' => 'checkr_status'],
+        ['title' => 'Deleted', 'field' => 'trash'],
+        ['title' => 'Actions', 'sortable' => false]
+    ];
+@endphp
+
+@include('partials.dispacher.paging_box', ['paginator' => $users, 'limit' => $limit, 'position' => 'top'])
+
 <div class="table-responsive" style="margin: 10px 0px;">
     <table width="100%" cellpadding="2" cellspacing="1" border="0" class="table table-responsive">
         <thead>
             <tr>
-                @include('partials.dispacher.sortable_header', ['columns' => [
-                            ['title' => '#', 'field' => 'id'],
-                            ['title' => 'First Name', 'field' => 'first_name'],
-                            ['title' => 'Last Name', 'field' => 'last_name'],
-                            ['title' => 'Email', 'field' => 'email', 'style' => 'width: 30px;'],
-                            ['title' => 'Contact#', 'field' => 'contact_number'],
-                            ['title' => 'Created', 'field' => 'created'],
-                            ['title' => 'Status', 'field' => 'status'],
-                            ['title' => 'Verified', 'field' => 'is_verified'],
-                            ['title' => 'Renter', 'field' => 'is_renter'],
-                            ['title' => 'Driver', 'field' => 'is_driver'],
-                            ['title' => 'Dealer', 'field' => 'is_dealer'],
-                            ['title' => 'Checkr Status', 'field' => 'checkr_status'],
-                            ['title' => 'Deleted', 'field' => 'trash'],
-                            ['title' => 'Actions', 'sortable' => false]
-                        ]])
+                @include('partials.dispacher.sortable_header', compact('columns'))
             </tr>
         </thead>
         <tbody>
             @foreach ($users as $user)
                 <tr>
-                    <td valign="top">{{ $user->id }}</td>
-                    <td valign="top">{{ $user->first_name }}</td>
-                    <td valign="top">{{ $user->last_name }}</td>
-                    <td valign="top">{{ $user->email }}</td>
-                    <td valign="top">{{ $user->contact_number }}</td>
-                    <td valign="top">{{ $user->created ? \Carbon\Carbon::parse($user->created)->format('m/d/Y h:i A') : '' }}</td>
+                    <td valign="top">
+                        {{ data_get($user, 'id', '') }}
+                    </td>
+                    <td valign="top">
+                        {{ data_get($user, 'first_name', '') }}
+                    </td>
+                    <td valign="top">
+                        {{ data_get($user, 'last_name', '') }}
+                    </td>
+                    <td valign="top">
+                        {{ data_get($user, 'email', '') }}
+                    </td>
+                    <td valign="top">
+                        {{ data_get($user, 'contact_number', '') }}
+                    </td>
+                    <td valign="top">
+                        {{ data_get($user, 'created', false) ? \Carbon\Carbon::parse(data_get($user, 'created'))->format('m/d/Y h:i A') : '' }}
+                    </td>
 
                     <td align="center" valign="bottom">
-                        <a href="{{ url('admin/users/status/' . base64_encode($user->id) . '/' . ($user->status == 1 ? 0 : 1)) }}"
+                        <a href="{{ url('admin/users/status/' . base64_encode(data_get($user, 'id')) . '/' . (data_get($user, 'status') == 1 ? 0 : 1)) }}"
                             onclick="return confirm('Are you sure to update this User?')">
-                            <img src="{{ legacy_asset($user->status == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                            <img src="{{ legacy_asset(data_get($user, 'status') == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 title="Status" alt="Status">
                         </a>
                     </td>
 
                     <td align="center" valign="bottom">
-                        @if (!$user->is_admin)
-                            @if ($user->is_verified == 1)
+                        @if (!data_get($user, 'is_admin'))
+                            @if (data_get($user, 'is_verified') == 1)
                                 <img src="{{ legacy_asset('img/green2.jpg') }}" alt="Status">
                             @else
-                                <a href="{{ url('admin/users/verify/' . base64_encode($user->id)) }}"
+                                <a href="{{ url('admin/users/verify/' . base64_encode(data_get($user, 'id'))) }}"
                                     onclick="return confirm('Are you sure?')">
                                     <img src="{{ legacy_asset('img/red3.jpg') }}" alt="Verify">
                                 </a>
@@ -52,31 +72,31 @@
                     </td>
 
                     <td align="center" valign="bottom">
-                        @if (!$user->is_admin)
-                            <img src="{{ legacy_asset($user->is_renter == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                        @if (!data_get($user, 'is_admin'))
+                            <img src="{{ legacy_asset(data_get($user, 'is_renter') == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                 alt="Renter">
                         @endif
                     </td>
 
                     <td align="center" valign="bottom">
-                        @if (!$user->is_admin)
-                            <a href="{{ url('admin/users/driverstatus/' . base64_encode($user->id) . '/' . ($user->is_driver == 1 ? 0 : 1)) }}"
+                        @if (!data_get($user, 'is_admin'))
+                            <a href="{{ url('admin/users/driverstatus/' . base64_encode(data_get($user, 'id')) . '/' . (data_get($user, 'is_driver') == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Update Driver?')">
-                                <img src="{{ legacy_asset($user->is_driver == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
+                                <img src="{{ legacy_asset(data_get($user, 'is_driver') == 1 ? 'img/green2.jpg' : 'img/red3.jpg') }}"
                                     alt="Driver">
                             </a>
                         @endif
                     </td>
 
                     <td align="center" valign="bottom">
-                        @if (!$user->is_admin)
-                            @if ($user->is_dealer == 1)
-                                <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/2') }}"
+                        @if (!data_get($user, 'is_admin'))
+                            @if (data_get($user, 'is_dealer') == 1)
+                                <a href="{{ url('admin/users/dealer_approve/' . base64_encode(data_get($user, 'id')) . '/2') }}"
                                     onclick="return confirm('Reject dealer?')">
                                     <img src="{{ legacy_asset('img/green2.jpg') }}">
                                 </a>
-                            @elseif($user->is_dealer == 2)
-                                <a href="{{ url('admin/users/dealer_approve/' . base64_encode($user->id) . '/1') }}"
+                            @elseif(data_get($user, 'is_dealer') == 2)
+                                <a href="{{ url('admin/users/dealer_approve/' . base64_encode(data_get($user, 'id')) . '/1') }}"
                                     onclick="return confirm('Approve dealer?')">
                                     <i class='fa fa-frown-o fa-2x'></i>
                                 </a>
@@ -87,11 +107,12 @@
                     </td>
 
                     <td align="center" valign="bottom">
-                        @if (!$user->is_admin)
+                        @if (!data_get($user, 'is_admin'))
                             @php
-                                $checkrUrl = url('admin/users/checkr_status/' . base64_encode($user->id));
+                                $checkrUrl = url('admin/users/checkr_status/' . base64_encode(data_get($user, 'id')));
                             @endphp
-                            @switch($user->checkr_status)
+
+                            @switch(data_get($user, 'checkr_status'))
                                 @case(1)
                                     <img src="{{ legacy_asset('img/green2.jpg') }}" title="Approved">
                                 @break
@@ -130,10 +151,10 @@
                     </td>
 
                     <td align="center" valign="bottom">
-                        @if (!$user->is_admin)
-                            <a href="{{ url('admin/users/trash/' . base64_encode($user->id) . '/' . ($user->trash == 1 ? 0 : 1)) }}"
+                        @if (!data_get($user, 'is_admin'))
+                            <a href="{{ url('admin/users/trash/' . base64_encode(data_get($user, 'id')) . '/' . (data_get($user, 'trash') == 1 ? 0 : 1)) }}"
                                 onclick="return confirm('Are you sure?')">
-                                <img src="{{ legacy_asset($user->trash == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
+                                <img src="{{ legacy_asset(data_get($user, 'trash') == 1 ? 'img/red3.jpg' : 'img/green2.jpg') }}"
                                     title="Delete Toggle">
                             </a>
                         @endif
@@ -147,123 +168,133 @@
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-right">
                                     <li>
-                                        <a href="{{ url('admin/users/view', base64_encode($user->id)) }}">
+                                        <a href="{{ url('admin/users/view', base64_encode(data_get($user, 'id'))) }}">
                                             <i class="glyphicon glyphicon-zoom-in"></i>
                                             {{ 'View' }}
                                         </a>
                                     </li>
                                     <li>
-                                        <a href="{{ url('admin/users/add', base64_encode($user->id)) }}">
+                                        <a href="{{ url('admin/users/add', base64_encode(data_get($user, 'id'))) }}">
                                             <i class="glyphicon glyphicon-pencil"></i>
                                             {{ 'Edit' }}
                                         </a>
                                     </li>
 
-                                    @if (!$user->is_admin)
+                                    @if (!data_get($user, 'is_admin'))
                                         <li>
-                                            <a href="{{ url('admin/user_ccs/index', base64_encode($user->id)) }}">
+                                            <a href="{{ url('admin/user_ccs/index', base64_encode(data_get($user, 'id'))) }}">
                                                 <i class="glyphicon glyphicon-credit-card"></i>
                                                 {{ 'Credit Cards' }}
                                             </a>
                                         </li>
                                         <li>
-                                            <a href="{{ url('admin/wallet/index', base64_encode($user->id)) }}">
-                                                <i class="glyphicon glyphicon-usd"></i>    
-                                                    {{'Wallet'}}
+                                            <a href="{{ url('admin/wallet/index', base64_encode(data_get($user, 'id'))) }}">
+                                                <i class="glyphicon glyphicon-usd"></i>
+                                                {{'Wallet'}}
                                             </a>
                                         </li>
-                                         <li>
-                                            <a href="{{ url('admin/accounting_reports/index', base64_encode($user->id)) }}">
-                                                <i class="icon-file-stats2"></i>    
-                                                    {{'Accounting Report'}}
+                                        <li>
+                                            <a
+                                                href="{{ url('admin/accounting_reports/index', base64_encode(data_get($user, 'id'))) }}">
+                                                <i class="icon-file-stats2"></i>
+                                                {{'Accounting Report'}}
                                             </a>
                                         </li>
-                                         <li>
-                                            <a href="{{ url('admin/user_notes/index', base64_encode($user->id)) }}">
-                                                <i class="icon-file-stats"></i>    
-                                                    {{'User Notes'}}
+                                        <li>
+                                            <a href="{{ url('admin/user_notes/index', base64_encode(data_get($user, 'id'))) }}">
+                                                <i class="icon-file-stats"></i>
+                                                {{'User Notes'}}
                                             </a>
                                         </li>
 
-                                        @if ($user->is_owner)
-                                            <li>    
-                                                <a href="{{ url('admin/users/bankdetails', base64_encode($user->id)) }}">
-                                                    <i class="glyphicon glyphicon-sound-dolby"></i> 
-                                                        {{'Bank Details'}}
+                                        @if (data_get($user, 'is_owner'))
+                                            <li>
+                                                <a
+                                                    href="{{ url('admin/users/bankdetails', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="glyphicon glyphicon-sound-dolby"></i>
+                                                    {{'Bank Details'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/users/revsetting', base64_encode($user->id)) }}">
-                                                    <i class="glyphicon glyphicon-certificate"></i> 
-                                                        {{'Revenue Setting'}}
+                                            <li>
+                                                <a href="{{ url('admin/users/revsetting', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="glyphicon glyphicon-certificate"></i>
+                                                    {{'Revenue Setting'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/agreement_templates/index', base64_encode($user->id)) }}">
-                                                    <i class="icon-file-stats"></i> 
-                                                        {{'Agreement Templates'}}
+                                            <li>
+                                                <a
+                                                    href="{{ url('admin/agreement_templates/index', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="icon-file-stats"></i>
+                                                    {{'Agreement Templates'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/insurance_templates/index', base64_encode($user->id)) }}">
-                                                    <i class="glyphicon  glyphicon-list-alt"></i> 
-                                                        {{'Insurance'}}
+                                            <li>
+                                                <a
+                                                    href="{{ url('admin/insurance_templates/index', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="glyphicon  glyphicon-list-alt"></i>
+                                                    {{'Insurance'}}
                                                 </a>
                                             </li>
-                                             <li>    
-                                                <a href="{{ url('admin/deposit_templates/index', base64_encode($user->id)) }}">
-                                                    <i class="glyphicon  glyphicon-usd"></i> 
-                                                        {{'Payment Setting Template'}}
+                                            <li>
+                                                <a
+                                                    href="{{ url('admin/deposit_templates/index', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="glyphicon  glyphicon-usd"></i>
+                                                    {{'Payment Setting Template'}}
                                                 </a>
                                             </li>
-                                             <li>    
-                                                <a href="{{ url('admin/customer_balances/subscription', base64_encode($user->id)) }}">
-                                                    <i class="glyphicon  glyphicon-usd"></i> 
-                                                        {{'Credits and Debits'}}
+                                            <li>
+                                                <a
+                                                    href="{{ url('admin/customer_balances/subscription', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="glyphicon  glyphicon-usd"></i>
+                                                    {{'Credits and Debits'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/settings/index', base64_encode($user->id)) }}">
-                                                    <i class="icon-gear"></i> 
-                                                        {{'General Setting'}}
+                                            <li>
+                                                <a href="{{ url('admin/settings/index', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="icon-gear"></i>
+                                                    {{'General Setting'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/eland/settings/index', base64_encode($user->id)) }}">
-                                                    <i class="icon-gear"></i> 
-                                                        {{'Eland Setting'}}
+                                            <li>
+                                                <a
+                                                    href="{{ url('admin/eland/settings/index', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="icon-gear"></i>
+                                                    {{'Eland Setting'}}
                                                 </a>
                                             </li>
-                                            <li>    
-                                                <a href="{{ url('admin/vehicle/list_unlist_rules/index', $user->id) }}">
-                                                    <i class="icon-gear"></i> 
-                                                        {{'Vehicle List/Unlist Setting'}}
+                                            <li>
+                                                <a href="{{ url('admin/vehicle/list_unlist_rules/index', data_get($user, 'id')) }}">
+                                                    <i class="icon-gear"></i>
+                                                    {{'Vehicle List/Unlist Setting'}}
                                                 </a>
                                             </li>
 
                                         @endif
 
-                                        @if($user->bank)
+                                        @if(data_get($user, 'bank'))
                                             <li>
-                                                <a href="{{ url('admin/plaid_users/index', base64_encode($user->id)) }}">
-                                                    <i class="icon icon-dribbble3"></i> 
-                                                        {{'Connected Bank Accounts'}}
+                                                <a
+                                                    href="{{ url('admin/plaid_users/index', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="icon icon-dribbble3"></i>
+                                                    {{'Connected Bank Accounts'}}
                                                 </a>
                                             </li>
                                         @endif
 
-                                        @if($user->is_driver)
+                                        @if(data_get($user, 'is_driver'))
                                             <li>
-                                                <a href="{{ url('admin/loan/managers/detail', base64_encode($user->id)) }}">
-                                                    <i class="icon icon-bag"></i> 
+                                                <a
+                                                    href="{{ url('admin/loan/managers/detail', base64_encode(data_get($user, 'id'))) }}">
+                                                    <i class="icon icon-bag"></i>
                                                     {{'Loan Stipulations'}}
                                                 </a>
                                             </li>
                                         @endif
 
                                         <li>
-                                            <a href="{{ url('admin/users/change_phone', base64_encode($user->id)) }}">
-                                                <i class="icon icon-iphone"></i> 
+                                            <a
+                                                href="{{ url('admin/users/change_phone', base64_encode(data_get($user, 'id'))) }}">
+                                                <i class="icon icon-iphone"></i>
                                                 {{'Change Phone#'}}
                                             </a>
                                         </li>

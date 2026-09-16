@@ -1,14 +1,21 @@
 @extends('admin.layouts.app')
 
-@section('title', $listTitle)
+@php
+    $title ??= 'Add User';
+    $user ??= collect();
+    $currencies ??= [];
+@endphp
+
+@section('title', $title)
 
 @section('content')
+
     <div class="row">
         @include('partials.flash')
     </div>
 
-    <form action="{{ url('admin/users/add' . ($user?->id ? '/' . base64_encode($user?->id) : '')) }}" method="POST"
-        name="frmadmin" id="frmadmin" class="form-horizontal" enctype="multipart/form-data">
+    <form action="{{ url('admin/users/add' . (data_get($user, 'id') ? '/' . base64_encode(data_get($user, 'id')) : '')) }}"
+        method="POST" name="frmadmin" id="frmadmin" class="form-horizontal" enctype="multipart/form-data">
         @csrf
 
         <div class="page-header">
@@ -17,13 +24,13 @@
                     <h4>
                         <i class="icon-arrow-left52 position-left"></i>
                         <span class="text-semibold">
-                            {{ $listTitle }}
+                            {{ $title }}
                         </span>
                     </h4>
                 </div>
                 <div class="heading-elements">
                     <button type="submit" class="btn btn-primary">
-                        {{ empty($user?->id) ? 'Save Profile' : 'Update Profile' }}
+                        {{ empty(data_get($user, 'id')) ? 'Save Profile' : 'Update Profile' }}
                     </button>
                     <button type="button" class="btn left-margin btn-danger" onClick="goBack('/admin/users/index')">
                         {{ 'Return' }}
@@ -44,7 +51,7 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="text" name="User[first_name]" maxlength="50" class="form-control required"
-                            value="{{ old('User.first_name', $user?->first_name) }}">
+                            value="{{ old('User.first_name', data_get($user, 'first_name')) }}">
                         @error('User.first_name')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -57,7 +64,7 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="text" name="User[last_name]" maxlength="50" class="form-control required"
-                            value="{{ old('User.last_name', $user?->last_name) }}">
+                            value="{{ old('User.last_name', data_get($user, 'last_name')) }}">
                         @error('User.last_name')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -70,7 +77,7 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="email" name="User[email]" class="email form-control required"
-                            value="{{ old('User.email', $user?->email) }}">
+                            value="{{ old('User.email', data_get($user, 'email')) }}">
                         @error('User.email')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -82,10 +89,10 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="email" name="User[notify_email]" class="form-control"
-                            value="{{ old('User.notify_email', $user?->notify_email) }}">
+                            value="{{ old('User.notify_email', data_get($user, 'notify_email')) }}">
                     </div>
                 </div>
-                @if (empty($user?->id))
+                @if (empty(data_get($user, 'id', false)))
                     <div class="form-group">
                         <label class="col-lg-4 control-label">
                             {{'Phone #'}}
@@ -94,7 +101,7 @@
                         <div class="col-lg-8">
                             <input type="text" name="User[contact_number]" size="10" maxlength="10"
                                 class="form-control required digits"
-                                value="{{ old('User.contact_number', $user?->contact_number) }}">
+                                value="{{ old('User.contact_number', data_get($user, 'contact_number')) }}">
                             @error('User.contact_number')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -108,7 +115,7 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="text" name="User[address]" maxlength="150" class="form-control required"
-                            value="{{ old('User.address', $user?->address) }}">
+                            value="{{ old('User.address', data_get($user, 'address')) }}">
                         @error('User.address')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -121,7 +128,7 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="text" name="User[city]" maxlength="50" class="form-control required"
-                            value="{{ old('User.city', $user?->city) }}">
+                            value="{{ old('User.city', data_get($user, 'city')) }}">
                         @error('User.city')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -134,7 +141,7 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="text" name="User[state]" maxlength="2" class="form-control required"
-                            value="{{ old('User.state', $user?->state) }}">
+                            value="{{ old('User.state', data_get($user, 'state')) }}">
                         @error('User.state')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -146,20 +153,20 @@
                     </label>
                     <div class="col-lg-8">
                         <input type="text" name="User[zip]" maxlength="10" class="form-control"
-                            value="{{ old('User.zip', $user?->zip) }}">
+                            value="{{ old('User.zip', data_get($user, 'zip')) }}">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="col-lg-4 control-label">
                         {{'Password :'}}
-                        @if (empty($user?->id))
+                        @if (empty(data_get($user, 'id')))
                             <span class="text-danger">{{'*'}}</span>
                         @endif
                     </label>
                     <div class="col-lg-8">
                         <input type="password" name="User[pwd]" maxlength="50"
-                            class="form-control @if (empty($user?->id)) required @endif">
+                            class="form-control @if (empty(data_get($user, 'id'))) required @endif">
                         @error('User.pwd')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -172,10 +179,10 @@
                     </label>
                     <div class="col-lg-8">
                         <select name="User[auto_renew]" class="form-control">
-                            <option value="1" @selected(old('User.auto_renew', $user?->auto_renew) == 1)>
+                            <option value="1" @selected(old('User.auto_renew', data_get($user, 'auto_renew')) == 1)>
                                 {{'Active'}}
                             </option>
-                            <option value="0" @selected(old('User.auto_renew', $user?->auto_renew) == 0)>
+                            <option value="0" @selected(old('User.auto_renew', data_get($user, 'auto_renew')) == 0)>
                                 {{'Inactive'}}
                             </option>
                         </select>
@@ -188,28 +195,30 @@
                     <div class="col-lg-8">
                         <select name="User[currency]" class="form-control">
                             @foreach ($currencies as $code => $name)
-                                <option value="{{ $code }}" @selected(old('User.currency', $user?->currency) == $code)>
+                                <option value="{{ $code }}" @selected(old('User.currency', data_get($user, 'currency')) == $code)>
                                     {{ $name }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
                 </div>
-                @if ($user?->is_dealer)
+                @if (data_get($user, 'is_dealer'))
                     <div class="form-group">
                         <label class="col-lg-4 control-label">Distance Unit :</label>
                         <div class="col-lg-8">
                             <select name="User[distance_unit]" class="form-control">
-                                <option value="Mi" @selected(old('User.distance_unit', $user?->distance_unit) == 'Mi')>Miles
+                                <option value="Mi" @selected(old('User.distance_unit', data_get($user, 'distance_unit')) == 'Mi')>
+                                    Miles
                                 </option>
-                                <option value="KM" @selected(old('User.distance_unit', $user?->distance_unit) == 'KM')>KM</option>
+                                <option value="KM" @selected(old('User.distance_unit', data_get($user, 'distance_unit')) == 'KM')>
+                                    KM</option>
                             </select>
                         </div>
                     </div>
                 @endif
             </div>
 
-            @if (!empty($user?->id) && $user?->is_dealer != 1)
+            @if (!empty(data_get($user, 'id')) && data_get($user, 'is_dealer') != 1)
                 <div class="item">
                     <legend class="text-size-large text-bold">
                         {{'License Details'}}
@@ -221,7 +230,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[givenName]" maxlength="50" class="form-control required"
-                                value="{{ old('UserLicenseDetail.givenName', $user?->userLicenseDetail->givenName ?? '') }}">
+                                value="{{ old('UserLicenseDetail.givenName', data_get($user, 'userLicenseDetail.givenName', '')) }}">
                             @error('UserLicenseDetail.givenName')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -234,7 +243,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[lastName]" maxlength="50" class="form-control required"
-                                value="{{ old('UserLicenseDetail.lastName', $user?->userLicenseDetail->lastName ?? '') }}">
+                                value="{{ old('UserLicenseDetail.lastName', data_get($user, 'userLicenseDetail.lastName', '')) }}">
                             @error('UserLicenseDetail.lastName')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -247,7 +256,7 @@
                         <div class="col-lg-8">
                             <input type="text" id="UserLicenseDetailDateOfBirth" name="UserLicenseDetail[dateOfBirth]"
                                 maxlength="10" class="form-control"
-                                value="{{ old('UserLicenseDetail.dateOfBirth', $user?->userLicenseDetail->dateOfBirth ?? '') }}">
+                                value="{{ old('UserLicenseDetail.dateOfBirth', data_get($user, 'userLicenseDetail.dateOfBirth', '')) }}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -258,7 +267,7 @@
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressStreet]" maxlength="150"
                                 class="form-control required"
-                                value="{{ old('UserLicenseDetail.addressStreet', $user?->userLicenseDetail->addressStreet ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressStreet', data_get($user, 'userLicenseDetail.addressStreet', '')) }}">
                             @error('UserLicenseDetail.addressStreet')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -272,7 +281,7 @@
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressCity]" maxlength="50"
                                 class="form-control required"
-                                value="{{ old('UserLicenseDetail.addressCity', $user?->userLicenseDetail->addressCity ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressCity', data_get($user, 'userLicenseDetail.addressCity', '')) }}">
                             @error('UserLicenseDetail.addressCity')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -286,7 +295,7 @@
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressState]" maxlength="2"
                                 class="form-control required"
-                                value="{{ old('UserLicenseDetail.addressState', $user?->userLicenseDetail->addressState ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressState', data_get($user, 'userLicenseDetail.addressState', '')) }}">
                             @error('UserLicenseDetail.addressState')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -298,16 +307,17 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="UserLicenseDetail[addressPostalCode]" maxlength="10" class="form-control"
-                                value="{{ old('UserLicenseDetail.addressPostalCode', $user?->userLicenseDetail->addressPostalCode ?? '') }}">
+                                value="{{ old('UserLicenseDetail.addressPostalCode', data_get($user, 'userLicenseDetail.addressPostalCode', '')) }}">
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="col-lg-4 control-label">
                             {{'License # :'}}
+                            <span class="text-danger">{{'*'}}</span>
                         </label>
                         <div class="col-lg-8">
-                            <input type="text" name="User[licence_number]" maxlength="50" class="form-control"
-                                value="{{ old('User.licence_number', $user?->licence_number ? \App\Helpers\Legacy\Security::decrypt($user?->licence_number) : '') }}">
+                            <input type="text" name="User[licence_number]" maxlength="50" class="form-control required"
+                                value="{{ old('User.licence_number', data_get($user, 'licence_number', '')) }}">
                         </div>
                     </div>
 
@@ -317,7 +327,8 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" id="UserLicenceExpDate" name="User[licence_exp_date]" maxlength="10"
-                                class="date form-control" value="{{ old('User.licence_exp_date', $user?->licence_exp_date) }}">
+                                class="date form-control"
+                                value="{{ old('User.licence_exp_date', data_get($user, 'licence_exp_date')) }}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -326,7 +337,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[licence_state]" maxlength="2" class="form-control"
-                                value="{{ old('User.licence_state', $user?->licence_state) }}">
+                                value="{{ old('User.licence_state', data_get($user, 'licence_state')) }}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -335,7 +346,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[licence_type]" maxlength="50" class="form-control"
-                                value="{{ old('User.licence_type', $user?->licence_type) }}">
+                                value="{{ old('User.licence_type', data_get($user, 'licence_type')) }}">
                         </div>
                     </div>
                 </div>
@@ -360,7 +371,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ legacy_asset('files/userdocs/' . ($user?->license_doc_1 ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('files/userdocs/' . (data_get($user, 'license_doc_1', 'no_image.gif'))) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -382,7 +393,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ legacy_asset('files/userdocs/' . ($user?->license_doc_2 ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('files/userdocs/' . (data_get($user, 'license_doc_2', 'no_image.gif'))) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -404,7 +415,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ legacy_asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('img/user_pic/' . (data_get($user, 'photo', 'no_image.gif'))) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -427,7 +438,7 @@
                 </div>
             @endif
 
-            @if (!empty($user?->id) && $user?->is_dealer == 1)
+            @if (!empty(data_get($user, 'id')) && data_get($user, 'is_dealer') == 1)
                 <div class="item">
                     <legend class="text-size-large text-bold">
                         {{'Company Details'}}
@@ -439,7 +450,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[company_name]" maxlength="140" class="form-control"
-                                value="{{ old('User.company_name', $user?->company_name) }}">
+                                value="{{ old('User.company_name', data_get($user, 'company_name')) }}">
                         </div>
                     </div>
                     <div class="form-group">
@@ -449,7 +460,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[company_address]" maxlength="150" class="form-control required"
-                                value="{{ old('User.company_address', $user?->company_address) }}">
+                                value="{{ old('User.company_address', data_get($user, 'company_address')) }}">
                             @error('User.company_address')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -462,7 +473,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[company_city]" maxlength="50" class="form-control required"
-                                value="{{ old('User.company_city', $user?->company_city) }}">
+                                value="{{ old('User.company_city', data_get($user, 'company_city')) }}">
                             @error('User.company_city')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -475,7 +486,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[company_state]" maxlength="2" class="form-control required"
-                                value="{{ old('User.company_state', $user?->company_state) }}">
+                                value="{{ old('User.company_state', data_get($user, 'company_state')) }}">
                             @error('User.company_state')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -488,7 +499,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[company_zip]" maxlength="10" class="form-control required"
-                                value="{{ old('User.company_zip', $user?->company_zip) }}">
+                                value="{{ old('User.company_zip', data_get($user, 'company_zip')) }}">
                             @error('User.company_zip')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -501,7 +512,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[company_country]" maxlength="20" class="form-control required"
-                                value="{{ old('User.company_country', $user?->company_country) }}">
+                                value="{{ old('User.company_country', data_get($user, 'company_country')) }}">
                             @error('User.company_country')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -514,7 +525,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[representative_name]" maxlength="40" class="form-control"
-                                value="{{ old('User.representative_name', $user?->representative_name) }}">
+                                value="{{ old('User.representative_name', data_get($user, 'representative_name')) }}">
                             @error('User.representative_name')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -527,7 +538,7 @@
                         </label>
                         <div class="col-lg-8">
                             <input type="text" name="User[representative_role]" maxlength="30" class="form-control"
-                                value="{{ old('User.representative_role', $user?->representative_role) }}">
+                                value="{{ old('User.representative_role', data_get($user, 'representative_role')) }}">
                             @error('User.representative_role')
                                 <span class="text-danger">{{ $message }}</span>
                             @enderror
@@ -549,7 +560,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ legacy_asset('files/userdocs/' . ($user?->representative_sign ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('files/userdocs/' . (data_get($user, 'representative_sign', 'no_image.gif'))) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -573,7 +584,7 @@
                             <div style="float:left;width:150px;height:150px;">
                                 <div id="old_pic">
                                     <img width='150' height='150'
-                                        src="{{ legacy_asset('img/user_pic/' . ($user?->photo ?? 'no_image.gif')) }}">
+                                        src="{{ legacy_asset('img/user_pic/' . (data_get($user, 'photo', 'no_image.gif'))) }}">
                                 </div>
                             </div>
                             <div style="clear:both;"></div>
@@ -586,7 +597,7 @@
             <label class="col-lg-2 control-label">&nbsp;</label>
             <div class="col-lg-6">
                 <button type="submit" class="btn btn-primary">
-                    {{ empty($user?->id) ? 'Save Profile' : 'Update Profile' }}
+                    {{ empty(data_get($user, 'id')) ? 'Save Profile' : 'Update Profile' }}
                 </button>
                 <button type="button" class="btn left-margin btn-danger" onClick="goBack('/admin/users/index')">
                     {{'Return'}}
@@ -594,9 +605,9 @@
             </div>
         </div>
 
-        <input type="hidden" name="User[is_dealer]" value="{{ old('User.is_dealer', $user?->is_dealer) }}">
-        <input type="hidden" name="User[id]" value="{{ $user?->id }}">
-        <input type="hidden" name="UserLicenseDetail[id]" value="{{ $user?->userLicenseDetail?->id }}">
+        <input type="hidden" name="User[is_dealer]" value="{{ old('User.is_dealer', data_get($user, 'is_dealer', 0)) }}">
+        <input type="hidden" name="User[id]" value="{{ data_get($user, 'id') }}">
+        <input type="hidden" name="UserLicenseDetail[id]" value="{{ data_get($user, 'userLicenseDetail.id') }}">
     </form>
 @endsection
 

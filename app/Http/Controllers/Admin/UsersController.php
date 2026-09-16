@@ -2,20 +2,24 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Http\Controllers\Traits\UsersTrait;
-use App\Http\Controllers\Traits\DriverBackgroundReport;
+use App\Models\Legacy\UserLicenseDetail;
+use App\Services\Legacy\PaymentProcessor;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Database\QueryException;
 use App\Models\Legacy\AdminUserAssociation;
 use App\Models\Legacy\ArgyleUser;
 use App\Models\Legacy\ArgyleUserRecord;
 use App\Models\Legacy\RevSetting;
 use App\Models\Legacy\User as LegacyUser;
 use App\Helpers\Legacy\Security as LegacySecurity;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use App\Helpers\Legacy\Number as LegacyNumber;
+use App\Http\Controllers\Legacy\LegacyAppController;
+use App\Http\Controllers\Traits\UsersTrait;
+use App\Http\Controllers\Traits\DriverBackgroundReport;
 
 class UsersController extends LegacyAppController
 {
@@ -23,259 +27,497 @@ class UsersController extends LegacyAppController
 
     public function index(Request $request)
     {
-        $keyword = trim((string) ($request->query('keyword') ?? ''));
-        $show = trim((string) ($request->query('show') ?? ''));
-        $type = trim((string) ($request->query('type') ?? ''));
-        
-        // Respect the "Records per page" limit from the request
-        $limit = (int) $request->input('Record.limit', $request->input('limit', 50));
-        
-        // Ensure limit is within a reasonable range
-        if (!in_array($limit, [25, 50, 100, 200])) {
-            $limit = 50;
+        $adminUser = $this->getAdminUserid();
+
+        if (empty($adminUser['administrator'])) {
+            return redirect('admin/linked_users/index')->with('error', 'Sorry, you are not authorized user for this action');
         }
 
-        // Handle sorting
+        $title = 'Manage Users';
+        $sessionLimitKey = 'users_limit';
+        $keyword = $request->input('.Search.keyword', $request->input('keyword', ''));
+        $show = $request->input('Search.show', $request->input('show', ''));
+        $type = $request->input('Search.type', $request->input('type', ''));
+
+        if ($request->has('Search.ClearFilter')) {
+            $request->request->remove('Search');
+            return redirect('admin/users/index');
+        }
+
+        $query = LegacyUser::where('is_admin', 0);
+
+        if (!empty($keyword)) {
+            $query->where(function ($q) use ($keyword) {
+                $q->where('first_name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('last_name', 'LIKE', "%{$keyword}%")
+                    ->orWhere('email', 'LIKE', "%{$keyword}%")
+                    ->orWhere('username', 'LIKE', "%{$keyword}%")
+                    ->orWhere('business_name', 'LIKE', "%{$keyword}%");
+            });
+        }
+
+        if ($show === 'Active') {
+            $query->where('status', 1);
+        } elseif ($show === 'Deactive') {
+            $query->where('status', 0);
+        }
+
+        switch ($type) {
+            case 1:
+                $query->where('is_verified', 1);
+                break;
+            case 2:
+                $query->where('is_verified', 0);
+                break;
+            case 3:
+                $query->where('is_renter', 1);
+                break;
+            case 4:
+                $query->where('is_driver', 1);
+                break;
+            case 5:
+                $query->where('is_dealer', 1);
+                break;
+            case 6:
+                $query->where('is_dealer', 2);
+                break;
+        }
+
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            session([$sessionLimitKey => $limit]);
+        } else {
+            $limit = session($sessionLimitKey, $this->recordsPerPage);
+        }
+
         $sort = $request->input('sort', 'id');
         $direction = $request->input('direction', 'desc');
         $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
-
-        // Allowed sortable columns
         $allowedSort = [
-            'id', 'first_name', 'last_name', 'email', 'contact_number', 
-            'created', 'status', 'is_verified', 'is_renter', 
-            'is_driver', 'is_dealer', 'checkr_status', 'trash'
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'contact_number',
+            'created',
+            'status',
+            'is_verified',
+            'is_renter',
+            'is_driver',
+            'is_dealer',
+            'checkr_status',
+            'trash'
         ];
+
         if (!in_array($sort, $allowedSort)) {
             $sort = 'id';
         }
 
-        $q = LegacyUser::query()
-            ->where('is_admin', 0)
-            ->orderBy($sort, $direction);
-
-        if ($show === 'Active') {
-            $q->where('status', 1);
-        } elseif ($show === 'Deactive') {
-            $q->where('status', 0);
-        }
-
-        if ($keyword !== '') {
-            $like = "%{$keyword}%";
-            $q->where(function ($qq) use ($like) {
-                $qq->where('first_name', 'like', $like)
-                    ->orWhere('last_name', 'like', $like)
-                    ->orWhere('email', 'like', $like)
-                    ->orWhere('username', 'like', $like)
-                    ->orWhere('business_name', 'like', $like);
-            });
-        }
-
-        if ($type === '1') {
-            $q->where('is_verified', 1);
-        } elseif ($type === '2') {
-            $q->where('is_verified', 0);
-        } elseif ($type === '3') {
-            $q->where('is_renter', 1);
-        } elseif ($type === '4') {
-            $q->where('is_driver', 1);
-        } elseif ($type === '5') {
-            $q->where('is_dealer', 1);
-        } elseif ($type === '6') {
-            $q->where('is_dealer', 2);
-        }
-
-        $users = $q->paginate($limit);
+        $users = $query->orderBy($sort, $direction)->paginate($limit);
 
         if (request()->ajax()) {
-            return view('admin.elements.users.index', [
-                'users' => $users,
-                'keyword' => $keyword,
-                'show' => $show,
-                'type' => $type,
-                'limit' => $limit,
-            ]);
+            return view('admin.users.elements.index', compact('users', 'keyword', 'show', 'type', 'limit', ));
         }
 
-        return view('admin.users.index', [
-            'listTitle' => 'Manage Users',
-            'users' => $users,
-            'keyword' => $keyword,
-            'show' => $show,
-            'type' => $type,
-            'limit' => $limit,
-        ]);
+        return view('admin.users.index', compact('title', 'users', 'keyword', 'show', 'type', 'limit', ));
     }
-
-    public function status(Request $request, $id = null, $status = null)
+    public function status($id = null, $status = null)
     {
         $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update(['status' => ((string) $status === '1') ? 1 : 0]);
-        }
-        return $this->redirectBackOr('/admin/users/index', $request)
-            ->with('success', 'User status has been changed.');
-    }
 
-    public function trash(Request $request, $id = null, $status = null)
-    {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update(['trash' => ((string) $status === '1') ? 1 : 0]);
-        }
-        return $this->redirectBackOr('/admin/users/index', $request)
-            ->with('success', 'User status has been changed.');
-    }
+        if (!empty($userId)) {
+            $user = LegacyUser::find($userId);
 
-    public function verify(Request $request, $id = null)
-    {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update([
-                'is_verified' => 1,
-                'verify_token' => '',
-            ]);
-            // Mirror CakePHP admin_verify: save lead association on verification
-            $user = LegacyUser::query()->whereKey($userId)->first(['username']);
-            if ($user && !empty($user->username)) {
-                AdminUserAssociation::saveLeadAssociation($user->username, $userId);
+            if ($user) {
+                $user->status = ((string) $status === '1') ? 1 : 0;
+                $user->save();
             }
         }
-        return $this->redirectBackOr('/admin/users/index', $request)
-            ->with('success', 'User status has been changed.');
-    }
 
-    public function driverstatus(Request $request, $id = null, $status = null)
+        return redirect()->back()->with('success', 'User status has been changed.');
+    }
+    public function trash($id = null, $status = null)
     {
         $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update(['is_driver' => ((string) $status === '1') ? 1 : 0]);
+
+        if (!empty($userId)) {
+            $user = LegacyUser::find($userId);
+
+            if ($user) {
+                $user->trash = ((string) $status === '1') ? 1 : 0;
+                $user->save();
+            }
         }
-        return $this->redirectBackOr('/admin/users/index', $request)
-            ->with('success', 'User status has been changed.');
-    }
 
-    public function view(Request $request, $id = null)
+        return redirect()->back()->with('success', 'User status has been changed.');
+    }
+    public function verify($id = null)
     {
         $userId = $this->decodeId($id);
-        $user = $userId ? LegacyUser::query()->find($userId) : null;
+
+        if ($userId) {
+            $user = LegacyUser::find($userId);
+
+            if ($user) {
+                $user->is_verified = 1;
+                $user->verify_token = '';
+                $user->save();
+
+                if (!empty($user->username)) {
+                    AdminUserAssociation::saveLeadAssociation($user->username, $userId);
+                }
+            }
+
+        }
+
+        return redirect()->back()->with('success', 'User status has been changed.');
+    }
+    public function driverstatus($id = null, $status = null)
+    {
+        $userId = $this->decodeId($id);
+
+        if (!empty($userId)) {
+            $user = LegacyUser::find($userId);
+
+            if ($user) {
+                $user->is_driver = ((string) $status === '1') ? 1 : 0;
+                $user->save();
+            }
+        }
+
+        return redirect()->back()->with('success', 'User status has been changed.');
+    }
+    public function view($id = null)
+    {
+        $title = 'View User';
+        $userId = $this->decodeId($id);
+        $user = LegacyUser::find($userId);
+
         if (!$user) {
             return redirect('/admin/users/index');
         }
-        return view('admin.users.view', [
-            'listTitle' => 'View User',
-            'user' => $user,
-        ]);
-    }
 
-    public function delete(Request $request, $id = null)
+        return view('admin.users.view', compact('title', 'user'));
+    }
+    public function delete($id = null)
     {
         $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->delete();
-        }
-        return redirect('/admin/users/index')
-            ->with('success', 'User has been deleted successfully.');
-    }
 
+        if ($userId) {
+            $user = LegacyUser::find($userId);
+
+            if ($user) {
+                $user->delete();
+            }
+
+        }
+
+        return redirect()->back()->with('success', 'User has been deleted successfully.');
+    }
     public function add(Request $request, $id = null)
     {
         $userId = $this->decodeId($id);
-        $user   = $userId ? LegacyUser::query()->with('userLicenseDetail')->find($userId) : null;
+        $title = $userId ? 'Update User' : 'Add User';
 
-        // GET: render the form
-        if (!$request->isMethod('POST')) {
-            return $this->renderAddForm($user);
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $data = $request->input('User', []);
+
+            $validator = Validator::make($data, [
+                'first_name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'contact_number' => $userId ? 'nullable' : 'required',
+                'pwd' => $userId ? 'nullable|min:6' : 'required|min:6',
+            ]);
+
+            if ($validator->fails()) {
+                return redirect()->back()->withErrors($validator)->withInput();
+            }
+
+            if (empty($userId)) {
+                $data['username'] = preg_replace("/[^0-9]/", "", $data['contact_number'] ?? '');
+                $data['is_verified'] = 1;
+                $data['status'] = 1;
+            }
+
+            if (!empty($data['licence_number'])) {
+                $data['is_driver'] = 1;
+                $data['licence_number'] = LegacySecurity::encrypt($data['licence_number']);
+            }
+
+            if (!empty($data['ss_no'])) {
+                $data['ss_no'] = LegacySecurity::encrypt($data['ss_no']);
+            }
+
+            if (!empty($data['pwd'])) {
+                $data['password'] = LegacySecurity::hash($data['pwd'], null, true);
+            } else {
+                unset($data['pwd']);
+            }
+
+            $address = ($data['address'] ?? '') . " " . ($data['city'] ?? '') . ' ' . ($data['state'] ?? '') . ' ' . ($data['zip'] ?? '');
+            $latlng = $this->commonService->toCoordinates($address);
+
+            if (!empty($latlng['lat']) && !empty($latlng['lng'])) {
+                $data['address_lat'] = $latlng['lat'];
+                $data['address_lng'] = $latlng['lng'];
+            }
+
+            $user = LegacyUser::updateOrCreate(
+                ['id' => $userId],
+                collect($data)->except(['photo', 'updatelicense'])->toArray()
+            );
+
+            $userId = $user->id;
+            $uploadPhotoPath = public_path('img/user_pic');
+
+            if (!file_exists($uploadPhotoPath)) {
+                mkdir($uploadPhotoPath, 0755, true);
+            }
+
+            if ($request->hasFile('User.photo')) {
+                $photoFile = $request->file('User.photo');
+                $photoName = $photoFile->getClientOriginalName();
+                $photoFile->move($uploadPhotoPath, $photoName);
+                $user->photo = $photoName;
+                $user->save();
+            }
+
+            $docFields = ['tmp_doc_1' => 'license_doc_1', 'representative_sign' => 'representative_sign', 'tmp_doc_2' => 'license_doc_2'];
+            $allowedExtensions = ['jpeg', 'jpg', 'png'];
+            $uploadFilePath = public_path('files/userdocs');
+
+            if (!file_exists($uploadFilePath)) {
+                mkdir($uploadFilePath, 0755, true);
+            }
+
+            foreach ($docFields as $inputKey => $dbColumn) {
+                if ($request->hasFile($inputKey)) {
+                    $file = $request->file($inputKey);
+                    $ext = strtolower($file->getClientOriginalExtension());
+
+                    if (in_array($ext, $allowedExtensions)) {
+                        $filename = "{$dbColumn}_{$userId}.{$ext}";
+                        $file->move($uploadFilePath, $filename);
+                        $user->$dbColumn = $filename;
+                        $user->save();
+                    }
+                }
+            }
+
+            if (isset($data['is_dealer']) && $data['is_dealer'] != 1) {
+                $licenseInput = $request->input('UserLicenseDetail', []);
+                $licenseData = [
+                    'dateOfExpiry' => $data['licence_exp_date'] ?? null,
+                    'documentNumber' => $user->licence_number,
+                    'user_id' => $userId,
+                    'lastName' => $licenseInput['lastName'] ?? null,
+                    'givenName' => $licenseInput['givenName'] ?? null,
+                    'dateOfBirth' => $licenseInput['dateOfBirth'] ?? null,
+                    'addressStreet' => $licenseInput['addressStreet'] ?? null,
+                    'addressCity' => $licenseInput['addressCity'] ?? null,
+                    'addressState' => $licenseInput['addressState'] ?? null,
+                    'addressPostalCode' => $licenseInput['addressPostalCode'] ?? null,
+                    'jurisdictionRestrictionCodes' => $licenseInput['jurisdictionRestrictionCodes'] ?? '',
+                    'jurisdictionEndorsementCodes' => $licenseInput['jurisdictionEndorsementCodes'] ?? '',
+                    'eyeColor' => $licenseInput['eyeColor'] ?? '',
+                    'height' => $licenseInput['height'] ?? '',
+                    'documentDiscriminator' => $licenseInput['documentDiscriminator'] ?? '',
+                    'issuer' => $licenseInput['issuer'] ?? '',
+                ];
+
+                try {
+                    $userLicenseDetail = UserLicenseDetail::updateOrCreate(
+                        ['user_id' => $userId],
+                        $licenseData
+                    );
+                } catch (QueryException $e) {
+                    // dd($e->getMessage());
+                }
+
+                if (!empty($data['updatelicense'])) {
+                    $checkrStatus = $this->updateCandidateToDriverBackgroundReport($userId);
+                    if ($checkrStatus['status']) {
+                        $user->checkr_status = 2;
+                        $user->save();
+                    } else {
+                        $user->checkr_status = 4;
+                        $user->save();
+                        return redirect()->back()->with('error', $checkrStatus['message']);
+                    }
+                }
+            }
+
+            if (empty($userId)) {
+                AdminUserAssociation::saveLeadAssociation($user->username, $userId);
+                return redirect('admin/users/index')->with('success', "User has been added successfully.");
+            }
+
+            return redirect()->back()->with('success', "User has been updated successfully.");
         }
 
-        // POST: delegate all validation, saving, uploads, and relations
-        //       to _saveUser() defined in UsersTrait
-        $result = $this->_saveUser($request, $userId ?: null);
+        $user = null;
 
-        if (!($result['status'] ?? false)) {
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'An error occurred.');
+        if (!empty($userId)) {
+            $user = LegacyUser::with('userLicenseDetail')->find($userId);
+            if ($user) {
+                if ($user->licence_number) {
+                    $user->licence_number = LegacySecurity::decrypt($user->licence_number);
+                }
+                if ($user->userLicenseDetail && $user->userLicenseDetail->documentNumber) {
+                    $user->userLicenseDetail->documentNumber = LegacySecurity::decrypt($user->userLicenseDetail->documentNumber);
+                }
+            }
         }
 
-        return redirect('/admin/users/index')
-            ->with('success', $result['message']);
+        $currencies = LegacyNumber::getCurrencies();
+        return view('admin.users.add', compact('user', 'title', 'currencies'));
     }
-
-    /**
-     * Shared view-data builder for the add/edit form.
-     */
-    private function renderAddForm(?LegacyUser $user)
-    {
-        return view('admin.users.add', [
-            'listTitle'  => $user ? 'Update User' : 'Add User',
-            'user'       => $user,
-            'currencies' => LegacyNumber::getCurrencies(),
-        ]);
-    }
-
     public function bankdetails(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
+        $title = 'Connect with Stripe';
         $userId = $this->decodeId($id);
-        $user = $userId ? LegacyUser::query()->find($userId) : null;
-        if (!$user) {
-            return redirect('/admin/users/index');
+
+        if ($request->isMethod('post') || $request->isMethod('put')) {
+            $data = $request->input('User', []);
+            $user = LegacyUser::find($userId);
+
+            if ($user) {
+                $data['is_owner'] = 1;
+                $validator = Validator::make($data, [
+                    'business_type' => 'required',
+                    'ss_no' => 'required_if:business_type,individual|nullable|string|max:50',
+                    'ein_no' => 'required_if:business_type,company|nullable|string|max:50',
+                ]);
+
+                if ($validator->fails()) {
+                    return redirect()->back()->withErrors($validator)->withInput();
+                }
+
+                $user->fill($data);
+                $user->save();
+
+                return redirect('admin/users/index')->with('success', 'Bank Account Details updated successfully.');
+            }
         }
-        if ((int) ($user->is_owner ?? 0) !== 1) {
-            return redirect('/admin/users/index');
+
+        $user = null;
+
+        if (!empty($userId)) {
+            $user = LegacyUser::find($userId);
+
+            if (!$user) {
+                return redirect('admin/users/index')->with('error', 'User not found.');
+            }
+
+            if (!$user->is_owner) {
+                return redirect()->back();
+            }
         }
 
-        if ($request->isMethod('POST')) {
-            // Flat field names match admin_bankdetails.blade.php
-            $businessType = (string) $request->input('business_type', $user->business_type ?? 'individual');
-            $ssNo  = trim((string) $request->input('ss_no', ''));
-            $einNo = trim((string) $request->input('ein_no', ''));
-
-            LegacyUser::query()->whereKey($userId)->update([
-                'business_type' => $businessType,
-                // Encrypt sensitive fields to match CakePHP admin_bankdetails
-                'ss_no'         => $ssNo  !== '' ? LegacySecurity::encrypt($ssNo)  : '',
-                'ein_no'        => $einNo !== '' ? LegacySecurity::encrypt($einNo) : '',
-                'is_owner'      => 1,
-            ]);
-
-            return redirect('/admin/users/index')->with('success', 'Bank Account Details updated successfully.');
-        }
-
-        return view('admin.users.bankdetails', [
-            'listTitle' => 'Connect with Stripe',
-            'user'      => $user,
-            'id'        => $userId,
-        ]);
+        return view('admin.users.bankdetails', compact('user', 'title'));
     }
-
-    public function getmystripeurl(Request $request): JsonResponse
+    public function getmystripeurl(Request $request)
     {
-        return response()->json([
+        $return = [
             'status' => false,
-            'message' => 'Stripe connect flow is not migrated in Laravel yet. Use legacy flow.',
-            'result' => [],
-        ]);
+            'message' => "Something went wrong",
+            'result' => []
+        ];
+
+        $userId = $request->input('User.id');
+        $businessType = $request->input('User.business_type');
+
+        if (!empty($userId)) {
+            $user = LegacyUser::find($userId);
+
+            if ($user) {
+                $base64Id = $this->decodeId($userId);
+                $siteUrl = config('app.url');
+                $oauth_url = config('legacy.STRIPE.oauth_url');
+                $clientId = config('legacy.STRIPE.client_id');
+                $queryParams = [
+                    'response_type' => 'code',
+                    'client_id' => $clientId,
+                    'scope' => 'read_write',
+                    'state' => $base64Id,
+                    'stripe_user' => [
+                        'business_type' => $businessType,
+                        'first_name' => $user->first_name,
+                        'last_name' => $user->last_name,
+                        'email' => $user->email,
+                        'country' => 'US',
+                        'phone_number' => $user->contact_number,
+                        'street_address' => $user->address,
+                        'city' => $user->city,
+                        'state' => $user->state,
+                        'zip' => $user->zip,
+                    ],
+                ];
+
+                if (app()->environment('local')) {
+                    $queryParams['redirect_uri'] = "{$siteUrl}/StripeAuths/index";
+                } else {
+                    $queryParams['stripe_user']['business_name'] = "{$user->first_name} {$user->last_name}";
+                }
+
+                $url = "{$oauth_url}?" . http_build_query($queryParams);
+
+                $einInput = $request->input('User.ein_no', '');
+                $ssnInput = $request->input('User.ss_no', '');
+                $ein = !empty($einInput) ? LegacySecurity::encrypt($einInput) : '';
+                $ssn = !empty($ssnInput) ? LegacySecurity::encrypt($ssnInput) : '';
+
+                if (
+                    $businessType == 'individual'
+                    || $businessType == 'company'
+                ) {
+                    // $user->update([
+                    //     'ss_no' => $businessType == 'individual' ? $ssn : null,
+                    //     'ein_no' => $businessType == 'company' ? $ein : null,
+                    // ]);
+
+                    $return = [
+                        'status' => true,
+                        'message' => "You will be redirected to Stripe portal",
+                        'result' => ["url" => $url]
+                    ];
+                }
+            }
+        }
+
+        return response()->json($return);
+    }
+    public function getstripeloginurl(Request $request)
+    {
+        $return = [
+            'status' => false,
+            'message' => "Something went wrong",
+            'result' => []
+        ];
+
+        $stripeKey = $request->input('stripekey');
+
+        if (!empty($stripeKey)) {
+            $paymentProcessorObj = new PaymentProcessor();
+            $return = $paymentProcessorObj->createLoginLink($stripeKey);
+        }
+
+        return response()->json($return);
     }
 
-    public function getstripeloginurl(Request $request): JsonResponse
-    {
-        return response()->json([
-            'status' => false,
-            'message' => 'Stripe login link is not migrated in Laravel yet. Use legacy flow.',
-            'result' => [],
-        ]);
-    }
+
+
+
 
     public function loadPayoutSchedule(Request $request)
     {
         // Use admin_load_payout_schedule — a modal partial with full payout form
         return view('admin.users.load_payout_schedule', [
-            'token'      => (string) $request->input('stripekey', ''),
+            'token' => (string) $request->input('stripekey', ''),
             'Loadeddata' => [],  // Stripe payout schedule not migrated yet
         ]);
     }
@@ -304,13 +546,13 @@ class UsersController extends LegacyAppController
         if ($request->isMethod('POST')) {
             // admin_revsetting.blade.php uses flat field names (rev, transfer_rev, etc.)
             $save = [
-                'user_id'      => $userId,
-                'rev'          => (float) $request->input('rev', 0),
-                'transfer_rev' => (int)   $request->input('transfer_rev', 0),
-                'transfer_insu'=> (int)   $request->input('transfer_insu', 0),
-                'rental_rev'   => (float) $request->input('rental_rev', 0),
-                'tax_included' => (int)   $request->input('tax_included', 0),
-                'dia_fee'      => (float) $request->input('dia_fee', 0),
+                'user_id' => $userId,
+                'rev' => (float) $request->input('rev', 0),
+                'transfer_rev' => (int) $request->input('transfer_rev', 0),
+                'transfer_insu' => (int) $request->input('transfer_insu', 0),
+                'rental_rev' => (float) $request->input('rental_rev', 0),
+                'tax_included' => (int) $request->input('tax_included', 0),
+                'dia_fee' => (float) $request->input('dia_fee', 0),
             ];
 
             RevSetting::query()->updateOrCreate(
@@ -322,7 +564,7 @@ class UsersController extends LegacyAppController
         }
 
         return view('admin.users.revsetting', [
-            'user_id'    => $userId,
+            'user_id' => $userId,
             'revSetting' => $revSetting,
         ]);
     }
@@ -341,9 +583,9 @@ class UsersController extends LegacyAppController
 
         if ($request->isMethod('POST')) {
             // admin_change_phone.blade.php uses flat field names (contact_number, old_username)
-            $contact     = trim((string) $request->input('contact_number', ''));
+            $contact = trim((string) $request->input('contact_number', ''));
             $oldUsername = trim((string) $request->input('old_username', $user->username ?? ''));
-            $username    = substr(preg_replace('/[^0-9]/', '', $contact), -10);
+            $username = substr(preg_replace('/[^0-9]/', '', $contact), -10);
 
             if ($username === '') {
                 return redirect('/admin/users/change_phone/' . base64_encode((string) $userId))
@@ -352,12 +594,12 @@ class UsersController extends LegacyAppController
 
             $save = [
                 'contact_number' => $username,
-                'username'       => $username,
+                'username' => $username,
             ];
 
             if ($username !== $oldUsername) {
-                $save['is_verified']  = 0;
-                $save['status']       = 0;
+                $save['is_verified'] = 0;
+                $save['status'] = 0;
                 $save['verify_token'] = (string) random_int(10000, 99999);
             }
 
@@ -368,8 +610,8 @@ class UsersController extends LegacyAppController
 
         return view('admin.users.change_phone', [
             'listTitle' => 'Change Phone#',
-            'id'        => $userId,
-            'user'      => $user,
+            'id' => $userId,
+            'user' => $user,
         ]);
     }
 
@@ -392,9 +634,9 @@ class UsersController extends LegacyAppController
 
         // admin_showargyldetails uses $ArgyleUser array structure — pass both for compatibility
         return view('admin.users.showargyldetails', [
-            'argyleUser'    => $argyleUser,
+            'argyleUser' => $argyleUser,
             'argyleRecords' => $records,
-            'ArgyleUser'    => $argyleUser ? $argyleUser->toArray() : [],
+            'ArgyleUser' => $argyleUser ? $argyleUser->toArray() : [],
         ]);
     }
 
@@ -551,7 +793,7 @@ class UsersController extends LegacyAppController
             } else {
                 session()->flash('error', $report['message']);
             }
-        } elseif (!empty($userReport) && (int)$userReport->status === 0) {
+        } elseif (!empty($userReport) && (int) $userReport->status === 0) {
             $CheckrReport = $this->createBackgroundReport($userId);
             if ($CheckrReport['status']) {
                 session()->flash('success', "User Report is requested");

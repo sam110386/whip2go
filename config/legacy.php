@@ -215,4 +215,9 @@ return [
 
     'MAX_ALLOWED_BOOKING_EXT' => 2,
 
+    'STRIPE' => [
+        'oauth_url' => env('STRIPE_OAUTH_URL', 'https://connect.stripe.com/express/oauth/authorize'),
+        'client_id' => env('STRIPE_CLIENT_ID', ''),
+    ],
+
 ];

@@ -1,13 +1,11 @@
 <?php
 namespace App\Http\Controllers\Admin;
 
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Models\Legacy\CsOrderPayment;
 use App\Models\Legacy\CsUserBalance;
 use App\Models\Legacy\CsUserBalanceLog;
 use App\Http\Controllers\Legacy\LegacyAppController;
-use Carbon\Carbon;
 
 class CustomerBalancesController extends LegacyAppController
 {
@@ -25,9 +23,63 @@ class CustomerBalancesController extends LegacyAppController
             '21' => 'Credit Deposit to Virtual Card',
         ];
     }
-    private static function weekdays(): array
+    public function index(Request $request)
     {
-        return [
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $title = 'Customer Balance';
+        $limitName = 'cs_user_balances_limit';
+        $keyword = $request->input('Search.keyword', $request->input('keyword', ''));
+        $type = $request->input('Search.type', $request->input('type', ''));
+        $status = $request->input('Search.status', $request->input('status', ''));
+
+        if ($request->filled('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            session([$limitName => $limit]);
+        } else {
+            $limit = session($limitName, $this->recordsPerPage);
+        }
+
+        $query = CsUserBalance::with('user:id,first_name,last_name,is_driver,is_dealer');
+
+        if ($status !== null && $status !== '') {
+            $query->where('status', $status);
+        }
+
+        if (!empty($keyword) || $type == 1 || $type == 2) {
+            $query->whereHas('user', function ($q) use ($keyword, $type) {
+                if (!empty($keyword)) {
+                    $q->where('first_name', 'LIKE', "%{$keyword}%");
+                }
+
+                if ($type == 1) {
+                    $q->where('is_driver', 1);
+                } elseif ($type == 2) {
+                    $q->where('is_dealer', 1);
+                }
+            });
+        }
+
+        $csUserBalances = $query->orderBy('id', 'DESC')->paginate($limit);
+        $balanceTypes = self::balanceTypes();
+
+        if ($request->ajax()) {
+            return view('admin.customer_balances.elements.index', compact('csUserBalances', 'keyword', 'type', 'status', 'balanceTypes', 'limit'));
+        }
+
+        return view('admin.customer_balances.index', compact('csUserBalances', 'keyword', 'type', 'status', 'balanceTypes', 'title', 'limit'));
+    }
+    public function add(Request $request, $id = null)
+    {
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
+        }
+
+        $title = 'Add Credit & Debit Charge';
+        $balanceTypes = self::balanceTypes();
+        $weekdays = [
             'sun' => 'Sunday',
             'mon' => 'Monday',
             'tue' => 'Tuesday',
@@ -36,558 +88,259 @@ class CustomerBalancesController extends LegacyAppController
             'fri' => 'Friday',
             'sat' => 'Saturday',
         ];
-    }
-    private static function subscriptionBalanceTypes(): array
-    {
-        return [
-            9 => 'GeoTab Fee',
-            10 => 'Credit Card Chargebacks',
-        ];
-    }
-    private function adminTimezone(): string
-    {
-        $tz = $this->getAdminUserid()['timezone'] ?? null;
+        $id = $this->decodeId($id);
 
-        return $tz !== null && $tz !== '' ? (string) $tz : (string) config('app.timezone');
-    }
-    private function formatAdminDateTime(?string $value): string
-    {
-        if ($value === null || $value === '') {
-            return '';
-        }
-        try {
-            return Carbon::parse($value)->timezone($this->adminTimezone())->format('Y-m-d h:i A');
-        } catch (\Throwable $e) {
-            return (string) $value;
-        }
-    }
-    public function index(Request $request)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
+        if ($request->isMethod('POST')) {
+            $data = $request->input('CsUserBalance', []);
+            $type = $data['type'] ?? null;
+            $note = $data['note'] ?? null;
+            $balance = (float) ($data['balance'] ?? 0);
+            $balanceLog = $balance;
+            $creditdebit = $data['creditdebit'] ?? '';
 
-        $title = 'Customer Balance';
-
-        if ($request->has('ClearFilter')) {
-            $request->session()->forget('customer_balances_search');
-            return redirect('/admin/customer_balances/index');
-        }
-
-        if ($request->isMethod('post')) {
-            if ($request->has('Search')) {
-                $search = $request->input('Search');
-                $request->session()->put('customer_balances_search', $search);
+            if (!array_key_exists($type, $balanceTypes)) {
+                return redirect()->back()->with('error', 'Sorry, please select the correct type');
             }
-            return redirect('/admin/customer_balances/index');
-        }
 
-        if ($request->has('Record.limit')) {
-            $lim = (int) $request->input('Record.limit');
-            if ($lim > 0 && $lim <= 500) {
-                session(['customer_balances_limit' => $lim]);
+            $customerBalance = CsUserBalance::find($id) ?? new CsUserBalance();
+            $debit = !empty($customerBalance->debit) ? (float) $customerBalance->debit : 0;
+            $credit = !empty($customerBalance->credit) ? (float) $customerBalance->credit : 0;
+            $currentBalance = !empty($customerBalance->balance) ? (float) $customerBalance->balance : 0;
+
+            if ($creditdebit === 'credit') {
+                if ($balance > 0) {
+                    if ($balance <= $debit && $debit > 0) {
+                        $debit = $debit - $balance;
+                    } elseif ($balance > $debit && $debit > 0) {
+                        $balance = $balance - $debit;
+                        $debit = 0;
+                    } else {
+                        $credit = $credit + $balance;
+                    }
+
+                    CsUserBalanceLog::create([
+                        'user_id' => $data['user_id'] ?? $customerBalance->user_id,
+                        'credit' => $balanceLog,
+                        'type' => $type,
+                        'owner_id' => 0,
+                        'note' => $note,
+                    ]);
+                }
+
+                $customerBalance->fill([
+                    'user_id' => $data['user_id'] ?? $customerBalance->user_id,
+                    'type' => $type,
+                    'note' => $note,
+                    'credit' => $credit,
+                    'debit' => $debit,
+                    'balance' => ($currentBalance - $balance) > 0 ? ($currentBalance - $balance) : $balance,
+                    'chargetype' => $data['chargetype'] ?? null,
+                    'installment_type' => $data['installment_type'] ?? null,
+                    'installment_day' => $data['installment_day'] ?? null,
+                    'installment' => $data['installment'] ?? 0,
+                ]);
+
+                $customerBalance->save();
+
+                return redirect('admin/customer_balances/index')->with('success', 'Customer balance updated successfully');
+
+            } elseif ($creditdebit === 'debit') {
+                if ($balance > 0) {
+                    if ($balance <= $credit && $credit > 0) {
+                        $credit = $credit - $balance;
+                    } elseif ($balance > $credit && $credit > 0) {
+                        $balance = $balance - $credit;
+                        $credit = 0;
+                    } else {
+                        $debit = $debit + $balance;
+                    }
+
+                    CsUserBalanceLog::create([
+                        'user_id' => $data['user_id'] ?? $customerBalance->user_id,
+                        'debit' => $balanceLog,
+                        'type' => $type,
+                        'owner_id' => 0,
+                        'note' => $note,
+                    ]);
+                }
+
+                $customerBalance->fill([
+                    'user_id' => $data['user_id'] ?? $customerBalance->user_id,
+                    'type' => $type,
+                    'note' => $note,
+                    'credit' => $credit,
+                    'debit' => $debit,
+                    'balance' => ($currentBalance - $balance) > 0 ? 0 : $balance,
+                    'chargetype' => $data['chargetype'] ?? null,
+                    'installment_type' => $data['installment_type'] ?? null,
+                    'installment_day' => $data['installment_day'] ?? null,
+                    'installment' => $data['installment'] ?? 0,
+                ]);
+
+                $customerBalance->save();
+
+                return redirect('admin/customer_balances/index')->with('success', 'Customer balance updated successfully');
+            } else {
+                return redirect()->back()->with('error', 'Sorry, please select the correct credit/debit type');
             }
         }
 
-        $limit = (int) session('customer_balances_limit', 50);
-        if ($limit < 1) {
-            $limit = 50;
-        }
-
-        $search = $request->session()->get('customer_balances_search', []);
-        $keyword = trim((string) ($search['keyword'] ?? ''));
-        $type = trim((string) ($search['type'] ?? ''));
-        $statusStr = (string) ($search['status'] ?? '');
-
-        $sort = $request->input('sort', 'id');
-        $direction = $request->input('direction', 'desc');
-        if (!in_array(strtolower($direction), ['asc', 'desc'])) {
-            $direction = 'desc';
-        }
-
-        $query = CsUserBalance::with('user');
-
-        if ($sort === 'first_name') {
-            $query->select('cs_user_balances.*')
-                ->join('users as u', 'u.id', '=', 'cs_user_balances.user_id')
-                ->orderBy('u.first_name', $direction)
-                ->orderBy('u.last_name', $direction);
-        } elseif (in_array($sort, ['id', 'credit', 'debit', 'balance', 'created', 'status'])) {
-            $query->orderBy($sort, $direction);
-        } else {
-            $query->orderByDesc('id');
-        }
-
-        if ($keyword !== '') {
-            $like = '%' . $keyword . '%';
-            $query->whereHas('user', function ($qq) use ($like) {
-                $qq->where('first_name', 'LIKE', $like)
-                    ->orWhere('last_name', 'LIKE', $like)
-                    ->orWhere('business_name', 'LIKE', $like);
-            });
-        }
-        if ($statusStr !== '') {
-            $query->where('status', (int) $statusStr);
-        }
-        if ($type === '1') {
-            $query->whereHas('user', fn($q) => $q->where('is_driver', 1));
-        }
-        if ($type === '2') {
-            $query->whereHas('user', fn($q) => $q->where('is_dealer', 1));
-        }
-
-        $records = $query->paginate($limit)->appends([
-            'sort' => $sort,
-            'direction' => $direction
-        ]);
-
-        $balanceTypes = self::balanceTypes();
-        $formatDt = fn($v) => $this->formatAdminDateTime($v !== null ? (string) $v : null);
-
-        if ($request->ajax()) {
-            return view('admin.customer_balances._listing', [
-                'records' => $records,
-                'balanceTypes' => $balanceTypes,
-                'formatDt' => $formatDt,
-                'subscriptionMode' => false,
-                'subscriptionUserId' => null,
-            ]);
-        }
-
-        return view('admin.customer_balances.index', [
-            'title',
-            'records' => $records,
-            'keyword' => $keyword,
-            'type' => $type,
-            'status' => $statusStr,
-            'limit' => $limit,
-            'balanceTypes' => $balanceTypes,
-            'formatDt' => $formatDt,
-        ]);
+        $csUserBalance = CsUserBalance::find($id);
+        return view('admin.customer_balances.add', compact('title', 'csUserBalance', 'balanceTypes', 'weekdays'));
     }
-
-    public function status($id = null, $status = null): RedirectResponse
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $pk = $this->decodeId($id);
-        if ($pk !== null) {
-            $newStatus = ((int) $status === 1) ? 1 : 0;
-            CsUserBalance::where('id', (int) $pk)->update(['status' => $newStatus]);
-        }
-
-        return redirect()->back()->with('success', 'Record status is changed successfully.');
-    }
-
-    public function relatedpayments($id = null)
-    {
-        if ($redirect = $this->ensureAdminSession()) {
-            return $redirect;
-        }
-
-        $pk = $this->decodeId($id);
-        if ($pk === null) {
-            return redirect('/admin/customer_balances/index')->with('error', 'Sorry, wrong attempt');
-        }
-
-        $row = CsUserBalance::find((int) $pk);
-        if ($row === null) {
-            return redirect('/admin/customer_balances/index')->with('error', 'Sorry, respective record is not found');
-        }
-
-        $userId = (int) $row->user_id;
-
-        $balances = CsUserBalance::query()
-            ->where('user_id', $userId)
-            ->orderByDesc('id')
-            ->get();
-
-        $payments = CsOrderPayment::with('csOrder')
-            ->where('type', 6)
-            ->where('status', 1)
-            ->whereHas('csOrder', fn($q) => $q->where('renter_id', $userId))
-            ->orderByDesc('id')
-            ->get();
-
-        $formatDt = fn($v) => $this->formatAdminDateTime($v !== null ? (string) $v : null);
-
-        return view('admin.customer_balances.relatedpayments', [
-            'listTitle' => 'Credit/Debit Payment Details',
-            'balances' => $balances,
-            'payments' => $payments,
-            'formatDt' => $formatDt,
-        ]);
-    }
-
     public function subscription(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId = $this->decodeId($userid);
-        if ($userId === null) {
-            return redirect('/admin/customer_balances/index')->with('error', 'Invalid user.');
-        }
-
-        if ($request->has('Record.limit')) {
-            $lim = (int) $request->input('Record.limit');
-            if ($lim > 0 && $lim <= 500) {
-                session(['customer_balances_limit' => $lim]);
-            }
-        }
-
-        $limit = (int) session('customer_balances_limit', 50);
-        if ($limit < 1) {
-            $limit = 50;
-        }
-
-        $sort = $request->input('sort', 'id');
-        $direction = $request->input('direction', 'desc');
-        if (!in_array(strtolower($direction), ['asc', 'desc'])) {
-            $direction = 'desc';
-        }
-
-        $query = CsUserBalance::where('user_id', $userId);
-
-        // Dynamic sorting
-        if (in_array($sort, ['id', 'credit', 'debit', 'balance', 'created', 'status'])) {
-            $query->orderBy($sort, $direction);
-        } else {
-            $query->orderByDesc('id');
-        }
-
-        $records = $query->paginate($limit)->appends([
-            'sort' => $sort,
-            'direction' => $direction
-        ]);
-
+        $title = 'Dealer Charges';
+        $sessLimitName = 'customer_balances_subscription_limit';
+        $userid = $this->decodeId($userid);
         $balanceTypes = self::balanceTypes();
-        $formatDt = fn($v) => $this->formatAdminDateTime($v !== null ? (string) $v : null);
+
+        if ($request->filled('Record.limit')) {
+            $limit = $request->input('Record.limit');
+            session([$sessLimitName => $limit]);
+        } else {
+            $limit = session($sessLimitName, $this->recordsPerPage);
+        }
+
+        $csUserBalances = CsUserBalance::where('user_id', $userid)
+            ->orderBy('id', 'DESC')
+            ->paginate($limit);
+
 
         if ($request->ajax()) {
-            return view('admin.customer_balances._listing', [
-                'records' => $records,
-                'balanceTypes' => $balanceTypes,
-                'formatDt' => $formatDt,
-                'subscriptionMode' => true,
-                'subscriptionUserId' => $userId,
-            ]);
+            return view('admin.customer_balances.elements.subscription', compact('title', 'userid', 'csUserBalances', 'balanceTypes', 'limit'));
         }
 
-        return view('admin.customer_balances.subscription', [
-            'records' => $records,
-            'userid' => $userId,
-            'useridB64' => base64_encode((string) $userId),
-            'limit' => $limit,
-            'balanceTypes' => $balanceTypes,
-            'formatDt' => $formatDt,
-        ]);
+        return view('admin.customer_balances.subscription', compact('title', 'userid', 'csUserBalances', 'balanceTypes', 'limit'));
     }
-
     public function addsubscription(Request $request, $userid = null, $id = '')
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId = $this->decodeId($userid);
-        if ($userId === null) {
-            return redirect('/admin/users/index')->with('error', 'Sorry, please choose customer again');
+        $listTitle = 'Dealer Charges';
+        $balanceTypes = [
+            9 => "GeoTab Fee",
+            10 => "Credit Card Chargebacks"
+        ];
+        $userid = $this->decodeId($userid);
+
+        if (empty($userid)) {
+            return redirect('admin/users/index')->with('error', 'Sorry, please choose customer again');
         }
 
-        $balancePk = $this->decodeId($id);
+        if ($request->isMethod('post')) {
+            $data = $request->input('CsUserBalance', []);
+            $type = $data['type'] ?? null;
+            $note = $data['note'] ?? null;
+            $balance = (float) ($data['balance'] ?? 0);
+            $customerBalance = CsUserBalance::find($id) ?? new CsUserBalance();
+            $customerBalance->user_id = $userid;
 
-        $balanceTypes = self::subscriptionBalanceTypes();
-        $weekdays = self::weekdays();
+            if ($balance > 0) {
+                $debit = !empty($customerBalance->debit) ? (float) $customerBalance->debit : 0;
+                $credit = !empty($customerBalance->credit) ? (float) $customerBalance->credit : 0;
+                $currentBalance = !empty($customerBalance->balance) ? (float) $customerBalance->balance : 0;
 
-        if ($request->isMethod('POST')) {
-            return $this->processAdminAddsubscriptionPost($request, $userId, $balanceTypes);
-        }
+                if ($type != 9) {
+                    if ($balance <= $debit && $debit > 0) {
+                        $debit = $debit - $balance;
+                    } elseif ($balance > $debit && $debit > 0) {
+                        $balance = $balance - $debit;
+                        $debit = 0;
+                    } else {
+                        $credit = $credit + $balance;
+                    }
 
-        $balance = null;
-        if ($balancePk !== null) {
-            $balance = CsUserBalance::query()
-                ->where('user_id', $userId)
-                ->where('id', $balancePk)
-                ->first();
-            if ($balance === null) {
-                return redirect('/admin/customer_balances/subscription/' . base64_encode((string) $userId))
-                    ->with('error', 'Record not found.');
-            }
-        }
-
-        return view('admin.customer_balances.addsubscription', [
-            'listTitle' => 'Dealer Charges',
-            'balance' => $balance,
-            'userid' => $userId,
-            'useridB64' => base64_encode((string) $userId),
-            'balanceTypes' => $balanceTypes,
-            'weekdays' => $weekdays,
-        ]);
-    }
-
-    private function processAdminAddsubscriptionPost(Request $request, int $userId, array $balanceTypes): RedirectResponse
-    {
-        $row = $request->input('CsUserBalance', []);
-        if (!is_array($row)) {
-            $row = [];
-        }
-
-        $type = isset($row['type']) ? (int) $row['type'] : 0;
-        if (!array_key_exists($type, $balanceTypes)) {
-            return redirect()->back()->with('error', 'Invalid charge type.');
-        }
-
-        $note = isset($row['note']) ? (string) $row['note'] : '';
-        $amount = isset($row['balance']) ? (float) $row['balance'] : 0.0;
-
-        $postBalId = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : 0;
-        $model = null;
-        if ($postBalId > 0) {
-            $model = CsUserBalance::query()
-                ->where('user_id', $userId)
-                ->where('id', $postBalId)
-                ->first();
-        }
-        if ($model === null) {
-            $model = new CsUserBalance();
-            $model->user_id = $userId;
-        }
-
-        $model->owner_id = 0;
-        $model->user_id = $userId;
-
-        if ($amount > 0) {
-            $debit = (float) ($model->debit ?: 0);
-            $credit = (float) ($model->credit ?: 0);
-            $bal = $amount;
-
-            if ($type !== 9) {
-                if ($bal <= $debit && $debit > 0) {
-                    $debit = $debit - $bal;
-                } elseif ($bal > $debit && $debit > 0) {
-                    $bal = $bal - $debit;
-                    $debit = 0;
+                    $customerBalance->credit = $credit;
+                    $customerBalance->balance = ($currentBalance - $balance) > 0 ? 0 : $balance;
+                    $customerBalance->debit = $debit;
+                    $customerBalance->installment = $data['installment'] ?? 0;
                 } else {
-                    $credit = $credit + $bal;
+                    $customerBalance->balance = $balance;
+                    $customerBalance->installment = $balance;
                 }
-                $model->credit = $credit;
-                $oldBalance = (float) ($model->balance ?: 0);
-                $model->balance = (($oldBalance - $bal) > 0 ? 0 : $bal);
-                $model->debit = $debit;
-                $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
-            } else {
-                $model->balance = $amount;
-                $model->installment = $amount;
+
+                $customerBalance->type = $type;
+                $customerBalance->note = $note;
+                $customerBalance->chargetype = $data['chargetype'] ?? null;
+                $customerBalance->installment_type = $data['installment_type'] ?? null;
+                $customerBalance->installment_day = $data['installment_day'] ?? null;
             }
 
-            $model->type = $type;
-            $model->note = $note;
-            $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'subscription';
-            $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
-            $model->installment_day = isset($row['installment_day']) ? (string) $row['installment_day'] : 'sun';
+            $customerBalance->save();
+
+            return redirect('admin/customer_balances/subscription/' . base64_encode($userid))->with('success', 'Customer balance updated successfully');
         }
 
-        if (!$model->exists) {
-            $model->status = (int) ($model->status ?? 1);
+        $csUserBalances = null;
+
+        if (!empty($id)) {
+            $csUserBalances = CsUserBalance::where('user_id', $userid)->where('id', $id)->first();
         }
 
-        $this->primeBalanceFields($model);
-        $model->save();
-
-        return redirect('/admin/customer_balances/subscription/' . base64_encode((string) $userId))
-            ->with('success', 'Customer balance updated successfully.');
+        return view('admin.customer_balances.addsubscription', compact('csUserBalances', 'title', 'balanceTypes', 'userid', 'id'));
     }
-
-    public function add(Request $request, $id = null)
+    public function status($id = null, $status = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $balanceTypes = self::balanceTypes();
-        $weekdays = self::weekdays();
+        $id = $this->decodeId($id);
 
-        $balancePk = $this->decodeId($id);
+        if (!empty($id)) {
+            $userBalance = CsUserBalance::find($id);
 
-        if ($request->isMethod('POST')) {
-            return $this->processAdminAddPost($request, $balanceTypes);
-        }
-
-        $balance = $balancePk !== null
-            ? CsUserBalance::find($balancePk)
-            : null;
-
-        if ($balance === null && $request->has('user_id')) {
-            $balance = CsUserBalance::where('user_id', $request->query('user_id'))->first();
-            if ($balance && $id === null) {
-                // If we found an existing balance and we are in "Add" mode (no ID), 
-                // we should probably redirect to the proper edit URL or at least use it as base.
-                // For now, just letting it fall through so the view populates.
+            if ($userBalance) {
+                $userBalance->status = ((int) $status == 1) ? 1 : 0;
+                $userBalance->save();
             }
         }
 
-        if ($balancePk !== null && $balance === null) {
-            return redirect('/admin/customer_balances/index')->with('error', 'Balance record not found.');
-        }
-
-        return view('admin.customer_balances.add', [
-            'listTitle' => 'Add Credit & Debit Charge',
-            'balance' => $balance,
-            'balanceTypes' => $balanceTypes,
-            'weekdays' => $weekdays,
-        ]);
+        return redirect()->back()->with('success', 'Record status is changed successfully.');
     }
-
-    private function processAdminAddPost(Request $request, array $balanceTypes): RedirectResponse
+    public function relatedpayments($id = null)
     {
-        $row = $request->input('CsUserBalance', []);
-        if (!is_array($row)) {
-            $row = [];
+        if ($redirect = $this->ensureAdminSession()) {
+            return $redirect;
         }
 
-        $type = isset($row['type']) ? (string) $row['type'] : '';
-        $note = isset($row['note']) ? (string) $row['note'] : '';
-        $creditdebit = isset($row['creditdebit']) ? (string) $row['creditdebit'] : '';
-        $amount = isset($row['balance']) ? (float) $row['balance'] : 0.0;
-        $balancelog = $amount;
+        $title = 'Credit/Debit Payment Details';
+        $id = $this->decodeId($id);
 
-        $existingId = isset($row['id']) && $row['id'] !== '' ? (int) $row['id'] : 0;
-        $model = $existingId > 0 ? CsUserBalance::find($existingId) : new CsUserBalance();
-        if ($existingId > 0 && $model === null) {
-            return redirect()->back()->with('error', 'Record not found.');
-        }
-        if ($model === null) {
-            $model = new CsUserBalance();
+        if (empty($id)) {
+            return redirect('/admin/customer_balances/index')->with('error', 'Sorry, wrong attempt');
         }
 
-        if ($creditdebit === 'credit') {
-            if (!array_key_exists($type, $balanceTypes)) {
-                return redirect()->back()->with('error', 'Sorry, please select the correct type');
-            }
-            if ($amount > 0) {
-                $debit = (float) ($model->debit ?: 0);
-                $credit = (float) ($model->credit ?: 0);
-                $bal = $amount;
-                if ($bal <= $debit && $debit > 0) {
-                    $debit = $debit - $bal;
-                } elseif ($bal > $debit && $debit > 0) {
-                    $bal = $bal - $debit;
-                    $debit = 0;
-                } else {
-                    $credit = $credit + $bal;
-                }
+        $csUserBalance = CsUserBalance::find($id);
 
-                $model->note = $note;
-                $model->credit = $credit;
-                $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
-                $model->debit = $debit;
-                $model->type = (int) $type;
-                $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'lumpsum';
-                $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
-                $model->installment_day = $row['installment_day'] ?? null;
-                $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
-
-                $uidForLog = (int) ($model->user_id ?: ($row['user_id'] ?? 0));
-                if ($uidForLog > 0) {
-                    CsUserBalanceLog::create([
-                        'user_id' => $uidForLog,
-                        'credit' => $balancelog,
-                        'debit' => 0,
-                        'type' => (int) $type,
-                        'owner_id' => 0,
-                        'note' => $note,
-                    ]);
-                }
-            } else {
-                $model->note = $note;
-                $model->type = (int) $type;
-                $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'lumpsum';
-                $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
-                $model->installment_day = $row['installment_day'] ?? null;
-                $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
-            }
-            $this->fillAdminAddMeta($model, $row);
-            if ((int) $model->user_id < 1) {
-                return redirect()->back()->with('error', 'Driver / customer user id is required.');
-            }
-            $this->primeBalanceFields($model);
-            $model->save();
-
-            return redirect('/admin/customer_balances/index')->with('success', 'Customer balance updated successfully.');
+        if (!$csUserBalance) {
+            return redirect('/admin/customer_balances/index')->with('error', 'Sorry, respective record is not found');
         }
 
-        if ($creditdebit === 'debit') {
-            if (!array_key_exists($type, $balanceTypes)) {
-                return redirect()->back()->with('error', 'Sorry, please select the correct type');
-            }
-            $model->type = (int) $type;
-            $model->note = $note;
-            if ($amount > 0) {
-                $debit = (float) ($model->debit ?: 0);
-                $credit = (float) ($model->credit ?: 0);
-                $bal = $amount;
-                if ($bal <= $credit && $credit > 0) {
-                    $credit = $credit - $bal;
-                } elseif ($bal > $credit && $credit > 0) {
-                    $bal = $bal - $credit;
-                    $credit = 0;
-                } else {
-                    $debit = $debit + $bal;
-                }
+        $userId = (int) $csUserBalance->user_id;
+        $csUserBalances = CsUserBalance::query()
+            ->where('user_id', $userId)
+            ->orderByDesc('id')
+            ->get();
 
-                $model->debit = $debit;
-                $model->balance = (($amount - $bal) > 0 ? 0 : $bal);
-                $model->credit = $credit;
+        $csOrderPayments = CsOrderPayment::with('csOrder:id,renter_id,increment_id')
+            ->where('type', 6)
+            ->where('status', 1)
+            ->whereHas('csOrder', fn($q) => $q->where('renter_id', $userId))
+            ->orderByDesc('id')
+            ->get();
 
-                $uidForLog = (int) ($model->user_id ?: ($row['user_id'] ?? 0));
-                if ($uidForLog > 0) {
-                    CsUserBalanceLog::create([
-                        'user_id' => $uidForLog,
-                        'credit' => 0,
-                        'debit' => $balancelog,
-                        'type' => (int) $type,
-                        'owner_id' => 0,
-                        'note' => $note,
-                    ]);
-                }
-            }
-            $model->chargetype = isset($row['chargetype']) ? (string) $row['chargetype'] : 'lumpsum';
-            $model->installment_type = isset($row['installment_type']) ? (string) $row['installment_type'] : 'daily';
-            $model->installment_day = $row['installment_day'] ?? null;
-            $model->installment = isset($row['installment']) ? (float) $row['installment'] : 0;
-            $this->fillAdminAddMeta($model, $row);
-            if ((int) $model->user_id < 1) {
-                return redirect()->back()->with('error', 'Driver / customer user id is required.');
-            }
-            $this->primeBalanceFields($model);
-            $model->save();
-
-            return redirect('/admin/customer_balances/index')->with('success', 'Customer balance updated successfully.');
-        }
-
-        return redirect()->back()->with('error', 'Sorry, please select the correct credit/debit type');
-    }
-
-    private function primeBalanceFields(CsUserBalance $model): void
-    {
-        $model->credit = $model->credit ?? 0;
-        $model->debit = $model->debit ?? 0;
-        $model->balance = $model->balance ?? 0;
-    }
-
-    private function fillAdminAddMeta(CsUserBalance $model, array $row): void
-    {
-        if (isset($row['user_id']) && (int) $row['user_id'] > 0) {
-            $model->user_id = (int) $row['user_id'];
-        }
-        if (isset($row['status'])) {
-            $model->status = (int) $row['status'];
-        }
-        $model->owner_id = 0;
+        return view(
+            'admin.customer_balances.relatedpayments',
+            compact('title', 'csUserBalances', 'csOrderPayments')
+        );
     }
 }
 
