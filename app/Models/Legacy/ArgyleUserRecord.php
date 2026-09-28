@@ -17,8 +17,11 @@ class ArgyleUserRecord extends LegacyModel
         'created',
     ];
     protected $hidden = [];
-    protected $guarded = [
-        'id',
-    ];
+    protected $guarded = [];
+
+    public function argyleUser()
+    {
+        return $this->belongsTo(ArgyleUser::class, 'argyle_user_id', 'id');
+    }
 
 }

@@ -1,20 +1,17 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Legacy\UserLicenseDetail;
-use App\Services\Legacy\PaymentProcessor;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\QueryException;
 use App\Models\Legacy\AdminUserAssociation;
 use App\Models\Legacy\ArgyleUser;
-use App\Models\Legacy\ArgyleUserRecord;
 use App\Models\Legacy\RevSetting;
 use App\Models\Legacy\User as LegacyUser;
+use App\Models\Legacy\TwilioSetting;
+use App\Models\Legacy\UserLicenseDetail;
+use App\Models\Legacy\UserReport;
+use App\Services\Legacy\PaymentProcessor;
 use App\Helpers\Legacy\Security as LegacySecurity;
 use App\Helpers\Legacy\Number as LegacyNumber;
 use App\Http\Controllers\Legacy\LegacyAppController;
@@ -508,45 +505,175 @@ class UsersController extends LegacyAppController
 
         return response()->json($return);
     }
+    public function checkr_status($id = null)
+    {
+        $userId = $this->decodeId($id);
 
+        if (!$userId) {
+            return redirect('/admin/users/index');
+        }
 
+        $userReport = UserReport::where('user_id', $userId)->first();
 
+        if (empty($userReport)) {
+            $CheckrStatus = $this->addCandidateToDriverBackgroundReport($userId);
 
+            if ($CheckrStatus['status']) {
+                return redirect()->back()->with('success', 'User is added to Checkr API for processing');
+            } else {
+                return redirect()->back()->with('error', $CheckrStatus['message']);
+            }
 
+        } elseif (!empty($userReport->status) && !empty($userReport->checkr_reportid)) {
+            $report = $this->pullBackgroundReport($userId);
+
+            if ($report['status']) {
+                return redirect()->back()->with('success', 'User Report is Ready');
+            } else {
+                return redirect()->back()->with('error', $report['message']);
+            }
+
+        } elseif (!empty($userReport) && (int) $userReport->status === 0) {
+            $CheckrReport = $this->createBackgroundReport($userId);
+
+            if ($CheckrReport['status']) {
+                return redirect()->back()->with('success', 'User Report is requested');
+            } else {
+                return redirect()->back()->with('error', $CheckrReport['message']);
+            }
+        }
+
+        return redirect()->back();
+    }
+    public function checkrreport(Request $request)
+    {
+        $redirect = $this->ensureAdminSession();
+
+        if ($redirect) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Unauthorized'
+            ]);
+        }
+
+        if (!$request->ajax()) {
+            return response()->json([
+                "status" => false,
+                "message" => "Something went wrong"
+            ]);
+        }
+
+        $reportId = $request->input('id', 0);
+        $ownerid = $request->input('ownerid');
+        $userReport = UserReport::where('id', $reportId)->first();
+
+        if (empty($userReport)) {
+            $checkrStatus = $this->addCandidateToDriverBackgroundReport($reportId, $ownerid);
+            return response()->json($checkrStatus);
+        } elseif ($userReport->status && !empty($userReport->checkr_reportid)) {
+            $report = $this->pullBackgroundReport($reportId);
+            return response()->json($report);
+        } elseif ($userReport->status == 0) {
+            $checkrReport = $this->createBackgroundReport($reportId, $ownerid);
+            return response()->json($checkrReport);
+        }
+
+        return response()->json([
+            "status" => false,
+            "message" => "Something went wrong"
+        ]);
+    }
     public function loadPayoutSchedule(Request $request)
     {
-        // Use admin_load_payout_schedule — a modal partial with full payout form
+        $loadedData = [];
+        $stripeKey = '';
+
+        if ($request->filled('stripekey')) {
+            $stripeKey = $request->input('stripekey');
+            $paymentProcessor = new PaymentProcessor();
+            $loadedData = $paymentProcessor->accountRetrieve($stripeKey);
+
+            if (!isset($loadedData['id'])) {
+                session()->flash('error', "Sorry, Connected Account could not found on stripe end.");
+                $loadedData = [];
+            }
+        }
+
         return view('admin.users.load_payout_schedule', [
-            'token' => (string) $request->input('stripekey', ''),
-            'Loadeddata' => [],  // Stripe payout schedule not migrated yet
+            'token' => $stripeKey,
+            'loadedData' => $loadedData
         ]);
     }
-
-    public function updatePayoutSchedule(Request $request): JsonResponse
+    public function updatePayoutSchedule(Request $request)
     {
-        return response()->json([
-            'status' => false,
-            'message' => 'Payout schedule update is not migrated in Laravel yet. Use legacy flow.',
-        ]);
-    }
+        $return = [
+            "status" => false,
+            "message" => "Sorry, Something went wrong, please try again"
+        ];
 
+        $token = $request->input('User.token');
+        $frequency = $request->input('User.frequency');
+
+        if ($request->filled('User.token')) {
+            $paymentProcessor = new PaymentProcessor();
+            $updateTo = [];
+
+            if ($frequency == 'daily' && $request->filled('User.delay')) {
+                $updateTo = [
+                    "payout_schedule" => [
+                        "delay_days" => $request->input('User.delay'),
+                        "interval" => $frequency
+                    ]
+                ];
+                $return = $paymentProcessor->updateConnectedAccount($token, $updateTo);
+            } elseif ($frequency == 'weekly' && $request->filled('User.weekly_anchor')) {
+                $updateTo = [
+                    "payout_schedule" => [
+                        "delay_days" => 7,
+                        "interval" => $frequency,
+                        "weekly_anchor" => $request->input('User.weekly_anchor')
+                    ]
+                ];
+                $return = $paymentProcessor->updateConnectedAccount($token, $updateTo);
+            } elseif ($frequency == 'monthly' && $request->filled('User.monthly_anchor')) {
+                $updateTo = [
+                    "payout_schedule" => [
+                        "delay_days" => $request->input('User.monthly_anchor'),
+                        "interval" => $frequency,
+                        "monthly_anchor" => $request->input('User.monthly_anchor')
+                    ]
+                ];
+                $return = $paymentProcessor->updateConnectedAccount($token, $updateTo);
+            }
+
+            if (isset($result['id'])) {
+                $return = [
+                    "status" => true,
+                    "message" => "Payout updated successfully"
+                ];
+            }
+        }
+
+        return response()->json($return);
+    }
     public function revsetting(Request $request, $id = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId = $this->decodeId($id);
-        if (!$userId) {
+        $user_id = $this->decodeId($id);
+        $title = 'Revenue Setting';
+
+        if (!$user_id) {
             return redirect('/admin/users/index');
         }
 
-        $revSetting = RevSetting::query()->where('user_id', $userId)->first();
+        $revSetting = RevSetting::where('user_id', $user_id)->first();
 
         if ($request->isMethod('POST')) {
-            // admin_revsetting.blade.php uses flat field names (rev, transfer_rev, etc.)
-            $save = [
-                'user_id' => $userId,
+            $dataToSave = [
+                'user_id' => $user_id,
                 'rev' => (float) $request->input('rev', 0),
                 'transfer_rev' => (int) $request->input('transfer_rev', 0),
                 'transfer_insu' => (int) $request->input('transfer_insu', 0),
@@ -555,292 +682,129 @@ class UsersController extends LegacyAppController
                 'dia_fee' => (float) $request->input('dia_fee', 0),
             ];
 
-            RevSetting::query()->updateOrCreate(
-                ['user_id' => $userId],
-                $save
+            RevSetting::updateOrCreate(
+                ['user_id' => $user_id],
+                $dataToSave
             );
 
             return redirect('/admin/users/index')->with('success', 'Revenue setting updated successfully.');
         }
 
-        return view('admin.users.revsetting', [
-            'user_id' => $userId,
-            'revSetting' => $revSetting,
-        ]);
+        return view('admin.users.revsetting', compact('title', 'user_id', 'revSetting'));
     }
+    public function showargyldetails(Request $request)
+    {
+        $argyleUserRecords = collect();
+        $encoded = $request->input('userid', '');
+        $userId = $this->decodeId($encoded);
 
-    public function change_phone(Request $request, $id = null)
+        if ($userId) {
+            $argyleUser = ArgyleUser::where('user_id', $userId)
+                ->with('argyleUserRecords')
+                ->first();
+            $argyleUserRecords = $argyleUser?->argyleUserRecords ?? collect();
+        }
+
+        return view('admin.users.showargyldetails', compact('argyleUserRecords'));
+    }
+    public function dealer_approve($id = null, $status = null)
     {
         $userId = $this->decodeId($id);
-        if (!$userId) {
+
+        if (!empty($userId)) {
+            $dealerStatus = ($status == 1) ? 1 : 2;
+            LegacyUser::where('id', $userId)->update([
+                'is_dealer' => $dealerStatus
+            ]);
+        }
+
+        return redirect()->back()->with('success', "Dealer status is changed successfully.");
+    }
+    public function change_phone(Request $request, $id = null)
+    {
+        $id = $this->decodeId($id);
+        $title = 'Change Phone#';
+
+        if (!$id) {
             return redirect('/admin/users/index')->with('error', 'Sorry, you are not authorize user for this action.');
         }
 
-        $user = LegacyUser::query()->find($userId);
+        $user = LegacyUser::find($id);
+
         if (!$user) {
             return redirect('/admin/users/index')->with('error', 'Sorry, you are not authorize user for this action.');
         }
 
-        if ($request->isMethod('POST')) {
-            // admin_change_phone.blade.php uses flat field names (contact_number, old_username)
-            $contact = trim((string) $request->input('contact_number', ''));
-            $oldUsername = trim((string) $request->input('old_username', $user->username ?? ''));
-            $username = substr(preg_replace('/[^0-9]/', '', $contact), -10);
+        if ($request->isMethod('POST') || $request->isMethod('PUT')) {
+
+            $request->validate([
+                'contact_number' => 'required',
+            ]);
+
+            $contactNumber = trim($request->input('contact_number', ''));
+            $oldUsername = trim($request->input('old_username', $user->username));
+            $username = substr(preg_replace('/[^0-9]/', '', $contactNumber), -10);
 
             if ($username === '') {
-                return redirect('/admin/users/change_phone/' . base64_encode((string) $userId))
+                return redirect('/admin/users/change_phone/' . base64_encode((string) $id))
                     ->with('error', 'Please enter a valid phone number.');
             }
 
-            $save = [
+            $dataToSave = [
                 'contact_number' => $username,
-                'username' => $username,
             ];
 
             if ($username !== $oldUsername) {
-                $save['is_verified'] = 0;
-                $save['status'] = 0;
-                $save['verify_token'] = (string) random_int(10000, 99999);
+                $verifyToken = str_pad(mt_rand(0, 99999), 5, '0', STR_PAD_LEFT);
+                $dataToSave = array_merge($dataToSave, [
+                    'is_verified' => 0,
+                    'status' => 0,
+                    'verify_token' => $verifyToken,
+                    'username' => $username,
+                    'contact_number' => $username,
+                ]);
             }
 
-            LegacyUser::query()->whereKey($userId)->update($save);
+            $user->fill($dataToSave);
+            $user->save();
+
+            if (!empty($user->verify_token) && empty($request->input('User.verify_token_empty_check'))) {
+                TwilioSetting::notifyActivationByTwilio([
+                    'phone_number' => $user->contact_number,
+                    'activation_code' => $user->verify_token
+                ]);
+            }
 
             return redirect('/admin/users/index')->with('success', 'Phone number updated successfully.');
         }
 
-        return view('admin.users.change_phone', [
-            'listTitle' => 'Change Phone#',
-            'id' => $userId,
-            'user' => $user,
-        ]);
+        return view('admin.users.change_phone', compact('title', 'user', 'id'));
     }
-
-    public function showargyldetails(Request $request)
-    {
-        $encoded = (string) $request->input('userid', '');
-        $userId = $this->decodeId($encoded);
-        $argyleUser = null;
-        $records = collect();
-
-        if ($userId) {
-            $argyleUser = ArgyleUser::query()->where('user_id', $userId)->first();
-            if ($argyleUser) {
-                $records = ArgyleUserRecord::query()
-                    ->where('argyle_user_id', (int) $argyleUser->id)
-                    ->orderBy('account')
-                    ->get(['account', 'account_id']);
-            }
-        }
-
-        // admin_showargyldetails uses $ArgyleUser array structure — pass both for compatibility
-        return view('admin.users.showargyldetails', [
-            'argyleUser' => $argyleUser,
-            'argyleRecords' => $records,
-            'ArgyleUser' => $argyleUser ? $argyleUser->toArray() : [],
-        ]);
-    }
-
     public function address_proof_popup(Request $request)
     {
-        $userId = $this->decodeId((string) $request->input('userid', ''));
-        if (!$userId) {
+        $userid = $this->decodeId($request->input('userid'));
+
+        if (!$userid) {
             return response('Invalid user id', 400);
         }
 
-        return view('admin.users._addresspopup', ['userid' => $userId]);
+        return view('admin.users._addresspopup', compact('userid'));
     }
-
-    public function saveaddressproof(Request $request): JsonResponse
+    public function saveaddressproof(Request $request)
     {
-        $userId = (int) $request->input('userid', 0);
+        if (!$request->hasFile('proofimage')) {
+            return response()->json(['error' => "No files were uploaded."], 400);
+        }
+
         $file = $request->file('proofimage');
-        if ($userId <= 0 || !$file) {
-            return response()->json(['error' => 'No files were uploaded.']);
-        }
-        if (!$file->isValid()) {
-            return response()->json(['error' => 'Upload Error #' . (int) $file->getError()]);
-        }
-        if ($file->getSize() === 0) {
-            return response()->json(['error' => 'File is empty.']);
-        }
-        if ($file->getSize() > 2 * 1024 * 1024) {
-            return response()->json(['error' => 'File is too large.', 'preventRetry' => true]);
-        }
+        $userId = $this->decodeId($request->input('userid'));
+        $result = $this->handleUpload($file, $userId);
 
-        $ext = strtolower((string) $file->getClientOriginalExtension());
-        if (!in_array($ext, ['jpeg', 'jpg', 'png'], true)) {
-            return response()->json(['error' => 'File has an invalid extension, it should be one of jpeg, jpg, png.']);
-        }
-
-        $dir = public_path('files/userdocs');
-        if (!File::exists($dir)) {
-            File::makeDirectory($dir, 0755, true);
-        }
-
-        $filename = 'address_doc_' . $userId . '_' . random_int(1, 100) . '.' . $ext;
-        $file->move($dir, $filename);
-
-        $user = LegacyUser::query()->find($userId);
-        if (!$user) {
-            return response()->json(['error' => 'Invalid user id.']);
-        }
-        $docs = [];
-        if (!empty($user->address_doc)) {
-            $decoded = json_decode((string) $user->address_doc, true);
-            if (is_array($decoded)) {
-                $docs = $decoded;
-            }
-        }
-        $docs[] = $filename;
-        LegacyUser::query()->whereKey($userId)->update(['address_doc' => json_encode($docs)]);
-
-        return response()->json(['success' => true, 'key' => $userId]);
+        return response()->json($result);
     }
-
-    public function getDriverLicense(Request $request): JsonResponse
+    public function getDriverLicense(Request $request)
     {
-        $userId = $this->decodeId((string) $request->input('userid', ''));
-        $pick = (int) $request->input('pick', 1);
-        $return = ['status' => false, 'message' => 'Invalid User ID', 'result' => []];
-
-        if (!$userId) {
-            return response()->json($return);
-        }
-
-        $user = LegacyUser::query()
-            ->whereKey($userId)
-            ->first(['license_doc_1', 'license_doc_2']);
-
-        if (!$user) {
-            return response()->json($return);
-        }
-
-        if ($pick === 1) {
-            $file = (string) ($user->license_doc_1 ?? '');
-            if ($file !== '' && File::exists(public_path('files/userdocs/' . $file))) {
-                return response()->json([
-                    'status' => true,
-                    'message' => 'Success',
-                    'result' => ['file' => url('files/userdocs/' . $file)],
-                ]);
-            }
-
-            return response()->json([
-                'status' => false,
-                'message' => 'sorry, document not exists',
-                'result' => [],
-            ]);
-        }
-
-        if ($pick === 2) {
-            $file = (string) ($user->license_doc_2 ?? '');
-            if ($file !== '' && File::exists(public_path('files/userdocs/' . $file))) {
-                return response()->json([
-                    'status' => true,
-                    'message' => 'Success',
-                    'result' => ['file' => url('files/userdocs/' . $file)],
-                ]);
-            }
-
-            return response()->json([
-                'status' => false,
-                'message' => 'sorry, document not exists',
-                'result' => [],
-            ]);
-        }
-
-        return response()->json([
-            'status' => false,
-            'message' => 'Invalid pick value',
-            'result' => [],
-        ]);
-    }
-
-    public function dealer_approve(Request $request, $id = null, $status = null)
-    {
-        $userId = $this->decodeId($id);
-        if ($userId) {
-            LegacyUser::query()->whereKey($userId)->update([
-                'is_dealer' => ((string) $status === '1') ? 1 : 2,
-            ]);
-        }
-
-        return $this->redirectBackOr('/admin/users/index', $request)
-            ->with('success', 'Dealer status is changed successfully.');
-    }
-
-    public function checkr_status(Request $request, $id = null)
-    {
-        $userId = $this->decodeId((string) $id);
-        if (!$userId) {
-            return redirect('/admin/users/index');
-        }
-
-        // Mirror CakePHP admin_checkr_status action logic
-        $userReport = DB::table('user_reports')->where('user_id', $userId)->first();
-
-        if (empty($userReport)) {
-            $CheckrStatus = $this->addCandidateToDriverBackgroundReport($userId);
-            if ($CheckrStatus['status']) {
-                session()->flash('success', "User is added to Checkr API for processing");
-            } else {
-                session()->flash('error', $CheckrStatus['message']);
-            }
-        } elseif (!empty($userReport->status) && !empty($userReport->checkr_reportid)) {
-            $report = $this->pullBackgroundReport($userId);
-            if ($report['status']) {
-                session()->flash('success', "User Report is Ready");
-            } else {
-                session()->flash('error', $report['message']);
-            }
-        } elseif (!empty($userReport) && (int) $userReport->status === 0) {
-            $CheckrReport = $this->createBackgroundReport($userId);
-            if ($CheckrReport['status']) {
-                session()->flash('success', "User Report is requested");
-            } else {
-                session()->flash('error', $CheckrReport['message']);
-            }
-        }
-
-        // Match CakePHP exactly: always redirect back after triggering/pulling report
-        return redirect()->back();
-    }
-
-    public function checkrreport(Request $request): JsonResponse
-    {
-        $redirect = $this->ensureAdminSession();
-        if ($redirect) {
-            return response()->json(['status' => false, 'message' => 'Unauthorized']);
-        }
-
-        $reportId = (int) $request->input('id', 0);
-        if (!$reportId) {
-            return response()->json(['status' => false, 'message' => 'Invalid report ID']);
-        }
-
-        $report = DB::table('user_reports')->where('id', $reportId)->first();
-        if (!$report) {
-            return response()->json(['status' => false, 'message' => 'Report not found']);
-        }
-
-        $reportData = !empty($report->report) ? json_decode($report->report, true) : [];
-
-        return response()->json([
-            'status' => true,
-            'report' => $reportData,
-            'user_id' => $report->user_id,
-            'checkr_id' => $report->checkr_id ?? '',
-            'motor_vehicle_report_id' => $report->motor_vehicle_report_id ?? '',
-        ]);
-    }
-
-    private function redirectBackOr(string $fallback, Request $request)
-    {
-        $referer = $request->headers->get('referer');
-        if (!empty($referer)) {
-            return redirect()->to($referer);
-        }
-        return redirect($fallback);
+        return $this->_getDriverLicense($request);
     }
 }
 

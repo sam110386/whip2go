@@ -24,4 +24,9 @@ class ArgyleUser extends LegacyModel
         'id',
     ];
 
+    public function argyleUserRecords()
+    {
+        return $this->hasMany(ArgyleUserRecord::class, 'argyle_user_id');
+    }
+
 }

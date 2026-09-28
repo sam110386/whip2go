@@ -12,13 +12,155 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\File;
 use Carbon\Carbon;
 use Exception;
 
 
 trait UsersTrait
 {
-    use CommonTrait, MobileApi, DriverBackgroundReport;
+    use MobileApi, DriverBackgroundReport;
+
+    protected $imageSize = 2097152;
+    protected $allowedExtensions = ['jpeg', 'jpg', 'png', 'pdf'];
+
+    protected function handleUpload($file, $userId)
+    {
+        $postMaxSize = $this->commonService->toBytes(ini_get('post_max_size'));
+        $uploadMaxFilesize = $this->commonService->toBytes(ini_get('upload_max_filesize'));
+        $this->imageSize = min($postMaxSize, $uploadMaxFilesize);
+        $size = $file->getSize();
+
+        if ($file->getError() !== UPLOAD_ERR_OK) {
+            return [
+                'error' => 'Upload Error #' . $file->getError()
+            ];
+        }
+
+        if ($size == 0) {
+            return [
+                'error' => 'File is empty.'
+            ];
+        }
+
+        if (!is_null($this->imageSize) && $size > $this->imageSize) {
+            return [
+                'error' => 'File is too large.',
+                'preventRetry' => true
+            ];
+        }
+
+        $mimeType = $file->getMimeType(); // e.g. image/jpeg, image/png
+        preg_match('/^image\/(gif|jpe?g|png)/', $mimeType, $matches);
+
+        if (empty($matches[1])) {
+            return ['error' => 'Invalid image format.'];
+        }
+
+        $fileformat = strtolower($matches[1]);
+
+        if (!in_array($fileformat, array_map('strtolower', $this->allowedExtensions))) {
+            $these = implode(', ', $this->allowedExtensions);
+            return ['error' => 'File has an invalid extension, it should be one of ' . $these . '.'];
+        }
+
+        $filename = 'address_doc_' . $userId . '_' . rand(1, 100) . '.' . $fileformat;
+        $destinationPath = public_path('files/userdocs');
+
+        if (!File::exists($destinationPath)) {
+            File::makeDirectory($destinationPath, 0755, true);
+        }
+
+        if ($file->move($destinationPath, $filename)) {
+            $user = User::select('id', 'address_doc')->find($userId);
+
+            if ($user) {
+                $addressDocs = !empty($user->address_doc) ? json_decode($user->address_doc, true) : [];
+                $addressDocs[] = $filename;
+
+                $user->address_doc = json_encode($addressDocs);
+                $user->saveQuietly();
+
+                return [
+                    'success' => true,
+                    "key" => $user->id
+                ];
+            }
+
+            return [
+                'error' => 'User not found.'
+            ];
+        }
+
+        return [
+            'error' => 'Could not save uploaded file. The upload was cancelled, or server error encountered'
+        ];
+    }
+    protected function _getDriverLicense(Request $request)
+    {
+        $return = [
+            'status' => false,
+            'message' => "Invalid User ID",
+            'result' => []
+        ];
+
+        $userid = $this->decodeId($request->input('userid'));
+        $pick = $request->input('pick', 1);
+
+        if (empty($userid)) {
+            return response()->json($return);
+        }
+
+        $user = User::select('license_doc_1', 'license_doc_2')->find($userid);
+
+        if (!$user) {
+            return response()->json([
+                'status' => false,
+                'message' => "User not found",
+                'result' => []
+            ]);
+        }
+
+        if ($pick == 1) {
+            $return = [
+                'status' => false,
+                'message' => "sorry, document not exists",
+                'result' => []
+            ];
+
+            if (!empty($user->license_doc_1) && file_exists(public_path('files/userdocs/' . $user->license_doc_1))) {
+                $return = [
+                    'status' => true,
+                    'message' => "Success",
+                    'result' => [
+                        'file' => asset('files/userdocs/' . $user->license_doc_1)
+                    ]
+                ];
+            }
+            return response()->json($return);
+        }
+
+        if ($pick == 2 && !empty($user->license_doc_2) && file_exists(public_path('files/userdocs/' . $user->license_doc_2))) {
+            $return = [
+                'status' => true,
+                'message' => "Success",
+                'result' => [
+                    'file' => asset('files/userdocs/' . $user->license_doc_2)
+                ]
+            ];
+        } else {
+            $return = [
+                'status' => false,
+                'message' => "sorry, document not exists",
+                'result' => []
+            ];
+        }
+
+        return response()->json($return);
+    }
+
+
+
 
     protected function _getUsersQuery(Request $request)
     {
