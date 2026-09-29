@@ -1,13 +1,18 @@
 @extends('admin.layouts.app')
 
-@section('title', 'User Notes')
-
 @php
+    $title ??= 'User Notes';
     $userid ??= '';
-    $user ??= null;
+    $date_from ??= '';
+    $date_to ??= '';
+    $user ??= collect();
+    $notelists ??= collect();
 @endphp
 
+@section('title', $title)
+
 @section('content')
+
     <div class="page-header">
         <div class="page-header-content">
             <div class="page-title">
@@ -19,8 +24,8 @@
                 </h4>
             </div>
             <div class="heading-elements">
-                <a href="javascript:void(0)" class="btn btn-primary" onclick="AddNewNote({{ $userid }})">
-                    {{ 'Add New Note' }}
+                <a href="javascript:void(0)" class="btn left-margin" onclick="AddNewNote({{ $userid }})">
+                    Add New Note
                 </a>
             </div>
         </div>
@@ -30,76 +35,37 @@
         @includeif('partials.flash')
     </div>
 
-    <div class="panel panel-flat">
-        <div class="panel-heading">
-            <h5 class="panel-title text-center">
-                <span class="text-semibold">User :</span>
-                {{ $user->first_name ?? '' }} {{ $user->last_name ?? '' }}
-            </h5>
-        </div>
-        <div class="panel-body">
-            <h6 class="text-center font-weight-semibold">Notes History</h6>
-        </div>
+    <div class="breadcrumb-line">
+        <ul class="text-center pt-20 pb-10">
+            <li>
+                <h4>
+                    <span class="text-semibold">User :</span>
+                    {{ data_get($user, 'first_name', '') . ' ' . data_get($user, 'last_name', '')}}
+                </h4>
+            </li>
+        </ul>
+    </div>
+
+    <div class="breadcrumb-line">
+        <ul class="text-center">
+            <li>
+                <h6>
+                    <span class="text-semibold">Notes History </span>
+                </h6>
+            </li>
+        </ul>
     </div>
 
     <div class="panel">
         <div class="panel-body" id="postsPaging">
             <div id="listing">
-                @include('admin.user_note._admin_index')
+                @include('admin.user_note.elements.index')
             </div>
         </div>
     </div>
 
-    <div id="myModal" class="modal fade" role="dialog">
-        <div class="modal-dialog">
-            <div class="modal-content"></div>
-        </div>
-    </div>
 @endsection
 
-@push('styles')
-    <style type="text/css">
-        .table>thead>tr>th,
-        .table>tbody>tr>th,
-        .table>tfoot>tr>th,
-        .table>thead>tr>td,
-        .table>tbody>tr>td,
-        .table>tfoot>tr>td {
-            padding: 5px;
-        }
-    </style>
-@endpush
-
 @push('scripts')
-    <script src="{{ legacy_asset('UserNote/js/usernote.js') }}"></script>
-    <script src="{{ legacy_asset('js/admin_booking.js') }}"></script>
-    <script type="text/javascript">
-        function AddNewNote(userid) {
-            $.ajax({
-                url: "{{ url('admin/user_notes/add') }}",
-                data: { userid: userid },
-                success: function (data) {
-                    $('#myModal .modal-content').html(data);
-                    $('#myModal').modal('show');
-                }
-            });
-        }
-
-        function saveNote() {
-            var formData = $('#addNoteForm').serialize();
-            $.ajax({
-                type: "POST",
-                url: "{{ url('admin/user_notes/save') }}",
-                data: formData,
-                success: function (data) {
-                    if (data.status) {
-                        $('#myModal').modal('hide');
-                        location.reload();
-                    } else {
-                        alert('Error saving note');
-                    }
-                }
-            });
-        }
-    </script>
+    <script src="{{ legacy_asset('js/usernote/usernote.js') }}"></script>
 @endpush

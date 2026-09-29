@@ -17,4 +17,9 @@ class UserNote extends LegacyModel
         'note',
         'created',
     ];
+
+    public function admin()
+    {
+        return $this->belongsTo(User::class, 'admin_id', 'id');
+    }
 }

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use Carbon\Carbon;
+use App\Models\Legacy\User;
+use App\Models\Legacy\UserNote;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class UserNotesController extends LegacyAppController
 {
@@ -15,70 +15,53 @@ class UserNotesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
-        if (!$uid) {
+        $title = 'User Notes';
+        $sessLimitName = 'user_notes_limit';
+        $date_from = $request->input('Search.date_from', $request->input('date_from', ''));
+        $date_to = $request->input('Search.date_to', $request->input('date_to', ''));
+
+        if ($request->has('user_id')) {
+            $userid = $request->input('user_id');
+        }
+
+        if (!$userid) {
             return redirect('/admin/users/index');
         }
-        $userid = $uid;
 
-        $dateFrom = '';
-        $dateTo = '';
-        $conditions = [];
-        $bindings = [];
-
-        $search = $request->input('Search', $request->query());
-
-        if (!empty($search['date_from'])) {
-            $dateFrom = $search['date_from'];
-        }
-        if (!empty($search['date_to'])) {
-            $dateTo = $search['date_to'];
-        }
-        if (!empty($search['user_id'])) {
-            $userid = $search['user_id'];
+        if (!empty($date_from) && empty($date_to)) {
+            $date_to = date('Y-m-d');
         }
 
-        if (!empty($dateFrom) && empty($dateTo)) {
-            $dateTo = date('Y-m-d');
-        }
-        if (!empty($dateFrom)) {
-            $dateFrom = Carbon::parse($dateFrom)->format('Y-m-d');
-            $conditions[] = 'user_notes.created >= ?';
-            $bindings[] = $dateFrom;
-        }
-        if (!empty($dateTo)) {
-            $dateTo = Carbon::parse($dateTo)->format('Y-m-d');
-            $conditions[] = 'user_notes.created <= ?';
-            $bindings[] = $dateTo;
+        $query = UserNote::with('admin:id,first_name,last_name')
+            ->where('user_id', $userid);
+
+        if (!empty($date_from)) {
+            $query->where('created_at', '>=', $date_from);
         }
 
-        $sessLimitName = 'admin_user_notes_limit';
-        $limit = $request->input('Record.limit') ?: session($sessLimitName, 25);
-        if ($request->input('Record.limit')) {
+        if (!empty($date_to)) {
+            $query->where('created_at', '<=', $date_to);
+        }
+
+        if ($request->has('Record.limit')) {
+            $limit = $request->input('Record.limit');
             session([$sessLimitName => $limit]);
+        } elseif (session()->has($sessLimitName)) {
+            $limit = session($sessLimitName);
+        } else {
+            $limit = $this->recordsPerPage;
         }
 
-        $query = DB::table('user_notes')
-            ->leftJoin('users as Admin', 'Admin.id', '=', 'user_notes.admin_id')
-            ->select('user_notes.*', 'Admin.first_name as admin_first_name', 'Admin.last_name as admin_last_name')
-            ->where('user_notes.user_id', $userid);
-
-        foreach ($conditions as $i => $cond) {
-            $query->whereRaw($cond, [$bindings[$i]]);
-        }
-
-        $notelists = $query->orderByDesc('user_notes.id')->paginate($limit);
+        $notelists = $query->orderBy('id', 'DESC')->paginate($limit);
 
         if ($request->ajax()) {
-            return view('admin.user_note._admin_index', compact('notelists', 'userid'));
+            return view('admin.user_note.elements.index', compact('notelists', 'date_from', 'date_to', 'userid', 'limit'));
         }
 
-        $user = DB::table('users')->where('id', $userid)->select('first_name', 'last_name')->first();
-        $useridB64 = base64_encode((string)$userid);
+        $user = User::select('first_name', 'last_name')->find($userid);
 
-        return view('admin.user_note.index', compact('notelists', 'dateFrom', 'dateTo', 'userid', 'user', 'useridB64'));
+        return view('admin.user_note.index', compact('notelists', 'date_from', 'date_to', 'userid', 'user', 'title', 'limit'));
     }
-
     public function add(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -89,7 +72,6 @@ class UserNotesController extends LegacyAppController
 
         return view('admin.user_note.add', compact('userid'));
     }
-
     public function save(Request $request)
     {
         if ($redirect = $this->ensureAdminSession()) {
@@ -97,15 +79,18 @@ class UserNotesController extends LegacyAppController
         }
 
         $adminid = session('SESSION_ADMIN.id');
+        $user_id = $request->input('UserNote.user_id', $request->input('user_id', ''));
+        $note = $request->input('UserNote.note', $request->input('note', ''));
 
-        DB::table('user_notes')->insert([
-            'user_id' => $request->input('UserNote.user_id'),
-            'note' => $request->input('UserNote.note'),
+        UserNote::create([
+            'user_id' => $user_id,
             'admin_id' => $adminid,
+            'note' => $note,
             'created' => now(),
-            'modified' => now(),
         ]);
 
-        return response()->json(['status' => true]);
+        return response()->json([
+            'status' => true
+        ]);
     }
 }

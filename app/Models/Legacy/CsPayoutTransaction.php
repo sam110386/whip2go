@@ -41,6 +41,10 @@ class CsPayoutTransaction extends LegacyModel
         return $this->belongsTo(CsOrder::class, 'cs_order_id', 'id');
     }
 
+    public function csPayout()
+    {
+        return $this->belongsTo(CsPayout::class, 'cs_payout_id', 'id');
+    }
 
     public static function getActivePayoutTransactions($orderId, $csPaymentId)
     {

@@ -195,13 +195,13 @@
                                         </li>
                                         <li>
                                             <a
-                                                href="{{ url('admin/accounting_reports/index', base64_encode(data_get($user, 'id'))) }}">
+                                                href="{{ url('admin/accounting_reports/index', data_get($user, 'id')) }}">
                                                 <i class="icon-file-stats2"></i>
                                                 {{'Accounting Report'}}
                                             </a>
                                         </li>
                                         <li>
-                                            <a href="{{ url('admin/user_notes/index', base64_encode(data_get($user, 'id'))) }}">
+                                            <a href="{{ url('admin/user_notes/index', data_get($user, 'id')) }}">
                                                 <i class="icon-file-stats"></i>
                                                 {{'User Notes'}}
                                             </a>

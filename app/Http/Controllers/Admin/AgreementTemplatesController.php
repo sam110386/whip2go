@@ -8,61 +8,59 @@ use Illuminate\Support\Facades\File;
 
 class AgreementTemplatesController extends LegacyAppController
 {
-    private function templateBasePath(): string
-    {
-        return public_path('files/agreement_templates/');
-    }
-
-    public function index(Request $request, $userid = null)
+    public function index($userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
-        if (!$uid) {
-            return redirect('/admin/users/index');
-        }
-        $userid = $uid;
-        $useridB64 = base64_encode((string)$userid);
-
-        $listTitle = 'Agreement Templates';
-
-        return view('admin.agreement_templates.index', compact('listTitle', 'userid', 'useridB64'));
+        $title = 'Agreement Templates';
+        return view('admin.agreement_templates.index', compact('title', 'userid'));
     }
-
     public function rental(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
-        if (!$uid) {
-            return redirect('/admin/users/index');
+        $userid = $this->decodeId($userid);
+
+        if (!$userid) {
+            return redirect('/admin/users/index')->with('error', 'Invalid user ID');
         }
-        $userid = $uid;
-        $useridB64 = base64_encode((string)$userid);
 
-        if ($request->isMethod('post') && $request->filled('content')) {
+        if ($request->isMethod('post') && $request->has('AgreementTemplate.content')) {
             try {
-                $content = $request->input('content');
+                $content = $request->input('AgreementTemplate.content');
                 $content = '<!DOCTYPE html><html lang="en"><body>' . $content . '</body></html>';
-                File::ensureDirectoryExists($this->templateBasePath());
-                File::put($this->templateBasePath() . $userid . '_rental.html', $content);
+                $directory = public_path('files/agreement_templates');
 
-                return back()->with('success', 'Template is saved successfully');
+                if (!File::exists($directory)) {
+                    File::makeDirectory($directory, 0755, true);
+                }
+
+                $filePath = $directory . '/' . $userid . '_rental.html';
+                File::put($filePath, $content);
+
+                return redirect()->back()->with('success', 'Template is saved successfully');
             } catch (\Exception $e) {
-                return back()->with('error', $e->getMessage());
+                return redirect()->back()->with('error', $e->getMessage());
             }
         }
 
-        $listTitle = 'Update Rental Agreement Template';
-        $filePath = $this->templateBasePath() . $userid . '_rental.html';
-        $defaultPath = $this->templateBasePath() . 'rental.html';
-        $template = is_file($filePath) ? File::get($filePath) : (is_file($defaultPath) ? File::get($defaultPath) : '');
+        $title = 'Update Rental Agreement Template';
+        $customFilePath = public_path('files/agreement_templates/' . $userid . '_rental.html');
+        $defaultFilePath = public_path('files/agreement_templates/rental.html');
 
-        return view('admin.agreement_templates.rental', compact('listTitle', 'template', 'userid', 'useridB64'));
+        if (File::exists($customFilePath)) {
+            $template = File::get($customFilePath);
+        } elseif (File::exists($defaultFilePath)) {
+            $template = File::get($defaultFilePath);
+        } else {
+            $template = '';
+        }
+
+        return view('admin.agreement_templates.rental', compact('title', 'template', 'userid'));
     }
 
     public function rentToOwn(Request $request, $userid = null)
@@ -71,12 +69,12 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string) $userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
         $userid = $uid;
-        $useridB64 = base64_encode((string)$userid);
+        $useridB64 = base64_encode((string) $userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -105,12 +103,12 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string) $userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
         $userid = $uid;
-        $useridB64 = base64_encode((string)$userid);
+        $useridB64 = base64_encode((string) $userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -139,12 +137,12 @@ class AgreementTemplatesController extends LegacyAppController
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid !== null ? (string)$userid : '');
+        $uid = $this->decodeId($userid !== null ? (string) $userid : '');
         if (!$uid) {
             return redirect('/admin/users/index');
         }
         $userid = $uid;
-        $useridB64 = base64_encode((string)$userid);
+        $useridB64 = base64_encode((string) $userid);
 
         if ($request->isMethod('post') && $request->filled('content')) {
             try {
@@ -165,5 +163,9 @@ class AgreementTemplatesController extends LegacyAppController
         $template = is_file($filePath) ? File::get($filePath) : (is_file($defaultPath) ? File::get($defaultPath) : '');
 
         return view('admin.agreement_templates.lease_to_own', compact('listTitle', 'template', 'userid', 'useridB64'));
+    }
+    private function templateBasePath(): string
+    {
+        return public_path('files/agreement_templates/');
     }
 }

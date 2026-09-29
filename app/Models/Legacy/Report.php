@@ -24,4 +24,9 @@ class Report extends LegacyModel
         'created',
         'updated',
     ];
+
+    public function csOrder()
+    {
+        return $this->belongsTo(CsOrder::class, 'cs_order_id', 'id');
+    }
 }
