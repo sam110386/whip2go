@@ -3,105 +3,110 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use App\Models\Legacy\Vehicle as LegacyVehicle;
-use Illuminate\Http\JsonResponse;
+use App\Models\Legacy\DepositTemplate;
+use App\Models\Legacy\Vehicle;
 use Illuminate\Http\Request;
 
 class DepositTemplatesController extends LegacyAppController
 {
-    protected bool $shouldLoadLegacyModules = false;
-
-    /**
-     * Admin Index: Edit a specific dealer's deposit template.
-     */
     public function index(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $uid = $this->decodeId($userid);
-        if (!$uid) {
+        $title = 'Update Rental Fee Template';
+        $userid = $this->decodeId($userid);
+
+        if (!$userid) {
             return redirect('/admin/users/index')->with('error', 'Invalid dealer ID.');
         }
-        $userId = $uid;
-        $useridB64 = base64_encode((string)$uid);
 
         if ($request->isMethod('POST')) {
-            $data = $request->input('DepositTemplate', []);
-            $data['user_id'] = $userId;
-            
-            if (($data['deposit_event'] ?? 'N') == 'N') {
-                $data['deposit_amt'] = 0;
+            $dataToSave = $request->input('DepositTemplate', []);
+            $depositTemplateId = $dataToSave['id'] ?? null;
+
+            $incentives = array_filter($dataToSave['incentives'] ?? [], function ($item) {
+                return isset($item['amount']) && ($item['amount'] != 0);
+            });
+
+            if (empty($depositTemplateId)) {
+                $dataToSave['user_id'] = $userid;
             }
 
-            // Serialize optional fees and incentives
-            $incentives = array_filter($data['incentives'] ?? [], fn($item) => ($item['amount'] ?? 0) != 0);
-            $data['incentives'] = json_encode($incentives);
+            if (($dataToSave['deposit_event'] ?? '') == 'N') {
+                $dataToSave['deposit_amt'] = 0;
+            }
 
-            $totalDepositAmt = $data['deposit_amt'] ?? 0;
-            $optDepositAmt   = collect($data['deposit_amt_opt'] ?? [])->sum('amount');
-            $data['total_deposit_amt'] = $totalDepositAmt + $optDepositAmt;
-            $data['deposit_amt_opt']   = $optDepositAmt > 0 ? json_encode($this->truncateInput($data['deposit_amt_opt'])) : '';
+            $total_deposit_amt = $dataToSave['deposit_amt'] ?? 0;
+            $depositAmtOpt = $dataToSave['deposit_amt_opt'] ?? [];
+            $total_depositamt = collect($depositAmtOpt)->sum('amount');
+            $dataToSave['total_deposit_amt'] = $total_deposit_amt + $total_depositamt;
+            $dataToSave['deposit_amt_opt'] = $total_depositamt > 0 ? json_encode($this->truncateData($depositAmtOpt)) : '';
+            $total_initial_fee = $dataToSave['initial_fee'] ?? 0;
+            $initialFeeOpt = $dataToSave['initial_fee_opt'] ?? [];
+            $total_initialfee = collect($initialFeeOpt)->sum('amount');
+            $dataToSave['total_initial_fee'] = $total_initial_fee + $total_initialfee;
+            $dataToSave['initial_fee_opt'] = $total_initialfee > 0 ? json_encode($this->truncateData($initialFeeOpt)) : '';
+            $prepaidData = $dataToSave['prepaid_initial_fee_data'] ?? [];
 
-            $totalInitialFee = $data['initial_fee'] ?? 0;
-            $optInitialFee   = collect($data['initial_fee_opt'] ?? [])->sum('amount');
-            $data['total_initial_fee'] = $totalInitialFee + $optInitialFee;
-            $data['initial_fee_opt']   = $optInitialFee > 0 ? json_encode($this->truncateInput($data['initial_fee_opt'])) : '';
-
-            if (!empty($data['prepaid_initial_fee']) && !empty($data['prepaid_initial_fee_data']['amount']) && !empty($data['prepaid_initial_fee_data']['day'])) {
-                $data['prepaid_initial_fee_data'] = json_encode($data['prepaid_initial_fee_data']);
-                $data['prepaid_initial_fee'] = 1;
+            if (!empty($dataToSave['prepaid_initial_fee']) && !empty($prepaidData['amount']) && !empty($prepaidData['day'])) {
+                $dataToSave['prepaid_initial_fee_data'] = json_encode($prepaidData);
+                $dataToSave['prepaid_initial_fee'] = 1;
             } else {
-                $data['prepaid_initial_fee_data'] = null;
-                $data['prepaid_initial_fee'] = 0;
+                $dataToSave['prepaid_initial_fee_data'] = null;
+                $dataToSave['prepaid_initial_fee'] = 0;
             }
 
-            \App\Models\Legacy\DepositTemplate::updateOrCreate(['user_id' => $userId], $data);
-            
-            return redirect()->back()->with('success', 'Rental Fee Template updated successfully.');
+            $dataToSave['incentives'] = json_encode($incentives);
+
+            try {
+                DepositTemplate::updateOrCreate(
+                    ['id' => $depositTemplateId, 'user_id' => $userid],
+                    $dataToSave
+                );
+
+                $message = empty($depositTemplateId) ? "Rule has been added successfully." : "Rule has been updated successfully.";
+                return redirect()->back()->with('success', $message);
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', $e->getMessage());
+            }
+
         }
 
-        $depositTemplate = \App\Models\Legacy\DepositTemplate::where('user_id', $userId)->first();
-        $data = $depositTemplate ? $depositTemplate->toArray() : [];
-        if (!empty($data)) {
-            $data['deposit_amt_opt'] = !empty($data['deposit_amt_opt']) ? json_decode($data['deposit_amt_opt'], true) : [];
-            $data['initial_fee_opt'] = !empty($data['initial_fee_opt']) ? json_decode($data['initial_fee_opt'], true) : [];
-            $data['incentives']      = !empty($data['incentives']) ? json_decode($data['incentives'], true) : [];
+        $template = DepositTemplate::where('user_id', $userid)->first();
+        $depositTemplateData = [];
+
+        if ($template) {
+            $depositTemplateData = $template->toArray();
+            $depositTemplateData['deposit_amt_opt'] = !empty($template->deposit_amt_opt) ? json_decode($template->deposit_amt_opt, true) : [];
+            $depositTemplateData['initial_fee_opt'] = !empty($template->initial_fee_opt) ? json_decode($template->initial_fee_opt, true) : [];
+            $depositTemplateData['prepaid_initial_fee_data'] = !empty($template->prepaid_initial_fee_data) ? json_decode($template->prepaid_initial_fee_data, true) : ["day" => "", "amount" => ""];
+            $depositTemplateData['incentives'] = !empty($template->incentives) ? json_decode($template->incentives, true) : [];
         }
 
-        $vehicleModel = new \App\Models\Legacy\Vehicle();
-        $makes = $vehicleModel->getMake([0, 1]);
-        $models = $vehicleModel->getMakeModel($makes, [0, 1]);
+        $makes = Vehicle::getMake([0, 1]);
+        $models = Vehicle::getMakeModel($makes, [0, 1]);
 
-        return view('admin.deposit_templates.index', [
-            'listTitle' => 'Update Rental Fee Template',
-            'depositTemplate' => $depositTemplate,
-            'data' => $data,
-            'makes' => $makes,
-            'models' => $models,
-            'userid' => $userId,
-            'useridB64' => $useridB64
-        ]);
+        return view('admin.deposit_templates.index', compact('title', 'userid', 'depositTemplateData', 'makes', 'models'));
     }
 
-    protected function truncateInput($arr) {
+    protected function truncateInput($arr)
+    {
         $return = [];
         foreach ($arr as $key => $a) {
             if ((isset($a['after_day_date']) && !empty($a['after_day_date'])) || (!empty($a['after_day']))) {
-                if (!empty($a['amount'])) $return[$key] = $a;
+                if (!empty($a['amount']))
+                    $return[$key] = $a;
             }
         }
         return $return;
     }
 
-    /**
-     * Cake DepositTemplatesController::admin_updateFareType (subset: settings sync buttons).
-     */
-    public function updateFareType(Request $request): JsonResponse
+    public function updateFareType(Request $request)
     {
-        $userId = (int)$request->input('user_id');
-        $field = (string)$request->input('field');
+        $userId = (int) $request->input('user_id');
+        $field = (string) $request->input('field');
         if ($userId <= 0 || $field === '') {
             return response()->json(['status' => false, 'message' => 'Invalid request']);
         }
@@ -114,15 +119,15 @@ class DepositTemplatesController extends LegacyAppController
 
         foreach ($vehicles as $v) {
             if ($field === 'fare_type') {
-                $fare = (string)$request->input('fare_type', '');
+                $fare = (string) $request->input('fare_type', '');
                 $updates = ['fare_type' => $fare];
                 if ($fare === 'L') {
                     $updates['day_rent'] = 0;
                 }
-                LegacyVehicle::query()->whereKey((int)$v->id)->update($updates);
+                LegacyVehicle::query()->whereKey((int) $v->id)->update($updates);
             } elseif (in_array($field, $allowedScalar, true)) {
                 $val = $request->input($field);
-                LegacyVehicle::query()->whereKey((int)$v->id)->update([$field => $val]);
+                LegacyVehicle::query()->whereKey((int) $v->id)->update([$field => $val]);
             } else {
                 return response()->json(['status' => false, 'message' => 'Invalid field']);
             }

@@ -187,5 +187,81 @@ class Vehicle extends LegacyModel
     {
         return $this->hasMany(CsVehicleIssue::class, 'vehicle_id');
     }
+
+
+    public function vaild_uniqueid()
+    {
+        $uniqueId = $this->vehicle_unique_id ?? null;
+        $userId = $this->user_id ?? null;
+
+        if (empty($uniqueId)) {
+            return false;
+        }
+
+        $query = self::where('user_id', $userId)
+            ->where('vehicle_unique_id', $uniqueId);
+
+        if (!empty($this->id)) {
+            $query->where('id', '!=', $this->id);
+        }
+
+        return !$query->exists();
+    }
+
+    public static function getMake($status = 1, array $conditions = [])
+    {
+        return self::where($conditions)
+            ->where('make', '!=', '')
+            ->where('make', '!=', 'Unknown')
+            ->where('booked', 0);
+
+        if (is_array($status)) {
+            $query->whereIn('status', $status);
+        } else {
+            $query->where('status', $status);
+        }
+
+        return $query->orderBy('make', 'asc')
+            ->distinct()
+            ->pluck('make', 'make')
+            ->toArray();
+    }
+    public static function getMakeModel($makes, $status = 1, array $conditions = [])
+    {
+        $result = [];
+
+        foreach ($makes as $make) {
+            $query = self::where($conditions)
+                ->where('model', '!=', '')
+                ->where('model', '!=', 'Unknown')
+                ->where('make', $make)
+                ->where('booked', 0);
+
+            if (is_array($status)) {
+                $query->whereIn('status', $status);
+            } else {
+                $query->where('status', $status);
+            }
+
+            $result[$make] = $query->orderBy('model', 'asc')
+                ->distinct()
+                ->pluck('model', 'model')
+                ->toArray();
+        }
+
+        return $result;
+    }
+    public static function getBodyType(array $conditions = [])
+    {
+        return self::where($conditions)
+            ->where('cab_type', '!=', '')
+            ->where('cab_type', '!=', 'Unknown')
+            ->where('status', 1)
+            ->where('booked', 0)
+            ->orderBy('cab_type', 'asc')
+            ->distinct()
+            ->pluck('cab_type', 'cab_type')
+            ->toArray();
+    }
 }
 

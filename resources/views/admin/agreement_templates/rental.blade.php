@@ -42,8 +42,11 @@
                 <div class="ftext-right">
                     <div class="col-lg-6">
                         <button type="submit" class="btn btn-primary"> Save </button>
+                        <a href="{{ url('admin/agreement_templates/index', base64_encode($userid)) }}"
+                            class="btn btn-default float-right">
+                            Back
+                        </a>
                     </div>
-
                 </div>
             </div>
         </form>
@@ -64,7 +67,7 @@
                 docType: '<!DOCTYPE html>',
                 on: {
                     instanceReady: function (ev) {
-                        ev.editor.document.appendStyleSheet('{{ asset('js/ckeditor/editor-content.css') }}');
+                        ev.editor.document.appendStyleSheet('{{ asset('js/agreement_templates/ckeditor/rental-editor-content.css') }}');
                     }
                 }
             });

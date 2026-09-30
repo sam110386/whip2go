@@ -1,0 +1,37 @@
+html,
+body {
+    font-family: 'Open Sans';
+    font-weight: 500;
+    font-size: 14px;
+    -webkit-print-color-adjust: exact;
+    box-sizing: border-box;
+    letter-spacing: normal;
+    text-rendering: optimize-speed;
+}
+
+.WordSection2 {
+    width: 100%;
+}
+
+.left {
+    float: left;
+}
+
+.right {
+    float: right;
+}
+
+.d-full {
+    width: 100%;
+    float: left;
+}
+
+.ul-full {
+    width: 100%;
+    float: left;
+    list-style: none;
+}
+
+.ul-full li {
+    line-height: 14px;
+}

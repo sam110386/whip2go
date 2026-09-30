@@ -3,8 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use App\Models\Legacy\CsVehicleIssue;
+use App\Observers\VehicleObserver;
 use App\Observers\CsVehicleIssueObserver;
+use App\Models\Legacy\Vehicle;
+use App\Models\Legacy\CsVehicleIssue;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         CsVehicleIssue::observe(CsVehicleIssueObserver::class);
+        Vehicle::observe(VehicleObserver::class);
 
     }
 }

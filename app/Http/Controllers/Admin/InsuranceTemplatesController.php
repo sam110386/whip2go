@@ -1,50 +1,43 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Legacy\LegacyAppController;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
+use App\Models\Legacy\CsInsuranceTemplate;
+use App\Models\Legacy\Vehicle;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
-use Throwable;
-
+use Exception;
 class InsuranceTemplatesController extends LegacyAppController
 {
-    /**
-     * @return View|RedirectResponse
-     */
     public function index(Request $request, $userid = null)
     {
         if ($redirect = $this->ensureAdminSession()) {
             return $redirect;
         }
 
-        $userId = $this->decodeId((string) $userid);
-        if ($userId === null) {
-            abort(404);
+        $title = 'Insurance';
+        $userid = $this->decodeId($userid);
+
+        if (!$userid) {
+            return redirect()->back()->with('error', 'Invalid user ID');
         }
 
         if ($request->isMethod('post') && $request->has('CsInsuranceTemplate')) {
-            $this->persistTemplate($request, $userId);
+            $dataToSave = $request->input('CsInsuranceTemplate');
+            $dataToSave['user_id'] = $userid;
 
-            return redirect('/admin/insurance_templates/index/' . $this->encodeId($userId))
-                ->with('success', 'Record saved successfully');
+            CsInsuranceTemplate::updateOrCreate(
+                ['user_id' => $userid],
+                $dataToSave
+            );
+
+            return redirect()->back()->with('success', 'Record saved successfully');
         }
 
-        $row = DB::table('cs_insurance_templates')->where('user_id', $userId)->first();
+        $csInsuranceTemplate = CsInsuranceTemplate::where('user_id', $userid)->first();
 
-        return view('admin.insurance_templates.index', [
-            'title' => 'Insurance',
-            'userid' => $userId,
-            'userParamEncoded' => $this->encodeId($userId),
-            'CsInsuranceTemplate' => $row ? (array) $row : [],
-            'programOptions' => $this->programOptions(),
-        ]);
+        return view('admin.insurance_templates.index', compact('title', 'csInsuranceTemplate', 'userid'));
     }
-
-    public function syncVehicleInsurance(Request $request): JsonResponse
+    public function syncVehicleInsurance(Request $request)
     {
         if ($this->ensureAdminSession() !== null) {
             return response()->json([
@@ -58,95 +51,25 @@ class InsuranceTemplatesController extends LegacyAppController
             'message' => 'Sorry, something went wrong, please try again later',
         ];
 
-        $templateId = $request->input('templateid');
-        if ($templateId === null || $templateId === '') {
-            return response()->json($return);
-        }
+        $templateid = $request->input('templateid');
+        $csInsuranceTemplate = CsInsuranceTemplate::find($templateid);
 
-        $template = DB::table('cs_insurance_templates')
-            ->where('id', (int) $templateId)
-            ->first();
-
-        if ($template === null) {
-            return response()->json($return);
-        }
-
-        try {
-            DB::table('vehicles')
-                ->where('user_id', (int) $template->user_id)
-                ->update([
-                    'insurance_policy_no' => $template->insurance_policy_no,
-                    'insurance_company' => $template->insurance_company,
-                    'insurance_policy_date' => $template->insurance_policy_date,
-                    'insurance_policy_exp_date' => $template->insurance_policy_exp_date,
+        if (!empty($csInsuranceTemplate)) {
+            try {
+                Vehicle::where('user_id', $csInsuranceTemplate->user_id)->update([
+                    'insurance_policy_no' => $csInsuranceTemplate->insurance_policy_no,
+                    'insurance_company' => $csInsuranceTemplate->insurance_company,
+                    'insurance_policy_date' => $csInsuranceTemplate->insurance_policy_date,
+                    'insurance_policy_exp_date' => $csInsuranceTemplate->insurance_policy_exp_date,
                 ]);
 
-            $return['status'] = true;
-            $return['message'] = 'Vehicle records updated successfully.';
-        } catch (Throwable $e) {
-            $return['message'] = $e->getMessage();
+                $return['status'] = true;
+                $return['message'] = "Vehicle records updated successfully.";
+            } catch (Exception $e) {
+                $return['message'] = $e->getMessage();
+            }
         }
 
         return response()->json($return);
-    }
-
-    private function persistTemplate(Request $request, int $userId): void
-    {
-        $input = $request->input('CsInsuranceTemplate', []);
-
-        $payload = [
-            'user_id' => $userId,
-            'program' => (int) ($input['program'] ?? 1),
-            'insu_token_name' => $this->truncateString($input['insu_token_name'] ?? null, 255),
-            'insurance_company' => $this->truncateString($input['insurance_company'] ?? null, 200),
-            'insurance_policy_no' => $this->truncateString($input['insurance_policy_no'] ?? null, 25),
-            'insurance_policy_date' => $this->truncateString($input['insurance_policy_date'] ?? null, 12),
-            'insurance_policy_exp_date' => $this->truncateString($input['insurance_policy_exp_date'] ?? null, 12),
-        ];
-
-        $submittedId = isset($input['id']) && $input['id'] !== '' ? (int) $input['id'] : null;
-
-        if ($submittedId) {
-            DB::table('cs_insurance_templates')
-                ->where('id', $submittedId)
-                ->where('user_id', $userId)
-                ->update($payload);
-
-            return;
-        }
-
-        $existing = DB::table('cs_insurance_templates')->where('user_id', $userId)->first();
-        if ($existing) {
-            DB::table('cs_insurance_templates')
-                ->where('user_id', $userId)
-                ->update($payload);
-
-            return;
-        }
-
-        $payload['status'] = 1;
-        DB::table('cs_insurance_templates')->insert($payload);
-    }
-
-    /**
-     * @return array<int|string, string>
-     */
-    private function programOptions(): array
-    {
-        return [
-            0 => 'General Access',
-            1 => 'Rideshare (Uber/Lfyt Acess)',
-            2 => 'Both',
-        ];
-    }
-
-    private function truncateString(?string $value, int $max): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = trim($value);
-
-        return $value === '' ? null : mb_substr($value, 0, $max);
     }
 }
